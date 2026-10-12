@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ruflo-federation": {
+      "type": "http",
+      "url": "https://x.ruv.io/claude/mcp"
+    }
+  }
+}

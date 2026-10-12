@@ -10,7 +10,7 @@
  * @module v3/cli/mcp-tools/memory-tools
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
@@ -66,7 +66,16 @@ const MAX_QUERY_LENGTH = 4096;
 // validateMemoryInput. Imported by sanitizeMemoryKey so write-side sanitization
 // and read-side rejection can never drift apart (the symmetry bug behind #1884).
 const DANGEROUS_KEY_CHARS = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/g;
-const DANGEROUS_KEY_PATTERN = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/;
+export const DANGEROUS_KEY_PATTERN = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/;
+
+/**
+ * #3570: the one key rule for every memory write path (MCP store, CLI store,
+ * import). Plain `/` stays legal (`probe/x`); traversal and shell metacharacters
+ * do not. Returns the error message, or null when the key is acceptable.
+ */
+export function memoryKeyError(key: string): string | null {
+  return DANGEROUS_KEY_PATTERN.test(key) ? 'Key contains disallowed characters' : null;
+}
 
 function validateMemoryInput(key?: string, value?: string, query?: string, namespace?: string): void {
   if (key && key.length > MAX_KEY_LENGTH) {
@@ -79,9 +88,8 @@ function validateMemoryInput(key?: string, value?: string, query?: string, names
     throw new Error(`Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`);
   }
   // Reject path traversal and shell metacharacters in keys/namespaces (#1425)
-  if (key && DANGEROUS_KEY_PATTERN.test(key)) {
-    throw new Error('Key contains disallowed characters');
-  }
+  const keyError = key ? memoryKeyError(key) : null;
+  if (keyError) throw new Error(keyError);
   if (namespace && DANGEROUS_KEY_PATTERN.test(namespace)) {
     throw new Error('Namespace contains disallowed characters');
   }
@@ -332,13 +340,14 @@ type ListPage<E> = {
  * that reported `success: false` was read as an empty one.
  */
 async function collectAllEntries<E>(
-  listEntries: (options: { limit?: number; offset?: number }) => Promise<ListPage<E>>,
+  listEntries: (options: { limit?: number; offset?: number; dbPath?: string }) => Promise<ListPage<E>>,
+  dbPath?: string,
 ): Promise<ListPage<E>> {
   const entries: E[] = [];
   let total = 0;
 
   for (let page = 0; page < MEMORY_STATS_MAX_PAGES; page++) {
-    const result = await listEntries({ limit: MEMORY_STATS_PAGE, offset: entries.length });
+    const result = await listEntries({ limit: MEMORY_STATS_PAGE, offset: entries.length, dbPath });
     if (!result.success) {
       return { success: false, entries, total: result.total ?? total, error: result.error };
     }
@@ -367,13 +376,13 @@ function memoryStatsUnavailable(error: string): {
  * WAL frames, so it is allowed to fail without that meaning the store is
  * missing — which is exactly the conflation #3311 reports.
  */
-async function readMemoryStatusLabels(): Promise<{
+async function readMemoryStatusLabels(dbPath?: string): Promise<{
   version?: string;
   features?: { vectorEmbeddings: boolean; patternLearning: boolean; temporalDecay: boolean };
 }> {
   try {
     const { checkMemoryInitialization } = await getMemoryFunctions();
-    const status = await checkMemoryInitialization();
+    const status = await checkMemoryInitialization(dbPath);
     return { version: status.version, features: status.features };
   } catch {
     return {};
@@ -385,40 +394,46 @@ async function readMemoryStatusLabels(): Promise<{
  * #1606: Wrapped in try/catch to prevent process-level crashes that kill
  * the stdio MCP transport on Windows/Codex.
  */
-async function ensureInitialized(): Promise<void> {
+async function ensureInitialized(dbPath?: string): Promise<void> {
   try {
     const { initializeMemoryDatabase, checkMemoryInitialization, storeEntry } = await getMemoryFunctions();
 
     // Check if already initialized
-    const status = await checkMemoryInitialization();
+    const status = await checkMemoryInitialization(dbPath);
     if (!status.initialized) {
-      await initializeMemoryDatabase({ force: false, verbose: false });
+      await initializeMemoryDatabase({ force: false, verbose: false, dbPath });
     }
 
     // Migrate legacy JSON data if exists (from old .claude-flow/memory/ location)
+    // A custom import target must not consume the one-time migration marker
+    // for the project's normal memory store.
     if (hasLegacyStore()) {
-      const legacyStore = loadLegacyStore();
-      if (legacyStore && Object.keys(legacyStore.entries).length > 0) {
-        console.error('[MCP Memory] Migrating legacy JSON store to sql.js...');
-        let migrated = 0;
+      const { resolveDbPath } = await import('../memory/memory-initializer.js');
+      if (!dbPath || dbPath === resolveDbPath()) {
+        const legacyStore = loadLegacyStore();
+        if (legacyStore && Object.keys(legacyStore.entries).length > 0) {
+          console.error('[MCP Memory] Migrating legacy JSON store to sql.js...');
+          let migrated = 0;
 
-        for (const [key, entry] of Object.entries(legacyStore.entries)) {
-          try {
-            const value = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
-            await storeEntry({
-              key,
-              value,
-              namespace: 'default',
-              generateEmbeddingFlag: true,
-            });
-            migrated++;
-          } catch (e) {
-            console.error(`[MCP Memory] Failed to migrate key "${key}":`, e);
+          for (const [key, entry] of Object.entries(legacyStore.entries)) {
+            try {
+              const value = typeof entry.value === 'string' ? entry.value : JSON.stringify(entry.value);
+              await storeEntry({
+                key,
+                value,
+                namespace: 'default',
+                generateEmbeddingFlag: true,
+                dbPath,
+              });
+              migrated++;
+            } catch (e) {
+              console.error(`[MCP Memory] Failed to migrate key "${key}":`, e);
+            }
           }
-        }
 
-        console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
-        markMigrationComplete();
+          console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
+          markMigrationComplete();
+        }
       }
     }
   } catch (error) {
@@ -484,6 +499,10 @@ export const memoryTools: MCPTool[] = [
       }
 
       validateMemoryInput(key, value, undefined, namespace);
+      // #3570: a namespace written here must be exportable and purgeable, so it
+      // passes the same validator export and purge use.
+      const vNs = validateIdentifier(namespace, 'namespace');
+      if (!vNs.valid) throw new Error(vNs.error);
 
       const startTime = performance.now();
 
@@ -892,10 +911,17 @@ export const memoryTools: MCPTool[] = [
     category: 'memory',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        dbPath: { type: 'string', description: 'Database file to inspect; omitted uses the MCP store default' },
+      },
     },
-    handler: async () => {
-      await ensureInitialized();
+    handler: async (input) => {
+      if (input.dbPath !== undefined && (typeof input.dbPath !== 'string' || !input.dbPath.trim())) {
+        return memoryStatsUnavailable('dbPath must be a non-empty string');
+      }
+      const dbPath = typeof input.dbPath === 'string' ? resolve(input.dbPath) : undefined;
+      // An explicit read must not initialize or migrate the unrelated default store.
+      if (!dbPath) await ensureInitialized();
       const { listEntries } = await getMemoryFunctions();
 
       // #3311: the store's own listing decides whether memory is there.
@@ -905,9 +931,9 @@ export const memoryTools: MCPTool[] = [
       // `initialized: false` from this tool alone. The probe is still read
       // below, for the version and feature labels it is the only source of,
       // but it no longer gets to overrule a working store.
-      let listing: ListPage<{ namespace: string; hasEmbedding: boolean }>;
+      let listing: ListPage<{ namespace: string; hasEmbedding: boolean; createdAt?: string | number }>;
       try {
-        listing = await collectAllEntries(listEntries);
+        listing = await collectAllEntries(listEntries, dbPath);
       } catch (error) {
         return memoryStatsUnavailable(error instanceof Error ? error.message : 'Unknown error');
       }
@@ -923,17 +949,45 @@ export const memoryTools: MCPTool[] = [
       // from the breakdown while still being counted in the total.
       const namespaces: Record<string, number> = Object.create(null) as Record<string, number>;
       let withEmbeddings = 0;
+      let oldest = Infinity;
+      let newest = -Infinity;
       for (const entry of listing.entries) {
         namespaces[entry.namespace] = (namespaces[entry.namespace] || 0) + 1;
         if (entry.hasEmbedding) withEmbeddings++;
+        // AgentDB returns INTEGER epoch milliseconds; legacy sql.js rows
+        // may expose ISO strings or numeric strings from SQLite TEXT affinity.
+        const rawCreated = entry.createdAt;
+        const millis = typeof rawCreated === 'number'
+          ? rawCreated
+          : typeof rawCreated === 'string' && /^-?\d+$/.test(rawCreated)
+            ? Number(rawCreated)
+            : Date.parse(rawCreated ?? '');
+        const created = new Date(millis).getTime();
+        if (Number.isFinite(created)) {
+          oldest = Math.min(oldest, created);
+          newest = Math.max(newest, created);
+        }
       }
 
       const counted = listing.entries.length;
-      const status = await readMemoryStatusLabels();
+      const status = await readMemoryStatusLabels(dbPath);
+      let totalSize: string | null = null;
+      if (dbPath) {
+        try {
+          let bytes = statSync(dbPath).size;
+          try { bytes += statSync(dbPath + '-wal').size; } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+          }
+          totalSize = `${bytes} B`;
+        } catch { /* unavailable file metadata is unknown, not zero */ }
+      }
 
       return {
         initialized: true,
         totalEntries: listing.total,
+        ...(dbPath ? { location: dbPath, totalSize } : {}),
+        oldestEntry: counted >= listing.total && Number.isFinite(oldest) ? new Date(oldest).toISOString() : null,
+        newestEntry: counted >= listing.total && Number.isFinite(newest) ? new Date(newest).toISOString() : null,
         entriesCounted: counted,
         // The breakdown below covers `entriesCounted` rows, which is every
         // row unless the listing was truncated; say so rather than letting
@@ -1423,7 +1477,8 @@ export const memoryTools: MCPTool[] = [
       const dryRun = input.dryRun !== false; // default true
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      const all = await listEntries({ limit: 100000, namespace });
+      // #4056: TTL hides expired rows from normal reads, so the cleanup has to ask for them.
+      const all = await listEntries({ limit: 100000, namespace, includeExpired: true });
       const now = Date.now();
       const expired = all.entries.filter(e => {
         const exp = (e as { expiresAt?: string | number | null }).expiresAt;
@@ -1510,7 +1565,20 @@ export const memoryTools: MCPTool[] = [
       // entry body. Without this, `value` is always null because listEntries
       // strips content by default (callers pay for the JSON parse only when
       // they need it).
-      const all = await listEntries({ limit: 100000, namespace, includeContent: true });
+      // A successful export must cover the whole reported store. Read all
+      // pages before touching an existing snapshot, including on read failure.
+      const entries: Awaited<ReturnType<typeof listEntries>>['entries'] = [];
+      let total: number | undefined;
+      do {
+        const page = await listEntries({ limit: 10000, offset: entries.length, namespace, includeContent: true });
+        if (!page.success) return { error: page.error || 'Could not read memory for export' };
+        total ??= page.total;
+        if (page.entries.length === 0 && entries.length < total) {
+          return { error: `Incomplete memory export: read ${entries.length} of ${total} entries` };
+        }
+        entries.push(...page.entries);
+      } while (entries.length < total);
+      const all = { entries };
       const payload = {
         schema: 'ruflo-memory-export/v1',
         exportedAt: new Date().toISOString(),
@@ -1550,13 +1618,20 @@ export const memoryTools: MCPTool[] = [
         inputPath: { type: 'string', description: 'Path to the JSON export file' },
         merge: { type: 'boolean', description: 'Merge into existing entries (upsert) vs. fail on conflict (default true)' },
         namespace: { type: 'string', description: 'Override the namespace for all imported entries' },
+        dbPath: { type: 'string', description: 'Database file to import into (defaults to the MCP memory store)' },
       },
       required: ['inputPath'],
     },
     handler: async (input) => {
-      await ensureInitialized();
+      const dbPath = typeof input.dbPath === 'string' && input.dbPath.trim()
+        ? resolve(input.dbPath)
+        : undefined;
+      await ensureInitialized(dbPath);
       const { storeEntry } = await getMemoryFunctions();
       const t0 = Date.now();
+      // Values are re-embedded on import; count the vectors actually written
+      // rather than reporting a constant 0 next to entries that show a vector.
+      let vectors = 0;
       const inputPath = String(input.inputPath ?? '');
       if (!inputPath || !existsSync(inputPath)) return { error: `File not found: ${inputPath || '(empty)'}` };
       let doc: { entries?: Array<{ key: string; namespace?: string; value?: unknown }> };
@@ -1565,18 +1640,43 @@ export const memoryTools: MCPTool[] = [
       const entries = Array.isArray(doc.entries) ? doc.entries : [];
       const nsOverride = input.namespace ? String(input.namespace) : undefined;
       if (nsOverride) { const v = validateIdentifier(nsOverride, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      let imported = 0; let skipped = 0;
+      // #3570: validate every entry's namespace up front so a bad file writes nothing.
+      if (!nsOverride) {
+        for (const e of entries) {
+          if (e && typeof e.key === 'string' && e.namespace !== undefined) {
+            const v = validateIdentifier(String(e.namespace), 'namespace');
+            if (!v.valid) throw new Error(v.error);
+          }
+        }
+      }
+      // #3570 follow-up: keys get the same up-front, all-or-nothing check.
+      for (const e of entries) {
+        if (e && typeof e.key === 'string') {
+          const keyError = memoryKeyError(e.key);
+          if (keyError) throw new Error(`${keyError}: ${JSON.stringify(e.key)}`);
+        }
+      }
+      let imported = 0; let skipped = 0; let failed = 0;
+      const errors: string[] = [];
       for (const e of entries) {
         if (!e || typeof e.key !== 'string') { skipped++; continue; }
         const value = typeof e.value === 'string' ? e.value : JSON.stringify(e.value ?? null);
         try {
-          await storeEntry({ key: e.key, value, namespace: nsOverride ?? e.namespace ?? 'default', upsert: input.merge !== false });
+          const result = await storeEntry({ key: e.key, value, namespace: nsOverride ?? e.namespace ?? 'default', upsert: input.merge !== false, dbPath });
+          if (!result.success) throw new Error(result.error || 'Memory write was rejected');
           imported++;
-        } catch { skipped++; }
+          if (result.embedding) vectors++;
+        } catch (error) {
+          failed++;
+          if (errors.length < 10) errors.push(`${e.key}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
       return {
+        success: failed === 0,
+        error: failed > 0 ? `${failed} memory write(s) failed: ${errors.join('; ')}` : undefined,
+        failed,
         inputPath,
-        imported: { entries: imported, vectors: 0, patterns: 0 },
+        imported: { entries: imported, vectors, patterns: 0 },
         skipped,
         duration: Date.now() - t0,
       };

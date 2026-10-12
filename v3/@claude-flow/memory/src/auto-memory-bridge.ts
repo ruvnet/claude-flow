@@ -524,14 +524,21 @@ export class AutoMemoryBridge extends EventEmitter {
     try { existing = await fs.readFile(indexPath, 'utf-8'); } catch { /* first run */ }
 
     const linksIn = (text: string) => (text.match(/\]\(/g) ?? []).length;
+    // Counts alone do not prove preservation: replacing one user note with
+    // several generated notes grows the file while still deleting that note.
+    // Require every existing nonblank line to survive, allowing reordering and
+    // additional generated content without taking ownership of unknown text.
+    const generatedLines = new Set(lines);
+    const losesContent = existing.split('\n').some(line =>
+      line.trim().length > 0 && !generatedLines.has(line));
     const wouldLose = existing.trim().length > 0
-      && (linksIn(existing) > linksIn(generated) || existing.split('\n').length > lines.length);
+      && (losesContent || linksIn(existing) > linksIn(generated) || existing.split('\n').length > lines.length);
 
     if (wouldLose) {
       const sidecar = indexPath.replace(/\.md$/, '') + '.generated.md';
       await fs.writeFile(sidecar, generated, 'utf-8');
       this.emit('index:preserved', {
-        reason: 'would-shrink-user-index',
+        reason: losesContent ? 'would-lose-index-content' : 'would-shrink-user-index',
         indexPath,
         sidecar,
         existingLines: existing.split('\n').length,

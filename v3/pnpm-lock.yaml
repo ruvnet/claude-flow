@@ -25,6 +25,8 @@ overrides:
   '@opentelemetry/sdk-node': '>=0.220.0'
   better-sqlite3: 12.9.0
 
+packageExtensionsChecksum: 38e652fe4bbf5f330941d875360f4aec
+
 importers:
 
   .:
@@ -90,7 +92,7 @@ importers:
   '@claude-flow/claims':
     dependencies:
       '@claude-flow/shared':
-        specifier: ^3.0.0-alpha.1
+        specifier: ^3.0.0
         version: link:../shared
       zod:
         specifier: ^3.22.4
@@ -115,26 +117,26 @@ importers:
   '@claude-flow/cli':
     dependencies:
       '@claude-flow/cli-core':
-        specifier: 3.7.0-alpha.6
+        specifier: 3.7.1
         version: link:../cli-core
       '@claude-flow/codex':
-        specifier: 3.0.3
+        specifier: 3.0.4
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.0.0-alpha.10
+        specifier: 3.1.1
         version: link:../mcp
       '@claude-flow/neural':
-        specifier: 3.0.0-alpha.10
+        specifier: 3.0.0
         version: link:../neural
       '@claude-flow/plugin-agent-federation':
-        specifier: 1.0.0-alpha.18
+        specifier: 1.0.1
         version: link:../plugin-agent-federation
       '@claude-flow/security':
-        specifier: 3.0.0-alpha.14
+        specifier: 3.0.4
         version: link:../security
       '@claude-flow/shared':
-        specifier: 3.0.0-alpha.7
-        version: 3.0.0-alpha.7
+        specifier: 3.0.3
+        version: link:../shared
       '@iarna/toml':
         specifier: ^2.2.5
         version: 2.2.5
@@ -209,8 +211,8 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: 3.0.0-alpha.26
-        version: 3.0.0-alpha.26(@types/node@20.19.27)(zod@3.25.76)
+        specifier: 3.0.4
+        version: link:../memory
       '@metaharness/darwin':
         specifier: ~0.10.2
         version: 0.10.2
@@ -227,8 +229,8 @@ importers:
         specifier: 1.3.0
         version: 1.3.0
       agentdb:
-        specifier: ^3.0.0-alpha.17
-        version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0-alpha.20
+        version: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
       agentic-flow:
         specifier: ^3.0.0-alpha.1
         version: 3.0.0-alpha.2
@@ -260,7 +262,7 @@ importers:
         specifier: ^3.0.0
         version: link:../cli
       '@claude-flow/security':
-        specifier: 3.0.0-alpha.14
+        specifier: ^3.0.0
         version: link:../security
       '@iarna/toml':
         specifier: ^2.2.5
@@ -303,7 +305,7 @@ importers:
   '@claude-flow/deployment':
     dependencies:
       '@claude-flow/shared':
-        specifier: ^3.0.0-alpha.1
+        specifier: ^3.0.0
         version: link:../shared
     devDependencies:
       semantic-release:
@@ -344,13 +346,13 @@ importers:
   '@claude-flow/guidance':
     dependencies:
       '@claude-flow/hooks':
-        specifier: ^3.0.0-alpha.7
+        specifier: ^3.0.0
         version: link:../hooks
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.2
-        version: 3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0
+        version: link:../memory
       '@claude-flow/shared':
-        specifier: ^3.0.0-alpha.1
+        specifier: ^3.0.0
         version: link:../shared
     devDependencies:
       '@types/node':
@@ -366,16 +368,16 @@ importers:
   '@claude-flow/hooks':
     dependencies:
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.2
-        version: 3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0
+        version: link:../memory
       '@claude-flow/neural':
-        specifier: ^3.0.0-alpha.2
+        specifier: ^3.0.0
         version: link:../neural
       '@claude-flow/security':
-        specifier: ^3.0.0-alpha.12
+        specifier: ^3.0.0
         version: link:../security
       '@claude-flow/shared':
-        specifier: ^3.0.0-alpha.1
+        specifier: ^3.0.0
         version: link:../shared
       zod:
         specifier: ^3.23.0
@@ -449,11 +451,11 @@ importers:
   '@claude-flow/memory':
     dependencies:
       '@claude-flow/security':
-        specifier: ^3.0.0-alpha.12
+        specifier: ^3.0.0
         version: link:../security
       agentdb:
-        specifier: ^3.0.0-alpha.17
-        version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0-alpha.20
+        version: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
       sql.js:
         specifier: ^1.10.3
         version: 1.13.0
@@ -475,15 +477,15 @@ importers:
   '@claude-flow/neural':
     dependencies:
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.16
-        version: 3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0
+        version: link:../memory
       '@ruvector/sona':
         specifier: 0.1.5
         version: 0.1.5
     optionalDependencies:
       agentdb:
         specifier: ^2.0.0 || ^3.0.0-alpha.1
-        version: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+        version: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
 
   '@claude-flow/performance':
     dependencies:
@@ -511,10 +513,10 @@ importers:
         version: 8.20.0
     devDependencies:
       '@claude-flow/security':
-        specifier: file:../security
-        version: file:@claude-flow/security
+        specifier: ^3.0.0
+        version: link:../security
       '@claude-flow/shared':
-        specifier: 3.0.0-alpha.8
+        specifier: ^3.0.0
         version: link:../shared
       '@types/ws':
         specifier: ^8.18.1
@@ -539,7 +541,7 @@ importers:
         version: 7.2.5
     devDependencies:
       '@claude-flow/shared':
-        specifier: workspace:*
+        specifier: ^3.0.0
         version: link:../shared
       typescript:
         specifier: ^5.4.0
@@ -551,11 +553,11 @@ importers:
   '@claude-flow/plugins':
     dependencies:
       '@claude-flow/hooks':
-        specifier: ^3.0.0-alpha.2
+        specifier: ^3.0.0
         version: link:../hooks
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.2
-        version: 3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0
+        version: link:../memory
       '@ruvector/learning-wasm':
         specifier: ^0.1.0
         version: 0.1.29
@@ -670,14 +672,14 @@ importers:
   '@claude-flow/testing':
     devDependencies:
       '@claude-flow/memory':
-        specifier: ^3.0.0-alpha.2
-        version: 3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76)
+        specifier: ^3.0.0
+        version: link:../memory
       '@claude-flow/shared':
-        specifier: ^3.0.0-alpha.1
+        specifier: ^3.0.0
         version: link:../shared
       '@claude-flow/swarm':
-        specifier: ^3.0.0-alpha.1
-        version: 3.0.0-alpha.8
+        specifier: ^3.0.0
+        version: link:../swarm
       typescript:
         specifier: ^5.3.0
         version: 5.9.3
@@ -916,82 +918,6 @@ packages:
   /@borewit/text-codec@0.2.1:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
-
-  /@claude-flow/memory@3.0.0-alpha.24(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-V0ca9Nh7VusKbzjS+h59lnpBDKe4ZoQ0kYzYVzXypBYuvuhNF6ngRARbA/ZXCYwO7Uh85BNkQSGRe45TmOKjBg==}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
-    dependencies:
-      '@claude-flow/security': 3.0.0-alpha.12
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      sql.js: 1.14.1
-    optionalDependencies:
-      better-sqlite3: 12.9.0
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-      - zod
-
-  /@claude-flow/memory@3.0.0-alpha.25(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-yjeFlIlUkAE0jBUTx4ocvqWm71CsJEhps8gz0tU1Kl0POelxOsLsEUVQUCQ2E4ZEuQ0xii12K8+3tzK2hvWD3g==}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
-    dependencies:
-      '@claude-flow/security': 3.0.0-alpha.12
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      sql.js: 1.14.1
-    optionalDependencies:
-      better-sqlite3: 12.9.0
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-      - zod
-
-  /@claude-flow/memory@3.0.0-alpha.26(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-GUovnRYsvguwpHjsSD4zV4H4b2fuWQW69p8C06NFBSFCYDU7MfeKkQqL7YqqRC9PikE7CGwMJ6pfB0UAnZ+iiA==}
-    cpu: [x64, arm64]
-    os: [darwin, linux, win32]
-    dependencies:
-      '@claude-flow/security': 3.0.0-alpha.12
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
-      sql.js: 1.14.1
-    optionalDependencies:
-      better-sqlite3: 12.9.0
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-      - zod
-
-  /@claude-flow/security@3.0.0-alpha.12:
-    resolution: {integrity: sha512-/b1V6zXOhFSs+Y8UztyPFHqkNjDKslwpAn9+KJFWHqZMwnnPnBnW0WQHoZAGx+5+rewI619pVT9gIANkyt3luQ==}
-    dependencies:
-      '@noble/ed25519': 2.3.0
-      bcryptjs: 3.0.3
-      zod: 3.25.76
-    optionalDependencies:
-      '@napi-rs/keyring': 1.3.0
-
-  /@claude-flow/shared@3.0.0-alpha.7:
-    resolution: {integrity: sha512-5iehTHguBFjlyZqy+fRoKfZVL/nFeE93A94nUUKJvu8y7AmhfpVqtQAZbmKztwQGJ5rv7iBb3Kwl1MUo3K5QkA==}
-    dependencies:
-      sql.js: 1.14.1
-    dev: false
-
-  /@claude-flow/swarm@3.0.0-alpha.8:
-    resolution: {integrity: sha512-yFmvL19vIHf6Cj2MkkYmHyiuUm6IQyBegxECNS6/OqtmCds9pY1uNrw2FpuKICZIIXCMvOfeE2fbimGxa9lvSA==}
-    dev: true
 
   /@cognitum-one/sdk@0.2.1(multicast-dns@7.2.5):
     resolution: {integrity: sha512-ZIYKq6Tqc7zcDQRSrxphm0Uji497Mf1bi7azn2aTM4F0k+IEdPpTmAngGVaXX/hR7DYhOQ5gkUCja0DiOJLOJw==}
@@ -1377,6 +1303,7 @@ packages:
     dependencies:
       '@huggingface/jinja': 0.5.8
       '@huggingface/tokenizers': 0.1.3
+      onnxruntime-common: 1.24.3
       onnxruntime-node: 1.24.3
       onnxruntime-web: 1.26.0-dev.20260416-b7804b056c
       sharp: 0.34.5
@@ -1853,10 +1780,28 @@ packages:
     hasBin: true
     dev: false
 
+  /@metaharness/darwin@0.8.0:
+    resolution: {integrity: sha512-Pgefr/es0Btofh7GxQrOAg/i43ZKcLUfeD9rndOAkpA8s3ZYohSmfLerJLNsGOOKc2eTvmmauljl8QEVmKC2dw==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
+    optional: true
+
   /@metaharness/flywheel@0.1.10:
     resolution: {integrity: sha512-yrLXDXNdf4jKqHlW6QZw3Cy5T0eMMjjaPqn1XB717/Xx/y0Iv9R03W0OhMEiR/kfqMNebRBW1fi6D7inStEyqA==}
     requiresBuild: true
     dev: false
+
+  /@metaharness/flywheel@0.1.7:
+    resolution: {integrity: sha512-am7dROkjyS1Zkms3TOcn2LVHjwMLQXPJ6Pu1aP55q40vWJLRONGdGvnrcBL/VhMFqjQrVB57lmSn2E+s5CSZwA==}
+    requiresBuild: true
+    optional: true
+
+  /@metaharness/harness@0.1.0:
+    resolution: {integrity: sha512-KegYx/q8qXlnaSYP0l5hgNPn8iNMl6a2eONqPi68FXd1w1jt7NswJJlt2/Ftl3Sum8qAEchxH1ZJOYFWTvJxTA==}
+    engines: {node: '>=20.0.0'}
+    requiresBuild: true
+    optional: true
 
   /@metaharness/radio@0.1.0:
     resolution: {integrity: sha512-m1GCeGCbjo7h5OLMCgb2VZFbhY6aHP5x28q0j/AFqXRWwStt5/Z+sWMuGNaNKVtnB7PGueNbtVoxLzMQ53rrFg==}
@@ -1869,6 +1814,19 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
     dev: false
+
+  /@metaharness/router@0.3.2(@ruvector/tiny-dancer@0.1.22):
+    resolution: {integrity: sha512-LQElU6mUrWd3ffJ5bwoonEIgw7oFQZpwZaehffyl/Pg+iozpRjIBPEXdb4uTOBnKH+yPiTEWKc+h9AiZr9Os9w==}
+    engines: {node: '>=20.0.0'}
+    requiresBuild: true
+    peerDependencies:
+      '@ruvector/tiny-dancer': ^0.1.21
+    peerDependenciesMeta:
+      '@ruvector/tiny-dancer':
+        optional: true
+    dependencies:
+      '@ruvector/tiny-dancer': 0.1.22
+    optional: true
 
   /@metaharness/router@0.4.0:
     resolution: {integrity: sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==}
@@ -1892,6 +1850,19 @@ packages:
     engines: {node: '>=20.0.0'}
     hasBin: true
     dev: false
+
+  /@metaharness/workspace-lens@0.1.1:
+    resolution: {integrity: sha512-BkEdTvjD2PEhkGTCmtTIPnoeaOsxvzFtsFEAurwVKlVOu4hQetHeXDfiyAYheWg8Cp4fcGcr7E5MO1ptQveQ2g==}
+    requiresBuild: true
+    optional: true
+
+  /@metaharness/workspace-probe@0.1.1:
+    resolution: {integrity: sha512-kHL7T16476a5obVunbZ2NYqK7YY/1qtZTaQC1KyXmFh/7dRNselqGAilawspuD86F9U1H/LMCDvchDj3Vh5duw==}
+    hasBin: true
+    requiresBuild: true
+    dependencies:
+      '@metaharness/workspace-lens': 0.1.1
+    optional: true
 
   /@modelcontextprotocol/sdk@1.25.1(hono@4.12.11)(zod@3.25.76):
     resolution: {integrity: sha512-yO28oVFFC7EBoiKdAn+VqRm+plcfv4v0xp6osG/VsCB0NlPZWi87ajbCZZ8f/RvOFLEu7//rSRmuZZ7lMoe3gQ==}
@@ -1984,12 +1955,45 @@ packages:
     transitivePeerDependencies:
       - supports-color
 
+  /@modelcontextprotocol/sdk@1.32.1(zod@3.25.76):
+    resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
+    engines: {node: '>=18'}
+    requiresBuild: true
+    peerDependencies:
+      '@cfworker/json-schema': ^4.1.1
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      '@cfworker/json-schema':
+        optional: true
+    dependencies:
+      '@hono/node-server': 1.19.9(hono@4.12.11)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      content-type: 1.0.5
+      cors: 2.8.6
+      cross-spawn: 7.0.6
+      eventsource: 3.0.7
+      eventsource-parser: 3.0.6
+      express: 5.2.1
+      express-rate-limit: 8.6.2(express@5.2.1)
+      hono: 4.12.11
+      jose: 6.1.3
+      json-schema-typed: 8.0.2
+      pkce-challenge: 5.0.1
+      raw-body: 3.0.2
+      zod: 3.25.76
+      zod-to-json-schema: 3.25.1(zod@3.25.76)
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   /@napi-rs/keyring-darwin-arm64@1.3.0:
     resolution: {integrity: sha512-pl76hJvdYUBn6I24bXiOBMA9nbDapo3I5B+f3OorjDU4dUMSypXeKbOVehJe8fhgTiH24flMyTS3aAIy43xegQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-darwin-x64@1.3.0:
@@ -1998,6 +2002,7 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-freebsd-x64@1.3.0:
@@ -2006,6 +2011,7 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm-gnueabihf@1.3.0:
@@ -2014,6 +2020,7 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm64-gnu@1.3.0:
@@ -2022,6 +2029,7 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-arm64-musl@1.3.0:
@@ -2030,6 +2038,7 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-riscv64-gnu@1.3.0:
@@ -2038,6 +2047,7 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-x64-gnu@1.3.0:
@@ -2046,6 +2056,7 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-linux-x64-musl@1.3.0:
@@ -2054,6 +2065,7 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-arm64-msvc@1.3.0:
@@ -2062,6 +2074,7 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-ia32-msvc@1.3.0:
@@ -2070,6 +2083,7 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring-win32-x64-msvc@1.3.0:
@@ -2078,6 +2092,7 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
+    dev: false
     optional: true
 
   /@napi-rs/keyring@1.3.0:
@@ -2097,6 +2112,7 @@ packages:
       '@napi-rs/keyring-win32-arm64-msvc': 1.3.0
       '@napi-rs/keyring-win32-ia32-msvc': 1.3.0
       '@napi-rs/keyring-win32-x64-msvc': 1.3.0
+    dev: false
     optional: true
 
   /@noble/ciphers@2.1.1:
@@ -2117,6 +2133,7 @@ packages:
 
   /@noble/ed25519@2.3.0:
     resolution: {integrity: sha512-M7dvXL2B92/M7dw9+gzuydL8qn/jiqNHaoR3Q+cb1q1GHV7uwE17WCyFMG+Y+TZb5izcaXk5TdJRrDUxHXL78A==}
+    dev: false
 
   /@noble/hashes@1.8.0:
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
@@ -5846,6 +5863,11 @@ packages:
     requiresBuild: true
     optional: true
 
+  /@ruvector/rvf-wasm@0.1.9:
+    resolution: {integrity: sha512-C6kKdnv47Ud2t0U61eAjRU8dh9DgfQT6KFlGicZKfwUwVcr9NRA52xbM9hI9nd6G3iEOtNqdhkqDe0c6BUwFew==}
+    requiresBuild: true
+    optional: true
+
   /@ruvector/rvf@0.1.9:
     resolution: {integrity: sha512-W40NLeSj/+FwIHT0+v3soFrtk4pnAZL5Ghx93qAsZkuwriNw2y6vGPnsapflQyp34WgMN362syIRiACXx3KW8g==}
     requiresBuild: true
@@ -5854,6 +5876,16 @@ packages:
     optionalDependencies:
       '@ruvector/rvf-solver': 0.1.8
       '@ruvector/rvf-wasm': 0.1.6
+    optional: true
+
+  /@ruvector/rvf@0.2.3:
+    resolution: {integrity: sha512-Z3TGxErAa9254UTB8COt44sXU3u5CCZWDewwu4Bj3mDoE8vWsaUiXxUBTJRy4sp60ZFXygghWGB8MsX1bs3zZw==}
+    requiresBuild: true
+    dependencies:
+      '@ruvector/rvf-node': 0.1.8
+    optionalDependencies:
+      '@ruvector/rvf-solver': 0.1.8
+      '@ruvector/rvf-wasm': 0.1.9
     optional: true
 
   /@ruvector/sona-darwin-arm64@0.1.5:
@@ -7266,8 +7298,8 @@ packages:
       - supports-color
     dev: false
 
-  /agentdb@3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76):
-    resolution: {integrity: sha512-LK8drZFQteNkff+ji52vCmIXyE3A3ipzabx+ubBcX0CRgF96GU8m36sWyOfqL7pWRfnYDgkEEEgZmagiNCaz/A==}
+  /agentdb@3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76):
+    resolution: {integrity: sha512-ixjySLNWFDe3G6EiM1+0xKvVB9nWgeSMM7+hkgnQ4C5+trWfukDRYj3G/yU3l4xc/9vpAkLFQS389glsGbH0BQ==}
     engines: {node: '>=18.0.0'}
     hasBin: true
     requiresBuild: true
@@ -7279,6 +7311,7 @@ packages:
       jsonwebtoken: 9.0.3
       sql.js: 1.14.1
     optionalDependencies:
+      '@huggingface/transformers': 4.2.0
       '@opentelemetry/resources': 2.9.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-node': 0.220.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -7287,27 +7320,26 @@ packages:
       '@ruvector/graph-node': 2.0.3
       '@ruvector/router': 0.1.30
       '@ruvector/ruvllm': 2.6.0
-      '@ruvector/rvf': 0.1.9
+      '@ruvector/rvf': 0.2.3
       '@ruvector/rvf-node': 0.1.8
       '@ruvector/rvf-solver': 0.1.8
       '@ruvector/rvf-wasm': 0.1.6
       '@ruvector/sona': 0.1.8
-      '@xenova/transformers': 2.17.2
       argon2: 0.44.0
       better-sqlite3: 12.9.0
       chalk: 5.6.2
       commander: 12.1.0
       hnswlib-node: 3.0.0
       inquirer: 9.3.8(@types/node@20.19.27)
-      ruvector: 0.1.100(zod@3.25.76)
+      ruvector: 0.2.41(@ruvector/router@0.1.30)(@ruvector/ruvllm@2.6.0)(zod@3.25.76)
       ruvector-attention-wasm: 0.1.32
       ruvector-graph-transformer-wasm: 2.0.4
     transitivePeerDependencies:
       - '@cfworker/json-schema'
+      - '@metaharness/kernel'
+      - '@ruvector/diskann'
+      - '@ruvector/pi-brain'
       - '@types/node'
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
       - supports-color
       - zod
 
@@ -7464,14 +7496,17 @@ packages:
       '@rollup/rollup-darwin-arm64': 4.60.3
       '@ruvector/attention': 0.1.32
       '@ruvector/sona': 0.1.8
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+      agentdb: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
       better-sqlite3: 12.9.0
       onnxruntime-node: 1.24.3
       sharp: 0.32.6
       sql.js: 1.14.1
     transitivePeerDependencies:
       - '@cfworker/json-schema'
+      - '@metaharness/kernel'
       - '@modelcontextprotocol/sdk'
+      - '@ruvector/diskann'
+      - '@ruvector/pi-brain'
       - '@types/node'
       - '@valibot/to-json-schema'
       - arktype
@@ -7520,14 +7555,17 @@ packages:
       '@ruvector/attention': 0.1.32
       '@ruvector/sona': 0.1.8
       '@xenova/transformers': 2.17.2
-      agentdb: 3.0.0-alpha.17(@types/node@20.19.27)(zod@3.25.76)
+      agentdb: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
       better-sqlite3: 12.9.0
       onnxruntime-node: 1.24.3
       sharp: 0.32.6
       sql.js: 1.14.1
     transitivePeerDependencies:
       - '@cfworker/json-schema'
+      - '@metaharness/kernel'
       - '@modelcontextprotocol/sdk'
+      - '@ruvector/diskann'
+      - '@ruvector/pi-brain'
       - '@types/node'
       - '@valibot/to-json-schema'
       - arktype
@@ -7989,6 +8027,7 @@ packages:
   /bcryptjs@3.0.3:
     resolution: {integrity: sha512-GlF5wPWnSa/X5LKM1o0wz0suXIINz1iHRLvTS+sLyi7XPbe5ycmYI3DlZqVGZZtDgl4DmasFg7gOB3JYbphV5g==}
     hasBin: true
+    dev: false
 
   /before-after-hook@3.0.2:
     resolution: {integrity: sha512-Nik3Sc0ncrMK4UUdXQmAnRtzmNQTAAXmXIopizwZ1W1t8QmfJj+zL4OA2I7XPTPW5z5TDqv4hRo/JzouDJnX3A==}
@@ -8459,7 +8498,7 @@ packages:
     hasBin: true
     dependencies:
       conventional-commits-filter: 5.0.0
-      handlebars: 4.7.9
+      handlebars: 4.7.10
       meow: 13.2.0
       semver: 7.7.3
 
@@ -9634,8 +9673,8 @@ packages:
       - bufferutil
       - utf-8-validate
 
-  /handlebars@4.7.9:
-    resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
+  /handlebars@4.7.10:
+    resolution: {integrity: sha512-P5VJMVM7qgBn6vjXMw8WG9uVI+ncf2pi72j4de4yz5ZULLj2RGqLYaKOYGsgyrViQ0tePOVlN1tDCCXXtFqXKg==}
     engines: {node: '>=0.4.7'}
     hasBin: true
     dependencies:
@@ -10562,6 +10601,27 @@ packages:
       '@ruvector/ruvllm': 2.6.0
     dev: false
 
+  /metaharness@0.4.2:
+    resolution: {integrity: sha512-h94B47zBEuNEfKLFMZMV/fRnXBrkwV6L8kMukgioB/9621k6Lm6s2lR2gBKl3BAT1sfN/DYqhsqAJc+6H5PTGQ==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
+    peerDependencies:
+      '@metaharness/kernel': ^0.1.0
+    peerDependenciesMeta:
+      '@metaharness/kernel':
+        optional: true
+    dependencies:
+      '@metaharness/darwin': 0.2.8
+      '@metaharness/flywheel': 0.1.10
+      '@metaharness/redblue': 0.1.4
+      '@metaharness/weight-eft': 0.1.1
+      kolorist: 1.8.0
+      prompts: 2.4.2
+    optionalDependencies:
+      '@ruvector/ruvllm': 2.6.0
+    optional: true
+
   /micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
@@ -10577,7 +10637,10 @@ packages:
       agentic-flow: 2.0.12-fix.8(@types/node@20.19.27)
     transitivePeerDependencies:
       - '@cfworker/json-schema'
+      - '@metaharness/kernel'
       - '@modelcontextprotocol/sdk'
+      - '@ruvector/diskann'
+      - '@ruvector/pi-brain'
       - '@types/node'
       - '@valibot/to-json-schema'
       - arktype
@@ -12112,6 +12175,55 @@ packages:
     dev: false
     optional: true
 
+  /ruvector@0.2.41(@ruvector/router@0.1.30)(@ruvector/ruvllm@2.6.0)(zod@3.25.76):
+    resolution: {integrity: sha512-6ox6kcONkFxKhOv6yAp6FKonn+WlNQ8t0tnK9xsOJKkQEru1psptGrObPA57VenaZ7pToEUvvgiLJYLc9uukIg==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
+    requiresBuild: true
+    peerDependencies:
+      '@ruvector/diskann': '>=0.1.0'
+      '@ruvector/pi-brain': '>=0.1.0'
+      '@ruvector/router': '>=0.1.0'
+      '@ruvector/ruvllm': '>=2.6.0'
+    peerDependenciesMeta:
+      '@ruvector/diskann':
+        optional: true
+      '@ruvector/pi-brain':
+        optional: true
+      '@ruvector/router':
+        optional: true
+      '@ruvector/ruvllm':
+        optional: true
+    dependencies:
+      '@metaharness/darwin': 0.8.0
+      '@metaharness/flywheel': 0.1.7
+      '@metaharness/harness': 0.1.0
+      '@metaharness/redblue': 0.1.4
+      '@metaharness/router': 0.3.2(@ruvector/tiny-dancer@0.1.22)
+      '@metaharness/weight-eft': 0.1.1
+      '@metaharness/workspace-lens': 0.1.1
+      '@metaharness/workspace-probe': 0.1.1
+      '@modelcontextprotocol/sdk': 1.32.1(zod@3.25.76)
+      '@ruvector/attention': 0.1.32
+      '@ruvector/core': 0.1.30
+      '@ruvector/gnn': 0.1.25
+      '@ruvector/router': 0.1.30
+      '@ruvector/ruvllm': 2.6.0
+      '@ruvector/sona': 0.1.8
+      chalk: 4.1.2
+      commander: 11.1.0
+      metaharness: 0.4.2
+      ora: 5.4.1
+    optionalDependencies:
+      '@ruvector/rvf': 0.1.9
+      '@ruvector/tiny-dancer': 0.1.22
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@metaharness/kernel'
+      - supports-color
+      - zod
+    optional: true
+
   /rxjs@7.8.2:
     resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
     dependencies:
@@ -13627,14 +13739,3 @@ packages:
 
   /zod@4.3.5:
     resolution: {integrity: sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g==}
-
-  file:@claude-flow/security:
-    resolution: {directory: '@claude-flow/security', type: directory}
-    name: '@claude-flow/security'
-    dependencies:
-      '@noble/ed25519': 2.3.0
-      bcryptjs: 3.0.3
-      zod: 3.25.76
-    optionalDependencies:
-      '@napi-rs/keyring': 1.3.0
-    dev: true

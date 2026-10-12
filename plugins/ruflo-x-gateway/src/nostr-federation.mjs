@@ -32,19 +32,19 @@ export function loadIdentity(keyFile) {
 // relay's reason (e.g. "restricted: not a relay member").
 export function connectAuthed(relayUrl, sk, { timeoutMs = 15000 } = {}) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(relayUrl, { perMessageDeflate: false });
-    let settled = false;
+    const ws = new WebSocket(relayUrl, { perMessageDeflate: false, maxPayload: 256 * 1024 });
+    let settled = false, authId;
     const done = (fn, arg) => { if (settled) return; settled = true; fn(arg); };
     const timer = setTimeout(() => { try { ws.close(); } catch {} done(reject, new Error('auth timeout')); }, timeoutMs);
     ws.on('message', (data) => {
       let m; try { m = JSON.parse(data.toString()); } catch { return; }
-      if (m[0] === 'AUTH' && typeof m[1] === 'string') {
+      if (Array.isArray(m) && m[0] === 'AUTH' && typeof m[1] === 'string' && m[1].length <= 1024 && !authId) {
         const ev = finalizeEvent({ kind: 22242, created_at: Math.floor(Date.now() / 1000),
           tags: [['relay', relayUrl], ['challenge', m[1]]], content: '' }, sk);
-        ws.send(JSON.stringify(['AUTH', ev]));
-      } else if (m[0] === 'OK') {
+        authId = ev.id; ws.send(JSON.stringify(['AUTH', ev]));
+      } else if (Array.isArray(m) && m[0] === 'OK' && authId && m[1] === authId) {
         clearTimeout(timer);
-        if (m[2]) done(resolve, ws);
+        if (m[2] === true) done(resolve, ws);
         else { try { ws.close(); } catch {} done(reject, new Error(m[3] || 'auth rejected')); }
       }
     });

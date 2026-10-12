@@ -1,7 +1,7 @@
 {
   "name": "ruflo-metaharness",
-  "description": "MetaHarness integration for ruflo — surfaces score/genome/mint/mcp-scan/threat-model via skills; pairs with @metaharness/router (ADR-148/149) for cost-optimal model routing; honors ADR-150's architectural constraint that MetaHarness remains an optional augmentation, never a required runtime dependency",
-  "version": "0.1.1",
+  "description": "MetaHarness integration for ruflo — surfaces score/genome/mint/mcp-scan/threat-model via skills; pairs with @metaharness/router (ADR-148/149) for cost-optimal model routing; honors ADR-150's architectural constraint that MetaHarness remains an optional augmentation, never a required runtime dependency. As a mod (ADR-445): confirms flywheel promotion, keeps secrets out of inputs, /metaharness-mod, and a status file the console shows",
+  "version": "0.2.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -27,6 +27,22 @@
     "namespace-routing",
     "verified",
     "ci",
-    "phase-1-mvp"
-  ]
+    "phase-1-mvp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse tool calls that are clearly harmful in this plugin's domain (see README, As a mod).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

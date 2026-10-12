@@ -1,7 +1,7 @@
 {
   "name": "ruflo-autopilot",
   "description": "Autonomous /loop-driven task completion with learning, prediction, and progress tracking — wraps 10 autopilot_* MCP tools (status/enable/disable/config/reset/log/progress/learn/history/predict)",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,28 @@
     "prediction",
     "progress-tracking",
     "cache-aware",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Autopilot guard",
+      "description": "Refuse the autopilot log and learned patterns (autopilot_log, autopilot_learn) and a runaway loop limit on autopilot_config (maxIterations over the cap) that hold a key, token or password, and a loop limit over the cap.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "iterationCap": {
+      "type": "number",
+      "title": "Iteration cap",
+      "description": "Refuse an autopilot_config maxIterations above this (10 to 100000).",
+      "required": false,
+      "default": 1000
+    }
+  }
 }

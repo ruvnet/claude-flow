@@ -14,6 +14,9 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { readFileMaybeEncrypted } from '../fs-secure.js';
+import { loadBetterSqlite3 } from '../memory/shared-sqlite.js';
+import { resolveMemoryRoot } from '../memory/memory-root.js';
 
 export interface BackupOptions {
   /** Source DB (default: <cwd>/.swarm/memory.db). */
@@ -42,9 +45,57 @@ export function defaultMemoryDbPath(cwd: string = process.cwd()): string {
   return path.join(cwd, '.swarm', 'memory.db');
 }
 
+export interface ProjectBackupResult extends BackupResult {
+  backups: Array<BackupResult & { dbPath: string }>;
+}
+
+/** Back up the active project stores; an explicit full-file override stays single-store. */
+export async function backupProjectMemoryDbs(
+  cwd: string,
+  opts: Omit<BackupOptions, 'dbPath'> = {},
+): Promise<ProjectBackupResult> {
+  const override = process.env.CLAUDE_FLOW_DB_PATH;
+  let sources: string[];
+  if (override && override.trim().length > 0) {
+    sources = [path.resolve(cwd, override)];
+  } else {
+    const root = resolveMemoryRoot(cwd);
+    sources = [path.join(root, 'memory.db'), path.join(root, 'agentdb-memory.db')];
+  }
+  const backups: ProjectBackupResult['backups'] = [];
+  for (const dbPath of sources) {
+    backups.push({ ...await backupMemoryDb({ ...opts, dbPath }), dbPath });
+  }
+  const successful = backups.filter(result => result.backedUp);
+  const failed = backups.find(result => !result.backedUp && result.skipped !== 'no-db');
+  return {
+    ...successful[0],
+    backedUp: successful.length > 0 && !failed,
+    sizeBytes: successful.reduce((sum, result) => sum + (result.sizeBytes ?? 0), 0),
+    rotatedAway: successful.flatMap(result => result.rotatedAway ?? []),
+    skipped: failed?.skipped ?? (successful.length === 0 ? 'no-db' : undefined),
+    backups,
+  };
+}
+
 /** ISO timestamp safe for filenames (no ':' or '.'). */
 function fileStamp(ms: number): string {
   return new Date(ms).toISOString().replace(/[:.]/g, '-');
+}
+
+/** Keep legacy memory.db names; give every other basename its own snapshot set. */
+function snapshotPrefix(dbPath: string): string {
+  const name = path.basename(dbPath);
+  // A distinct namespace prevents an extensionless `memory` database from
+  // colliding with the historical `memory.db` prefix. Encoding is injective
+  // within the nondefault namespace, including names that contain `%`.
+  return name === 'memory.db' ? 'memory-' : `store-${encodeURIComponent(name)}-`;
+}
+
+function isSnapshotFor(file: string, dbPath: string): boolean {
+  const prefix = snapshotPrefix(dbPath);
+  return file.startsWith(prefix)
+    && /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.db$/.test(file.slice(prefix.length));
 }
 
 export async function backupMemoryDb(opts: BackupOptions = {}): Promise<BackupResult> {
@@ -61,7 +112,7 @@ export async function backupMemoryDb(opts: BackupOptions = {}): Promise<BackupRe
 
   const destDir = opts.destDir ?? path.join(path.dirname(dbPath), 'backups');
   try { fs.mkdirSync(destDir, { recursive: true }); } catch { /* */ }
-  const destPath = path.join(destDir, `memory-${fileStamp(opts.timestamp ?? Date.now())}.db`);
+  const destPath = path.join(destDir, `${snapshotPrefix(dbPath)}${fileStamp(opts.timestamp ?? Date.now())}.db`);
 
   // WAL-safe online backup: read-only source, consistent snapshot to destPath.
   let db: any;
@@ -88,7 +139,7 @@ export async function backupMemoryDb(opts: BackupOptions = {}): Promise<BackupRe
         const keep = typeof opts.keep === 'number' && opts.keep > 0 ? opts.keep : 7;
         const rotatedAway: string[] = [];
         try {
-          const snaps = fs.readdirSync(destDir).filter(f => /^memory-.*\.db$/.test(f)).sort();
+          const snaps = fs.readdirSync(destDir).filter(f => isSnapshotFor(f, dbPath)).sort();
           while (snaps.length > keep) {
             const old = snaps.shift()!;
             try { fs.rmSync(path.join(destDir, old), { force: true }); rotatedAway.push(old); } catch { /* */ }
@@ -119,7 +170,7 @@ export async function backupMemoryDb(opts: BackupOptions = {}): Promise<BackupRe
   const keep = typeof opts.keep === 'number' && opts.keep > 0 ? opts.keep : 7;
   const rotatedAway: string[] = [];
   try {
-    const snaps = fs.readdirSync(destDir).filter(f => /^memory-.*\.db$/.test(f)).sort();
+    const snaps = fs.readdirSync(destDir).filter(f => isSnapshotFor(f, dbPath)).sort();
     while (snaps.length > keep) {
       const old = snaps.shift()!;
       try { fs.rmSync(path.join(destDir, old), { force: true }); rotatedAway.push(old); } catch { /* */ }
@@ -151,11 +202,44 @@ export interface RestoreResult {
   restored: boolean;
   /** The backup file that was restored. */
   from?: string;
-  /** memory_entries count in the restored DB (-1 if it couldn't be verified). */
+  /** Verified memory_entries count in the restored DB. */
   rows?: number;
   /** Where the corrupt live DB was parked before the swap. */
   corruptBackupPath?: string;
   skipped?: string;
+}
+
+/** Verify a snapshot without modifying it, including RFE1 images and WASM-only hosts. */
+async function verifiedBackupRows(file: string, Database: any): Promise<number | null> {
+  if (Database) {
+    let db: any;
+    try {
+      db = new Database(file, { readonly: true });
+      if (String(db.pragma('integrity_check', { simple: true })).toLowerCase() !== 'ok') return null;
+      const rows = Number(db.prepare('SELECT COUNT(*) AS c FROM memory_entries').get()?.c ?? 0);
+      return rows > 0 ? rows : null;
+    } catch {
+      // Native SQLite cannot open encrypted RFE1 images. Verify the decrypted
+      // bytes below; a failed native open is never evidence of a good backup.
+    } finally {
+      try { db?.close(); } catch { /* best effort */ }
+    }
+  }
+
+  let db: any;
+  try {
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    db = new SQL.Database(readFileMaybeEncrypted(file, null));
+    const integrity = db.exec('PRAGMA integrity_check')[0]?.values?.[0]?.[0];
+    const rows = Number(db.exec('SELECT COUNT(*) FROM memory_entries')[0]?.values?.[0]?.[0] ?? 0);
+    return String(integrity).toLowerCase() === 'ok' && rows > 0 ? rows : null;
+  } catch {
+    // No verifier, wrong key, failed authentication, or invalid SQLite image.
+    return null;
+  } finally {
+    try { db?.close(); } catch { /* best effort */ }
+  }
 }
 
 /**
@@ -183,7 +267,7 @@ export async function restoreMemoryDbFromBackup(
   try {
     snaps = fs
       .readdirSync(destDir)
-      .filter(f => /^memory-.*\.db$/.test(f))
+      .filter(f => isSnapshotFor(f, dbPath))
       .map(f => path.join(destDir, f))
       .sort()      // ISO-stamped names sort chronologically
       .reverse();  // newest first
@@ -192,33 +276,19 @@ export async function restoreMemoryDbFromBackup(
   }
   if (!snaps.length) return { restored: false, skipped: 'no-backups' };
 
-  // better-sqlite3 verifies a candidate's integrity. Absent (WASM-only host) →
-  // accept the newest non-empty snapshot, flagged rows=-1 (unverified).
+  // Prefer native verification for plaintext snapshots. sql.js verifies
+  // encrypted snapshots and provides the same checks on WASM-only hosts.
   let Database: any = null;
   try {
-    const mod: string = 'better-sqlite3';
-    Database = (await import(mod)).default;
+    Database = await loadBetterSqlite3();
   } catch {
-    /* verifier unavailable — trust newest non-empty */
+    /* use the sql.js verifier */
   }
 
   let chosen: { file: string; rows: number } | null = null;
   for (const file of snaps) {
-    try {
-      if (Database) {
-        const db = new Database(file, { readonly: true });
-        const integ = String(db.pragma('integrity_check', { simple: true }) ?? '');
-        let rows = 0;
-        try {
-          rows = (db.prepare('SELECT COUNT(*) AS c FROM memory_entries').get() as { c: number })?.c ?? 0;
-        } catch { /* no entries table — not a usable memory DB */ }
-        db.close();
-        if (integ.toLowerCase() === 'ok' && rows > 0) { chosen = { file, rows }; break; }
-      } else if (fs.statSync(file).size > 0) {
-        chosen = { file, rows: -1 };
-        break;
-      }
-    } catch { /* unreadable snapshot — try the next-older one */ }
+    const rows = await verifiedBackupRows(file, Database);
+    if (rows !== null) { chosen = { file, rows }; break; }
   }
   if (!chosen) return { restored: false, skipped: 'no-integrity-ok-backup' };
 

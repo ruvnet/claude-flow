@@ -57,6 +57,8 @@ vi.mock('../src/mcp-server.js', () => ({
   getMCPServerStatus: vi.fn(async () => h.status),
   filterAdvertisedMcpTools: (tools: unknown[]) => tools,
   parseMcpToolSelection: () => 'all',
+  resolveMcpHttpAuthToken: () => undefined,
+  isLoopbackHost: () => true,
 }));
 
 // mcp-client.js pulls in the full tool registry; the start path never needs it.

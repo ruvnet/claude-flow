@@ -1687,6 +1687,30 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       domain = this.agentTypeToDomain(options.type);
       agentId = await this.registerAgent(agentData);
       this.agentDomainMap.set(agentId, domain);
+
+      // Add to domain pool so assignTaskToDomain() can route work to this
+      // agent (mirrors registerAgentWithDomain()'s pool.add() above; without
+      // this the agent is registered/idle but invisible to pool.acquire()).
+      // pool.add() throws once a domain pool is at its (small, fixed)
+      // maxSize (e.g. the 'queen' domain caps at 1) — the agent stays
+      // registered either way, so a full pool degrades back to today's
+      // pre-fix state (pool-invisible) instead of failing spawnAgent()
+      // itself for callers (e.g. a scale-up loop) that don't expect it to
+      // throw.
+      const pool = this.domainPools.get(domain);
+      const agent = this.state.agents.get(agentId);
+      if (pool && agent) {
+        try {
+          await pool.add(agent);
+        } catch (error) {
+          // Only the pool-full condition (AgentPool.add()'s sole throw) is
+          // tolerated; anything else is a real defect and must surface.
+          if (!(error instanceof Error) || !error.message.includes('maximum capacity')) {
+            throw error;
+          }
+          this.emitEvent('agent.domain_pool_full', { agentId, domain });
+        }
+      }
     }
 
     const duration = performance.now() - startTime;

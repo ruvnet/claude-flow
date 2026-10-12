@@ -27,7 +27,7 @@ export async function callMCPTool(name) {
 }
 `;
 
-async function runSession(entry, { policy, enforce = true, calls = 1, badAuditPath = false }) {
+async function runSession(entry, { policy, enforce = true, calls = 1, badAuditPath = false, customAuditPath = false }) {
   const project = mkdtempSync(join(tmpdir(), 'ruflo-stdio-policy-'));
   let child;
   try {
@@ -44,12 +44,14 @@ async function runSession(entry, { policy, enforce = true, calls = 1, badAuditPa
       writeFileSync(join(project, '.harness/mcp-policy.json'), policy);
     }
 
+    const configuredAudit = customAuditPath ? 'custom/audit.jsonl' : '';
+    if (badAuditPath) writeFileSync(join(project, 'audit-parent-file'), 'not a directory');
     child = spawn(process.execPath, [join(bin, entry), ...(entry === 'cli.js' ? ['mcp', 'start'] : [])], {
       cwd: project,
       env: {
         ...process.env,
         RUFLO_MCP_ENFORCE_POLICY: enforce ? '1' : '0',
-        TMPDIR: badAuditPath ? join(project, 'unwritable-audit-dir') : project,
+        RUFLO_MCP_AUDIT_LOG_PATH: badAuditPath ? join(project, 'audit-parent-file/log.jsonl') : configuredAudit,
       },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -80,9 +82,10 @@ async function runSession(entry, { policy, enforce = true, calls = 1, badAuditPa
     child.stdin.end();
     assert.equal(await closed, 0, `${entry} exited abnormally: ${stderr}`);
     const executionsPath = join(project, 'executions.txt');
-    const auditPath = join(project, 'ruflo-mcp-audit.jsonl');
+    const auditPath = join(project, configuredAudit || '.claude-flow/logs/mcp-audit.jsonl');
     return {
       responses,
+      segments: [auditPath, `${auditPath}.1`, `${auditPath}.2`, `${auditPath}.3`].filter(existsSync).map(file => ({ path: file, bytes: Buffer.byteLength(readFileSync(file)), records: readFileSync(file, 'utf8').trim().split('\n').map(JSON.parse) })),
       executions: existsSync(executionsPath) ? readFileSync(executionsPath, 'utf8').trim().split('\n') : [],
       audit: existsSync(auditPath) ? readFileSync(auditPath, 'utf8').trim().split('\n').map(JSON.parse) : [],
     };
@@ -118,6 +121,14 @@ for (const entry of ['cli.js', 'mcp-server.js']) {
     assert.match(result.responses[1].error.message, /maxToolCallsPerTurn/);
     assert.deepEqual(result.executions, ['demo_tool']);
     assert.deepEqual(result.audit.map(record => record.allowed), [true, false]);
+  });
+
+  test(`${entry}: configured audit logs rotate in a real stdio session`, async () => {
+    const result = await runSession(entry, { policy: JSON.stringify({ auditLog: true, auditLogMaxBytes: 512, auditLogMaxFiles: 2 }), calls: 10, customAuditPath: true });
+    assert.equal(result.executions.length, 10);
+    assert.equal(result.segments.length, 3);
+    assert.ok(result.segments.every(segment => segment.bytes <= 512));
+    assert.ok(result.segments.every(segment => segment.records.every(record => record.projectPath && record.allowed)));
   });
 
   test(`${entry}: mandatory audit failure denies before execution`, async () => {

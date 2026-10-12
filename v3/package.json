@@ -59,6 +59,13 @@
     "protobufjs": ">=8.6.0"
   },
   "pnpm": {
+    "packageExtensions": {
+      "@huggingface/transformers@4.2.0": {
+        "dependencies": {
+          "onnxruntime-common": "1.24.3"
+        }
+      }
+    },
     "neverBuiltDependencies": [
       "onnxruntime-node",
       "sharp"

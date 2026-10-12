@@ -22,7 +22,7 @@ tags: [plugin, goals, goap, research, horizon, dossier, namespace, smoke-test]
 
 | Namespace | Used by | Convention compliance |
 |-----------|---------|----------------------|
-| `adr` | `dossier-investigator`, `dossier-collect` | **Non-compliant** — should reference the canonical `adr-patterns` from [ruflo-adr ADR-0001](../../ruflo-adr/docs/adrs/0001-adr-plugin-pattern.md) |
+| `adr` | `dossier-investigator`, `dossier-collect` | **Non-compliant** — should reference the canonical `adr-patterns` from [ruflo-adr ADR-0001](../../../ruflo-adr/docs/adrs/0001-adr-plugin-pattern.md) |
 | `dossier` | `dossier-investigator` writes here | **Documented exception** — base-name rule (cf. `federation` from ruflo-federation) |
 | `research` | `deep-researcher` | **Non-compliant** — should be `goals-research` per kebab-case `<plugin-stem>-<intent>` rule |
 | `research-sources` | `deep-researcher` | **Non-compliant** — should be `goals-research-sources` |

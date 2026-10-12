@@ -2,15 +2,12 @@
 
 [![Ruflo Banner](ruflo/assets/ruflo-small.jpeg)](https://cognitum.one/agentic-engineering)
 
-<!-- Try Ruflo — the 4 badges first-time visitors actually act on -->
-[![Try the UI Beta — flo.ruv.io](https://img.shields.io/badge/_Try_the_UI_Beta-flo.ruv.io-6366f1?style=for-the-badge&logoColor=white&logo=svelte)](https://flo.ruv.io/)
+<!-- Try Ruflo — the 3 badges first-time visitors actually act on -->
 [![npm version (ruflo)](https://img.shields.io/npm/v/ruflo?label=npx%20ruflo&style=for-the-badge&logo=npm&color=cb3837)](https://www.npmjs.com/package/ruflo)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/claude-flow?style=for-the-badge&logo=github&color=gold)](https://github.com/ruvnet/claude-flow)
 
 <!-- Ecosystem strip (collapsed visually with flat-square) -->
-[![Goal Planner](https://img.shields.io/badge/_Goal_Planner-goal.ruv.io-8b5cf6?style=flat-square&logoColor=white&logo=react)](https://goal.ruv.io/)
-[![Live Agents](https://img.shields.io/badge/_Live_Agents-goal.ruv.io%2Fagents-10b981?style=flat-square&logoColor=white&logo=react)](https://goal.ruv.io/agents)
 [![🕸️ RuVector Agentic DB](https://img.shields.io/badge/RuVector_Agentic-DB-06b6d4?style=flat-square&logoColor=white&logo=graphql)](https://github.com/ruvnet/ruvector)
 [![Ecosystem downloads](https://img.shields.io/badge/ecosystem%20downloads-8.1M%2B-blue?style=flat-square&logo=npm)](https://github.com/ruvnet/ruflo/blob/main/data/clone-data.proof.json)
 [![Git clones (14d)](https://img.shields.io/badge/git%20clones%2014d-106k-blueviolet?style=flat-square&logo=github)](https://github.com/ruvnet/ruflo/blob/main/data/clone-data.ledger.json)
@@ -215,55 +212,6 @@ claude mcp add claude-flow -- npx ruflo@latest mcp start
 | 🛡️ **安全性** | AIDefence、输入校验、CVE 修复、路径穿越防护 |
 | 🌐 **智能体联邦** | 跨安装的智能体协作，零信任安全 |
 | 🔬 **[MetaHarness](docs/metaharness-user-guide.md)** | 发布前审计你的 AI 智能体配置。对就绪度打分（1–100）、扫描工具配置中的安全问题、对整个项目做快照以捕捉长期回归，并找到与你的仓库匹配的模板。`ruflo eject` 可将 ruflo 项目转换为拥有独立名称的独立智能体工具包。[完整指南](docs/metaharness-user-guide.md)。 |
-| 💬 **[Web UI 测试版](https://flo.ruv.io/)** | flo.ruv.io 上的多模型聊天，支持并行 MCP 工具调用与浏览器内 WASM 工具画廊 |
-| 🎯 **[RuFlo Research](https://goal.ruv.io/)** | goal.ruv.io 上的 GOAP A\* 规划器——用自然语言目标生成可执行的智能体计划，并配有 [/agents](https://goal.ruv.io/agents) 实时智能体仪表盘 |
-
-<p align="center">
-  <a href="https://flo.ruv.io/">
-    <img src="v3/docs/assets/ruVocal.png" alt="RuFlo Web UI executing parallel MCP tool calls at flo.ruv.io — ruflo__memory_store and ruflo__memory_search firing in a single model turn with the 'Step 1 — 2 tools completed' parallel-execution indicator, thinking process panel visible, Qwen 3.6 Max as the active model. Multi-agent AI chat with Model Context Protocol (MCP) tool calling, persistent vector memory via AgentDB + HNSW, swarm coordination, and 6 frontier models including Claude Sonnet 4.6, Gemini 2.5 Pro, and OpenAI through OpenRouter." width="100%" />
-  </a>
-</p>
-
-### Web UI（测试版）——可自托管，托管演示见 [flo.ruv.io](https://flo.ruv.io/)
-
-**RuFlo 的 Web UI 是一个内置 Model Context Protocol（MCP）工具调用的多模型 AI 聊天界面。** 与 Qwen、Claude、Gemini 或 OpenAI 对话的同时，RuFlo 会在聊天中直接调用 CLI 所使用的同一套 MCP 工具——智能体编排、持久记忆、蜂群协调、代码审查、GitHub 操作。无需安装，无需 API Key 即可试用。
-
-| | 是什么 | 为什么重要 |
-|---|------------|----------------|
-| 🧠 | **任意模型，本地或远程** | 开箱即用 6 个精选前沿模型——Qwen 3.6 Max（默认）、Claude Sonnet 4.6、Claude Haiku 4.5、Gemini 2.5 Pro、Gemini 2.5 Flash、OpenAI——全部经由 OpenRouter。也可以接入自己的模型：任何 OpenAI 兼容端点（vLLM、Ollama、LM Studio、Together、Groq、自托管）均可。 |
-| 🦾 | **ruvLLM 自学习 AI** | 原生支持 [ruvLLM](https://github.com/ruvnet/RuVector/tree/main/examples/ruvLLM)（位于 `ruvnet/RuVector/examples/ruvLLM`）——RuFlo 的自我改进本地模型层。路由到 MicroLoRA 适配器，通过 SONA 从你的轨迹中学习，并且始终留在你的机器上。可与云端模型搭配使用，也可完全离线运行。 |
-| 🛠️ | **约 210 个工具，随时可调用** | 5 个服务器分组（Core、Intelligence、Agents、Memory、DevTools），外加一个完全运行在浏览器内的 18 工具画廊——离线也能用。 |
-| 🔌 | **自带 MCP 服务器** | 点击聊天输入框中的 **MCP (n)** 胶囊按钮 → *Add Server*，粘贴任意 MCP 端点（HTTP、SSE 或 stdio）。你的工具会与 RuFlo 的原生工具一起进入同一个并行执行流程。在 `localhost:3000` 上跑一个本地 MCP 服务器，即刻生效。 |
-| ⚡ | **工具并行执行** | 一次模型响应可以同时触发 4–6+ 个工具。UI 会以卡片形式展示它们，并带有 *Step 1 — 2 tools completed* 徽章，让你清楚看到具体执行了什么。 |
-| 💾 | **记得住的记忆** | 说一句 *"remember my favorite color is indigo"*，几周后再问——RuFlo 依然记得。底层是 AgentDB + HNSW 向量搜索（实测超过交叉点后比暴力检索快约 1.9–4.7 倍，recall@10 ≈ 0.99）。 |
-| 📘 | **内置能力导览** | 点击侧边栏的问号图标——会弹出 "RuFlo Capabilities" 模态框，展示完整工具列表、各模型强项、架构与键盘快捷键。 |
-| 🏠 | **可自托管** | Web UI 以 Docker 形式发布（`ruflo/src/ruvocal/Dockerfile`），内置 Mongo。可部署到你自己的 Cloud Run / Fly / Kubernetes / docker-compose。托管演示 [flo.ruv.io](https://flo.ruv.io/) 只是选项之一，自建运行完全受支持。 |
-| 🚀 | **零安装即可试用** | 打开托管网址，选一个模型，输入问题。这就是全部上手流程。 |
-
-**试用托管演示：** [https://flo.ruv.io/](https://flo.ruv.io/)——无需账号、无需 API Key。**自建运行：** 源码位于 [`ruflo/src/ruvocal/`](ruflo/src/ruvocal/)，带多阶段 Dockerfile（`INCLUDE_DB=true` 会内置 MongoDB）以及面向 Google Cloud Run 的 `cloudbuild.yaml`。架构详见 [ADR-033](ruflo/docs/adr/ADR-033-RUVOCAL-WASM-MCP-INTEGRATION.md)，路线图见 [issue #1689](https://github.com/ruvnet/ruflo/issues/1689)。
-
-<p align="center">
-  <a href="https://goal.ruv.io/agents">
-    <img src="v3/docs/assets/goal.png" alt="goal.ruv.io/agents — RuFlo Goal-Oriented Action Planning (GOAP) UI for autonomous AI agents. Visual goal decomposition, A* search through state spaces, multi-agent task assignment, and live agent telemetry." width="100%" />
-  </a>
-</p>
-
-### Goal Planner UI——[goal.ruv.io](https://goal.ruv.io/) 上的自主智能体
-
-**把高层次目标变成可执行的智能体计划。** `goal.ruv.io` 是 RuFlo 托管的 Goal-Oriented Action Planning（GOAP）前端——用自然语言描述一个目标，看着 RuFlo 把它拆解为前置条件、动作，以及一条穿过状态空间的 A* 路径，随后把工作分派给 [`/agents`](https://goal.ruv.io/agents) 上的真实智能体。
-
-| | 是什么 | 为什么重要 |
-|---|------------|----------------|
-| 🎯 | **自然语言目标** | 输入 *"ship the auth refactor with tests and a PR"*——RuFlo 会提取成功标准、约束条件与隐含的前置条件。无需 JSON，无需 DSL。 |
-| 🧭 | **GOAP A\* 规划器** | 把游戏 AI 的经典规划方法移植到软件开发：在带前置条件/效果的动作间做状态空间搜索，找出最短可行路径。状态变化时即时重规划。 |
-| 🤖 | **实时智能体仪表盘** | [goal.ruv.io/agents](https://goal.ruv.io/agents) 展示每一个已生成的智能体——角色、当前步骤、记忆命名空间、token 预算、状态。点击即可查看轨迹、终止失控工作者或重新分配任务。 |
-| 🌳 | **可视化计划树** | 目标渲染为可折叠的动作树，进度、受阻分支与回滚都会高亮显示。能*确切*看到智能体为何选择某条路径——不再是黑盒思维链。 |
-| ♻️ | **自适应重规划** | 当某个动作失败或有新信息出现时，规划器从当前状态重新运行 A\*，而不是从头再来。失败变成学习，而不是死循环。 |
-| 🧠 | **共享记忆 + SONA** | 计划、轨迹与结果都会汇入 AgentDB。未来的计划通过 HNSW 检索过往解决方案——每运行一次，规划器就更聪明一点。 |
-| 🔗 | **接入 MCP 工具** | 每个动作节点都映射到一次工具调用（RuFlo 约 210 个 MCP 工具、你的自定义服务器或 shell）。只要依赖图允许，规划器就会并行调度它们。 |
-| 🚀 | **零安装即可试用** | 打开 [goal.ruv.io](https://goal.ruv.io/)，描述一个目标，看着它运行。源码位于 [`v3/goal_ui/`](v3/goal_ui/)——Vite + Supabase，可自托管。 |
-
-**立即体验：** 目标规划用 [https://goal.ruv.io/](https://goal.ruv.io/)，实时智能体看 [https://goal.ruv.io/agents](https://goal.ruv.io/agents)。**自建运行：** 克隆 `goal` 分支，然后 `cd v3/goal_ui && npm install && npm run dev`。
 
 ### 智能体联邦——智能体版的 Slack
 

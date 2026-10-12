@@ -1,0 +1,41 @@
+{
+  "name": "ruflo-protector",
+  "description": "Project Anatole: an optional, learning watchdog for unattended agents. Deterministic OWASP-mapped rules, a per-project behavioural baseline, four modes (off, learn, notify, enforce), alerts you can read later.",
+  "version": "0.1.1",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "anatole",
+    "protector",
+    "watchdog",
+    "security",
+    "owasp",
+    "baseline",
+    "unattended",
+    "mod",
+    "function-hooks"
+  ],
+  "userConfig": {
+    "mode": {
+      "type": "string",
+      "title": "Project Anatole mode",
+      "description": "off: do nothing. learn (default): record the baseline and say nothing. notify: alert, never block. enforce: rules marked block deny. A mode set with /protector mode overrides this.",
+      "required": false,
+      "default": "learn",
+      "options": ["off", "learn", "notify", "enforce"]
+    },
+    "autoGraduate": {
+      "type": "string",
+      "title": "Graduate learn to notify",
+      "description": "When the baseline is mature (200 events, 3 sessions, 24 hours), move learn to notify. Never moves to enforce.",
+      "required": false,
+      "default": "on",
+      "options": ["on", "off"]
+    }
+  }
+}

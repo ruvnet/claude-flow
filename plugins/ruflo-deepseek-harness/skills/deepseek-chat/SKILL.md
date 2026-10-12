@@ -17,6 +17,10 @@ shape as the other `ruflo-*-harness` skills (see ruflo-metaharness's
 - For reasoning-heavy tasks (proofs, multi-step planning, hard debugging),
   use `deepseek-reason` instead — same plugin, different model.
 
+## Data handling
+
+The prompt and any `--system` text are sent over the network to `api.deepseek.com`, a third party. Do not put secrets, credentials, personal data or proprietary code you are not allowed to share into them. The API key is read from `DEEPSEEK_API_KEY` in your shell only; never paste it into a prompt, a file or a command line.
+
 ## Algorithm
 
 Implementation: [`scripts/chat.mjs`](../../scripts/chat.mjs).

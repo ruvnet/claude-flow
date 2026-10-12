@@ -130,11 +130,22 @@ export function fingerprint(publicKey: string): string {
 }
 
 /**
+ * A placeholder key that must never vouch for anything: empty or all zeros, as
+ * shipped in `trust-anchors.json` until the real key is filled in. The all-zero
+ * key is a small-order point: under ZIP-215 rules a fixed forged signature
+ * verifies against it for every message.
+ */
+export function isPlaceholderKey(publicKey: string): boolean {
+  return /^0*$/.test(publicKey.trim());
+}
+
+/**
  * Find the trust anchor that vouches for a manifest. Returns the matched
  * anchor (with anchor.publicKey === signer.publicKey) or null.
  *
  * Scope-matching uses a minimal glob: `*` at the end of the scope string
- * matches any suffix. Empty/missing scope matches every plugin id.
+ * matches any suffix. Empty/missing scope matches every plugin id. Placeholder
+ * anchors (see {@link isPlaceholderKey}) never match.
  */
 export function findAnchor(
   anchors: ReadonlyArray<TrustAnchor>,
@@ -143,6 +154,7 @@ export function findAnchor(
   now: number,
 ): TrustAnchor | null {
   for (const a of anchors) {
+    if (isPlaceholderKey(a.publicKey)) continue;
     if (a.publicKey !== signerPublicKey) continue;
     if (a.expiresAt && new Date(a.expiresAt).getTime() <= now) continue;
     if (!a.scope || a.scope === '*' || a.scope === pluginId) return a;
@@ -224,7 +236,8 @@ export class PluginIntegrityVerifier {
       const sigBytes = hexToBytes(signed.signature);
       const msgBytes = hexToBytes(signed.manifestHash);
       const pubBytes = hexToBytes(signed.publicKey);
-      ok = await ed.verify(sigBytes, msgBytes, pubBytes);
+      // RFC 8032 strict mode: rejects small-order keys, which ZIP-215 accepts.
+      ok = await ed.verify(sigBytes, msgBytes, pubBytes, { zip215: false });
     } catch {
       ok = false;
     }
@@ -251,7 +264,7 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 interface NobleEd25519 {
-  verify(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array): Promise<boolean>;
+  verify(sig: Uint8Array, msg: Uint8Array, pub: Uint8Array, opts?: { zip215?: boolean }): Promise<boolean>;
   etc: { sha512Sync?: (...m: Uint8Array[]) => Uint8Array };
 }
 

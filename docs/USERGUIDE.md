@@ -1710,6 +1710,8 @@ npx ruflo hive-mind memory                  # Collective memory stats
 npx ruflo hive-mind sessions                # List active sessions
 ```
 
+**Access control (ADR-476).** Local use needs nothing extra: `hive-mind init`, the stdio MCP server, `ruflo mcp exec` and the CLI subcommands manage their own hive. `init` writes `.claude-flow/hive-mind/bootstrap.secret` (0600) and never prints or returns the hive token. Clients that reach the MCP server over **HTTP/WebSocket** are refused for `init`, `spawn`, `consensus` propose/vote, `broadcast`, `shutdown`, `join`, `leave`, `memory` set/delete and `optimize-memory` unless the operator hands them the secret: set `RUFLO_HIVE_BOOTSTRAP_SECRET` (16+ chars) on the server, then send it as `bootstrapSecret` in each call. If you bridge a stdio server onto a network, set `RUFLO_HIVE_REQUIRE_AUTH=1`. Against a local agent that can read the project directory this is a speed bump, not a boundary.
+
 **Performance:** Fast batch spawning with parallel agent coordination
 
 </details>
@@ -1858,7 +1860,6 @@ Install these optional plugins to extend Ruflo capabilities:
 
 | Plugin | Version | Description | Install Command |
 |--------|---------|-------------|-----------------|
-| **@claude-flow/plugin-agentic-qe** | 3.0.0-alpha.2 | Quality Engineering with 58 AI agents across 12 DDD contexts. TDD, coverage analysis, security scanning, chaos engineering, accessibility testing. | `npm install @claude-flow/plugin-agentic-qe` |
 | **@claude-flow/plugin-prime-radiant** | 0.1.4 | Mathematical AI interpretability with 6 engines: sheaf cohomology, spectral analysis, causal inference, quantum topology, category theory, HoTT proofs. | `npm install @claude-flow/plugin-prime-radiant` |
 | **@claude-flow/plugin-gastown-bridge** | 0.1.0 | Gas Town orchestrator integration with WASM-accelerated formula parsing (instant (regex-based, no LLM call)), Beads sync, convoy management, and graph analysis. 20 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/plugin-gastown-bridge` |
 | **@claude-flow/teammate-plugin** | 1.0.0-alpha.1 | Native TeammateTool integration for Claude Code v2.1.19+. BMSSP WASM acceleration, rate limiting, circuit breaker, semantic routing. 21 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/teammate-plugin` |
@@ -1888,12 +1889,7 @@ Install these optional plugins to extend Ruflo capabilities:
 | **@claude-flow/plugin-quantum-optimizer** | 0.1.0 | Quantum-inspired optimization (QAOA, VQE, quantum annealing). Combinatorial optimization, Grover search, tensor networks. | `npm install @claude-flow/plugin-quantum-optimizer` |
 | **@claude-flow/plugin-hyperbolic-reasoning** | 0.1.0 | Hyperbolic geometry for hierarchical reasoning. Poincaré embeddings, tree-like structure analysis, taxonomic inference. | `npm install @claude-flow/plugin-hyperbolic-reasoning` |
 
-**Agentic-QE Plugin Features:**
-- 58 specialized QE agents across 13 bounded contexts
-- 16 MCP tools: `aqe/generate-tests`, `aqe/tdd-cycle`, `aqe/analyze-coverage`, `aqe/security-scan`, `aqe/chaos-inject`, etc.
-- London-style TDD with red-green-refactor cycles
-- O(log n) coverage gap detection with Johnson-Lindenstrauss
-- OWASP/SANS compliance auditing
+**Quality Engineering (Agentic QE):** the in-repo `@claude-flow/plugin-agentic-qe` shim has been retired. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) package (`npx agentic-qe init`), or install its Claude Code plugin `agentic-qe-fleet` from the `agentic-qe` marketplace ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
 
 **Prime-Radiant Plugin Features:**
 - 6 mathematical engines for AI interpretability
@@ -1924,9 +1920,6 @@ Install these optional plugins to extend Ruflo capabilities:
 - **Hyperbolic Reasoning**: 5 tools for Poincaré embeddings, tree inference, taxonomic analysis
 
 ```bash
-# Install Quality Engineering plugin
-npm install @claude-flow/plugin-agentic-qe
-
 # Install AI Interpretability plugin
 npm install @claude-flow/plugin-prime-radiant
 
@@ -2853,6 +2846,7 @@ Run `npx ruflo@latest doctor` to diagnose and fix common issues.
 | **MCP servers** | Responsive | ✅ Restarts unresponsive servers |
 | **Disk space** | >100MB free | ❌ Manual cleanup required |
 | **TypeScript** | Installed | ✅ Installs if missing |
+| **Native addon headers** | No `better-sqlite3` built against Node 24.19+ headers while running Node 24.19–24.21 | ❌ See below |
 
 **Commands:**
 
@@ -2869,6 +2863,14 @@ npx ruflo@latest doctor --component memory
 # Verbose output
 npx ruflo@latest doctor --verbose
 ```
+
+**Node 24.19–24.21 abort (#4055).** A native addon compiled against Node 24.19+ headers can abort the process with `Assertion failed: (env) != nullptr` in `node::RemoveEnvironmentCleanupHook` (nodejs/node#65446; the fix, PR #65943, is in no release through 24.21.0). Prebuilt binaries are not affected, only copies compiled locally, which carry a `build/config.gypi` naming the headers they used. `doctor --component native-addon` reads those files (it never loads an addon) and lists each affected copy. Workarounds, any one of:
+
+- run Node 22, or Node 24.18.1, or a Node release that contains the fix;
+- rebuild the listed copy against older headers: `cd <copy> && npx node-gyp rebuild --release --nodedir=<node 24.18.1 headers>`;
+- install the 12.x prebuilt in the project: `npm install better-sqlite3@12`.
+
+ruflo opens AgentDB through its own prebuilt 12.x copy (since 3.56.4), so a flagged nested copy under `agentdb` or `agentic-flow` matters only to code that loads it directly. npm ignores `overrides` in a dependency's package.json, so the nested 11.x copies cannot be removed from inside the published package.
 
 **Output Example:**
 
@@ -3629,7 +3631,11 @@ npx ruflo@latest memory export --include-embeddings --output ./full-export.json
 npx ruflo@latest config export --scope project --output ./agent-configs.json
 
 # Export session state
-npx ruflo@latest session export --session-id "my-session" --output ./session.json
+npx ruflo@latest session export "my-session" --format json --output ./session.json
+
+# Compress a JSON backup and import it later (gzip is detected from the file bytes)
+npx ruflo@latest session export "my-session" --format json --compress --output ./session.json.gz
+npx ruflo@latest session import ./session.json.gz
 ```
 
 ### Import Commands

@@ -11,6 +11,10 @@ export default defineConfig({
     // '@claude-flow/security/safe-git' to '.../src/index.ts/safe-git'.
     alias: [
       {
+        find: '@claude-flow/guidance/compiler',
+        replacement: fileURLToPath(new URL('../guidance/src/compiler.ts', import.meta.url)),
+      },
+      {
         find: '@claude-flow/security/safe-git',
         replacement: fileURLToPath(new URL('../security/src/safe-git.ts', import.meta.url)),
       },

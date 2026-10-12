@@ -15,7 +15,7 @@ Store and retrieve knowledge across sessions:
 npx ruflo memory store --key "oauth-flow" --value "OAuth2 with pkce for SPAs, use refresh tokens" --namespace patterns
 
 # Search for it later (even across projects!)
-npx ruflo recall "oauth single page app"
+npx ruflo memory search -q "oauth single page app"
 
 # Retrieve exact entry
 npx ruflo memory retrieve --key "oauth-flow" --namespace patterns
@@ -71,7 +71,7 @@ memory list --namespace patterns --limit 10
 memory delete --key "old-entry" --namespace patterns
 
 # Quick semantic recall across all namespaces
-recall "how did we handle rate limiting?"
+/recall how did we handle rate limiting?
 ```
 
 ## Architecture
@@ -218,7 +218,7 @@ bash plugins/ruflo-rag-memory/scripts/smoke.sh
 
 ## Related Plugins
 
-- `ruflo-agentdb` — Full AgentDB controller bridge (15 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
+- `ruflo-agentdb` — Full AgentDB controller bridge (20 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
 - `ruflo-ruvector` — Advanced vector operations (FlashAttention-3, Graph RAG, hybrid search)
 - `ruflo-rvf` — Portable RVF memory format for cross-machine export/import
 - `ruflo-knowledge-graph` — Entity extraction and graph traversal over memory
@@ -226,3 +226,15 @@ bash plugins/ruflo-rag-memory/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445, pattern of `ruflo-agentdb`). It loads from `hooks/hooks.json` → `hooks/register.ts`.
+
+A write guard for memory: `memory_store`, `agentdb_hierarchical-store` and `agentdb_pattern-store` refuse secrets, so credentials never land in the vector store.
+
+- **Command**: `/rag-mod` answers locally with no model call. Verbs: `status`, `scan <text>` (would the guard refuse this?), `tools` (which memory tools are connected).
+- **Status file**: `.claude-flow/rag-mod/status.json` (`{version, updatedMs, ...counters}`), written at session start and as counters change.
+- **Safety**: no network, no process spawning; it only uses tools already connected.
+- **Option** `guard` (`on` by default, `off` to disable): a tighten-only `tool.call` guard. A call to one of the tools above whose input holds a key, token, private key or password is denied. The reason never repeats the secret.
+- **Test**: `claude plugin validate plugins/ruflo-rag-memory`, `claude plugin test plugins/ruflo-rag-memory`, `bash plugins/ruflo-rag-memory/scripts/smoke.sh`.

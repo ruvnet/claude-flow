@@ -24,6 +24,8 @@
 //   1  --alert-on-worst threshold exceeded
 //   2  config error or audit failure
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runRufloCli } from './_invoke.mjs';
 // iter 63 — SEVERITY_RANK + rankSeverity consolidated to _harness.mjs
 // (was local in iter 62; now shared with audit-trend + mcp-scan).
@@ -37,6 +39,13 @@ const NS = process.env.OIA_AUDIT_NAMESPACE || 'metaharness-audit';
 // that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
 // resolution per call, possible version skew, fails without registry access).
 // CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--dry-run': null,
+  '--alert-on-worst': 'value',
+  '--format': 'value',
+}, "Runs and persists an audit by default. --dry-run skips the memory write; analysis tools still run.");
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', dryRun: false, alertWorst: null };

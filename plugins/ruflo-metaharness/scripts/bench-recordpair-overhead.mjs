@@ -21,7 +21,15 @@
 // EXIT CODES
 //   0  benchmark complete (always; this is informational, not pass/fail)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { performance } from 'node:perf_hooks';
+
+guardCliArgs(import.meta.url, {
+  '--iters': 'value',
+  '--format': 'value',
+  '--max-overhead-ns': 'value',
+});
 
 const ARGS = (() => {
   const a = {

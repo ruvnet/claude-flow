@@ -23,6 +23,8 @@
 //     a structured `{ degraded: true, reason: ... }` payload on stdout
 //   - CI-gate ready: smoke step 17y locks this contract
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { readFileSync, existsSync } from 'node:fs';
 import { runRufloCli } from './_invoke.mjs';
 import { similarity } from './_similarity.mjs';
@@ -32,6 +34,16 @@ const NS = process.env.HARNESS_SIMILARITY_NAMESPACE || 'metaharness-audit';
 // that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
 // resolution per call, possible version skew, fails without registry access).
 // CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--a': 'value',
+  '--b': 'value',
+  '--a-key': 'value',
+  '--b-key': 'value',
+  '--per-dimension': null,
+  '--format': 'value',
+  '--alert-below': 'value',
+});
 
 const ARGS = (() => {
   const a = {

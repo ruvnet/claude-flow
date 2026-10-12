@@ -7,6 +7,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { readRecordStore } from './record-store.js';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validateAgentSpawn } from './validate-input.js';
 import { executeAgentTask } from './agent-execute-core.js';
@@ -74,16 +75,7 @@ function ensureAgentDir(): void {
 }
 
 function loadAgentStore(): AgentStore {
-  try {
-    const path = getAgentPath();
-    if (existsSync(path)) {
-      const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch {
-    // Return empty store on error
-  }
-  return { agents: {}, version: '3.0.0' };
+  return readRecordStore(getAgentPath(), 'agents', () => ({ agents: {}, version: '3.0.0' }));
 }
 
 function saveAgentStore(store: AgentStore): void {
@@ -318,7 +310,6 @@ export const agentTools: MCPTool[] = [
         return { success: false, error: `Input validation failed: ${validation.errors.join('; ')}` };
       }
 
-      const store = loadAgentStore();
       const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const agentType = input.agentType as string;
       const config = (input.config as Record<string, unknown>) || {};
@@ -367,6 +358,7 @@ export const agentTools: MCPTool[] = [
         ...(routingResult.openrouterModel ? { openrouterModel: routingResult.openrouterModel } : {}),
       };
 
+      const store = loadAgentStore();
       store.agents[agentId] = agent;
       saveAgentStore(store);
 
@@ -422,8 +414,13 @@ export const agentTools: MCPTool[] = [
             memoryBranch = br.branchPath;
             agent.memoryBranch = br.branchPath;
             agent.memoryBase = br.basePath;
-            store.agents[agentId] = agent;
-            saveAgentStore(store);
+            const latest = loadAgentStore();
+            const current = latest.agents[agentId];
+            if (current && current.status !== 'terminated') {
+              current.memoryBranch = br.branchPath;
+              current.memoryBase = br.basePath;
+              saveAgentStore(latest);
+            }
           }
           // else: degraded (agenticow missing / kill-switched) — agent stands
           // without an isolated branch; callers see no memoryBranch field.
@@ -722,7 +719,10 @@ export const agentTools: MCPTool[] = [
       }
 
       if (action === 'scale') {
-        const targetSize = (input.targetSize as number) || 5;
+        const targetSize = input.targetSize === undefined ? 5 : input.targetSize;
+        if (typeof targetSize !== 'number' || !Number.isSafeInteger(targetSize) || targetSize < 0) {
+          return { action, error: 'targetSize must be a non-negative safe integer' };
+        }
         const agentType = (input.agentType as string) || 'worker';
         const currentSize = agents.filter(a => a.agentType === agentType).length;
         const delta = targetSize - currentSize;
@@ -757,7 +757,7 @@ export const agentTools: MCPTool[] = [
           agentType,
           previousSize: currentSize,
           targetSize,
-          newSize: currentSize + delta,
+          newSize: currentSize + added.length - removed.length,
           added,
           removed,
         };

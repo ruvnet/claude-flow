@@ -28,7 +28,8 @@
 //                             library entries (gepa) — never throws on absence
 //   - makeDegradedEmitter()   the ADR-150 rule-#3 exit-0 degraded payload
 //   - runRufloCli()           `memory store|list|retrieve` through the ruflo CLI
-//                             that ships this plugin (#3366) — replaces
+//                             that ships this plugin (#3366), else an installed
+//                             `ruflo` / `claude-flow` on PATH (#3558) — replaces
 //                             `npx @claude-flow/cli@latest` in 4 scripts
 //
 // WHAT DOES NOT LIVE HERE (the per-consumer parts):
@@ -40,11 +41,16 @@
 // stays meaningful on machines with a warm cache / local install):
 //   - RUFLO_METAHARNESS_CACHE_BASE   overrides ~/.ruflo as the cache root
 //   - RUFLO_METAHARNESS_SKIP_LOCAL=1 disables local node_modules resolution
+//   - RUFLO_PLUGIN_SKIP_LOCAL_CLI=1  resolveRufloCli() skips the shipping CLI /
+//                                    repo checkout (#3558; same name in
+//                                    ruflo-cost-tracker and ruflo-adr)
+//   - RUFLO_PLUGIN_SKIP_PATH_CLI=1   resolveRufloCli() skips `ruflo` /
+//                                    `claude-flow` on PATH (#3558)
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const INSTALL_TIMEOUT_MS = 180_000; // npm install can be slow on cold cache
@@ -303,11 +309,76 @@ export function makeDegradedEmitter(pkg, pinVersion) {
 // exists next to bin/cli.js — mcp-launch.cjs resolveLocalCliBin()'s guard
 // against an unbuilt checkout — AND its package.json is named
 // @claude-flow/cli, a check added here so an unrelated directory two levels up
-// can never qualify. Unchanged:
+// can never qualify.
+// #3558: a Claude Code marketplace install copies the plugin to
+// ~/.claude/plugins/cache/<marketplace>/ruflo-metaharness/<version>/, where
+// neither candidate exists, so every memory call still went to npx @latest on
+// a machine with ruflo installed. A `ruflo`, then `claude-flow`, found on
+// PATH (ruflo-core ruflo-hook.cjs's order) is now tried before npx.
+// Unchanged:
 //   - CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha` (ADR-100);
-//   - no usable local CLI (e.g. a marketplace clone with no build) still falls
-//     back to `npx @claude-flow/cli@latest`.
+//   - no usable local CLI and no ruflo on PATH still falls back to
+//     `npx @claude-flow/cli@latest`.
 const PLUGIN_SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** Case-insensitive env lookup — Windows env keys are not case-stable (`Path`). */
+function envValue(env, name) {
+  const key = Object.keys(env).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key ? env[key] : undefined;
+}
+
+/**
+ * npm's Windows shim (`<prefix>/ruflo.cmd`, or `node_modules/.bin/ruflo.cmd`)
+ * cannot be spawned without a shell (CVE-2024-27980), so map it to the entry
+ * it wraps: the package's own `bin` field, which must resolve inside the
+ * package — ruflo-core's resolveNpmShim(). null when it is not such a shim.
+ */
+function npmShimEntry(shim, name) {
+  try {
+    const shimDir = dirname(shim);
+    const pkgDir = basename(shimDir).toLowerCase() === '.bin'
+      ? join(shimDir, '..', name)
+      : join(shimDir, 'node_modules', name);
+    const pj = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf-8'));
+    const declared = typeof pj.bin === 'string' ? pj.bin : pj.bin?.[name];
+    if (typeof declared !== 'string') return null;
+    const entry = realpathSync(join(pkgDir, declared));
+    const rel = relative(realpathSync(pkgDir), entry);
+    if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel) || !statSync(entry).isFile()) return null;
+    return entry;
+  } catch { return null; }
+}
+
+/**
+ * `ruflo`, then `claude-flow`, on PATH → `{ command, args, shell, source }`,
+ * else null. fs-only like ruflo-core's resolveCommandPath(): no `which` /
+ * `where` shell per call. Relative PATH entries (including the empty one) are
+ * skipped so a `ruflo` file inside the project being worked on is never run.
+ * On win32 only an npm shim that maps to its JS entry counts; anything else
+ * is skipped rather than run through cmd.exe. `env` / `platform` are
+ * parameters so the win32 branch is testable on POSIX.
+ */
+export function findRufloOnPath(env = process.env, platform = process.platform) {
+  const dirs = (envValue(env, 'PATH') || '')
+    .split(platform === 'win32' ? ';' : delimiter)
+    .filter((d) => isAbsolute(d));
+  for (const name of ['ruflo', 'claude-flow']) {
+    for (const dir of dirs) {
+      if (platform === 'win32') {
+        const shim = join(dir, `${name}.cmd`);
+        const entry = existsSync(shim) ? npmShimEntry(shim, name) : null;
+        if (entry) return { command: process.execPath, args: [entry], shell: false, source: 'path' };
+        continue;
+      }
+      const file = join(dir, name);
+      try {
+        accessSync(file, constants.X_OK);
+        if (statSync(file).isFile()) return { command: file, args: [], shell: false, source: 'path' };
+      } catch { /* keep searching */ }
+    }
+  }
+  return null;
+}
 
 let RUFLO_CLI = null;
 /** `{ command, args, shell, source }` for invoking the ruflo CLI. Memoized. */
@@ -316,7 +387,7 @@ export function resolveRufloCli() {
   if (process.env.CLI_CORE === '1') {
     return (RUFLO_CLI = { command: 'npx', args: ['@claude-flow/cli-core@alpha'], shell: process.platform === 'win32', source: 'npx-cli-core' });
   }
-  const candidates = [
+  const candidates = process.env.RUFLO_PLUGIN_SKIP_LOCAL_CLI === '1' ? [] : [
     join(PLUGIN_SCRIPTS_DIR, '..', '..', '..'),                              // published: <cli>/plugins/ruflo-metaharness/scripts
     join(PLUGIN_SCRIPTS_DIR, '..', '..', '..', 'v3', '@claude-flow', 'cli'), // repo checkout / marketplace clone
   ];
@@ -329,6 +400,8 @@ export function resolveRufloCli() {
       }
     } catch { /* not this layout — try the next */ }
   }
+  const onPath = process.env.RUFLO_PLUGIN_SKIP_PATH_CLI === '1' ? null : findRufloOnPath();
+  if (onPath) return (RUFLO_CLI = onPath);
   return (RUFLO_CLI = { command: 'npx', args: ['@claude-flow/cli@latest'], shell: process.platform === 'win32', source: 'npx' });
 }
 

@@ -9,8 +9,10 @@ import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { existsSync, readFileSync, statSync, openSync, readSync, closeSync } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
+import { ownInstallAncestors } from '../plugins/own-install.js';
+import { checkNativeAddonHeaders } from './doctor-native-addon.js';
 import { execSync, exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { decodeKey, isEncryptionEnabled } from '../encryption/vault.js';
@@ -258,6 +260,75 @@ async function checkStaleSettingsNpx(): Promise<HealthCheck> {
     message: `CRITICAL — runaway \`npx @claude-flow/cli@latest\` commands detected: ${summary}`,
     fix: 'Re-run `npx ruflo init` to migrate (the v3.13.3+ init migrator regenerates these to local-helper form). On macOS this prevents the process-storm / kernel-panic class reported in #2448.',
   };
+}
+
+/**
+ * #3565: report signed critical helpers whose on-disk content no longer
+ * matches the signed manifest. CLI startup heals such files, so this matters
+ * for the paths startup does not heal: `.LOCKED` or `RUFLO_HELPERS_LOCKED`
+ * (auto-restore skipped by design), an unverifiable package manifest, and an
+ * unresolvable package source.
+ */
+export async function checkHelperIntegrity(opts: {
+  cwd?: string;
+  homeDir?: string;
+  sourceDirOverride?: string | null;
+  pubkeyPemOverride?: string;
+} = {}): Promise<HealthCheck> {
+  const name = 'Helper Integrity (#3565)';
+  const { verifyInstalledCriticalHelpers } = await import('../init/helper-integrity.js');
+  const { CRITICAL_HELPERS, findPackageHelpersDir } = await import('../init/helper-refresh.js');
+  const envLocked = /^(1|true|on|yes)$/i.test(String(process.env.RUFLO_HELPERS_LOCKED || ''));
+  const home = opts.homeDir ?? process.env.HOME ?? '';
+  const dirs = [
+    join(opts.cwd ?? process.cwd(), '.claude', 'helpers'),
+    ...(home ? [join(home, '.claude', 'helpers')] : []),
+  ].filter((d, i, a) => a.indexOf(d) === i && existsSync(join(d, 'hook-handler.cjs')));
+  if (dirs.length === 0) {
+    return { name, status: 'pass', message: 'no installed ruflo helpers to verify' };
+  }
+
+  const source = opts.sourceDirOverride === undefined ? findPackageHelpersDir() : opts.sourceDirOverride;
+  if (!source) {
+    return {
+      name, status: 'warn',
+      message: 'cannot verify installed helpers: the package helper source was not found',
+      fix: 'Reinstall @claude-flow/cli',
+    };
+  }
+
+  const tamperedLines: string[] = [];
+  const lockedLines: string[] = [];
+  for (const dir of dirs) {
+    const r = verifyInstalledCriticalHelpers(dir, source, CRITICAL_HELPERS, opts.pubkeyPemOverride);
+    if (r.blocked) {
+      return {
+        name, status: 'fail',
+        message: `cannot verify installed helpers: ${r.blocked}`,
+        fix: 'Reinstall @claude-flow/cli from a trusted source',
+      };
+    }
+    if (r.tampered.length === 0) continue;
+    const line = `${dir}: ${r.tampered.join(', ')}`;
+    if (envLocked || existsSync(join(dir, '.LOCKED'))) lockedLines.push(line);
+    else tamperedLines.push(line);
+  }
+
+  if (tamperedLines.length > 0) {
+    return {
+      name, status: 'fail',
+      message: `critical helpers do not match the signed manifest — ${tamperedLines.join('; ')}`,
+      fix: 'Run any ruflo command to restore verified copies (startup heals them), or `npx ruflo init --force`; then find out what modified them',
+    };
+  }
+  if (lockedLines.length > 0) {
+    return {
+      name, status: 'warn',
+      message: `locally modified helpers (auto-restore disabled by .LOCKED / RUFLO_HELPERS_LOCKED) — ${lockedLines.join('; ')}`,
+      fix: 'Expected if you edit helpers deliberately; otherwise remove .LOCKED and run any ruflo command to restore them',
+    };
+  }
+  return { name, status: 'pass', message: `${dirs.length} helper dir(s) match the signed manifest` };
 }
 
 async function checkDaemonStatus(): Promise<HealthCheck> {
@@ -668,8 +739,20 @@ async function checkNativeAgentDbStructuralIntegrity(dbPath: string): Promise<He
 // memory init creates its schema with sql.js even when native is available.
 // This probe does not verify schema compatibility or cross-process writes;
 // integrity checks and memory store's persistWarning retain their own roles.
+//
+// #3552: `loadBetterSqlite3` is injected as a parameter (default: the real
+// dynamic import) so tests can supply a fake driver directly instead of
+// racing `vi.doMock` against this function's own `import('better-sqlite3')`
+// call, which was reliable in isolation but flaky under the full suite.
+export type MemoryPersistenceDriverDeps = {
+  loadBetterSqlite3?: () => Promise<{ default: any }>;
+};
 
-export async function checkMemoryPersistenceDriver(): Promise<HealthCheck> {
+export async function checkMemoryPersistenceDriver(
+  deps: MemoryPersistenceDriverDeps = {},
+): Promise<HealthCheck> {
+  const loadBetterSqlite3 = deps.loadBetterSqlite3
+    ?? (() => import('better-sqlite3') as Promise<{ default: any }>);
   const NAME = 'Memory Persistence Driver';
   const dbPath = await resolveMemoryDbPath();
   if (!dbPath) {
@@ -690,7 +773,7 @@ export async function checkMemoryPersistenceDriver(): Promise<HealthCheck> {
 
   let Database: any;
   try {
-    Database = ((await import('better-sqlite3')) as any).default;
+    Database = ((await loadBetterSqlite3()) as any).default;
   } catch {
     Database = null;
   }
@@ -2032,27 +2115,18 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // (dev) until we find a directory containing `plugins/ruflo-metaharness/`.
   const candidates: string[] = [];
 
-  // Strategy 1: walk up from this module's own URL — covers npx + global install.
+  // Walk up from this module's own URL — covers npx, global and project-local
+  // installs and monorepo dev. The plugin found here is imported below, so it
+  // must come from this CLI's own install, never from the cwd (the project).
   try {
+    // Bounded at node_modules: a project-local install must not reach the project.
     const selfDir = dirname(fileURLToPath(import.meta.url));
-    let q = selfDir;
-    for (let i = 0; i < 8; i++) {
+    for (const q of ownInstallAncestors(selfDir)) {
       candidates.push(join(q, 'plugins', 'ruflo-metaharness'));
-      q = dirname(q);
     }
   } catch {
-    // import.meta.url unavailable under some bundlers — fall through to cwd walk.
+    // import.meta.url unavailable under some bundlers — the plugin is reported absent.
   }
-
-  // Strategy 2: walk up from cwd — covers monorepo dev (running from a sub-package).
-  let p = process.cwd();
-  for (let i = 0; i < 8; i++) {
-    candidates.push(join(p, 'plugins', 'ruflo-metaharness'));
-    p = dirname(p);
-  }
-
-  // Strategy 3: explicit node_modules path relative to cwd — covers project-local install.
-  candidates.push(join(process.cwd(), 'node_modules', '@claude-flow', 'cli', 'plugins', 'ruflo-metaharness'));
 
   let pluginDir: string | null = null;
   for (const c of candidates) {
@@ -2109,7 +2183,7 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
   // Runtime smoke: import the similarity module and exercise it
   try {
     const modPath = join(pluginDir, 'scripts', '_similarity.mjs');
-    const mod = await import(modPath) as { similarity?: (a: unknown, b: unknown) => { overall?: number } };
+    const mod = await import(pathToFileURL(modPath).href) as { similarity?: (a: unknown, b: unknown) => { overall?: number } };
     if (typeof mod.similarity !== 'function') {
       return {
         name: 'MetaHarness integration (ADR-150)',
@@ -2137,7 +2211,7 @@ async function checkMetaharnessIntegration(): Promise<HealthCheck> {
     // parallelization primitives oia-audit depends on; if they're
     // missing, oia-audit's import fails and the whole pipeline breaks.
     const harnessPath = join(pluginDir, 'scripts', '_harness.mjs');
-    const harnessMod = await import(harnessPath) as {
+    const harnessMod = await import(pathToFileURL(harnessPath).href) as {
       parseMcpScanText?: (s: string) => unknown;
       runHarnessAsync?: (args: string[]) => Promise<unknown>;
       runMetaharnessAsync?: (args: string[]) => Promise<unknown>;
@@ -2292,6 +2366,27 @@ async function checkMetaharness(): Promise<HealthCheck> {
       fix: 'npm install --include=optional  # to enable the metaharness optional dep',
     };
   }
+}
+
+// ADR-404 — ruflo as a Claude Code mod (function hooks, early access). One
+// line in a bare `doctor`: whether the mod is enabled, can load (function
+// hooks on, not refused by allowManagedModsOnly) and has started. Only an
+// opted-in project whose plugin Claude Code cannot resolve (stale ruflo
+// marketplace clone, nothing installed) fails: the classic hooks still run,
+// but the opt-in silently does nothing. `ruflo mods doctor` prints every finding.
+async function checkMods(): Promise<HealthCheck> {
+  const { probeMods } = await import('../mods/probe.js');
+  const findings = probeMods({ projectRoot: process.cwd() });
+  const enabled = findings.find((f) => f.name === 'ruflo-mods plugin')?.status === 'pass';
+  if (!enabled) return { name: 'ruflo mods (ADR-404)', status: 'pass', message: 'not enabled; classic hooks handle every event' };
+  const failures = findings.filter((f) => f.status === 'fail');
+  if (failures.length > 0) {
+    return { name: 'ruflo mods (ADR-404)', status: 'fail', message: failures.map((f) => `${f.name}: ${f.message}`).join('; '), fix: failures[0]!.fix ?? 'ruflo mods doctor' };
+  }
+  const warnings = findings.filter((f) => f.status !== 'pass');
+  return warnings.length === 0
+    ? { name: 'ruflo mods (ADR-404)', status: 'pass', message: findings.find((f) => f.name === 'last mod start')?.message ?? 'enabled' }
+    : { name: 'ruflo mods (ADR-404)', status: 'warn', message: warnings.map((f) => `${f.name}: ${f.message}`).join('; '), fix: 'ruflo mods doctor' };
 }
 
 // Opt-in @ruvector/typesafe task router (optional peer). `--component typesafe` only.
@@ -2503,7 +2598,7 @@ export const doctorCommand: Command = {
     {
       name: 'component',
       short: 'c',
-      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, mcp-overhead, claude, browser, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, typesafe, metaharness)',
+      description: 'Check specific component (version, node, npm, config, daemon, memory, api, git, mcp, mcp-overhead, claude, browser, disk, typescript, agentic-flow, encryption, federation, funnel, proxy, auth, typesafe, mods, metaharness)',
       type: 'string'
     },
     {
@@ -2543,6 +2638,68 @@ export const doctorCommand: Command = {
     const verbose = ctx.flags.verbose as boolean;
     // Parser camelCases kebab-case flag names — read via `fixHandles`, not `['fix-handles']`.
     const fixHandles = ctx.flags.fixHandles as boolean;
+
+    // #2677: `--component memory` now runs the whole memory-health suite,
+    // not just the existence check. Values can be a single check or an
+    // array — expanded at execution time. Stuinfla's report showed the
+    // existence-only check reporting PASS on a 99.97%-empty and even a
+    // SQLite-malformed DB; the array here layers integrity → content →
+    // embedding coverage over the existing existence probe; check 6 then
+    // verifies that distilled episodes are actually Reflexion-retrievable and
+    // execution feedback carries a lesson.
+    const componentMap: Record<string, (() => Promise<HealthCheck>) | Array<() => Promise<HealthCheck>>> = {
+      'version': checkVersionFreshness,
+      'freshness': checkVersionFreshness,
+      'node': checkNodeVersion,
+      'npm': checkNpmVersion,
+      'claude': checkClaudeCode,
+      'browser': checkAgentBrowserVersion,
+      'config': checkConfigFile,
+      'stale-settings': checkStaleSettingsNpx, // #2448
+      'helpers': () => checkHelperIntegrity(), // #3565
+      'daemon': checkDaemonStatus,
+      get memory() { return [
+        checkMemoryDatabase,         // existing: exists + statable (unchanged)
+        checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
+        ...nativeAgentDbChecks,       // #3195: present AgentDB authority, checked independently
+        checkMemoryPersistenceDriver, // #2968/#3321: read-only native capability probe
+        checkMemoryPackageVersion,   // #3392: loaded memory package satisfies the declared range
+        checkMemoryContent,          // #2677 check 2: memory_entries content coverage
+        checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
+        checkMemoryReflexionCoverage, // #2677 check 6: episodes are retrievable
+        checkMemoryCritiqueCoverage,  // #2677 check 6: feedback carries lessons
+      ]; },
+      'memory-package': checkMemoryPackageVersion, // #3392
+      'native-addon': () => checkNativeAddonHeaders(), // #4055
+      'learning': checkLearningBridge, // #2545
+      'learning-bridge': checkLearningBridge, // #2545
+      'api': checkApiKeys,
+      'git': checkGit,
+      'mcp': checkMcpServers,
+      'mcp-overhead': checkMcpSchemaOverhead,
+      'aidefence': checkAIDefence, // #1807
+      'disk': checkDiskSpace,
+      'typescript': checkBuildTools,
+      'agentic-flow': checkAgenticFlow,
+      'encryption': checkEncryptionAtRest, // ADR-096 Phase 5
+      'federation': checkFederationBreaker, // ADR-097 Phase 4
+      'metaharness': [checkMetaharness, checkMetaharnessDeclaredPackages, checkMetaharnessIntegration], // ADR-150 — upstream + declared deps + ruflo-side
+      'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
+      'funnel': checkFunnel, // ADR-305
+      // ADR-307 — deep-dive array, same pattern as 'memory' above: the cheap
+      // sponsored-consent check first, then binary/process/bind in the order
+      // a user would actually debug them (is it installed? running? exposed?).
+      'proxy': [checkProxySponsoredConsent, checkProxyBinary, checkProxyProcess, checkProxyBindAddress],
+      'auth': checkAuth, // ADR-306
+      'typesafe': checkTypesafeRouter, // opt-in @ruvector/typesafe task router
+      'mods': checkMods, // ADR-404 — ruflo as a Claude Code mod
+    };
+
+    if (component !== undefined && !Object.hasOwn(componentMap, component)) {
+      const message = `Unknown doctor component: ${JSON.stringify(component)}. Valid components: ${Object.keys(componentMap).join(', ')}`;
+      output.printError(message);
+      return { success: false, exitCode: 1, message };
+    }
 
     // Early-return short-circuit: `--fix-handles` is a targeted mitigation, not
     // part of the health-check flow. Runs, reports, exits.
@@ -2631,6 +2788,7 @@ export const doctorCommand: Command = {
       checkGitRepo,
       checkConfigFile,
       checkStaleSettingsNpx, // #2448/#2677 — runaway `npx @latest` in settings
+      () => checkHelperIntegrity(), // #3565 — installed signed helpers vs manifest
       checkDaemonStatus,
       checkMemoryDatabase,
       checkMemoryStructuralIntegrity, // #2737 — bounded, native quick_check on every default run
@@ -2638,6 +2796,7 @@ export const doctorCommand: Command = {
       checkMemoryPersistenceDriver, // #2968/#3321 — read-only native capability probe
       checkLearningBridge, // #2545 — can the auto-memory hook actually load @claude-flow/memory?
       checkMemoryPackageVersion, // #3392 — loaded @claude-flow/memory must satisfy the CLI's declared range
+      () => checkNativeAddonHeaders(), // #4055 — better-sqlite3 built against Node 24.19+ headers on 24.19-24.21
       checkApiKeys,
       checkMcpServers,
       checkMcpSchemaOverhead, // #2726 — fixed tools/list prompt cost
@@ -2653,63 +2812,11 @@ export const doctorCommand: Command = {
       checkFunnel, // ADR-305 — effective funnel state + deciding precedence source
       checkProxySponsoredConsent, // ADR-313 — Meta LLM Proxy sponsored-downtime health
       checkAuth, // ADR-306 — Cognitum identity (warn-only; never fails bare `ruflo doctor`)
+      checkMods, // ADR-404 — Claude Code mod path (warn-only)
     ];
 
-    // #2677: `--component memory` now runs the whole memory-health suite,
-    // not just the existence check. Values can be a single check or an
-    // array — expanded at execution time. Stuinfla's report showed the
-    // existence-only check reporting PASS on a 99.97%-empty and even a
-    // SQLite-malformed DB; the array here layers integrity → content →
-    // embedding coverage over the existing existence probe; check 6 then
-    // verifies that distilled episodes are actually Reflexion-retrievable and
-    // execution feedback carries a lesson.
-    const componentMap: Record<string, (() => Promise<HealthCheck>) | Array<() => Promise<HealthCheck>>> = {
-      'version': checkVersionFreshness,
-      'freshness': checkVersionFreshness,
-      'node': checkNodeVersion,
-      'npm': checkNpmVersion,
-      'claude': checkClaudeCode,
-      'browser': checkAgentBrowserVersion,
-      'config': checkConfigFile,
-      'stale-settings': checkStaleSettingsNpx, // #2448
-      'daemon': checkDaemonStatus,
-      'memory': [
-        checkMemoryDatabase,         // existing: exists + statable (unchanged)
-        checkMemoryIntegrity,        // #2677 check 1: sql.js open + PRAGMA integrity_check
-        ...nativeAgentDbChecks,       // #3195: present AgentDB authority, checked independently
-        checkMemoryPersistenceDriver, // #2968/#3321: read-only native capability probe
-        checkMemoryPackageVersion,   // #3392: loaded memory package satisfies the declared range
-        checkMemoryContent,          // #2677 check 2: memory_entries content coverage
-        checkMemoryEmbeddingCoverage, // #2677 check 3: vector coverage on populated rows
-        checkMemoryReflexionCoverage, // #2677 check 6: episodes are retrievable
-        checkMemoryCritiqueCoverage,  // #2677 check 6: feedback carries lessons
-      ],
-      'memory-package': checkMemoryPackageVersion, // #3392
-      'learning': checkLearningBridge, // #2545
-      'learning-bridge': checkLearningBridge, // #2545
-      'api': checkApiKeys,
-      'git': checkGit,
-      'mcp': checkMcpServers,
-      'mcp-overhead': checkMcpSchemaOverhead,
-      'aidefence': checkAIDefence, // #1807
-      'disk': checkDiskSpace,
-      'typescript': checkBuildTools,
-      'agentic-flow': checkAgenticFlow,
-      'encryption': checkEncryptionAtRest, // ADR-096 Phase 5
-      'federation': checkFederationBreaker, // ADR-097 Phase 4
-      'metaharness': [checkMetaharness, checkMetaharnessDeclaredPackages, checkMetaharnessIntegration], // ADR-150 — upstream + declared deps + ruflo-side
-      'metaharness-integration': checkMetaharnessIntegration, // iter 45 — ruflo-side
-      'funnel': checkFunnel, // ADR-305
-      // ADR-307 — deep-dive array, same pattern as 'memory' above: the cheap
-      // sponsored-consent check first, then binary/process/bind in the order
-      // a user would actually debug them (is it installed? running? exposed?).
-      'proxy': [checkProxySponsoredConsent, checkProxyBinary, checkProxyProcess, checkProxyBindAddress],
-      'auth': checkAuth, // ADR-306
-      'typesafe': checkTypesafeRouter, // opt-in @ruvector/typesafe task router
-    };
-
     let checksToRun = allChecks;
-    if (component && componentMap[component]) {
+    if (component !== undefined) {
       const entry = componentMap[component];
       checksToRun = Array.isArray(entry) ? entry : [entry];
     }

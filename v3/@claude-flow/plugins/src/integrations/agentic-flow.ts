@@ -32,9 +32,11 @@ async function loadAgenticFlow(): Promise<boolean> {
   try {
     // Use dynamic string to bypass TypeScript module resolution
     const corePath = 'agentic-flow/core';
-    const agentsPath = 'agentic-flow';
     agenticFlowCore = await import(/* @vite-ignore */ corePath);
-    agenticFlowAgents = await import(/* @vite-ignore */ agentsPath);
+    // Never import the agentic-flow root entry: 3.0.0-alpha.x (and 2.0.0-alpha
+    // through 2.0.7) run their CLI main() on import. No published root has ever
+    // exported handleMCPCommand, so agenticFlowAgents stays null.
+    agenticFlowAgents = null;
     return true;
   } catch {
     // agentic-flow not available - use fallback implementations

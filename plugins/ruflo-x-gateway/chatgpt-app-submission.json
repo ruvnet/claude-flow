@@ -16,115 +16,115 @@
       },
       "justifications": {
         "read_only_justification": "Only returns the gateway's public identity and relay metadata without changing any state.",
-        "open_world_justification": "Reads identity information from the private federation service and does not affect public internet state.",
+        "open_world_justification": "Returns fixed gateway configuration and performs no request to any external entity.",
         "destructive_justification": "Does not delete, overwrite, publish, or revoke anything."
       }
     },
     "federation_sync": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only retrieves recent verified coordination messages from the federation relay.",
-        "open_world_justification": "Reads from the membership-gated federation and does not change public or third-party systems.",
+        "open_world_justification": "Reads messages whose publishers, message types, and content are chosen by independent members of the multi-owner federation relay.",
         "destructive_justification": "Does not modify or remove relay messages or federation state."
       }
     },
     "claims_status": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only reads current work-claim ownership and expiration status from the relay ledger.",
-        "open_world_justification": "Reads bounded claim data from the private federation and does not affect outside systems.",
+        "open_world_justification": "Reads resource identifiers and claim events created by independent members of the multi-owner federation relay.",
         "destructive_justification": "Does not issue, extend, release, or otherwise change a work claim."
       }
     },
     "federation_join": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Publishes a new signed PeerHello event using the gateway identity.",
-        "open_world_justification": "Writes only to the membership-gated federation relay rather than a public internet destination.",
+        "open_world_justification": "Publishes to a multi-owner federation relay where independent external members can receive and respond to the event.",
         "destructive_justification": "The signed presence event is an irreversible append-only message that cannot be retracted."
       }
     },
     "federation_publish": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Publishes a new signed coordination event using the gateway identity.",
-        "open_world_justification": "Publishes only within the membership-gated federation relay, not to the public internet.",
+        "open_world_justification": "Publishes to a multi-owner federation relay where independent external members can receive and act on the message.",
         "destructive_justification": "The signed coordination message is append-only and cannot be edited or retracted after publication."
       }
     },
     "claims_issue": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Creates or extends a gateway-owned work claim on the federation ledger.",
-        "open_world_justification": "Changes only bounded claim state inside the membership-gated federation.",
+        "open_world_justification": "Creates or extends a claim for a caller-selected resource identifier in a ledger shared with independent federation members.",
         "destructive_justification": "Reserves a resource temporarily and the claim can be released or allowed to expire."
       }
     },
     "claims_release": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Removes a gateway-owned work claim from the federation ledger.",
-        "open_world_justification": "Changes only bounded claim state inside the membership-gated federation.",
+        "open_world_justification": "Releases a claim in a ledger shared with independent federation members, allowing another member to claim the resource.",
         "destructive_justification": "Releases ownership immediately so another agent can claim the resource, and the prior grant is not restored automatically."
       }
     },
     "channel_list": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only lists discovered and configured federation channels without changing them.",
-        "open_world_justification": "Reads a bounded directory from the federation service and does not affect public systems.",
+        "open_world_justification": "Discovers channels and publisher activity created by independent members of the multi-owner federation relay.",
         "destructive_justification": "Does not create, rename, publish to, or remove channels."
       }
     },
     "channel_sync": {
       "annotations": {
         "readOnlyHint": true,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": false
       },
       "justifications": {
         "read_only_justification": "Only retrieves recent messages for a selected federation channel.",
-        "open_world_justification": "Reads channel data from the bounded federation service and does not change outside systems.",
+        "open_world_justification": "Reads messages whose publishers and content are controlled by independent members of the selected federation channel.",
         "destructive_justification": "Does not publish, edit, decrypt, or remove channel messages."
       }
     },
     "channel_publish": {
       "annotations": {
         "readOnlyHint": false,
-        "openWorldHint": false,
+        "openWorldHint": true,
         "destructiveHint": true
       },
       "justifications": {
         "read_only_justification": "Publishes a new signed message to a public federation channel using the gateway identity.",
-        "open_world_justification": "Writes only to a federation-controlled public channel rather than a general public internet service.",
+        "open_world_justification": "Publishes to a public federation channel visible to independent external members of the multi-owner relay.",
         "destructive_justification": "The channel message is append-only and cannot be deleted or retracted after publication."
       }
     },

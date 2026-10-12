@@ -260,3 +260,15 @@ bash plugins/ruflo-ruvector/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445, pattern of `ruflo-agentdb`). It loads from `hooks/hooks.json` → `hooks/register.ts`.
+
+A write guard for the vector store and shared brain: `hooks_remember`, `hooks_compress_store`, `hooks_learn`, `rvf_ingest`, `brain_share`, `brain_transfer` and `memory_store` refuse secrets (a shared brain is the worst place for one). Calls to any tool of the `ruvector` MCP server are counted.
+
+- **Command**: `/ruvector-mod` answers locally with no model call. Verbs: `status`, `scan <text>`, `tools` (which ruvector tools are connected).
+- **Status file**: `.claude-flow/ruvector-mod/status.json` (`{version, updatedMs, ...counters}`), written at session start and as counters change.
+- **Safety**: no network, no process spawning; it only uses tools already connected.
+- **Option** `guard` (`on` by default, `off` to disable): a tighten-only `tool.call` guard. A call to one of the tools above whose input holds a key, token, private key or password is denied. The reason never repeats the secret.
+- **Test**: `claude plugin validate plugins/ruflo-ruvector`, `claude plugin test plugins/ruflo-ruvector`, `bash plugins/ruflo-ruvector/scripts/smoke.sh`.

@@ -5,7 +5,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig } from '../services/worker-daemon.js';
+import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig, parseEnabledWorkers } from '../services/worker-daemon.js';
 import { resolveDaemonProjectRoot } from '../services/daemon-autostart.js';
 import { spawn, execFile, fork } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -13,12 +13,16 @@ import { dirname, join, resolve, isAbsolute } from 'path';
 import { homedir } from 'os';
 import * as fs from 'fs';
 
+// Syntax guard for worker-name flags forwarded to a background child.
+// The start action validates the names against the daemon's supported workers.
+const WORKERS_RE = /^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$/;
+
 // Start daemon subcommand
 const startCommand: Command = {
   name: 'start',
   description: 'Start the worker daemon with all enabled background workers',
   options: [
-    { name: 'workers', short: 'w', type: 'string', description: 'Comma-separated list of workers to enable (default: map,audit,optimize,consolidate,testgaps)' },
+    { name: 'workers', short: 'w', type: 'string', description: 'Comma-separated list of workers to enable (default: saved selection or map,audit,optimize,consolidate,testgaps,backup,harness)' },
     // ADR-174 M3: consolidate now runs a real memory-distillation pass
     // (memory_entries -> episodes/reasoning_patterns/causal_edges) instead of
     // a no-op stub. This opt-out skips just that pass for the life of this
@@ -122,6 +126,15 @@ const startCommand: Command = {
         config.ttlMs = parseInt(rawTtl, 10) * 1000;
       } else if (!quiet) {
         output.printWarning(`Ignoring invalid --ttl value: ${sanitize(rawTtl)}`);
+      }
+    }
+
+    if (ctx.flags.workers !== undefined) {
+      try {
+        config.enabledWorkers = parseEnabledWorkers(ctx.flags.workers as string);
+      } catch (error) {
+        if (!quiet) output.printError((error as Error).message);
+        return { success: false, exitCode: 1 };
       }
     }
 
@@ -532,7 +545,6 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwar
   // through — argv goes straight to a forked process so reject anything
   // that doesn't look like a comma-separated worker-name list or one of
   // the allowed sandbox modes.
-  const WORKERS_RE = /^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$/;
   if (typeof workers === 'string' && workers.length > 0 && WORKERS_RE.test(workers)) {
     forkArgs.push('--workers', workers);
   }

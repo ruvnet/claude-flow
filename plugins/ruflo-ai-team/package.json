@@ -1,0 +1,22 @@
+{
+  "name": "@ruflo/ai-team-service",
+  "version": "0.1.6",
+  "private": true,
+  "type": "module",
+  "description": "Multi-tenant MCP control plane and Claude plugin for coordinated AI teams.",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.node.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^9.2.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@ruvector/core": "^0.1.32",
+    "jose": "^6.2.12",
+    "zod": "^3.23.0"
+  },
+  "engines": { "node": ">=22" },
+  "license": "MIT"
+}

@@ -16,10 +16,17 @@
  *
  * @module v3/cli/memory-bridge
  */
+import { AppendConditionFailed, assertAppendConditions, validateAppendConditions, type AppendCondition } from './append-conditions.js';
 
+import { liveMemoryRowSql } from './live-memory-row.js';
+import { resolveAgentdbBetterSqlite3 } from './shared-sqlite.js';
+import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS } from './embedding-q8.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { validateFeedbackPatterns } from './feedback-patterns.js';
 
 // ===== Lazy registry cache, keyed by database path =====
 
@@ -40,6 +47,32 @@ import { createRequire } from 'node:module';
  */
 const registryPromises = new Map<string, Promise<any>>();
 const registryInstances = new Map<string, any>();
+// One lease spans an entire bridge operation, including its awaited controller
+// effects and nested bridge calls. Initializer ownership alone is insufficient:
+// a ReasoningBank write can still be pending after its registry has opened.
+const operationContext = new AsyncLocalStorage<{ active: boolean }>();
+let activeOperations = 0;
+let drained: (() => void) | null = null;
+let shutdownPromise: Promise<void> | null = null;
+
+async function withBridgeOperation<T>(operation: () => Promise<T>): Promise<T> {
+  if (operationContext.getStore()?.active) return operation();
+  // New calls belong to the next lifecycle once retirement starts. A loop
+  // also handles another shutdown requested before a queued call resumes.
+  while (shutdownPromise) await shutdownPromise;
+  const lease = { active: true };
+  activeOperations++;
+  try {
+    return await operationContext.run(lease, operation);
+  } finally {
+    lease.active = false;
+    if (--activeOperations === 0) {
+      drained?.();
+      drained = null;
+    }
+  }
+}
+
 /**
  * Test seam: when set, every path resolves to this registry.
  *
@@ -49,22 +82,34 @@ const registryInstances = new Map<string, any>();
  * pass the same path the seam guessed, which is how #2968's fixture broke.
  */
 let testRegistryOverride: any = null;
-let bridgeAvailable: boolean | null = null;
+let testRegistryFactory: (() => any) | null = null;
 // #2652/#2120: rows created before the status column existed receive NULL
 // during migration. They are live rows, not tombstones. Every user-facing
 // read/delete path must agree with list() about their visibility.
 const ACTIVE_MEMORY_ROW_SQL = `(status = 'active' OR status IS NULL)`;
 /**
- * Why the bridge is unavailable, when it is.
- *
- * `bridgeAvailable = false` latches for the life of the process, so a single
- * transient init failure (a slow Xenova/ONNX fetch, a locked db) routes every
- * later write to the sql.js whole-image fallback — which then refuses whenever
- * -wal/-shm sidecars are present. Without this, that refusal is the only
- * symptom the caller ever sees, and it names a cause ("restore the native
- * better-sqlite3 bridge") the caller has no way to check.
+ * A failed open must only affect its own database. A process can serve several
+ * projects, and an error from one must not disable the native bridge for all.
  */
-let bridgeFailureReason: string | null = null;
+const bridgeFailureReasons = new Map<string, string>();
+
+/** Resolve aliases even when the database file or some parent dirs do not exist yet. */
+function canonicalDbPath(dbPath?: string): string {
+  const resolved = dbPath === ':memory:' ? ':memory:' : path.resolve(dbPath ?? getAgentDbPath());
+  if (resolved === ':memory:') return resolved;
+  let ancestor = resolved;
+  const suffix: string[] = [];
+  for (;;) {
+    try {
+      return path.join(realpathSync(ancestor), ...suffix);
+    } catch {
+      const parent = path.dirname(ancestor);
+      if (parent === ancestor) return resolved;
+      suffix.unshift(path.basename(ancestor));
+      ancestor = parent;
+    }
+  }
+}
 
 /**
  * #3024: AgentDB's optional native controller stack can abort the whole Node
@@ -197,19 +242,12 @@ export function shouldSuppressInitLog(msg: string): boolean {
  * Returns null if @claude-flow/memory is not available.
  */
 async function getRegistry(dbPath?: string): Promise<any | null> {
-  if (shouldDisableNativeBridge()) {
-    bridgeFailureReason = process.platform === 'win32'
-      ? 'AgentDB native bridge disabled on Windows after #3024; set CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS=1 to opt in'
-      : 'AgentDB native bridge disabled by CLAUDE_FLOW_DISABLE_BRIDGE=1';
-    return null;
-  }
+  if (shouldDisableNativeBridge()) return null;
   if (testRegistryOverride) return testRegistryOverride;
-  if (bridgeAvailable === false) return null;
 
-  // Resolve first, then cache on the resolved value: `undefined`, a relative
-  // path and its absolute form must not become three different registries over
-  // the same file.
-  const resolvedPath = dbPath ? path.resolve(dbPath) : getAgentDbPath();
+  // Resolve before caching: relative, absolute and symlink paths to one file
+  // must not open multiple native handles to the same database.
+  const resolvedPath = canonicalDbPath(dbPath);
 
   const cached = registryInstances.get(resolvedPath);
   if (cached) return cached;
@@ -217,9 +255,11 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
   let registryPromise = registryPromises.get(resolvedPath);
   if (!registryPromise) {
     registryPromise = (async () => {
+      let registry: any;
       try {
-        const { ControllerRegistry } = await import('@claude-flow/memory');
-        const registry = new ControllerRegistry();
+        registry = testRegistryFactory
+          ? testRegistryFactory()
+          : new (await import('@claude-flow/memory')).ControllerRegistry();
 
         // Suppress noisy console.log during init — but never suppress a
         // DEGRADATION notice (see shouldSuppressInitLog).
@@ -293,11 +333,13 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
             try { agentdb = (await import('agentdb')) as unknown as Record<string, unknown>; }
             catch { return; /* AgentDB not available */ }
 
-            // SkillLibrary (no db required)
+            // SkillLibrary requires the same database and passage embedder as AgentDB.
             try {
-              const SkillCtor = agentdb.SkillLibrary as (new () => unknown) | undefined;
-              if (SkillCtor && !reg.get('skills')) {
-                const sk = new SkillCtor();
+              const SkillCtor = agentdb.SkillLibrary as (new (db: unknown, embedder: unknown) => unknown) | undefined;
+              const backing = reg.getAgentDB?.();
+              if (SkillCtor && !reg.get('skills') && backing?.database
+                && typeof backing.embedder?.embedPassage === 'function') {
+                const sk = new SkillCtor(backing.database, backing.embedder);
                 if (typeof reg.set === 'function') reg.set('skills', sk);
                 else reg._controllers = { ...(reg._controllers || {}), skills: sk };
               }
@@ -392,7 +434,8 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
                   try {
                     const attestationFile = path.join(adbDir, 'dist/src/security/AttestationLog.js');
                     if (fs.existsSync(attestationFile)) {
-                      const Database = (cjsRequire('better-sqlite3') as unknown) as new (p: string) => unknown;
+                      // #3693: same better-sqlite3 copy AgentDB uses, so closing this handle cannot disturb its WAL.
+                      const Database = ((resolveAgentdbBetterSqlite3() ?? cjsRequire('better-sqlite3')) as unknown) as new (p: string) => unknown;
                       const swarmDir = path.resolve(process.cwd(), '.swarm');
                       if (!fs.existsSync(swarmDir)) fs.mkdirSync(swarmDir, { recursive: true });
                       const dbPath = path.join(swarmDir, 'attestation.db');
@@ -453,16 +496,14 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         }
 
         registryInstances.set(resolvedPath, registry);
-        bridgeAvailable = true;
-        bridgeFailureReason = null;
+        bridgeFailureReasons.delete(resolvedPath);
         return registry;
       } catch (err) {
-        // Record WHY. This latches for the process lifetime (see the
-        // bridgeFailureReason doc comment), so discarding the error here
-        // makes the resulting sql.js-fallback refusal undiagnosable.
-        bridgeFailureReason = err instanceof Error ? err.message : String(err);
-        bridgeAvailable = false;
-        registryPromises.delete(resolvedPath);
+        // initialize() may have opened a native handle before it failed.
+        try { await registry?.shutdown(); } catch { /* best-effort cleanup */ }
+        // Keep the failed promise for this path only. Other databases can
+        // still initialize; shutdownBridge() clears the latch for a retry.
+        bridgeFailureReasons.set(resolvedPath, err instanceof Error ? err.message : String(err));
         return null;
       }
     })();
@@ -477,8 +518,13 @@ export function _resetRegistryCacheForTest(): void {
   registryPromises.clear();
   registryInstances.clear();
   testRegistryOverride = null;
-  bridgeAvailable = null;
-  bridgeFailureReason = null;
+  testRegistryFactory = null;
+  bridgeFailureReasons.clear();
+}
+
+/** Inject registry construction without requiring the optional native package in tests. */
+export function __setMemoryBridgeRegistryFactoryForTests(factory: (() => any) | null): void {
+  testRegistryFactory = factory;
 }
 
 /** #3196: the sibling store AgentDB owns next to a given sql.js database. */
@@ -558,6 +604,12 @@ function computeTermDocFreqs(
 }
 
 // ===== Phase 2: TieredCache helpers =====
+
+/** Preserve the exact namespace/key tuple; punctuation is valid memory data. */
+function entryCacheKey(namespace: string, key: string): string {
+  return `entry:${JSON.stringify([namespace, key])}`;
+}
+
 
 /**
  * Try to read from TieredCache before hitting DB.
@@ -782,6 +834,13 @@ export function ensureBridgeSchema(db: { exec: (sql: string) => unknown }): bool
         throw err;
       }
     }
+    // Reads now enforce TTL, including on stores created before expires_at
+    // existed. A missing expiration means the legacy row does not expire.
+    try {
+      db.exec('ALTER TABLE memory_entries ADD COLUMN expires_at INTEGER');
+    } catch (error) {
+      if (!/duplicate column name:\s*expires_at/i.test(error instanceof Error ? error.message : String(error))) throw error;
+    }
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_ns ON memory_entries(namespace)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_key ON memory_entries(key)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_bridge_status ON memory_entries(status)`);
@@ -903,6 +962,17 @@ async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown;
   _embedderPatched = true;
 }
 
+/** AgentDB uses a null pipeline while its transformer failed and it serves mock vectors. */
+function isMockAgentdbEmbedder(embedder: {
+  isMock?: boolean;
+  backend?: string;
+  pipeline?: unknown;
+  __ruvectorRescued?: boolean;
+} | null | undefined): boolean {
+  return embedder?.isMock === true || embedder?.backend === 'mock'
+    || (embedder?.pipeline === null && embedder.__ruvectorRescued !== true);
+}
+
 /**
  * #3325: embed text for a bridge row or query.
  *
@@ -914,14 +984,16 @@ async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown;
  * were a bare `catch {}` that stored embedding=NULL and reported nothing.
  */
 async function embedForBridge(
-  agentdb: { embedder?: { embed?: (t: string) => Promise<ArrayLike<number> | null | undefined>; isMock?: boolean; backend?: string } } | null | undefined,
+  agentdb: { embedder?: { embed?: (t: string) => Promise<ArrayLike<number> | null | undefined>; isMock?: boolean; backend?: string; pipeline?: unknown; __ruvectorRescued?: boolean } } | null | undefined,
   text: string,
 ): Promise<{ vector: number[]; model: string } | { vector: null; reason: string }> {
   let agentdbProblem: string;
   const embedder = agentdb?.embedder;
   // Same mock signal bridgeGenerateEmbedding honours (AUDIT #3): the rescue
   // tags a degraded embedder backend='mock' when it cannot replace it.
-  const agentdbIsMock = embedder?.isMock === true || embedder?.backend === 'mock';
+  // The rescue launched by getDb() is fire-and-forget. Do not persist mock
+  // vectors during that window just because they happen to be 384-dimension.
+  const agentdbIsMock = isMockAgentdbEmbedder(embedder);
   if (agentdbIsMock) {
     agentdbProblem = 'agentdb embedder is serving mock vectors';
   } else if (embedder && typeof embedder.embed === 'function') {
@@ -966,6 +1038,9 @@ export async function bridgeStoreEntry(options: {
   ttl?: number;
   dbPath?: string;
   upsert?: boolean;
+  requireNative?: boolean;
+  appendOnly?: boolean;
+  appendConditions?: AppendCondition[];
   /** ADR-323: defaults to 'unknown' when omitted. */
   provenanceType?: string;
 }): Promise<{
@@ -989,6 +1064,7 @@ export async function bridgeStoreEntry(options: {
    *  written without a vector, so semantic search cannot find it. */
   embeddingError?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeStoreEntry(options));
   // ADR-323 — validated once in storeEntry() before this is reached on that
   // path, but bridgeStoreEntry() also has direct internal callers, so check
   // again here rather than trust every call site.
@@ -1006,13 +1082,25 @@ export async function bridgeStoreEntry(options: {
   const ctx = getDb(registry);
   if (!ctx) return null;
 
+  if (options.appendOnly && !options.requireNative) {
+    return { success: false, id: '', error: 'Immutable append requires a native writer' };
+  }
+  if (options.appendConditions && (!options.requireNative || !options.appendOnly)) {
+    return { success: false, id: "", error: "Conditional append requires native append-only storage" };
+  }
+  if (options.requireNative && (ctx.agentdb?.isWasm === true || typeof ctx.db.inTransaction !== 'boolean'
+    || typeof ctx.db.transaction !== 'function' || ctx.db.memory !== false || typeof ctx.db.name !== 'string'
+    || !ctx.db.name || canonicalDbPath(ctx.db.name) !== canonicalDbPath(options.dbPath))) {
+    return { success: false, id: '', error: 'Native memory writer required; refusing non-native bridge driver' };
+  }
+
   try {
     const { key, value, namespace = 'default', tags = [], ttl } = options;
     let provenanceType = options.provenanceType ?? 'unknown';
     // An omitted type on an upsert means "update the value", not "erase the
     // existing trust label". New rows still receive the backward-compatible
     // unknown default.
-    if (options.upsert && options.provenanceType === undefined) {
+    if (options.upsert && !options.appendOnly && options.provenanceType === undefined) {
       try {
         const existing = ctx.db.prepare(
           'SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1'
@@ -1074,7 +1162,12 @@ export async function bridgeStoreEntry(options: {
     //                                       below → typed "already exists"
     //                                       error, NEVER a null demotion).
     // Upsert path (INSERT OR REPLACE) is unchanged.
-    const insertSql = options.upsert
+    const immutableInsertSql = `INSERT INTO memory_entries (
+          id, key, namespace, content, type,
+          embedding, embedding_dimensions, embedding_model,
+          tags, metadata, provenance_type, created_at, updated_at, expires_at, status
+        ) VALUES (?, ?, ?, ?, 'semantic', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`;
+    const insertSql = options.appendOnly ? immutableInsertSql : options.upsert
       ? `INSERT OR REPLACE INTO memory_entries (
           id, key, namespace, content, type,
           embedding, embedding_dimensions, embedding_model,
@@ -1112,7 +1205,7 @@ export async function bridgeStoreEntry(options: {
     } catch { /* vector_indexes may not exist on legacy DBs — fall through */ }
 
     const stmt = ctx.db.prepare(insertSql);
-    const runResult = stmt.run(
+    const insert = () => stmt.run(
       id, key, namespace, value,
       embeddingJson, dimensions || null, model,
       tags.length > 0 ? JSON.stringify(tags) : null,
@@ -1122,10 +1215,30 @@ export async function bridgeStoreEntry(options: {
       ttl ? now + (ttl * 1000) : null
     );
 
+    let runResult;
+    try {
+      runResult = options.appendOnly
+        ? ctx.db.transaction(() => {
+            // Legacy native tables may predate UNIQUE(namespace,key). Serialize the exact
+            // logical-slot check with INSERT, including tombstones, instead of trusting DDL.
+            if (ctx.db.prepare('SELECT key FROM memory_entries WHERE namespace = ? AND key = ?').all(namespace, key).length) {
+              throw new AppendConditionFailed('immutable append rejected: logical key already exists');
+            }
+            if (options.appendConditions) assertAppendConditions(ctx.db, validateAppendConditions(options.appendConditions));
+            return insert();
+          }).immediate()
+        : insert();
+    } catch (error) {
+      if (error instanceof AppendConditionFailed || error instanceof TypeError) {
+        return { success: false, id: '', error: error.message };
+      }
+      throw error;
+    }
+
     // A completed native write proves the bridge is currently healthy. Do not
     // retain a diagnostic from an earlier transient failure and append it to a
     // later, unrelated sql.js fallback refusal.
-    bridgeFailureReason = null;
+    bridgeFailureReasons.delete(canonicalDbPath(options.dbPath));
 
     // #2775: strict insert against an ACTIVE existing row → changes === 0
     // (the ON CONFLICT WHERE clause above suppressed the update). Surface
@@ -1140,9 +1253,11 @@ export async function bridgeStoreEntry(options: {
       };
     }
 
+    // A non-vector immutable INSERT cannot change the vector count, even with concurrent
+    // writers. Unlike historical strict mode, it never resurrects a vector tombstone.
     // #2558: keep `vector_indexes.total_vectors` accurate so status/tooling
     // stop reporting "HNSW index: 0 vectors" while embedded entries exist.
-    try {
+    if (!(options.appendOnly && embeddingJson === null)) try {
       ctx.db
         .prepare(
           `UPDATE vector_indexes SET
@@ -1194,9 +1309,7 @@ export async function bridgeStoreEntry(options: {
     // next `bridgeGetEntry` to load the authoritative row (which correctly
     // parses tags/metadata from the JSON columns) and repopulate the cache
     // from that full shape.
-    const safeNs = String(namespace).replace(/:/g, '_');
-    const safeKey = String(key).replace(/:/g, '_');
-    const cacheKey = `entry:${safeNs}:${safeKey}`;
+    const cacheKey = entryCacheKey(namespace, key);
     await cacheInvalidate(registry, cacheKey);
 
     // Phase 4: AttestationLog write audit
@@ -1236,7 +1349,7 @@ export async function bridgeStoreEntry(options: {
     // whose WAL-sidecar guard then reports a cause that has nothing to do with
     // what actually went wrong here. Record the real error so it can be
     // surfaced alongside that guard's message.
-    bridgeFailureReason = msg;
+    bridgeFailureReasons.set(canonicalDbPath(options.dbPath), msg);
     return null;
   }
 }
@@ -1272,6 +1385,7 @@ export async function bridgeSearchEntries(options: {
   searchMethod?: string;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSearchEntries(options));
   if (options.provenanceFilter?.length) {
     const invalid = options.provenanceFilter.filter(p => !isValidProvenanceType(p));
     if (invalid.length > 0) return null; // caller (searchEntries) demotes to sql.js, which returns a typed error
@@ -1318,7 +1432,7 @@ export async function bridgeSearchEntries(options: {
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding, provenance_type
         FROM memory_entries
-        WHERE ${ACTIVE_MEMORY_ROW_SQL} ${whereExtra}
+        WHERE ${liveMemoryRowSql()} ${whereExtra}
         ORDER BY updated_at DESC
         LIMIT 1000
       `);
@@ -1427,6 +1541,10 @@ export async function bridgeListEntries(options: {
   includeContent?: boolean;
   /** ADR-323: restrict rows to these provenance types. */
   provenanceFilter?: string[];
+  /** ADR-472: include each entry's embedding as int8+scale (`embeddingQ8`); at most MAX_LIST_EMBEDDINGS rows. */
+  includeEmbedding?: boolean;
+  /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only. */
+  includeExpired?: boolean;
 }): Promise<{
   success: boolean;
   entries: {
@@ -1437,14 +1555,18 @@ export async function bridgeListEntries(options: {
     accessCount: number;
     createdAt: string;
     updatedAt: string;
+    /** #4056: epoch ms the row expires at; null when it never does. */
+    expiresAt?: number | null;
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
     provenanceType?: string;
+    embeddingQ8?: { dims: number; scale: number; b64: string };
   }[];
   total: number;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeListEntries(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -1475,7 +1597,7 @@ export async function bridgeListEntries(options: {
     // the `status = 'active'` filter matched zero. Treat NULL as
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
-    const statusFilter = ACTIVE_MEMORY_ROW_SQL;
+    const statusFilter = liveMemoryRowSql({ includeExpired: options.includeExpired });
 
     // Count
     let total = 0;
@@ -1493,13 +1615,13 @@ export async function bridgeListEntries(options: {
     const entries: any[] = [];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
         FROM memory_entries
         WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-      const rows = stmt.all(...filterParams, limit, offset);
+      const rows = stmt.all(...filterParams, options.includeEmbedding ? Math.min(limit, MAX_LIST_EMBEDDINGS) : limit, offset);
       for (const row of rows) {
         const entry: Record<string, unknown> = {
           // #2073: don't truncate id when content is requested — callers
@@ -1511,11 +1633,16 @@ export async function bridgeListEntries(options: {
           accessCount: row.access_count ?? 0,
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
+          expiresAt: row.expires_at ?? null,
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
           provenanceType: row.provenance_type || 'unknown',
         };
         if (options.includeContent) {
           entry.content = row.content || '';
+        }
+        if (options.includeEmbedding) {
+          const q8 = encodeEmbeddingQ8(row.embedding);
+          if (q8) entry.embeddingQ8 = q8;
         }
         entries.push(entry);
       }
@@ -1554,6 +1681,7 @@ export async function bridgeGetEntry(options: {
   cacheHit?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeGetEntry(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -1564,12 +1692,10 @@ export async function bridgeGetEntry(options: {
     const { key, namespace = 'default' } = options;
 
     // Phase 2: Check TieredCache first
-    const safeNs = String(namespace).replace(/:/g, '_');
-    const safeKey = String(key).replace(/:/g, '_');
-    const cacheKey = `entry:${safeNs}:${safeKey}`;
+    const cacheKey = entryCacheKey(namespace, key);
     dropCacheIfDbChangedElsewhere(registry, ctx);
     const cached = await cacheGet(registry, cacheKey);
-    if (cached && cached.content) {
+    if (cached && cached.content && (cached.expiresAt == null || cached.expiresAt > Date.now())) {
       return {
         success: true,
         found: true,
@@ -1594,9 +1720,9 @@ export async function bridgeGetEntry(options: {
     let row: any;
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags, expires_at
         FROM memory_entries
-        WHERE ${ACTIVE_MEMORY_ROW_SQL} AND key = ? AND namespace = ?
+        WHERE ${liveMemoryRowSql()} AND key = ? AND namespace = ?
         LIMIT 1
       `);
       row = stmt.get(key, namespace);
@@ -1635,7 +1761,7 @@ export async function bridgeGetEntry(options: {
     };
 
     // Phase 2: Populate cache for next read
-    await cacheSet(registry, cacheKey, entry);
+    await cacheSet(registry, cacheKey, { ...entry, expiresAt: row.expires_at });
 
     return { success: true, found: true, cacheHit: false, entry };
   } catch {
@@ -1660,6 +1786,7 @@ export async function bridgeDeleteEntry(options: {
   guarded?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeDeleteEntry(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -1704,9 +1831,7 @@ export async function bridgeDeleteEntry(options: {
     } catch { /* non-WAL, busy, or unsupported — non-fatal */ }
 
     // Phase 2: Invalidate cache
-    const safeNs = String(namespace).replace(/:/g, '_');
-    const safeKey = String(key).replace(/:/g, '_');
-    await cacheInvalidate(registry, `entry:${safeNs}:${safeKey}`);
+    await cacheInvalidate(registry, entryCacheKey(namespace, key));
 
     // Phase 4: AttestationLog delete audit
     if (changes > 0) {
@@ -1750,6 +1875,7 @@ export async function bridgePurgeNamespace(options: {
   guarded?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgePurgeNamespace(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -1772,8 +1898,13 @@ export async function bridgePurgeNamespace(options: {
       return { success: false, deletedCount: 0, remainingEntries: 0, error: e instanceof Error ? e.message : String(e) };
     }
 
-    const safeNs = String(namespace).replace(/:/g, '_');
-    await cacheInvalidate(registry, `namespace:${safeNs}`);
+    // Entries are cached individually, not under a namespace sentinel.
+    // SQLite data_version does not change for writes on this connection, so
+    // the cross-process freshness check cannot invalidate this purge for us.
+    try {
+      const cache = registry.get('tieredCache');
+      if (cache && typeof cache.clear === 'function') await cache.clear();
+    } catch { /* cache cleanup is best-effort */ }
 
     if (deletedCount > 0) {
       await logAttestation(registry, 'purge', namespace, { namespace, deletedCount });
@@ -1808,13 +1939,14 @@ export async function bridgeGenerateEmbedding(
   text: string,
   dbPath?: string,
 ): Promise<{ embedding: number[]; dimensions: number; model: string; backend?: 'onnx' | 'mock' } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeGenerateEmbedding(text, dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
   try {
     const agentdb = registry.getAgentDB();
     const embedder = agentdb?.embedder;
-    if (!embedder) return null;
+    if (!embedder || isMockAgentdbEmbedder(embedder)) return null;
 
     const emb = await embedder.embed(text);
     if (!emb) return null;
@@ -1860,6 +1992,7 @@ export async function bridgeLoadEmbeddingModel(
   modelName: string;
   loadTime?: number;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeLoadEmbeddingModel(dbPath));
   const startTime = Date.now();
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
@@ -1867,7 +2000,7 @@ export async function bridgeLoadEmbeddingModel(
   try {
     const agentdb = registry.getAgentDB();
     const embedder = agentdb?.embedder;
-    if (!embedder) return null;
+    if (!embedder || isMockAgentdbEmbedder(embedder)) return null;
 
     // Verify embedder works by generating a test embedding
     const test = await embedder.embed('test');
@@ -1906,6 +2039,7 @@ export async function bridgeGetVectorSearchStatus(
   dimensions: number;
   algorithm: 'brute-force-cosine';
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeGetVectorSearchStatus(dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -1952,6 +2086,7 @@ export async function bridgeSearchBruteForceCosine(
   score: number;
   namespace: string;
 }> | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSearchBruteForceCosine(queryEmbedding, options, dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -1973,7 +2108,7 @@ export async function bridgeSearchBruteForceCosine(
       const stmt = ctx.db.prepare(`
         SELECT id, key, namespace, content, embedding
         FROM memory_entries
-        WHERE status = 'active' AND embedding IS NOT NULL ${nsFilter}
+        WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL ${nsFilter}
         ORDER BY updated_at DESC
         LIMIT 10000
       `);
@@ -2026,6 +2161,7 @@ export async function bridgeAddEmbedding(
   entry: { id: string; key: string; namespace: string; content: string },
   dbPath?: string,
 ): Promise<boolean | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeAddEmbedding(id, embedding, entry, dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -2069,12 +2205,14 @@ export async function bridgeAddEmbedding(
 
 /**
  * Get a named controller from AgentDB v3 via ControllerRegistry.
+ * This borrowed handle must not be retained across shutdownBridge().
  * Returns null if unavailable.
  */
 export async function bridgeGetController(
   name: string,
   dbPath?: string,
 ): Promise<any | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeGetController(name, dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -2092,6 +2230,7 @@ export async function bridgeHasController(
   name: string,
   dbPath?: string,
 ): Promise<boolean> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeHasController(name, dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return false;
 
@@ -2109,6 +2248,7 @@ export async function bridgeHasController(
 export async function bridgeListControllers(
   dbPath?: string,
 ): Promise<Array<{ name: string; enabled: boolean; level: number }> | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeListControllers(dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -2123,23 +2263,26 @@ export async function bridgeListControllers(
  * Check if the AgentDB v3 bridge is available.
  */
 export async function isBridgeAvailable(dbPath?: string): Promise<boolean> {
-  if (bridgeAvailable !== null) return bridgeAvailable;
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => isBridgeAvailable(dbPath));
   const registry = await getRegistry(dbPath);
   return registry !== null;
 }
 
 /**
  * Get the ControllerRegistry instance (for advanced consumers).
+ * This is a borrowed handle, valid only until shutdownBridge(). Callers must
+ * finish using it before requesting shutdown; bridge operations own their own
+ * leases. Prefer bridgeListControllers() for status inspection.
  */
 export async function getControllerRegistry(dbPath?: string): Promise<any | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => getControllerRegistry(dbPath));
   return getRegistry(dbPath);
 }
 
 /**
  * Why the bridge last declined a write, or null when it has not.
  *
- * Deliberately NOT gated on `bridgeAvailable === false`. A bridge that
- * initialised fine can still fail every write — a schema mismatch throws
+ * A bridge that initialised fine can still fail every write — a schema mismatch throws
  * per-operation while the registry stays healthy — and that case is exactly
  * the one worth reporting, since the caller then demotes to a fallback whose
  * error message describes something else entirely.
@@ -2147,8 +2290,13 @@ export async function getControllerRegistry(dbPath?: string): Promise<any | null
  * Callers that surface a degraded-path error should include this so the
  * operator learns the cause instead of only the symptom.
  */
-export function getBridgeFailureReason(): string | null {
-  return bridgeFailureReason;
+export function getBridgeFailureReason(dbPath?: string): string | null {
+  if (shouldDisableNativeBridge()) {
+    return process.platform === 'win32'
+      ? 'AgentDB native bridge disabled on Windows after #3024; set CLAUDE_FLOW_ENABLE_NATIVE_BRIDGE_ON_WINDOWS=1 to opt in'
+      : 'AgentDB native bridge disabled by CLAUDE_FLOW_DISABLE_BRIDGE=1';
+  }
+  return bridgeFailureReasons.get(canonicalDbPath(dbPath)) ?? null;
 }
 
 /**
@@ -2164,34 +2312,40 @@ export function __setMemoryBridgeRegistryForTests(registry: any | null): void {
   registryPromises.clear();
   registryInstances.clear();
   testRegistryOverride = registry;
-  bridgeAvailable = registry ? true : null;
-  bridgeFailureReason = null;
+  testRegistryFactory = null;
+  bridgeFailureReasons.clear();
 }
 
 /**
  * Shutdown the bridge and release resources.
  *
  * The cached state is cleared unconditionally. Previously the reset lived
- * inside `if (registryInstance)`, so it could not clear a FAILED init — the
- * one state that actually needs clearing, since `registryInstance` is null
- * precisely when init failed. A process that latched `bridgeAvailable = false`
- * therefore had no recovery path short of a restart.
+ * inside `if (registryInstance)`, so it could not clear a FAILED init. This
+ * also clears per-path failed promises, allowing a later retry.
  */
-export async function shutdownBridge(): Promise<void> {
-  // #3196: every cached registry owns an open database handle, so shutting down
-  // one of several would leave the rest holding files open.
-  for (const registry of registryInstances.values()) {
-    try {
-      await registry.shutdown();
-    } catch {
-      // Best-effort
+export function shutdownBridge(): Promise<void> {
+  if (shutdownPromise) return shutdownPromise;
+  // Publish the barrier before any await: no later operation can join the
+  // retiring lifecycle. Concurrent callers share the same retirement promise.
+  shutdownPromise = (async () => {
+    if (activeOperations > 0) await new Promise<void>(resolve => { drained = resolve; });
+    await Promise.allSettled([...registryPromises.values()]);
+    // A failed PERSIST (AGENTDB_LOCK_UNRECOVERABLE: live lock or concurrent
+    // writer on a sql.js database) means pending changes were not saved. That
+    // is surfaced after cleanup completes; other close errors stay best-effort.
+    let persistFailure: unknown;
+    for (const registry of new Set(registryInstances.values())) {
+      try { await registry.shutdown(); } catch (err) {
+        if ((err as { code?: unknown } | null)?.code === 'AGENTDB_LOCK_UNRECOVERABLE') persistFailure ??= err;
+      }
     }
-  }
-  registryInstances.clear();
-  registryPromises.clear();
-  testRegistryOverride = null;
-  bridgeAvailable = null;
-  bridgeFailureReason = null;
+    registryInstances.clear();
+    registryPromises.clear();
+    testRegistryOverride = null;
+    bridgeFailureReasons.clear();
+    if (persistFailure) throw persistFailure;
+  })().finally(() => { shutdownPromise = null; });
+  return shutdownPromise;
 }
 
 // ===== Phase 3: ReasoningBank pattern operations =====
@@ -2206,7 +2360,8 @@ export async function bridgeStorePattern(options: {
   confidence: number;
   metadata?: Record<string, unknown>;
   dbPath?: string;
-}): Promise<{ success: boolean; patternId: string; controller: string; hasEmbedding?: boolean; embeddingError?: string } | null> {
+}): Promise<{ success: boolean; patternId: string; controller: string; hasEmbedding?: boolean; embeddingError?: string; error?: string } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeStorePattern(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -2256,6 +2411,18 @@ export async function bridgeStorePattern(options: {
 
     if (!result) return null;
 
+    // #3691: bridgeStoreEntry reports data-level failures (MutationGuard
+    // rejection, nothing written) as a truthy {success:false}. Do not turn
+    // that into a success receipt — refuse at this boundary.
+    if (!result.success) {
+      return {
+        success: false,
+        patternId: '',
+        controller: 'bridge-fallback',
+        error: result.error ?? 'pattern write was not persisted',
+      };
+    }
+
     // Add to HNSW index for fast semantic search (bridgeStoreEntry stores SQL only)
     if (result.rawEmbedding) {
       try {
@@ -2289,7 +2456,7 @@ export async function bridgeStorePattern(options: {
     // discarded and the caller saw an ordinary fallback, indistinguishable
     // from "no controller registered". Record it so `agentdb_health` and the
     // degraded `reason` can name the real cause instead of guessing.
-    bridgeFailureReason = err instanceof Error ? err.message : String(err);
+    bridgeFailureReasons.set(canonicalDbPath(options.dbPath), err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -2303,6 +2470,7 @@ export async function bridgeSearchPatterns(options: {
   minConfidence?: number;
   dbPath?: string;
 }): Promise<{ results: Array<{ id: string; content: string; score: number }>; controller: string } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSearchPatterns(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -2390,7 +2558,7 @@ export async function bridgeSearchPatterns(options: {
     // function` died here silently, which is why search reported
     // `reasoningBank-unavailable:registry-null` (a null return) even though
     // the registry was present and the controller was reported enabled.
-    bridgeFailureReason = err instanceof Error ? err.message : String(err);
+    bridgeFailureReasons.set(canonicalDbPath(options.dbPath), err instanceof Error ? err.message : String(err));
     return null;
   }
 }
@@ -2418,6 +2586,8 @@ export async function bridgeRecordFeedback(options: {
   parentAgentId?: string;
   depth?: number;
 }): Promise<{ success: boolean; controller: string; updated: number } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeRecordFeedback(options));
+  const patterns = validateFeedbackPatterns(options.patterns);
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -2474,8 +2644,8 @@ export async function bridgeRecordFeedback(options: {
     // add them to LocalReasoningBank via its real `.store()` method (the
     // one method that DOES exist on the class).
     const reasoningBank = registry.get('reasoningBank');
-    if (reasoningBank && Array.isArray(options.patterns) && options.patterns.length) {
-      for (const pattern of options.patterns) {
+    if (reasoningBank && Array.isArray(patterns) && patterns.length) {
+      for (const pattern of patterns) {
         try {
           if (typeof reasoningBank.store === 'function') {
             reasoningBank.store({
@@ -2493,14 +2663,27 @@ export async function bridgeRecordFeedback(options: {
       else if (updated > 0 && controller === 'none') controller = 'reasoningBank';
     }
 
-    // Phase 4: SkillLibrary promotion for high-quality patterns
-    if (options.success && options.quality >= 0.9 && options.patterns?.length) {
+    // SkillLibrary's public API is createSkill(Skill), not promote().
+    if (options.success && options.quality >= 0.9 && patterns?.length) {
       const skills = registry.get('skills');
-      if (skills && typeof skills.promote === 'function') {
-        for (const pattern of options.patterns) {
-          try { await skills.promote(pattern, options.quality); updated++; } catch { /* skip */ }
+      let created = 0;
+      if (skills && typeof skills.createSkill === 'function') {
+        for (const [index, pattern] of patterns.entries()) {
+          try {
+            await skills.createSkill({
+              name: `feedback-${options.taskId}-${index}`,
+              description: pattern,
+              successRate: 1,
+              uses: 1,
+              avgReward: options.quality,
+              avgLatencyMs: options.duration,
+              metadata: { taskId: options.taskId, task: options.task, agent: options.agent, source: 'bridge-feedback' },
+            });
+            updated++;
+            created++;
+          } catch { /* failed promotion must not count as an update */ }
         }
-        controller += '+skills';
+        if (created > 0) controller = controller === 'none' ? 'skills' : `${controller}+skills`;
       }
     }
 
@@ -2535,6 +2718,7 @@ export async function bridgeRecordCausalEdge(options: {
   weight?: number;
   dbPath?: string;
 }): Promise<{ success: boolean; controller: string } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeRecordCausalEdge(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -2601,6 +2785,7 @@ export async function bridgeDeleteHierarchical(options: {
   guarded?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeDeleteHierarchical(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
   try {
@@ -2706,6 +2891,7 @@ export async function bridgeDeleteCausalEdge(options: {
   guarded?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeDeleteCausalEdge(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
   try {
@@ -2791,6 +2977,7 @@ export async function bridgeDeleteCausalNode(options: {
   guarded?: boolean;
   error?: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeDeleteCausalNode(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
   try {
@@ -2883,6 +3070,7 @@ export async function bridgeSessionStart(options: {
   restoredPatterns: number;
   sessionId: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSessionStart(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -2935,6 +3123,7 @@ export async function bridgeSessionEnd(options: {
   controller: string;
   persisted: boolean;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSessionEnd(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -3004,6 +3193,7 @@ export async function bridgeRouteTask(options: {
   agents: string[];
   controller: string;
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeRouteTask(options));
   const registry = await getRegistry(options.dbPath);
   if (!registry) return null;
 
@@ -3063,6 +3253,7 @@ export async function bridgeHealthCheck(
     fallbackFrom?: string;
   };
 } | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeHealthCheck(dbPath));
   const registry = await getRegistry(dbPath);
   if (!registry) return null;
 
@@ -3159,6 +3350,7 @@ export async function bridgeHierarchicalStore(params: {
   key: string; value: string; tier?: string; importance?: number;
   validFrom?: string; validUntil?: string; supersedes?: string;
 }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeHierarchicalStore(params));
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -3224,6 +3416,7 @@ export async function bridgeHierarchicalStore(params: {
  *   recall(query: string, topK: number) → synchronous array
  */
 export async function bridgeHierarchicalRecall(params: { query: string; tier?: string; topK?: number; includeExpired?: boolean }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeHierarchicalRecall(params));
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -3275,22 +3468,23 @@ export async function bridgeHierarchicalRecall(params: { query: string; tier?: s
   } catch (e: any) { return { results: [], error: e.message }; }
 }
 
-/**
- * Run memory consolidation.
- *
- * Real MemoryConsolidation API (agentdb alpha.10+):
- *   consolidate() → Promise<ConsolidationReport>
- *   ConsolidationReport = { episodicProcessed, semanticCreated, memoriesForgotten, ... }
- * Stub API (fallback):
- *   consolidate() → { promoted, pruned, timestamp }
- */
+/** Run consolidation when a real controller is available. */
 export async function bridgeConsolidate(params: { minAge?: number; maxEntries?: number }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeConsolidate(params));
+  // No installed consolidation API accepts these historical options. Reject
+  // them explicitly rather than silently claiming their limits were applied.
+  if (params.minAge !== undefined || params.maxEntries !== undefined) {
+    return { success: false, status: 'unsupported', error: 'minAge and maxEntries are not supported by the consolidation controller' };
+  }
   const registry = await getRegistry();
   if (!registry) return null;
   try {
     const mc = registry.get('memoryConsolidation');
     if (!mc) return { success: false, error: 'MemoryConsolidation not available' };
     const result = await mc.consolidate();
+    if (result?.source === 'stub') {
+      return { success: false, status: 'unsupported', error: 'Memory consolidation is unavailable; no consolidation ran', consolidated: result };
+    }
     return { success: true, consolidated: result };
   } catch (e: any) { return { success: false, error: e.message }; }
 }
@@ -3302,6 +3496,7 @@ export async function bridgeConsolidate(params: { minAge?: number; maxEntries?: 
  * - update: calls bulkUpdate(table, updates, conditions) on episodes table
  */
 export async function bridgeBatchOperation(params: { operation: string; entries: any[] }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeBatchOperation(params));
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -3354,37 +3549,100 @@ export async function bridgeBatchOperation(params: { operation: string; entries:
  * Synthesize context from memories.
  * ContextSynthesizer.synthesize is a static method that takes MemoryPattern[] (not a string).
  */
+type ContextEpisode = {
+  task: string;
+  reward: number;
+  success: boolean;
+  critique?: string;
+  input?: string;
+  output?: string;
+};
+
+function contextEpisodeFrom(value: unknown): ContextEpisode | null {
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value); }
+    catch { return null; }
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const record = value as Record<string, unknown>;
+  const owns = (key: string) => Object.prototype.hasOwnProperty.call(record, key);
+  if (!owns('task') || !owns('reward') || !owns('success')
+      || typeof record.task !== 'string' || !record.task.trim()
+      || typeof record.reward !== 'number' || !Number.isFinite(record.reward)
+      || typeof record.success !== 'boolean') return null;
+
+  const episode: ContextEpisode = {
+    task: record.task.trim(),
+    reward: record.reward,
+    success: record.success,
+  };
+  for (const field of ['critique', 'input', 'output'] as const) {
+    if (owns(field)) {
+      if (typeof record[field] !== 'string') return null;
+      episode[field] = record[field];
+    }
+  }
+  return episode;
+}
+
+function contextEpisodeFromRecall(row: unknown): ContextEpisode | null {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
+  const record = row as Record<string, unknown>;
+  for (const field of [null, 'metadata', 'value', 'content'] as const) {
+    const candidate = field === null ? record
+      : Object.prototype.hasOwnProperty.call(record, field) ? record[field] : undefined;
+    const episode = contextEpisodeFrom(candidate);
+    if (episode) return episode;
+  }
+  return null;
+}
+
 export async function bridgeContextSynthesize(params: { query: string; maxEntries?: number }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeContextSynthesize(params));
   const registry = await getRegistry();
   if (!registry) return null;
   try {
     const CS = registry.get('contextSynthesizer');
     if (!CS || typeof CS.synthesize !== 'function') {
-      return { success: false, error: 'ContextSynthesizer not available' };
+      return { success: false, reason: 'synthesizer-unavailable', error: 'ContextSynthesizer not available' };
     }
-    // Gather memory patterns from hierarchical memory as input
     const hm = registry.get('hierarchicalMemory');
-    let memories: any[] = [];
-    if (hm && typeof hm.recall === 'function') {
-      // Detect real HierarchicalMemory (MemoryQuery object) vs stub (string, number)
-      let recalled: any[];
-      if (typeof hm.promote === 'function') {
-        // Real agentdb HierarchicalMemory
-        recalled = await hm.recall({ query: params.query, k: params.maxEntries || 10 });
-      } else {
-        // Stub
-        recalled = hm.recall(params.query, params.maxEntries || 10);
-      }
-      memories = (recalled || []).map((r: any) => ({
-        content: r.value || r.content || '',
-        key: r.key || r.id || '',
-        reward: 1,
-        verdict: 'success',
-      }));
+    if (!hm || typeof hm.recall !== 'function') {
+      return { success: false, reason: 'memory-unavailable', error: 'HierarchicalMemory not available' };
     }
-    const result = CS.synthesize(memories, { includeRecommendations: true });
-    return { success: true, synthesis: result };
-  } catch (e: any) { return { success: false, error: e.message }; }
+    let recalled: unknown;
+    try {
+      // Native HierarchicalMemory accepts a query object; the tiered fallback
+      // accepts positional arguments. Either implementation may be async.
+      recalled = typeof hm.promote === 'function'
+        ? await hm.recall({ query: params.query, k: params.maxEntries || 10 })
+        : await hm.recall(params.query, params.maxEntries || 10);
+    } catch (e: any) {
+      return { success: false, reason: 'recall-failed', error: e.message };
+    }
+    if (!Array.isArray(recalled)) {
+      return { success: false, reason: 'invalid-recall-result', error: 'HierarchicalMemory recall did not return an array' };
+    }
+    const recalledCount = recalled.length;
+    if (recalledCount === 0) {
+      return { success: false, reason: 'no-memories', error: 'No memories matched the query', recalled: 0, eligible: 0, skipped: 0 };
+    }
+    const memories = recalled.map(contextEpisodeFromRecall).filter((episode): episode is ContextEpisode => episode !== null);
+    const counts = { recalled: recalledCount, eligible: memories.length, skipped: recalledCount - memories.length };
+    if (memories.length === 0) {
+      return { success: false, reason: 'no-eligible-episodes', error: 'Recalled memories have no validated task outcomes', ...counts };
+    }
+    try {
+      const result = await CS.synthesize(memories, { includeRecommendations: true });
+      if (!result || typeof result !== 'object') {
+        return { success: false, reason: 'invalid-synthesis', error: 'ContextSynthesizer returned no result', ...counts };
+      }
+      return { success: true, synthesis: result, ...counts };
+    } catch (e: any) {
+      return { success: false, reason: 'synthesizer-failed', error: e.message, ...counts };
+    }
+  } catch (e: any) { return { success: false, reason: 'bridge-error', error: e.message }; }
 }
 
 /**
@@ -3393,6 +3651,7 @@ export async function bridgeContextSynthesize(params: { query: string; maxEntrie
  * semantic matching with keyword fallback.
  */
 export async function bridgeSemanticRoute(params: { input: string }): Promise<any> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeSemanticRoute(params));
   const registry = await getRegistry();
   if (!registry) return null;
   try {
@@ -3430,6 +3689,7 @@ export async function bridgeGetAllEmbeddings(options?: {
   namespace: string;
   embedding: number[];
 }> | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeGetAllEmbeddings(options));
   const registry = await getRegistry(options?.dbPath);
   if (!registry) return null;
 
@@ -3443,7 +3703,7 @@ export async function bridgeGetAllEmbeddings(options?: {
     const rows: any[] = ctx.db.prepare(`
       SELECT id, key, namespace, embedding
       FROM memory_entries
-      WHERE status = 'active' AND embedding IS NOT NULL
+      WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL
       LIMIT ?
     `).all(maxRows);
 
@@ -3500,6 +3760,7 @@ export async function getMemoryBridgeStats(options: {
   source: string;
   reachable: boolean;
 }> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => getMemoryBridgeStats(options));
   const namespaces = options.namespaces ?? [
     'default', 'patterns', 'claude-memories', 'auto-memory',
     'tasks', 'feedback', 'pretrain', 'trajectories',

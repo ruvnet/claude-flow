@@ -8,13 +8,19 @@
  *
  * @module v3/cli/memory-initializer
  */
+import type { AppendCondition } from './append-conditions.js';
 
+import { loadBetterSqlite3 } from './shared-sqlite.js';
+import { resolveMemoryRoot } from './memory-root.js';
+import { liveMemoryRowSql } from './live-memory-row.js';
+import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS, type EmbeddingQ8 } from './embedding-q8.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRequire } from 'node:module';
-import { readFileMaybeEncrypted, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
+import { readFileMaybeEncrypted, writeDbImagePreservingFormat, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
+import { validateIdentifier } from '../mcp-tools/validate-input.js';
 
 /**
  * ADR-323 — typed memory provenance. Distinguishes WHO/WHAT wrote a memory
@@ -59,25 +65,85 @@ function isRuvectorCoreResolvable(): boolean {
 }
 
 /**
- * #2735 — before a whole-image sql.js read-modify-persist (export() +
- * rename over the live database path), refuse if there is evidence of a
- * live native (better-sqlite3) WAL connection: `-wal`/`-shm` sidecar files
- * on disk. A native connection in WAL mode keeps its sidecars present for
- * its entire lifetime (removed only on the last connection's clean close),
- * so their presence is strong evidence of a live native holder — and their
- * absence means the image is a clean, checkpointed, standalone file that
- * sql.js can safely read-modify-write.
+ * #2735 / #3161 — before a whole-image sql.js read-modify-persist (export() +
+ * rename over the live database path), refuse if a native (better-sqlite3)
+ * WAL connection is actually LIVE. `-wal`/`-shm` sidecar presence alone is
+ * not proof of that: #3161 found `ruflo doctor`'s readonly diagnostic
+ * connections leave orphaned sidecars behind after a plain `.close()` (WAL
+ * mode does not checkpoint on close unless the closing connection was the
+ * last holder in a state that triggers one), permanently blocking every
+ * later write in that project.
  *
- * This is a scoped-down version of the fuller "scan live process holders"
- * design discussed in #2735: it does not close the narrow assess-then-write
- * race (a native opener could still attach in the gap between this check
- * and the write), but it directly closes the demonstrated corruption
- * mechanism — a whole-image write proceeding while an ALREADY-OPEN native
- * connection's sidecars are on disk — with no platform-specific process
- * scanning. Fails closed (treats a stat error as "unsafe") because this is
- * a safety gate, not a best-effort probe.
+ * Liveness is probed in two steps, because a single `wal_checkpoint`
+ * busy-check is not sufficient on its own:
+ *
+ *  1. Open our own probe connection and run `PRAGMA wal_checkpoint(TRUNCATE)`.
+ *     `busy !== 0` means another connection genuinely holds a lock blocking
+ *     the checkpoint RIGHT NOW (an open transaction) — unsafe, refuse
+ *     immediately. This also truncates a genuinely-orphaned WAL as a side
+ *     effect.
+ *  2. If `busy === 0`, close our probe connection and re-check whether the
+ *     sidecars are still on disk. SQLite only deletes `-wal`/`-shm` when the
+ *     LAST connection to the database closes. If nothing else is attached,
+ *     OUR close is that last close and the sidecars vanish — safe, proceed.
+ *     If they are still present after our own close, some OTHER connection
+ *     is still attached (even idle, holding no lock — e.g. a foreign native
+ *     handle that already finished its last statement), so step 1's
+ *     busy-check alone would have missed it. Refuse.
+ *
+ * Step 2 is what makes this safe against an idle-but-attached native
+ * connection (an open handle holding no lock does not block checkpointing,
+ * so step 1 alone would report "safe" even though a real holder is still
+ * attached) without resorting to platform-specific process scanning.
+ *
+ * The common case (no sidecars at all) stays a couple of cheap `existsSync`
+ * calls — a DB connection is only opened when a sidecar is actually present
+ * to investigate.
+ *
+ * This is still a scoped-down version of the fuller "scan live process
+ * holders" design discussed in #2735: it does not close the narrow
+ * assess-then-write race (a native opener could still attach in the gap
+ * between this check and the write), but it directly closes the
+ * demonstrated corruption mechanism — a whole-image write proceeding while
+ * an ALREADY-OPEN native connection genuinely holds the file — with no
+ * platform-specific process scanning. Fails closed (treats any probe error
+ * as "unsafe") because this is a safety gate, not a best-effort probe.
  */
-function hasNativeWalSidecars(dbPath: string): boolean {
+async function hasNativeWalSidecars(dbPath: string): Promise<boolean> {
+  try {
+    if (!fs.existsSync(`${dbPath}-wal`) && !fs.existsSync(`${dbPath}-shm`)) {
+      return false;
+    }
+  } catch {
+    return true;
+  }
+
+  let db: { pragma(sql: string): unknown; close(): void } | undefined;
+  try {
+    const Database = await loadBetterSqlite3();
+    const opened = new Database(dbPath);
+    db = opened;
+    // Report busy immediately instead of retrying for the driver's default
+    // (multi-second) busy_timeout — a live holder's checkpoint-blocking
+    // lock is a steady-state fact at probe time, not a transient we should
+    // wait out, and this is a safety gate on a hot write path.
+    opened.pragma('busy_timeout = 0');
+    const [{ busy }] = opened.pragma('wal_checkpoint(TRUNCATE)') as Array<{ busy: number }>;
+    if (busy !== 0) return true;
+  } catch {
+    return true;
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      // best-effort
+    }
+  }
+
+  // Nothing was mid-transaction at probe time, and our own (now-closed)
+  // probe connection just truncated the WAL. If the sidecars are still
+  // here, another connection is still attached and kept them alive through
+  // our close.
   try {
     return fs.existsSync(`${dbPath}-wal`) || fs.existsSync(`${dbPath}-shm`);
   } catch {
@@ -122,35 +188,7 @@ async function releaseOwnNativeHandle(dbPath: string): Promise<void> {
 let _memoryRootCache: string | undefined;
 export function getMemoryRoot(): string {
   if (_memoryRootCache !== undefined) return _memoryRootCache;
-
-  // 1. Env var
-  const envPath = process.env.CLAUDE_FLOW_MEMORY_PATH;
-  if (envPath && envPath.trim().length > 0) {
-    _memoryRootCache = path.resolve(envPath);
-    return _memoryRootCache;
-  }
-
-  // 2. Config file (claude-flow.config.json)
-  const configCandidates = [
-    path.resolve(process.cwd(), 'claude-flow.config.json'),
-    path.resolve(process.cwd(), '.claude-flow', 'config.json'),
-  ];
-  for (const configPath of configCandidates) {
-    if (!fs.existsSync(configPath)) continue;
-    try {
-      const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      const fromConfig: unknown = raw?.memory?.persistPath ?? raw?.memory?.path;
-      if (typeof fromConfig === 'string' && fromConfig.trim().length > 0) {
-        _memoryRootCache = path.resolve(fromConfig);
-        return _memoryRootCache;
-      }
-    } catch {
-      /* malformed config — fall through to default */
-    }
-  }
-
-  // 3. Default
-  _memoryRootCache = path.resolve(process.cwd(), '.swarm');
+  _memoryRootCache = resolveMemoryRoot(process.cwd());
   return _memoryRootCache;
 }
 
@@ -213,14 +251,14 @@ async function getBridge(): Promise<typeof import('./memory-bridge.js') | null> 
  * missing better-sqlite3. Appending the recorded reason turns an unactionable
  * message into a diagnosis.
  */
-async function walRefusalError(operation: 'write' | 'read/write'): Promise<string> {
+async function walRefusalError(operation: 'write' | 'read/write', bridgeDbPath?: string): Promise<string> {
   const base = 'memory database has an active native WAL connection '
     + '(found -wal/-shm sidecar files) — refusing an unsafe sql.js '
     + `whole-image ${operation}. Retry once the native writer completes, or `
     + 'restore the native better-sqlite3 bridge.';
   try {
     const bridge = await getBridge();
-    const reason = bridge?.getBridgeFailureReason?.();
+    const reason = bridge?.getBridgeFailureReason?.(bridgeDbPath);
     if (reason) return `${base} Bridge unavailable: ${reason}`;
   } catch {
     // Diagnostics must never mask the refusal they annotate.
@@ -1300,7 +1338,7 @@ export interface MemoryInitResult {
  * Ensure memory_entries table has all required columns
  * Adds missing columns for older databases (e.g., 'content' column)
  */
-export async function ensureSchemaColumns(dbPath: string): Promise<{
+export async function ensureSchemaColumns(dbPath: string, options: { encryptWrites?: boolean } = {}): Promise<{
   success: boolean;
   columnsAdded: string[];
   error?: string;
@@ -1375,7 +1413,10 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       if (columnsAdded.includes('status') || existingColumns.has('status')) {
         try {
           db.run(`UPDATE memory_entries SET status = 'active' WHERE status IS NULL`);
-          modified = true;
+          // #3918: only a backfill that changed rows dirties the image. Setting
+          // this unconditionally rewrote every up-to-date store on each open (and,
+          // with encryption at rest, with a fresh nonce, so the bytes changed too).
+          if (db.getRowsModified() > 0) modified = true;
         } catch {
           /* table is read-only or doesn't exist — skip */
         }
@@ -1384,7 +1425,7 @@ export async function ensureSchemaColumns(dbPath: string): Promise<{
       if (modified) {
         // Save updated database
         const data = db.export();
-        writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+        writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
       }
 
       db.close();
@@ -1504,14 +1545,13 @@ async function activateControllerRegistry(
       return { activated, failed, initTimeMs: performance.now() - startTime };
     }
 
-    const registry = await bridge.getControllerRegistry();
-    if (!registry) {
+    const controllers = await bridge.bridgeListControllers();
+    if (!controllers) {
       return { activated, failed, initTimeMs: performance.now() - startTime };
     }
 
     // Collect controller status from the registry
-    if (typeof registry.listControllers === 'function') {
-      const controllers = registry.listControllers();
+    if (controllers) {
       for (const ctrl of controllers) {
         if (ctrl.enabled) {
           activated.push(ctrl.name);
@@ -1604,8 +1644,8 @@ export async function recoverMemoryDatabase(
   try {
     // Module name behind a variable so TS does not statically resolve the
     // optional native dep's types at build time (CI may not install them).
-    const mod: string = 'better-sqlite3';
-    Database = (await import(mod)).default;
+    // #3693: same better-sqlite3 identity as AgentDB (see shared-sqlite.ts).
+    Database = await loadBetterSqlite3();
   } catch {
     return await restoreFromBackup('no-native');
   }
@@ -1721,8 +1761,8 @@ export async function repairVectorIndexes(
   try {
     // Module name behind a variable so TS does not statically resolve the
     // optional native dep's types at build time (CI may not install them).
-    const mod: string = 'better-sqlite3';
-    Database = (await import(mod)).default;
+    // #3693: same better-sqlite3 identity as AgentDB (see shared-sqlite.ts).
+    Database = await loadBetterSqlite3();
   } catch {
     // Native module absent (e.g. WASM-only host). Statusline fix still covers
     // the display; nothing to repair here.
@@ -2103,7 +2143,7 @@ export async function checkMemoryInitialization(dbPath?: string): Promise<{
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
 
-    const fileBuffer = fs.readFileSync(path_);
+    const fileBuffer = readFileMaybeEncrypted(path_, null);
     db = new SQL.Database(fileBuffer);
 
     // Check for metadata table
@@ -2172,7 +2212,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs();
 
-      const fileBuffer = fs.readFileSync(path_);
+      const fileBuffer = readFileMaybeEncrypted(path_, null);
       const db = new SQL.Database(fileBuffer);
 
       // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
@@ -2193,7 +2233,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
       // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
       const data = db.export();
-      writeFileAtomic(path_, Buffer.from(data));
+      writeDbImagePreservingFormat(path_, data);
       db.close();
 
       return {
@@ -2420,28 +2460,8 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
       }
     }
 
-    // Legacy fallback: Check for agentic-flow core embeddings
-    const agenticFlow = await import('agentic-flow').catch(() => null);
-
-    if (agenticFlow && (agenticFlow as any).embeddings) {
-      if (verbose) {
-        console.log('Loading agentic-flow embedding model...');
-      }
-
-      embeddingModelState = {
-        loaded: true,
-        model: (agenticFlow as any).embeddings,
-        tokenizer: null,
-        dimensions: 768
-      };
-
-      return {
-        success: true,
-        dimensions: 768,
-        modelName: 'agentic-flow',
-        loadTime: Date.now() - startTime
-      };
-    }
+    // No agentic-flow root-entry fallback: no published root exports
+    // `embeddings`, and importing it runs its CLI main() in 3.0.0-alpha.x.
 
     // No ONNX model available - use fallback
     embeddingModelState = {
@@ -2888,6 +2908,9 @@ export async function storeEntry(options: {
   ttl?: number;
   dbPath?: string;
   upsert?: boolean;
+  requireNative?: boolean;
+  appendOnly?: boolean;
+  appendConditions?: AppendCondition[];
   /** ADR-323: defaults to 'unknown' when omitted. */
   provenanceType?: string;
 }): Promise<{
@@ -2902,6 +2925,10 @@ export async function storeEntry(options: {
    *  be produced — the row is stored without a vector. */
   embeddingError?: string;
 }> {
+  if (options.appendOnly && !options.requireNative) {
+    return { success: false, id: '', error: 'Immutable append requires a native writer' };
+  }
+
   // ADR-323: validate before touching either backend so an invalid value
   // gets one clear error instead of a raw SQLite CHECK-constraint failure
   // from whichever path (bridge vs sql.js) happens to run.
@@ -2935,6 +2962,10 @@ export async function storeEntry(options: {
     }
   }
 
+  if (options.requireNative || options.appendConditions) {
+    return { success: false, id: '', error: 'Native memory writer required; refusing whole-image sql.js fallback' };
+  }
+
   // Fallback: raw sql.js
   const {
     key,
@@ -2944,9 +2975,10 @@ export async function storeEntry(options: {
     tags = [],
     ttl,
     dbPath: customPath,
-    upsert = false,
+    upsert: requestedUpsert = false,
     provenanceType
   } = options;
+  const upsert = requestedUpsert && !options.appendOnly;
 
   const swarmDir = getMemoryRoot();
   const dbPath = customPath ? path.resolve(customPath) : path.join(swarmDir, 'memory.db');
@@ -2963,11 +2995,11 @@ export async function storeEntry(options: {
     // race). This check gates ensureSchemaColumns()'s own whole-image
     // write below too, not just this function's.
     await releaseOwnNativeHandle(dbPath);
-    if (hasNativeWalSidecars(dbPath)) {
+    if (await hasNativeWalSidecars(dbPath)) {
       return {
         success: false,
         id: '',
-        error: await walRefusalError('write'),
+        error: await walRefusalError('write', options.dbPath),
       };
     }
 
@@ -3068,7 +3100,7 @@ export async function storeEntry(options: {
 
       // Save
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data);
       db.close();
     });
 
@@ -3193,8 +3225,8 @@ export async function searchEntries(options: {
           // query (no extra round-trip) so a provenance-filtered search
           // still gets RaBitQ's speedup instead of falling back to brute
           // force.
-          const stmt = db.prepare('SELECT content, embedding, provenance_type FROM memory_entries WHERE id = ? AND status = ?');
-          stmt.bind([candidate.id, 'active']);
+          const stmt = db.prepare(`SELECT content, embedding, provenance_type FROM memory_entries WHERE id = ? AND ${liveMemoryRowSql()}`);
+          stmt.bind([candidate.id]);
           if (stmt.step()) {
             const [content, embeddingJson, provenanceTypeVal] = stmt.get() as [string, string | null, string | null];
             if (provenanceFilter?.length && !provenanceFilter.includes(provenanceTypeVal || 'unknown')) {
@@ -3256,29 +3288,28 @@ export async function searchEntries(options: {
           const db = new SQL.Database(fileBuffer);
           const provenanceByKey = new Map<string, string>();
           for (const r of filtered) {
-            const stmt = db.prepare('SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? LIMIT 1');
+            const stmt = db.prepare(`SELECT provenance_type FROM memory_entries WHERE namespace = ? AND key = ? AND ${liveMemoryRowSql()} LIMIT 1`);
             stmt.bind([r.namespace, r.key]);
             if (stmt.step()) {
-              provenanceByKey.set(`${r.namespace}::${r.key}`, (stmt.get()[0] as string | null) || 'unknown');
+              provenanceByKey.set(JSON.stringify([r.namespace, r.key]), (stmt.get()[0] as string | null) || 'unknown');
             }
             stmt.free();
           }
           db.close();
           filtered = filtered
-            .map(r => ({ ...r, provenanceType: provenanceByKey.get(`${r.namespace}::${r.key}`) || 'unknown' }));
+            .filter(r => provenanceByKey.has(JSON.stringify([r.namespace, r.key])))
+            .map(r => ({ ...r, provenanceType: provenanceByKey.get(JSON.stringify([r.namespace, r.key])) || 'unknown' }));
           if (provenanceFilter?.length) {
             filtered = filtered.filter(r => provenanceFilter.includes(r.provenanceType!));
           }
         } catch {
-          // A requested trust filter fails closed. Unfiltered callers retain
-          // backward-compatible results with an explicit unknown label.
-          filtered = provenanceFilter?.length
-            ? []
-            : filtered.map(r => ({ ...r, provenanceType: 'unknown' }));
+          // An ANN hit alone cannot prove the row is still live. Fall back
+          // to the authoritative SQL scan if liveness cannot be checked.
+          filtered = [];
         }
       }
 
-      if (!provenanceFilter?.length || filtered.length >= limit) {
+      if (filtered.length >= limit) {
         return {
           success: true,
           results: filtered.slice(0, limit),
@@ -3300,7 +3331,7 @@ export async function searchEntries(options: {
     // Get entries with embeddings
     // ADR-323: build the WHERE clause incrementally so namespace and
     // provenance filters compose (both, either, or neither).
-    const whereClauses = [`status = 'active'`];
+    const whereClauses = [liveMemoryRowSql()];
     const whereParams: (string)[] = [];
     if (effectiveNamespace !== 'all') {
       whereClauses.push('namespace = ?');
@@ -3418,10 +3449,16 @@ export async function listEntries(options: {
   limit?: number;
   offset?: number;
   dbPath?: string;
+  /** Internal native-mirror writes must remain plaintext, including schema migration. */
+  encryptWrites?: boolean;
   /** #2073: When true, include the entry's full `content` string in each result. */
   includeContent?: boolean;
   /** ADR-323: restrict rows to these provenance types. */
   provenanceFilter?: string[];
+  /** ADR-472: include each entry's embedding as int8+scale (`embeddingQ8`); at most MAX_LIST_EMBEDDINGS rows. Read-only. */
+  includeEmbedding?: boolean;
+  /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only; normal reads hide them. */
+  includeExpired?: boolean;
 }): Promise<{
   success: boolean;
   entries: {
@@ -3432,10 +3469,14 @@ export async function listEntries(options: {
     accessCount: number;
     createdAt: string;
     updatedAt: string;
+    /** #4056: epoch ms the row expires at; null when it never does. */
+    expiresAt?: number | null;
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
     provenanceType?: string;
+    /** ADR-472: present when `includeEmbedding: true` and the row has a valid stored vector. */
+    embeddingQ8?: EmbeddingQ8;
   }[];
   total: number;
   error?: string;
@@ -3476,8 +3517,15 @@ export async function listEntries(options: {
       return { success: false, entries: [], total: 0, error: 'Database not found' };
     }
 
+    // Listing can migrate/backfill the schema, so it is also a whole-image
+    // writer. The newly selected native mirror may still have a live WAL.
+    await releaseOwnNativeHandle(dbPath);
+    if (await hasNativeWalSidecars(dbPath)) {
+      return { success: false, entries: [], total: 0, error: await walRefusalError('read/write') };
+    }
+
     // Ensure schema has all required columns (migration for older DBs)
-    await ensureSchemaColumns(dbPath);
+    await ensureSchemaColumns(dbPath, options);
 
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
@@ -3489,7 +3537,7 @@ export async function listEntries(options: {
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
     // Get total count
-    const whereClauses = [ACTIVE_MEMORY_ROW_SQL];
+    const whereClauses = [liveMemoryRowSql({ includeExpired: options.includeExpired })];
     const whereParams: string[] = [];
     if (namespace) {
       whereClauses.push('namespace = ?');
@@ -3511,11 +3559,11 @@ export async function listEntries(options: {
     const total = countResult[0]?.values?.[0]?.[0] as number || 0;
 
     // Get entries
-    const safeLimit = parseInt(String(limit), 10) || 100;
+    const safeLimit = Math.min(parseInt(String(limit), 10) || 100, options.includeEmbedding ? MAX_LIST_EMBEDDINGS : Number.MAX_SAFE_INTEGER);
     const safeOffset = parseInt(String(offset), 10) || 0;
     // #2120 — same NULL-as-active acceptance as the count above.
     const listStmt = db.prepare(
-      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
        FROM memory_entries WHERE ${whereSql}
        ORDER BY updated_at DESC LIMIT ? OFFSET ?`
     );
@@ -3534,15 +3582,17 @@ export async function listEntries(options: {
       accessCount: number;
       createdAt: string;
       updatedAt: string;
+      expiresAt?: number | null;
       hasEmbedding: boolean;
       content?: string;
       provenanceType?: string;
+      embeddingQ8?: EmbeddingQ8;
     }[] = [];
 
     if (result[0]?.values) {
       for (const row of result[0].values) {
-        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal] = row as [
-          string, string, string, string, string | null, number, string, string, string | null
+        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal] = row as [
+          string, string, string, string, string | null, number, string, string, string | null, number | null
         ];
         const entry: {
           id: string;
@@ -3552,9 +3602,11 @@ export async function listEntries(options: {
           accessCount: number;
           createdAt: string;
           updatedAt: string;
+          expiresAt?: number | null;
           hasEmbedding: boolean;
           content?: string;
           provenanceType?: string;
+          embeddingQ8?: EmbeddingQ8;
         } = {
           // #2073: don't truncate id when content is requested — callers
           // (notably memory_export) need the full id to round-trip via import.
@@ -3565,11 +3617,16 @@ export async function listEntries(options: {
           accessCount: accessCount || 0,
           createdAt: createdAt || new Date().toISOString(),
           updatedAt: updatedAt || new Date().toISOString(),
+          expiresAt: expiresAtVal ?? null,
           hasEmbedding: !!embedding && embedding.length > 10,
           provenanceType: provenanceTypeVal || 'unknown'
         };
         if (options.includeContent) {
           entry.content = content || '';
+        }
+        if (options.includeEmbedding) {
+          const q8 = encodeEmbeddingQ8(embedding);
+          if (q8) entry.embeddingQ8 = q8;
         }
         entries.push(entry);
       }
@@ -3638,11 +3695,11 @@ export async function getEntry(options: {
     // bump is itself a whole-image write, not a lightweight read, even
     // though this function's contract reads as a "get".
     await releaseOwnNativeHandle(dbPath);
-    if (hasNativeWalSidecars(dbPath)) {
+    if (await hasNativeWalSidecars(dbPath)) {
       return {
         success: false,
         found: false,
-        error: await walRefusalError('read/write'),
+        error: await walRefusalError('read/write', options.dbPath),
       };
     }
 
@@ -3665,7 +3722,7 @@ export async function getEntry(options: {
       const getStmt = db.prepare(`
         SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, tags
         FROM memory_entries
-        WHERE ${ACTIVE_MEMORY_ROW_SQL}
+        WHERE ${liveMemoryRowSql()}
           AND key = ?
           AND namespace = ?
         LIMIT 1
@@ -3696,7 +3753,7 @@ export async function getEntry(options: {
 
       // Save updated database
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data);
 
       db.close();
 
@@ -3742,6 +3799,8 @@ export async function deleteEntry(options: {
   key: string;
   namespace?: string;
   dbPath?: string;
+  /** Internal native-mirror writes must remain plaintext, including schema migration. */
+  encryptWrites?: boolean;
 }): Promise<{
   success: boolean;
   deleted: boolean;
@@ -3789,14 +3848,14 @@ export async function deleteEntry(options: {
     // #2735 — see storeEntry's identical gate for the corruption mechanism
     // this closes.
     await releaseOwnNativeHandle(dbPath);
-    if (hasNativeWalSidecars(dbPath)) {
+    if (await hasNativeWalSidecars(dbPath)) {
       return {
         success: false,
         deleted: false,
         key,
         namespace,
         remainingEntries: 0,
-        error: await walRefusalError('write'),
+        error: await walRefusalError('write', options.dbPath),
       };
     }
 
@@ -3804,7 +3863,7 @@ export async function deleteEntry(options: {
     // writer's flush resurrects the row this call just tombstoned.
     return await withMemoryDbLock(dbPath, async () => {
       // Ensure schema has all required columns (migration for older DBs)
-      await ensureSchemaColumns(dbPath);
+      await ensureSchemaColumns(dbPath, options);
 
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs();
@@ -3861,7 +3920,7 @@ export async function deleteEntry(options: {
 
       // Save updated database
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
 
       db.close();
 
@@ -3982,11 +4041,11 @@ export async function withMemoryDbLock<T>(dbPath: string, fn: () => Promise<T> |
   }
 }
 
-const NAMESPACE_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
-
 export async function purgeNamespace(options: {
   namespace: string;
   dbPath?: string;
+  /** Internal native-mirror writes must remain plaintext, including schema migration. */
+  encryptWrites?: boolean;
 }): Promise<{
   success: boolean;
   deletedCount: number;
@@ -3995,8 +4054,11 @@ export async function purgeNamespace(options: {
 }> {
   const { namespace, dbPath: customPath } = options;
 
-  if (!NAMESPACE_PATTERN.test(namespace)) {
-    return { success: false, deletedCount: 0, remainingEntries: 0, error: `Invalid namespace: ${namespace}` };
+  // #3570: the same validator store, import and export use, so any namespace
+  // that can be written can also be purged (`team:alice` included).
+  const vNs = validateIdentifier(namespace, 'namespace');
+  if (!vNs.valid) {
+    return { success: false, deletedCount: 0, remainingEntries: 0, error: `Invalid namespace: ${vNs.error}` };
   }
 
   const swarmDir = getMemoryRoot();
@@ -4028,7 +4090,13 @@ export async function purgeNamespace(options: {
         return { success: false, deletedCount: 0, remainingEntries: 0, error: 'Database not found' };
       }
 
-      await ensureSchemaColumns(dbPath);
+      // Recheck at mutation time even when the CLI already read a preview.
+      await releaseOwnNativeHandle(dbPath);
+      if (await hasNativeWalSidecars(dbPath)) {
+        return { success: false, deletedCount: 0, remainingEntries: 0, error: await walRefusalError('write') };
+      }
+
+      await ensureSchemaColumns(dbPath, options);
 
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs();
@@ -4045,7 +4113,7 @@ export async function purgeNamespace(options: {
       const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
 
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
       db.close();
 
       if (deletedCount > 0 && hnswIndex?.entries) {

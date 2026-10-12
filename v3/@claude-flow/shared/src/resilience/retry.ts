@@ -174,13 +174,18 @@ export function withRetry<T extends (...args: unknown[]) => Promise<unknown>>(
  * Execute with timeout
  */
 async function withTimeout<T>(promise: Promise<T>, timeout: number, attempt: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       reject(new Error(`Attempt ${attempt} timed out after ${timeout}ms`));
     }, timeout);
   });
 
-  return Promise.race([promise, timeoutPromise]);
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /**

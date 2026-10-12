@@ -690,7 +690,7 @@ describe('Weighted Consensus (Dream Cycle 2026-08-24)', () => {
                         // hang until awaitConsensus's own timeout/expiry path
       });
       await byzantine.initialize();
-      byzantine.addNode('primary', true);
+      byzantine.electPrimary();
       byzantine.addNode('voter-a');
       byzantine.addNode('voter-b');
       byzantine.addNode('voter-c');
@@ -716,7 +716,7 @@ describe('Weighted Consensus (Dream Cycle 2026-08-24)', () => {
     it('reproduces today\'s flat 2f+1 quorum exactly when no weights are supplied (regression guard)', async () => {
       const byzantine = createByzantineConsensus('primary', { maxFaultyNodes: 1 });
       await byzantine.initialize();
-      byzantine.addNode('primary', true);
+      byzantine.electPrimary();
       byzantine.addNode('voter-a');
       byzantine.addNode('voter-b');
       byzantine.addNode('voter-c');

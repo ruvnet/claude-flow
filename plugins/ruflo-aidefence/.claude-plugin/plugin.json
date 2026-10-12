@@ -1,7 +1,7 @@
 {
   "name": "ruflo-aidefence",
   "description": "AI safety scanning, PII detection, prompt injection defense, and adaptive threat learning",
-  "version": "0.2.1",
+  "version": "0.3.2",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,21 @@
     "security",
     "prompt-injection",
     "defense-in-depth",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "AIDefence guard",
+      "description": "Refuse what aidefence_learn teaches the detector (patterns persist and are shown back later) that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

@@ -227,6 +227,8 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   private pendingAcks: Map<string, { message: Message; timeout: NodeJS.Timeout }> = new Map();
   private processingInterval?: NodeJS.Timeout;
   private statsInterval?: NodeJS.Timeout;
+  private processScheduled: boolean = false;
+  private isShutdown: boolean = false;
   private messageCounter: number = 0;
   private stats: MessageBusStats;
   private startTime: Date = new Date();
@@ -234,6 +236,16 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   private messageHistory: { timestamp: number; count: number }[] = [];
   private messageHistoryIndex: number = 0;
   private static readonly MAX_HISTORY_SIZE = 60;
+  // processQueues() is now primarily triggered event-driven (see
+  // scheduleProcessing()); the interval below is a low-frequency backstop
+  // only, so a caller-configured processingIntervalMs is floored here
+  // rather than driving per-tick dispatch directly (dream-cycle 2026-09-30).
+  private static readonly MIN_BACKSTOP_INTERVAL_MS = 250;
+  // Retries used to be spaced by the poll interval (~10ms in production);
+  // event-driven dispatch would otherwise retry a failing handler back to
+  // back. Linear backoff (attempt * base), bounded by retryAttempts.
+  private static readonly RETRY_BACKOFF_BASE_MS = 10;
+  private retryTimers: Set<NodeJS.Timeout> = new Set();
 
   constructor(config: Partial<MessageBusConfig> = {}) {
     super();
@@ -261,12 +273,25 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       this.config = { ...this.config, ...config };
     }
 
+    this.isShutdown = false;
     this.startProcessing();
     this.startStatsCollection();
     this.emit('initialized');
   }
 
   async shutdown(): Promise<void> {
+    // Guards scheduleProcessing() against scheduling a new setImmediate
+    // after teardown (e.g. a straggler delivery failure retrying right as
+    // shutdown() runs) — harmless before this flag existed (processQueues()
+    // just iterated the now-empty queues Map), but it's cleaner to not
+    // schedule work post-shutdown at all.
+    this.isShutdown = true;
+
+    for (const timer of this.retryTimers) {
+      clearTimeout(timer);
+    }
+    this.retryTimers.clear();
+
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
       this.processingInterval = undefined;
@@ -336,6 +361,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     this.updateLatencyStats(latency);
 
     this.emit('message.enqueued', { messageId: message.id, to: message.to });
+    this.scheduleProcessing();
 
     return message.id;
   }
@@ -370,8 +396,16 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     });
 
     // Initialize queue for this agent
-    if (!this.queues.has(agentId)) {
+    const queue = this.queues.get(agentId);
+    if (!queue) {
       this.queues.set(agentId, new PriorityMessageQueue());
+    } else if (queue.length > 0) {
+      // Messages can be enqueued for an agentId before that agent's
+      // subscribe() call lands (e.g. a coordinator sending to an agent it
+      // just spawned) — processQueues() skips any queue with no matching
+      // subscription, so without this those messages would otherwise only
+      // surface at the next backstop tick instead of immediately.
+      this.scheduleProcessing();
     }
 
     this.emit('subscription.added', { agentId });
@@ -403,13 +437,48 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   }
 
   private startProcessing(): void {
+    // Dispatch is event-driven via scheduleProcessing() (triggered from
+    // enqueue() and from retry re-queuing); this interval is only a
+    // low-frequency backstop for whatever it might miss, so a small
+    // caller-configured processingIntervalMs no longer forces a busy-poll —
+    // it's floored at MIN_BACKSTOP_INTERVAL_MS.
+    const backstopIntervalMs = Math.max(
+      this.config.processingIntervalMs,
+      MessageBus.MIN_BACKSTOP_INTERVAL_MS
+    );
     this.processingInterval = setInterval(() => {
       this.processQueues();
-    }, this.config.processingIntervalMs);
+    }, backstopIntervalMs);
+  }
+
+  // Coalesces bursts of synchronous enqueue()/retry calls within the same
+  // tick into a single processQueues() pass on the next macrotask, instead
+  // of polling on a fixed interval regardless of whether any queue holds a
+  // message.
+  private scheduleProcessing(): void {
+    if (this.processScheduled || this.isShutdown) {
+      return;
+    }
+    this.processScheduled = true;
+    setImmediate(() => {
+      this.processScheduled = false;
+      if (this.isShutdown) {
+        return;
+      }
+      this.processQueues();
+    });
   }
 
   private processQueues(): void {
     const now = Date.now();
+    // Each agent is capped at a 10-message batch per pass (below); if a
+    // burst left more than that queued, drain the rest on the next
+    // macrotask instead of stalling until the backstop interval fires —
+    // otherwise a large synchronous burst (many enqueue() calls coalesced
+    // by scheduleProcessing() into one pass) would only ever drain its
+    // first 10-per-agent messages promptly and leave the remainder to
+    // trickle in at the >=250ms backstop rate.
+    let hasRemainingWork = false;
 
     for (const [agentId, queue] of this.queues) {
       const subscription = this.subscriptions.get(agentId);
@@ -444,6 +513,14 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       for (const entry of batch) {
         this.deliverMessage(subscription, entry);
       }
+
+      if (queue.length > 0) {
+        hasRemainingWork = true;
+      }
+    }
+
+    if (hasRemainingWork) {
+      this.scheduleProcessing();
     }
   }
 
@@ -469,11 +546,11 @@ export class MessageBus extends EventEmitter implements IMessageBus {
             to: subscription.agentId
           });
         } catch (error) {
-          this.handleDeliveryError(message, entry, error as Error);
+          this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
         }
       });
     } catch (error) {
-      this.handleDeliveryError(message, entry, error as Error);
+      this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
     }
   }
 
@@ -488,7 +565,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     this.emit('message.ack_failed', { messageId: message.id, error });
   }
 
-  private handleDeliveryError(message: Message, entry: MessageQueueEntry, error: Error): void {
+  private handleDeliveryError(message: Message, entry: MessageQueueEntry, error: Error, subscriberAgentId: string): void {
     entry.attempts++;
     entry.lastAttemptAt = new Date();
 
@@ -496,14 +573,31 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       // Re-queue for retry, preserving the attempt count so it's bounded by
       // retryAttempts instead of resetting to 0 on every re-queue.
       //
-      // KNOWN LIMITATION (pre-existing, not fixed here): for a broadcast
-      // message, message.to stays the literal string 'broadcast' rather
-      // than the per-subscriber agentId enqueue() originally fanned out
-      // to, so this re-queues under a 'broadcast'-keyed queue nobody
-      // drains — a failing broadcast subscriber's retries (and eventual
-      // message.failed) are silently lost. Only the direct-message path
-      // is bounded by this fix.
-      this.addToQueue(message.to, message, entry.attempts);
+      // Re-queue under the real subscriber's agentId, not message.to: for a
+      // broadcast message, message.to is the literal string 'broadcast',
+      // not any queue a subscription actually drains (enqueue() fanned the
+      // original send out to each subscriber's own agentId-keyed queue), so
+      // re-queuing under message.to would silently strand the retry in an
+      // orphaned queue nobody processes.
+      //
+      // The re-queue itself is delayed (not just the dispatch) so the
+      // backstop interval cannot pick the message up early either.
+      const backoffMs = MessageBus.RETRY_BACKOFF_BASE_MS * entry.attempts;
+      const timer = setTimeout(() => {
+        this.retryTimers.delete(timer);
+        if (this.isShutdown) {
+          return;
+        }
+        // The subscriber may have unsubscribed during the backoff; addToQueue
+        // would recreate an orphaned queue nobody drains.
+        if (!this.subscriptions.has(subscriberAgentId)) {
+          return;
+        }
+        this.addToQueue(subscriberAgentId, message, entry.attempts);
+        this.scheduleProcessing();
+      }, backoffMs);
+      timer.unref?.();
+      this.retryTimers.add(timer);
       this.emit('message.retry', {
         messageId: message.id,
         attempt: entry.attempts

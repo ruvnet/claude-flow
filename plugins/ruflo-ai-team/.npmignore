@@ -1,0 +1,4 @@
+node_modules/
+ruvector.db
+*.tgz
+test/

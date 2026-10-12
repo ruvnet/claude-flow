@@ -1,0 +1,52 @@
+{
+  "schema": "ruflo-npm-downloads/v1",
+  "retrieved_at": "2026-10-07T01:42:00.959627+00:00",
+  "metric": "Sum of package downloads over the npm last-year window; not unique users or all-time downloads.",
+  "start": "2025-10-05",
+  "end": "2026-10-04",
+  "total": 12524524,
+  "packages": [
+    {
+      "package": "claude-flow",
+      "source": "https://api.npmjs.org/downloads/point/last-year/claude-flow",
+      "downloads": 1042850,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    },
+    {
+      "package": "ruflo",
+      "source": "https://api.npmjs.org/downloads/point/last-year/ruflo",
+      "downloads": 1438550,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    },
+    {
+      "package": "@claude-flow/cli",
+      "source": "https://api.npmjs.org/downloads/point/last-year/%40claude-flow%2Fcli",
+      "downloads": 1723771,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    },
+    {
+      "package": "@claude-flow/memory",
+      "source": "https://api.npmjs.org/downloads/point/last-year/%40claude-flow%2Fmemory",
+      "downloads": 1473218,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    },
+    {
+      "package": "agentdb",
+      "source": "https://api.npmjs.org/downloads/point/last-year/agentdb",
+      "downloads": 4165660,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    },
+    {
+      "package": "agentic-flow",
+      "source": "https://api.npmjs.org/downloads/point/last-year/agentic-flow",
+      "downloads": 2680475,
+      "start": "2025-10-05",
+      "end": "2026-10-04"
+    }
+  ]
+}

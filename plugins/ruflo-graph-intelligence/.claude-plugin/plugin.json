@@ -1,7 +1,7 @@
 {
   "name": "ruflo-graph-intelligence",
   "description": "RuFlo Graph Intelligence Engine — real-time relationship intelligence with complexity-aware execution. Single-entry personalized PageRank, streaming delta updates, witness-signed reasoning artifacts, federation-distributable PR vectors. Built on sublinear-time-solver@1.7.0.",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0-alpha.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -20,8 +20,23 @@
     "federation",
     "mcp",
     "claude-flow",
-    "adr-123"
+    "adr-123",
+    "mod",
+    "function-hooks",
+    "guard"
   ],
-  "categories": ["intelligence", "graph", "memory", "substrate"],
-  "repository": "https://github.com/ruvnet/ruflo"
+  "repository": "https://github.com/ruvnet/ruflo",
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Write guard",
+      "description": "Refuse writes and commands on this plugin's own tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

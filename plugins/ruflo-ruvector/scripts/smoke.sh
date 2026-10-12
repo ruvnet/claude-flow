@@ -4,6 +4,7 @@
 # differently from documented. Run after `npm install ruvector@0.2.25`
 # (or rely on the npx fetch).
 set -u
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PIN="ruvector@0.2.25"
 PASS=0
 FAIL=0
@@ -71,6 +72,25 @@ for c in compare midstream index; do
   grep -q "unknown command '$c'" <<<"$out" || fail_removed="$fail_removed $c"
 done
 [[ -z "$fail_removed" ]] && ok || bad "still present:$fail_removed"
+
+# M1. The mod (ADR-445): hooks module registered, files within the 500-line rule, no network or process access in the hooks
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$ROOT/hooks/hooks.json" || mod_ok=0
+for f in options screen guard status command register tools; do
+  [[ -f "$ROOT/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$ROOT/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: guard defaults on (userConfig)"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+process.exit(c.guard && c.guard.default === "on" ? 0 : 1)
+' "$ROOT/.claude-plugin/plugin.json" && ok || bad "userConfig default wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

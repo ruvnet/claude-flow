@@ -22,6 +22,7 @@ import { OutputFormatter, output } from './output.js';
 import { commands, commandsByCategory, getCommandsByCategory, commandRegistry, getCommand, getCommandAsync, getCommandNames, getLazyCommandNames, hasCommand } from './commands/index.js';
 import { suggestCommand } from './suggest.js';
 import { runStartupUpdateCheck } from './update/index.js';
+import { ensureBlockingStdio } from './blocking-stdio.js';
 
 // Read version from package.json at runtime
 function getPackageVersion(): string {
@@ -82,6 +83,8 @@ export class CLI {
    * Run the CLI with given arguments
    */
   async run(args: string[] = process.argv.slice(2)): Promise<void> {
+    // #3851: keep piped output intact across the process.exit() calls below
+    ensureBlockingStdio();
     try {
       // #1791.2 — If the user invoked a lazy command (e.g. `hive-mind task`),
       // pre-load it BEFORE parsing so the parser can build scoped flag
@@ -174,10 +177,17 @@ export class CLI {
             // Integrity failure = potential on-disk tampering of hook code. Warn
             // loudly (not silent) — the existing project helpers were left intact.
             this.output.printWarning(`Skipped helper auto-refresh — ${r.blocked}. Reinstall @claude-flow/cli from a trusted source.`);
+          } else if (r.healed) {
+            // #3565: a critical helper's stamp matched but its on-disk content
+            // didn't hash-match the signed manifest — restored, but always
+            // surfaced (not verbose-gated like a routine version-bump refresh).
+            this.output.printWarning(`Detected tampered critical helper(s) in .claude/helpers (${(r.tampered || []).join(', ')}) — restored verified content from the installed package. If this wasn't expected, find out what modified them.`);
           } else if (r.refreshed && this.output.isVerbose()) {
             this.output.printDebug(`Refreshed .claude/helpers (${r.from} → ${r.to})`);
           }
-          if (r.global?.refreshed && this.output.isVerbose()) {
+          if (r.global?.healed) {
+            this.output.printWarning(`Detected tampered critical helper(s) in ~/.claude/helpers (${(r.global.tampered || []).join(', ')}) — restored verified content.`);
+          } else if (r.global?.refreshed && this.output.isVerbose()) {
             this.output.printDebug(`Refreshed ~/.claude/helpers (${r.global.from} → ${r.global.to})`);
           } else if (r.global?.blocked && r.global.blocked !== r.blocked) {
             this.output.printWarning(`Skipped ~/.claude/helpers auto-refresh — ${r.global.blocked}.`);

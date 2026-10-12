@@ -1,5 +1,7 @@
 # Quality Engineering Domain
 
+> **Retired (2026-10-09):** the in-repo `v3/plugins/agentic-qe` implementation described here was removed; it never wrapped the real `agentic-qe` package. This document is kept for history. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) npm package or its Claude Code plugin `agentic-qe-fleet` ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
+
 ## Overview
 
 The Quality Engineering (QE) domain provides comprehensive automated testing, quality assessment, and continuous validation capabilities for Claude Flow V3. It is implemented as the `agentic-qe` plugin with 51 specialized QE agents organized across 12 Domain-Driven Design bounded contexts.

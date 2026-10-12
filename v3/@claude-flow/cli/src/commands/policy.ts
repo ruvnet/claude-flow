@@ -5,6 +5,7 @@ import type {
   PolicyState,
 } from '@claude-flow/security';
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { anchorPosture } from '../services/policy-ledger-anchor.js';
 import { output } from '../output.js';
 import {
   autoMigratePolicyStateIfNeeded,
@@ -34,12 +35,17 @@ function requireInteractiveAdministrator(): void {
   }
 }
 
+// #3602: say what verify can and cannot prove.
+const LEDGER_TRUST_SCOPE = 'detects edits confined to state.json or to the project directory; '
+  + 'does not defend against an attacker who can rewrite both the project directory and ~/.config/ruflo (ADR-475)';
+
 export const policyCommand: Command = {
   name: 'policy',
   description: 'Agentic policy engine — evaluate actions, manage rules/approvals, and verify the decision ledger (ADR-324)',
   options: [
     { name: 'mode', type: 'string', description: 'Policy mode: legacy | observe | enforce' },
     { name: 'project-root', type: 'string', description: 'Project root containing .claude-flow/policy' },
+    { name: 'establish-anchor', type: 'boolean', description: 'verify: explicitly anchor a ledger that has receipts but no anchor (interactive, logged with user and time)' },
   ],
   async action(context: CommandContext): Promise<CommandResult> {
     const args = (context as { args?: string[] }).args ?? [];
@@ -100,7 +106,13 @@ export const policyCommand: Command = {
         const state = loadPolicyState(root);
         return print({ receipts: state.receipts });
       }
-      if (operation === 'verify') return print(await verifyPolicyLedger(root));
+      if (operation === 'verify') {
+        const establishAnchor = flags['establish-anchor'] === true || flags.establishAnchor === true;
+        if (establishAnchor) requireInteractiveAdministrator();
+        const ledger = await verifyPolicyLedger(root, { establishAnchor });
+        const result = print({ ...ledger, anchors: anchorPosture(root), scope: LEDGER_TRUST_SCOPE });
+        return ledger.valid ? result : { ...result, success: false, exitCode: 1 };
+      }
       throw new Error(`unknown policy operation: ${operation}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

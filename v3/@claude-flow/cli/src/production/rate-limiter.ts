@@ -42,6 +42,10 @@ interface TokenBucket {
   tokens: number;
   lastRefill: number;
   requests: number[];
+  // Actual labels for statistics (bucket keys are not reliably parseable:
+  // operation names may contain ':')
+  operation?: string;
+  userId?: string;
 }
 
 // ============================================================================
@@ -85,13 +89,16 @@ export class RateLimiter {
     const now = Date.now();
 
     // Get or create bucket
-    const bucketKey = userId && this.config.perUserLimits
+    const trackedUser = userId && this.config.perUserLimits ? userId : undefined;
+    const bucketKey = trackedUser
       ? `${operation}:${userId}`
       : `global:${operation}`;
 
     let bucket = this.buckets.get(bucketKey);
     if (!bucket) {
       bucket = this.createBucket();
+      bucket.operation = operation;
+      bucket.userId = trackedUser;
       this.buckets.set(bucketKey, bucket);
       this.cleanupBuckets();
     }
@@ -204,9 +211,9 @@ export class RateLimiter {
     const operationCounts = new Map<string, number>();
     const users = new Set<string>();
 
-    for (const [key, bucket] of this.buckets) {
-      const [operation, userId] = key.split(':');
-      if (userId) users.add(userId);
+    for (const bucket of this.buckets.values()) {
+      const operation = bucket.operation as string;
+      if (bucket.userId) users.add(bucket.userId);
 
       const current = operationCounts.get(operation) || 0;
       operationCounts.set(operation, current + bucket.requests.length);

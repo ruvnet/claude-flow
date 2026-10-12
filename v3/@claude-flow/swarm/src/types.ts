@@ -357,6 +357,7 @@ export type SwarmEventType =
   | 'agent.status_changed'
   | 'agent.heartbeat'
   | 'agent.domain_assigned'
+  | 'agent.domain_pool_full'
   | 'task.created'
   | 'task.assigned'
   | 'task.started'

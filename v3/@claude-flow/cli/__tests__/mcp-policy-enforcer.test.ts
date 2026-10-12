@@ -271,8 +271,8 @@ describe('evaluateToolCall — single enforcement entry point (fail-closed)', ()
 
 describe('getAuditLogPath', () => {
   afterEach(() => setAuditLogPathForTesting(null));
-  it('defaults to a path under the OS tmpdir', () => {
-    expect(getAuditLogPath().startsWith(os.tmpdir())).toBe(true);
+  it('defaults to the current project log directory', () => {
+    expect(getAuditLogPath()).toBe(path.join(process.cwd(), '.claude-flow', 'logs', 'mcp-audit.jsonl'));
   });
 });
 

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-chatgpt-federation",
-  "description": "Dedicated ChatGPT Federation MCP publisher with isolated Nostr signing-key custody, OAuth-scoped publishing, and signed public-channel coordination over the Ruflo relay.",
-  "version": "0.1.0",
+  "description": "Dedicated ChatGPT Federation MCP publisher with isolated Nostr signing-key custody, OAuth-scoped publishing, and signed public-channel coordination over the Ruflo relay. As a mod (ADR-445 pattern): a tighten-only tool guard, a local slash command, and a status file the console shows.",
+  "version": "0.2.3",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,29 @@
     "mcp",
     "oauth",
     "signed-events",
-    "nip-42"
-  ]
+    "nip-42",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Tool guard",
+      "description": "Refuse clearly harmful calls to this plugin's tools (tighten-only: it can only deny, never allow).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "maxPayloadBytes": {
+      "type": "number",
+      "title": "Max publish payload (bytes)",
+      "description": "Refuse channel_publish payloads larger than this, 256 to 65536.",
+      "required": false,
+      "default": 8192
+    }
+  }
 }

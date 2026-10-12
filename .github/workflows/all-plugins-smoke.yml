@@ -18,12 +18,28 @@ on:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/check-plugin-manifests.mjs'
+      - 'scripts/sync-mod-screen.mjs'
+      - 'scripts/check-guard-tool-names.mjs'
+      - 'scripts/guard-tool-names.allow.json'
+      - 'scripts/check-status-forwarding.mjs'
+      - 'scripts/status-forwarding.allow.json'
+      - 'v3/@claude-flow/cli/src/mcp-tools/**'
+      - 'v3/@claude-flow/cli/src/ruvector/coverage-tools.ts'
       - '.github/workflows/all-plugins-smoke.yml'
   pull_request:
     paths:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/check-plugin-manifests.mjs'
+      - 'scripts/sync-mod-screen.mjs'
+      - 'scripts/check-guard-tool-names.mjs'
+      - 'scripts/guard-tool-names.allow.json'
+      - 'scripts/check-status-forwarding.mjs'
+      - 'scripts/status-forwarding.allow.json'
+      - 'v3/@claude-flow/cli/src/mcp-tools/**'
+      - 'v3/@claude-flow/cli/src/ruvector/coverage-tools.ts'
       - '.github/workflows/all-plugins-smoke.yml'
   workflow_dispatch:
 
@@ -38,6 +54,10 @@ jobs:
         with:
           node-version: '20'
 
+      - name: esbuild for the guard probe (scripts/probe-mod-guards.mjs bundles each plugin guard)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/esbuild" --no-audit --no-fund --no-package-lock esbuild@0.25.0
+          echo "ESBUILD=$RUNNER_TEMP/esbuild/node_modules/.bin/esbuild" >> "$GITHUB_ENV"
       - name: Discover and run every plugin smoke contract (parallel)
         # --timeout 300 caps each individual plugin smoke at 5 minutes.
         # iter 119 — bumped from 60s because ruflo-metaharness has grown
@@ -46,6 +66,31 @@ jobs:
         # still complete in <5s; 300s protects against a genuinely-hung
         # smoke while letting the metaharness fleet finish.
         run: node scripts/smoke-all-plugins.mjs --timeout 300
+
+      - name: Mod secret screen — every copy matches the origin (ADR-445)
+        run: node scripts/sync-mod-screen.mjs --check
+        # Fails when any plugins/*/hooks/screen.ts drifted from plugins/ruflo-agentdb/hooks/screen.ts between the
+        # SHARED SCREEN markers, or when it finds no copies. Fix: node scripts/sync-mod-screen.mjs
+      - name: Guard tool names exist in the registry
+        run: |
+          node --test tests/check-guard-tool-names.test.mjs
+          node scripts/check-guard-tool-names.mjs
+        # A renamed MCP tool leaves a plugin guard watching a name that no
+        # longer exists, so it silently stops guarding. Fails loud if zero
+        # names are extracted or the registry is empty.
+
+      - name: Native Codex hooks for adr, ddd and sparc (bundles match their sources)
+        run: |
+          node scripts/build-codex-mod-hooks.mjs --check
+          node --test tests/plugins/codex-mod-hooks.test.mjs
+
+      - name: No mod forwards another mod's status file into model context (ADR-450 T7)
+        run: |
+          node --test tests/check-status-forwarding.test.mjs
+          node scripts/check-status-forwarding.mjs
+        # Static scan of plugins/*/hooks: fails when a module that attaches model context (context, instructions,
+        # additionalContext, describe) also reads a mod status path, unless scripts/status-forwarding.allow.json says why.
+        # Exits 3 when it scans no context-bearing module, so an emptied scan fails loud.
 
       - name: Fleet-wide exit-bypass antipattern lint (iter-75 bug class)
         run: node scripts/audit-exit-bypass-antipattern.mjs
@@ -65,6 +110,12 @@ jobs:
         # Each plugin's own smoke checks its own skills; this catches
         # violations that escape per-plugin coverage (new plugin without
         # smoke, new skill without smoke-list update, etc.).
+
+      - name: claude.ai plugin-validator static check
+        run: node scripts/check-plugin-manifests.mjs
+        # Unknown plugin.json keys, nested .claude-plugin/plugin.json under a
+        # plugin, and <tag>-like text in SKILL.md descriptions: the three
+        # things the claude.ai upload validator skips or warns on.
 
       - name: Fleet-wide plugin.json manifest audit (iter 88)
         run: node scripts/audit-plugin-manifest.mjs

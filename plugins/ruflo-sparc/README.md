@@ -109,3 +109,51 @@ bash plugins/ruflo-sparc/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+- **Guard (default on, tighten-only).** It refuses to store a spec or phase artifact that holds a secret in a `sparc*` memory namespace. The refusal never repeats the secret.
+- **Status file.** `.claude-flow/sparc-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+- **`/sparc-mod`** answers locally: `status`, `scan <text>`, `phases`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+- **Option.** `guard` (`on` | `off`, default `on`) in the plugin's `userConfig`.
+
+Test it: `claude plugin validate plugins/ruflo-sparc`, `claude plugin test plugins/ruflo-sparc`, `bash plugins/ruflo-sparc/scripts/smoke.sh`.
+
+## Native Codex hooks
+
+The separate `.codex-plugin/plugin.json` selects `hooks/codex-hooks.json`, replacing
+the Claude-only module entry for Codex. Claude's manifest and `register.ts` remain
+unchanged. The synchronous native `PreToolUse` adapter bundles the existing pure
+guard and shared secret screen; it preserves their tool/namespace scope and emits
+the native permission-denial envelope before a guarded write. `SessionStart` and
+guarded calls maintain private per-session counters in `PLUGIN_DATA`; the existing
+version-1 project status file remains a best-effort courtesy view. Status failure
+does not permit a denied write. Guarding is enabled for the native adapter.
+
+Existing skills and command files remain available. Claude's dynamic
+`$.command.register` / `command.run` mod interception has no native command-hook
+equivalent: Codex does **not** get that interception. The same deterministic local
+command helpers are available explicitly via
+`node <plugin-root>/hooks/codex-hook.cjs --command status` (and the helper's existing
+subcommands). This is guard/status compatibility, not full SDK-mod parity.
+
+Maintainers rebuild the committed standalone bundles with
+`ESBUILD=<esbuild executable> node scripts/build-codex-mod-hooks.mjs`, then run
+`node --test tests/plugins/codex-mod-hooks.test.mjs`. Set `ESBUILD` in that test run
+to check byte reproducibility using the same installed builder. Run
+`scripts/sync-mod-screen.mjs --check` before bundling when the shared screen changes.
+The adapters need Node.js and contain no runtime SDK dependency.
+
+This source change requires a released upstream package or an explicitly owned
+source projection to reach installations. It does not patch foreign cache entries,
+pin upstream updates, disable plugins, or claim an already published repair.
+
+Release both host manifests with the same patch version. Codex 0.160's published
+remote-bundle sync skips downloading a release whose version equals the installed
+version; merging same-version source does not establish automatic cache refresh.
+Its explicit native plugin install replaces the cached root atomically even at the
+same version. An owned projection must therefore refresh its upstream source
+generation and explicitly reinstall it; refreshing a marketplace catalog alone
+is not installation proof. No foreign cache entry should be edited in place.

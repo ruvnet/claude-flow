@@ -257,7 +257,7 @@ if (isMCPMode) {
             serverInfo: { name: 'ruflo', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              resources: {},
             },
           },
         };
@@ -301,11 +301,14 @@ if (isMCPMode) {
         }
 
         try {
-          const result = await callMCPTool(toolName, toolParams, { sessionId });
+          const result = await callMCPTool(toolName, toolParams, { sessionId, transport: 'stdio' });
+          // Failed task outcomes are data; an explicit handler error is a tool failure.
+          const isError = result !== null && typeof result === 'object'
+            && typeof result.error === 'string' && result.error.trim().length > 0;
           return {
             jsonrpc: '2.0',
             id: message.id,
-            result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
+            result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], isError },
           };
         } catch (error) {
           return {
@@ -318,6 +321,16 @@ if (isMCPMode) {
           };
         }
       }
+
+      // A declared capability must be served (ADR-490): no resources are exposed, so list answers are empty and a read is "not found".
+      case 'resources/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resources: [] } };
+
+      case 'resources/templates/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resourceTemplates: [] } };
+
+      case 'resources/read':
+        return { jsonrpc: '2.0', id: message.id, error: { code: -32002, message: 'Resource not found' } };
 
       case 'notifications/initialized':
         return null;

@@ -318,16 +318,18 @@ const codeCommand: Command = {
     const analysisType = ctx.flags.type as string || 'quality';
     const formatJson = (ctx.flags.format as string) === 'json';
 
-    output.writeln();
-    output.writeln(output.bold('Code Analysis'));
-    output.writeln(output.dim('-'.repeat(50)));
+    if (!formatJson) {
+      output.writeln();
+      output.writeln(output.bold('Code Analysis'));
+      output.writeln(output.dim('-'.repeat(50)));
+    }
 
     const spinner = output.createSpinner({ text: `Analyzing ${targetPath}...`, spinner: 'dots' });
     spinner.start();
 
     try {
       const files = await scanSourceFiles(targetPath);
-      if (files.length === 0) {
+      if (files.length === 0 && !formatJson) {
         spinner.stop();
         output.printWarning('No source files found');
         return { success: true };
@@ -376,17 +378,18 @@ const codeCommand: Command = {
       const totalTodos = fileStats.reduce((s, f) => s + f.todos, 0);
       const totalFunctions = fileStats.reduce((s, f) => s + f.functions, 0);
       const totalImports = fileStats.reduce((s, f) => s + f.imports, 0);
-      const avgFileSize = Math.round(totalLoc / files.length);
-      const longestFile = fileStats.reduce((a, b) => a.loc > b.loc ? a : b);
-      const avgFnPerFile = (totalFunctions / files.length).toFixed(1);
-      const deepestNesting = fileStats.reduce((a, b) => a.maxNesting > b.maxNesting ? a : b);
-      const allSecurityIssues = fileStats.filter(f => f.securityIssues.length > 0);
+      const avgFileSize = files.length > 0 ? Math.round(totalLoc / files.length) : 0;
 
       if (formatJson) {
         const jsonData = { type: analysisType, path: targetPath, files: files.length, totalLoc, totalTodos, totalFunctions, totalImports, avgFileSize, fileStats: fileStats.map(f => ({ relativePath: path.relative(targetPath, f.file), loc: f.loc, todos: f.todos, functions: f.functions, imports: f.imports, maxNesting: f.maxNesting, securityIssues: f.securityIssues })) };
         output.printJson(jsonData);
         return { success: true, data: jsonData };
       }
+
+      const longestFile = fileStats.reduce((a, b) => a.loc > b.loc ? a : b);
+      const avgFnPerFile = (totalFunctions / files.length).toFixed(1);
+      const deepestNesting = fileStats.reduce((a, b) => a.maxNesting > b.maxNesting ? a : b);
+      const allSecurityIssues = fileStats.filter(f => f.securityIssues.length > 0);
 
       if (analysisType === 'quality') {
         output.printBox(
@@ -635,7 +638,7 @@ const astCommand: Command = {
 
       spinner.stop();
 
-      if (results.length === 0) {
+      if (results.length === 0 && formatType !== 'json') {
         output.printWarning('No files analyzed');
         return { success: true };
       }
@@ -646,7 +649,7 @@ const astCommand: Command = {
         functions: results.reduce((sum, r) => sum + r.functions.length, 0),
         classes: results.reduce((sum, r) => sum + r.classes.length, 0),
         imports: results.reduce((sum, r) => sum + r.imports.length, 0),
-        avgComplexity: results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length,
+        avgComplexity: results.length > 0 ? results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length : 0,
         totalLoc: results.reduce((sum, r) => sum + r.complexity.loc, 0),
       };
 
@@ -1421,9 +1424,11 @@ const depsCommand: Command = {
     const checkSecurity = ctx.flags.security as boolean;
     const formatJson = (ctx.flags.format as string) === 'json';
 
-    output.writeln();
-    output.writeln(output.bold('Dependency Analysis'));
-    output.writeln(output.dim('-'.repeat(50)));
+    if (!formatJson || showOutdated || checkSecurity) {
+      output.writeln();
+      output.writeln(output.bold('Dependency Analysis'));
+      output.writeln(output.dim('-'.repeat(50)));
+    }
 
     try {
       const pkgPath = resolve('package.json');
@@ -1702,7 +1707,7 @@ const boundariesCommand: Command = {
 
         for (const cycle of result.circularDependencies.slice(0, 5)) {
           const severityColor = cycle.severity === 'high' ? output.error : cycle.severity === 'medium' ? output.warning : output.dim;
-          output.writeln(`${severityColor(`[${cycle.severity.toUpperCase()}]`)} ${cycle.cycle.join(' -> ')}`);
+          output.writeln(`${severityColor.call(output, `[${cycle.severity.toUpperCase()}]`)} ${cycle.cycle.join(' -> ')}`);
           output.writeln(output.dim(`  ${cycle.suggestion}`));
           output.writeln();
         }
@@ -2189,7 +2194,7 @@ const circularCommand: Command = {
         if (items.length === 0) continue;
 
         const color = severity === 'high' ? output.error : severity === 'medium' ? output.warning : output.dim;
-        output.writeln(color(output.bold(`${severity.toUpperCase()} SEVERITY (${items.length})`)));
+        output.writeln(color.call(output, output.bold(`${severity.toUpperCase()} SEVERITY (${items.length})`)));
         output.writeln();
 
         for (const cycle of items.slice(0, 5)) {

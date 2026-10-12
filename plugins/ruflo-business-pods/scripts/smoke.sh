@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Structural + functional smoke test for ruflo-business-pods v0.1.0
+# Structural + functional smoke test for ruflo-business-pods v0.2.3
 # (ADR-164 Phase 2). Verifies:
 #
-#   1. plugin.json declares 0.1.0 with the expected adr-164/phase-2 keywords
+#   1. plugin.json declares 0.2.3 with the expected adr-164/phase-2 keywords
 #   2. templates/sales.json exists and validates against the pod-schema
 #   3. scripts/pod-tick.mjs exists, parses, and is executable
 #   4. Vitest suite passes (cli/__tests__/business-pod-tools.test.ts)
@@ -23,10 +23,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.1.0 with adr-164 + phase-2 keywords"
+step "1. plugin.json declares 0.2.3 with adr-164 + phase-2 keywords"
 v=$(grep -E '"version"' "$PLUGIN/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.1.0" ]]; then
-  bad "expected 0.1.0, got '$v'"
+if [[ "$v" != "0.2.3" ]]; then
+  bad "expected 0.2.3, got '$v'"
 else
   miss=""
   for k in ruflo pods business sales adr-164 adr-164.1 phase-2 pod-template pod-tick budget-reservation dry-run-default agent-registry-resolution; do
@@ -63,6 +63,26 @@ miss=""
 [[ -x "$F" ]] || miss="$miss not-executable"
 node --check "$F" 2>/dev/null || miss="$miss syntax-error"
 [[ -z "$miss" ]] && ok || bad "$miss"
+
+# M1-M3. The mod (ADR-445 pattern): hooks module registered, files within the 500-line rule, no network or process access, safe defaults
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$PLUGIN/hooks/hooks.json" || mod_ok=0
+for f in options screen guard command status register; do
+  [[ -f "$PLUGIN/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$PLUGIN/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: guard defaults on and the extra options default safe (userConfig)"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+const safe = c.guard && c.guard.default === "on" && (true)
+process.exit(safe ? 0 : 1)
+' "$PLUGIN/.claude-plugin/plugin.json" && ok || bad "userConfig defaults wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$PLUGIN"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 step "4. vitest suite passes (business-pod-tools.test.ts)"
 # When CI runs --ignore-optional (no-metaharness / no-agentbbs runtime drills),

@@ -103,6 +103,9 @@ function calculateDelay(
     delay += (Math.random() - 0.5) * 2 * jitterRange;
   }
 
+  // Enforce the configured maximum on the final (jittered) delay
+  delay = Math.min(delay, config.maxDelayMs);
+
   return Math.round(Math.max(0, delay));
 }
 
@@ -178,7 +181,7 @@ export async function withRetry<T>(
         retryHistory,
       };
     } catch (error) {
-      lastError = error as Error;
+      lastError = error instanceof Error ? error : new Error(String(error));
 
       // Check if we should retry
       if (!shouldRetryError(lastError, attempt, finalConfig)) {

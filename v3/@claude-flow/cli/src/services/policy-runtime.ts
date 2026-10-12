@@ -35,6 +35,8 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { hostname, userInfo } from 'node:os';
+import { syncPolicyProjection } from '../mods/policy-projection.js';
+import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent } from './policy-ledger-anchor.js';
 
 const POLICY_DIR = join('.claude-flow', 'policy');
 const POLICY_FILE = 'state.json';
@@ -142,7 +144,11 @@ function lockOwnerIsDead(lockPath: string): boolean {
   }
 }
 
-async function acquireLock(lockPath: string): Promise<() => void> {
+/**
+ * Exported for ADR-406 mission storage, which takes the same per-file lock
+ * (pid, pid namespace and boot id identify a dead owner) rather than a copy.
+ */
+export async function acquireLock(lockPath: string): Promise<() => void> {
   const started = Date.now();
   while (Date.now() - started < LOCK_WAIT_MS) {
     try {
@@ -202,7 +208,7 @@ async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
 }
 
 function trustPaths(projectRoot: string): { key: string; anchor: string } {
-  const trustRoot = join(userInfo().homedir, '.config', 'ruflo', 'policy-trust');
+  const trustRoot = policyTrustRoot();
   const projectId = createHash('sha256').update(realpathSync(projectRoot)).digest('hex');
   const dir = join(trustRoot, projectId);
   return { key: join(dir, 'anchor.key'), anchor: join(dir, 'state.anchor.json') };
@@ -239,7 +245,30 @@ function verifyStateAnchor(projectRoot: string, state: PolicyState | undefined):
   }
 }
 
-async function writePolicyState(projectRoot: string, statePath: string, state: PolicyState): Promise<void> {
+async function writePolicyState(
+  projectRoot: string,
+  statePath: string,
+  state: PolicyState,
+  anchorEvent: AnchorEvent = 'append',
+  by?: string,
+): Promise<void> {
+  await writePolicyStateFiles(projectRoot, statePath, state);
+  // #3602: the second anchor is written after the state, so a crash leaves the
+  // state AHEAD of the log (caught up on the next write), never behind it.
+  await recordAnchor(projectRoot, state, writeJsonAtomic, anchorEvent, by);
+  // ADR-404: the ruflo mod reads Claude Code tool rules from a small
+  // projection, never from state.json. Written only after the state and its
+  // anchor are safely down; a failure here never fails the state write. A
+  // projection left stale by such a failure can only tighten, never loosen,
+  // a Claude Code verdict (the mod merges with `stricter`).
+  try {
+    syncPolicyProjection(projectRoot, state);
+  } catch (error) {
+    process.stderr.write(`[policy] claude-code projection not written: ${(error as Error).message}\n`);
+  }
+}
+
+async function writePolicyStateFiles(projectRoot: string, statePath: string, state: PolicyState): Promise<void> {
   const anchorPath = trustPaths(projectRoot).anchor;
   if (state.mode === 'enforce' || existsSync(anchorPath)) {
     const key = trustKey(projectRoot, true)!;
@@ -355,16 +384,25 @@ export async function withPolicyTransaction<T>(
   mkdirSync(target.dir, { recursive: true, mode: 0o700 });
   const release = await acquireLock(target.lock);
   try {
-    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), {
+    const loaded = loadPolicyState(projectRoot);
+    const engine = AgenticPolicyEngine.fromState(loaded, {
       signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
       keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
       evidenceVerifier: verifyPolicyEvidence,
       approvalIssuerVerifier: options.approvalIssuerVerifier,
     });
+    // #3602: refuse to operate on a ledger whose anchors are missing or
+    // disagree; a restored primary anchor is persisted by the write below.
+    const gate = reconcileLedger(projectRoot, engine, {});
+    if (!gate.result.valid) {
+      throw new Error(gate.result.error === 'anchor-missing'
+        ? `policy-ledger-anchor-missing: receipts exist but no ledger anchor was found. If this ledger predates anchors, run \`ruflo policy verify --establish-anchor\`; otherwise treat it as tampering.`
+        : gate.result.error ?? 'policy-ledger-verification-failed');
+    }
     const result = await operation(engine);
-    const nextState = engine.exportState();
     if (!engine.verifyLedger().valid) throw new Error('policy-ledger-verification-failed');
-    await writePolicyState(projectRoot, target.state, nextState);
+    const nextState = engine.exportState();
+    await writePolicyState(projectRoot, target.state, nextState, gate.event);
     return result;
   } finally {
     release();
@@ -430,8 +468,90 @@ export async function revokePolicyApproval(id: string, projectRoot = process.cwd
   return withPolicyTransaction(projectRoot, (engine) => engine.revokeApproval(id));
 }
 
-export async function verifyPolicyLedger(projectRoot = process.cwd()): Promise<ReturnType<AgenticPolicyEngine['verifyLedger']>> {
-  return withPolicyTransaction(projectRoot, (engine) => engine.verifyLedger());
+export type PolicyLedgerVerification = ReturnType<AgenticPolicyEngine['verifyLedger']> & {
+  /** How the second anchor was brought in line during this call. */
+  secondaryAnchor?: 'recorded-from-state' | 'restored-primary' | 'established-explicitly';
+};
+
+interface Reconciled {
+  result: PolicyLedgerVerification;
+  persist: boolean;
+  event?: AnchorEvent;
+}
+
+/**
+ * Decide whether the ledger may be trusted, using the chain, the primary anchor
+ * in state.json and the second anchor (#3602). It never creates an anchor over
+ * existing receipts on its own: only an authentic second anchor (restoring a
+ * deleted primary) or an explicit `establishAnchor` does.
+ */
+function reconcileLedger(
+  projectRoot: string,
+  engine: AgenticPolicyEngine,
+  options: { establishAnchor?: boolean },
+): Reconciled {
+  const state = engine.exportState();
+  const length = state.receipts.length;
+  const primary = typeof state.ledgerLength === 'number';
+  const base = engine.verifyLedger();
+  const fail = (error: string): Reconciled => ({ result: { valid: false, length, error }, persist: false });
+  if (!base.valid && base.error !== 'anchor-missing') return { result: base, persist: false };
+  const assessed = assessAnchors(projectRoot, state, options.establishAnchor === true);
+  if (assessed.kind === 'fail') return fail(assessed.error);
+  if (primary) {
+    if (assessed.kind === 'absent' && length > 0) {
+      return options.establishAnchor
+        ? { result: { ...base, secondaryAnchor: 'established-explicitly' }, persist: true, event: 'establish-anchor' }
+        : { result: { ...base, secondaryAnchor: 'recorded-from-state' }, persist: true, event: 'migrated-from-state' };
+    }
+    return { result: base, persist: assessed.kind === 'ok' && assessed.behind, event: 'append' };
+  }
+  // No primary anchor.
+  if (length === 0) return { result: { valid: true, length, state: 'empty' }, persist: false };
+  if (assessed.kind === 'ok') {
+    // The second anchor is authentic and agrees with the chain: the deleted
+    // primary can be restored from it. Truncation was already rejected above.
+    engine.verifyLedger({ establishAnchor: true });
+    return { result: { valid: true, length, secondaryAnchor: 'restored-primary' }, persist: true, event: 'append' };
+  }
+  if (options.establishAnchor) {
+    const established = engine.verifyLedger({ establishAnchor: true });
+    return {
+      result: { ...established, secondaryAnchor: 'established-explicitly' },
+      persist: true,
+      event: 'establish-anchor',
+    };
+  }
+  return fail('anchor-missing');
+}
+
+/**
+ * Verification (#3568, #3602). It must not run inside `withPolicyTransaction`,
+ * whose own post-operation check throws a generic
+ * `policy-ledger-verification-failed` and hides which check failed. It writes
+ * only to bring the second anchor in line, or on an explicit `establishAnchor`.
+ */
+export async function verifyPolicyLedger(
+  projectRoot = process.cwd(),
+  options: { establishAnchor?: boolean } = {},
+): Promise<PolicyLedgerVerification> {
+  const target = paths(projectRoot);
+  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  const release = await acquireLock(target.lock);
+  try {
+    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), {
+      signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
+      keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
+    });
+    const outcome = reconcileLedger(projectRoot, engine, options);
+    if (outcome.persist) {
+      const by = outcome.event === 'establish-anchor' ? userInfo().username : undefined;
+      await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by);
+    }
+    return outcome.result;
+  } finally {
+    release();
+  }
 }
 
 /**

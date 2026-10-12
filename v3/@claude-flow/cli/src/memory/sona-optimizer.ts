@@ -167,6 +167,11 @@ const AGENT_TYPES = [
   'performance-engineer',
 ];
 
+/** Agent roles supported by the SONA routing optimizer. */
+export function isSupportedSonaAgent(agent: string): boolean {
+  return AGENT_TYPES.includes(agent);
+}
+
 /**
  * Task keywords for pattern extraction
  */

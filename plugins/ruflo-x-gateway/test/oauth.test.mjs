@@ -79,6 +79,9 @@ test('discovery echoes the identifier the client asked about', async () => {
       const chatgpt = await (await fetch(`http://127.0.0.1:${port}/.well-known/oauth-protected-resource/chatgpt/mcp`)).json();
       assert.equal(chatgpt.resource, 'https://x.example/chatgpt/mcp');
       assert.deepEqual(chatgpt.authorization_servers, [as.issuer]);
+      const claude = await (await fetch(`http://127.0.0.1:${port}/.well-known/oauth-protected-resource/claude/mcp`)).json();
+      assert.equal(claude.resource, 'https://x.example/claude/mcp');
+      assert.deepEqual(claude.authorization_servers, [as.issuer]);
     });
   } finally { as.close(); }
 });
@@ -91,6 +94,31 @@ test('an anonymous ChatGPT-profile write returns an HTTP OAuth challenge', async
       assert.equal(r.status, 401);
       assert.match(r.wwwAuth || '', /oauth-protected-resource\/chatgpt\/mcp/);
       assert.match(r.body?.error || '', /invalid_request/);
+    });
+  } finally { as.close(); }
+});
+
+test('an anonymous Claude-profile write returns an HTTP OAuth challenge', async () => {
+  const as = await fakeAuthServer();
+  try {
+    await withGateway(as, async (port) => {
+      const r = await call(port, 'federation_publish', { msgType: 'Status', payload: {} }, {}, '/claude/mcp');
+      assert.equal(r.status, 401);
+      assert.match(r.wwwAuth || '', /oauth-protected-resource\/claude\/mcp/);
+      assert.match(r.body?.error || '', /invalid_request/);
+    });
+  } finally { as.close(); }
+});
+
+test('a swarm:publish token authorises a Claude-profile write without a tool secret', async () => {
+  const as = await fakeAuthServer();
+  try {
+    await withGateway(as, async (port) => {
+      const tok = await as.mint({ scope: `${SCOPE_READ} ${SCOPE_PUBLISH}`, audience: CLIENT_ID });
+      const r = await call(port, 'federation_publish', { msgType: 'Status', payload: {} },
+        { authorization: `Bearer ${tok}` }, '/claude/mcp');
+      assert.notEqual(r.status, 401);
+      assert.doesNotMatch(toolText(r), /no write credential|admin token required|lacks swarm:publish/);
     });
   } finally { as.close(); }
 });

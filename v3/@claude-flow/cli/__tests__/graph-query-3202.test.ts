@@ -44,20 +44,19 @@ describe('#3202 graph k-hop execution contract', () => {
     backend.getBridgeDb.mockResolvedValue({ prepare: backend.prepare });
   });
 
-  it('uses native graph at the requested depth for an unfiltered query', async () => {
+  it('reads retained SQL even when the separate native graph is available', async () => {
     const result = await query({ depth: 5 });
-    expect(backend.neighbors).toHaveBeenCalledWith('start', 5);
-    expect(backend.getBridgeDb).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ success: true, backend: 'graph-node', depth: 5, appliedDepth: 5 });
-    expect(result.truncated).not.toBe(true);
+    expect(backend.neighbors).not.toHaveBeenCalled();
+    expect(backend.getBridgeDb).toHaveBeenCalled();
+    expect(result).toMatchObject({ success: true, backend: 'sql-cte', depth: 5, appliedDepth: 3, truncated: true });
   });
 
-  it('refuses a relation filter on native graph rather than silently returning unfiltered neighbors', async () => {
+  it('applies a relation filter to retained SQL regardless of native availability', async () => {
     const result = await query({ depth: 5, relation: 'depends-on' });
     expect(backend.neighbors).not.toHaveBeenCalled();
-    expect(backend.getBridgeDb).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ success: false, backend: 'graph-node', unsupported: 'relation' });
-    expect(result.error).toMatch(/does not support relation filtering/i);
+    expect(backend.getBridgeDb).toHaveBeenCalled();
+    expect(result).toMatchObject({ success: true, backend: 'sql-cte' });
+    expect(backend.prepare.mock.calls[0][0]).toContain("e.relation = 'depends-on'");
   });
 
   it('filters on SQL when native graph is unavailable and discloses the depth-3 bound', async () => {
@@ -80,7 +79,7 @@ describe('#3202 graph k-hop execution contract', () => {
     const result = await query({ relation: 'depends-on' });
     expect(backend.neighbors).not.toHaveBeenCalled();
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/relation-filtered.*SQL graph_edges/i);
+    expect(result.error).toMatch(/retained SQL graph_edges/i);
   });
 
   it('discloses SQL depth truncation even without a relation filter', async () => {

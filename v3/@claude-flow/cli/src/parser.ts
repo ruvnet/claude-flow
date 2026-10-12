@@ -165,13 +165,25 @@ export class CommandParser {
     // with `daemon` left as a positional.
     let resolvedCmd: Command | undefined;
     let resolvedSub: Command | undefined;
+    const resolvedCommands: Command[] = [];
     let sawFirstPositional = false;
-    for (const arg of args) {
-      if (arg.startsWith('-')) continue;
+    for (let index = 0; index < args.length; index++) {
+      const arg = args[index];
+      if (arg === '--') break;
+      if (arg.startsWith('-')) {
+        // Pass 2 recognizes only contiguous subcommands after the root.
+        if (sawFirstPositional) break;
+        // Skip consumed values as well as flags: a global option value is not
+        // the command slot, even when it happens to name another command.
+        const scope = this.getFlagScope(resolvedCommands);
+        index = this.parseFlag(args, index, scope.aliases, scope.booleanFlags, scope.stringFlags).nextIndex - 1;
+        continue;
+      }
       if (!sawFirstPositional) {
         sawFirstPositional = true;
         if (this.commands.has(arg)) {
-          resolvedCmd = this.commands.get(arg);
+          resolvedCmd = this.commands.get(arg)!;
+          resolvedCommands.push(resolvedCmd);
           continue;
         }
         // Lazy command: we know its name but not its subcommands. Stop the
@@ -182,15 +194,22 @@ export class CommandParser {
         // Unknown first positional — not a command. Stop walking.
         break;
       }
-      if (resolvedCmd && !resolvedSub && resolvedCmd.subcommands) {
-        resolvedSub = resolvedCmd.subcommands.find(sc => sc.name === arg || sc.aliases?.includes(arg));
+      // Match the same supported command depth as Pass 2, with each option
+      // declaration taking precedence over its parent scope.
+      const parent = resolvedCommands[resolvedCommands.length - 1];
+      if (resolvedCommands.length < 4 && parent?.subcommands) {
+        const child = parent.subcommands.find(sc => sc.name === arg || sc.aliases?.includes(arg));
+        if (child) {
+          resolvedCommands.push(child);
+          resolvedSub ??= child;
+          continue;
+        }
       }
+      // A positional that is not the next subcommand ends the command path.
+      break;
     }
 
-    // Pass 2: Build aliases scoped to the resolved subcommand
-    // Subcommand-specific aliases take priority over global ones
-    const aliases = this.buildScopedAliases(resolvedSub || resolvedCmd);
-    const booleanFlags = this.getScopedBooleanFlags(resolvedSub || resolvedCmd);
+    const { aliases, booleanFlags, stringFlags } = this.getFlagScope(resolvedCommands);
 
     let i = 0;
     let parsingFlags = true;
@@ -207,7 +226,7 @@ export class CommandParser {
 
       // Handle flags
       if (parsingFlags && arg.startsWith('-')) {
-        const parseResult = this.parseFlag(args, i, aliases, booleanFlags);
+        const parseResult = this.parseFlag(args, i, aliases, booleanFlags, stringFlags);
 
         // Apply to result flags
         Object.assign(result.flags, parseResult.flags);
@@ -277,7 +296,8 @@ export class CommandParser {
     args: string[],
     index: number,
     aliases: Record<string, string>,
-    booleanFlags: Set<string>
+    booleanFlags: Set<string>,
+    stringFlags: Set<string>
   ): { flags: ParsedFlags; nextIndex: number } {
     const flags: ParsedFlags = { _: [] };
     const arg = args[index];
@@ -291,7 +311,8 @@ export class CommandParser {
         // --flag=value
         const key = arg.slice(2, equalIndex);
         const value = arg.slice(equalIndex + 1);
-        flags[this.normalizeKey(key)] = this.parseValue(value);
+        const normalizedKey = this.normalizeKey(key);
+        flags[normalizedKey] = stringFlags.has(normalizedKey) ? value : this.parseValue(value);
       } else if (arg.startsWith('--no-')) {
         // --no-flag (boolean negation)
         const key = arg.slice(5);
@@ -312,7 +333,7 @@ export class CommandParser {
             flags[normalizedKey] = true;
           }
         } else if (nextIndex < args.length && this.isFlagValue(args[nextIndex])) {
-          flags[normalizedKey] = this.parseValue(args[nextIndex]);
+          flags[normalizedKey] = stringFlags.has(normalizedKey) ? args[nextIndex] : this.parseValue(args[nextIndex]);
           nextIndex++;
         } else {
           flags[normalizedKey] = true;
@@ -337,7 +358,7 @@ export class CommandParser {
             flags[normalizedKey] = true;
           }
         } else if (nextIndex < args.length && this.isFlagValue(args[nextIndex])) {
-          flags[normalizedKey] = this.parseValue(args[nextIndex]);
+          flags[normalizedKey] = stringFlags.has(normalizedKey) ? args[nextIndex] : this.parseValue(args[nextIndex]);
           nextIndex++;
         } else {
           flags[normalizedKey] = true;
@@ -494,6 +515,35 @@ export class CommandParser {
     return flags;
   }
 
+  /** Resolve declared types from broad to narrow without borrowing string
+   * declarations from unrelated registered commands. */
+  private getFlagScope(commands: Command[]): {
+    aliases: Record<string, string>;
+    booleanFlags: Set<string>;
+    stringFlags: Set<string>;
+  } {
+    const aliases = this.buildScopedAliases(commands[commands.length - 1]);
+    const booleanFlags = this.getScopedBooleanFlags(commands[commands.length - 1]);
+    const stringFlags = new Set((this.options.stringFlags ?? []).map(flag => this.normalizeKey(flag)));
+    for (const command of commands) {
+      for (const option of command.options ?? []) {
+        if (option.short) aliases[option.short] = option.name;
+      }
+    }
+    const layers = [this.globalOptions, ...commands.map(command => command.options ?? [])];
+    for (const options of layers) {
+      for (const option of options) {
+        const key = this.normalizeKey(option.name);
+        if (option.type === 'string') stringFlags.add(key);
+        else if (option.type) stringFlags.delete(key);
+        if (option.type === 'boolean') booleanFlags.add(key);
+        else if (option.type) booleanFlags.delete(key);
+      }
+    }
+    for (const flag of stringFlags) booleanFlags.delete(flag);
+    return { aliases, booleanFlags, stringFlags };
+  }
+
   private getBooleanFlags(): Set<string> {
     const flags = new Set<string>();
 
@@ -580,6 +630,14 @@ export class CommandParser {
 
       if (opt.required && (flags[key] === undefined || flags[key] === '')) {
         errors.push(`Required option missing: --${opt.name}`);
+      }
+
+      // A value-taking option given with nothing after it (`--task`, `--key` at the end, or
+      // followed by another flag) is parsed as boolean `true`. Commands then treat `true` as
+      // the value: `hooks route --task` crashed with "task.trim is not a function" and
+      // `memory retrieve --key` looked up the key "true". Report it instead.
+      if ((opt.type === 'string' || opt.type === 'number') && flags[key] === true) {
+        errors.push(`Option --${opt.name} needs a value`);
       }
 
       // Check choices

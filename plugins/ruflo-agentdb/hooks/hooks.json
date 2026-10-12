@@ -1,0 +1,4 @@
+{
+  "description": "AgentDB as a mod (ADR-445): opt-in safe recall into the prompt (per-prompt context, deadline-bounded, screened as untrusted data), a write guard that keeps secrets out of memory, /agentdb, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

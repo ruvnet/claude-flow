@@ -15,46 +15,83 @@
  * version a user separately pinned via `npm install @claude-flow/cli`
  * (ADR-382 Gap 3 / issue #2971).
  *
- * Candidate list and the dist/src/index.js existence guard mirror
+ * The dist/src/index.js existence guard mirrors
  * .claude/helpers/hook-handler.cjs's resolveCliBinForHook(): a
  * marketplace-plugin checkout is installed by `git clone`/`git pull`
  * with no build step, so bin/cli.js can be present on disk while
  * importing dist/src/index.js throws ERR_MODULE_NOT_FOUND on every real
  * command. Checking for dist/ alongside bin/ prevents that doomed
  * candidate from winning ahead of a real local install or the npx
- * fallback.
+ * fallback. RUFLO_MCP_CLI_OVERRIDE can pin a built bin/cli.js when
+ * an install lives outside the standard project or global npm layouts;
+ * RUFLO_MCP_SKIP_NPX=1 rejects an unpinned fallback.
  */
 
 const { existsSync } = require('fs');
-const { join, dirname } = require('path');
+const { join, dirname, resolve, isAbsolute, delimiter } = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
 
 const MCP_ARGS = ['mcp', 'start'];
 
-function resolveLocalCliBin(cwd, home) {
-  const candidates = [
-    join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
-    join(cwd, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
-    join(cwd, 'node_modules', 'ruflo', 'bin', 'cli.js'),
-    join(cwd, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
-  ];
-  for (const candidate of candidates) {
-    try {
-      const distEntry = join(dirname(candidate), '..', 'dist', 'src', 'index.js');
-      if (existsSync(candidate) && existsSync(distEntry)) {
-        return candidate;
-      }
-    } catch {
-      // try next candidate
+function isRunnableCli(candidate) {
+  try {
+    const distEntry = join(dirname(candidate), '..', 'dist', 'src', 'index.js');
+    return existsSync(candidate) && existsSync(distEntry);
+  } catch {
+    return false;
+  }
+}
+
+function resolveLocalCliBin(cwd, home, env = process.env) {
+  // An explicit pin must fail closed if it disappears; silently running
+  // @latest instead would defeat the override's purpose.
+  if (env.RUFLO_MCP_CLI_OVERRIDE) {
+    const override = resolve(cwd, env.RUFLO_MCP_CLI_OVERRIDE);
+    if (!isRunnableCli(override)) {
+      throw new Error(`RUFLO_MCP_CLI_OVERRIDE is not a built @claude-flow/cli bin: ${override}`);
     }
+    return override;
+  }
+
+  const candidates = [join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js')];
+  // Node resolves node_modules from the current directory and its ancestors.
+  // A literal cwd-only probe misses installs from every nested project dir.
+  for (let dir = resolve(cwd); ; dir = dirname(dir)) {
+    candidates.push(
+      join(dir, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      join(dir, 'node_modules', 'ruflo', 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      join(dir, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      join(dir, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+    );
+    if (dirname(dir) === dir) break;
+  }
+
+  // npm global installs live next to bin/ on POSIX and under the shim
+  // directory on Windows. Probe PATH roots without spawning npm or npx.
+  for (const binDir of String(env.PATH || env.Path || '').split(delimiter)) {
+    if (!isAbsolute(binDir)) continue;
+    const modulesDir = process.platform === 'win32'
+      ? join(binDir, 'node_modules')
+      : join(binDir, '..', 'lib', 'node_modules');
+    candidates.push(
+      join(modulesDir, '@claude-flow', 'cli', 'bin', 'cli.js'),
+      join(modulesDir, 'ruflo', 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      join(modulesDir, 'claude-flow', 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+    );
+  }
+  for (const candidate of candidates) {
+    if (isRunnableCli(candidate)) return candidate;
   }
   return null;
 }
 
-function buildLaunchSpec(localBin) {
+function buildLaunchSpec(localBin, env = process.env) {
   if (localBin) {
     return { command: process.execPath, args: [localBin, ...MCP_ARGS], shell: false };
+  }
+  if (env.RUFLO_MCP_SKIP_NPX === '1') {
+    throw new Error('No built local CLI found and RUFLO_MCP_SKIP_NPX=1 forbids the @latest fallback');
   }
   const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
   // Windows .cmd shims aren't directly executable via CreateProcess — they
@@ -92,8 +129,13 @@ function launch({ command, args, shell }) {
 }
 
 if (require.main === module) {
-  const localBin = resolveLocalCliBin(process.cwd(), os.homedir());
-  launch(buildLaunchSpec(localBin));
+  try {
+    const localBin = resolveLocalCliBin(process.cwd(), os.homedir());
+    launch(buildLaunchSpec(localBin));
+  } catch (error) {
+    process.stderr.write(`[mcp-launch] ${error.message}\n`);
+    process.exitCode = 1;
+  }
 }
 
 module.exports = { resolveLocalCliBin, buildLaunchSpec, MCP_ARGS };

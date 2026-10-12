@@ -1,7 +1,7 @@
 {
   "name": "ruflo-business-pods",
-  "description": "ADR-164 Phase 2 — business-domain pod templates for the federated business autopilot. Ships the sales pod template (templates/sales.json) and a single-tick runner (scripts/pod-tick.mjs) that pre-flights templates via business_pod_validate, reserves budget through a file-based stub ledger (atomic SQLite tracker is Phase 3 per ADR-164.1), resolves each agent role against ruflo's agent registry, constructs dry-run prompts, and posts an envelope summary to the room via federation_bbs_publish. Dry-run by default — --live is reserved for Phase 3 Managed-Agent + claude-p wiring.",
-  "version": "0.1.0",
+  "description": "ADR-164 Phase 2 — business-domain pod templates for the federated business autopilot. Ships the sales pod template (templates/sales.json) and a single-tick runner (scripts/pod-tick.mjs) that pre-flights templates via business_pod_validate, reserves budget through a file-based stub ledger (atomic SQLite tracker is Phase 3 per ADR-164.1), resolves each agent role against ruflo's agent registry, constructs dry-run prompts, and posts an envelope summary to the room via federation_bbs_publish. Dry-run by default — --live is reserved for Phase 3 Managed-Agent + claude-p wiring. As a mod (ADR-445 pattern): a tighten-only tool guard, a local slash command, and a status file the console shows.",
+  "version": "0.2.3",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -20,6 +20,22 @@
     "pod-tick",
     "budget-reservation",
     "dry-run-default",
-    "agent-registry-resolution"
-  ]
+    "agent-registry-resolution",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Tool guard",
+      "description": "Refuse clearly harmful calls to this plugin's tools (tighten-only: it can only deny, never allow).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

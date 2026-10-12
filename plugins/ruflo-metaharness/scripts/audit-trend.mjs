@@ -24,6 +24,8 @@
 //   1  --alert-on-worsening AND composite severity worsened
 //   2  config error or input not found
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { readFileSync, existsSync } from 'node:fs';
 import { runRufloCli } from './_invoke.mjs';
 // iter 38 — structural-distance drift via ADR-152 §3.1 production module.
@@ -40,6 +42,16 @@ const NS = process.env.AUDIT_TREND_NAMESPACE || 'metaharness-audit';
 // that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
 // resolution per call, possible version skew, fails without registry access).
 // CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--baseline': 'value',
+  '--current': 'value',
+  '--baseline-key': 'value',
+  '--current-key': 'value',
+  '--alert-on-worsening': null,
+  '--alert-on-distance-below': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = {

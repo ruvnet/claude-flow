@@ -1,0 +1,22 @@
+# Claude Connector Directory submission checklist
+
+- [x] Dedicated public endpoint: `https://x.ruv.io/claude/mcp`
+- [x] Streamable HTTP transport
+- [x] RFC 9728 protected-resource metadata
+- [x] OAuth tokens verified for signature, issuer, expiry, audience, and scope
+- [x] Anonymous writes receive HTTP 401 plus `WWW-Authenticate`
+- [x] Twelve narrowly described tools; all names are under 64 characters
+- [x] Every tool has a title and four explicit boolean MCP annotations
+- [x] No secret-bearing directory-visible input fields
+- [x] Operator membership tools excluded
+- [x] Five useful `ruv://` resources
+- [x] Third-party relay content fenced and labelled as untrusted data
+- [x] Public privacy, terms, support, and health pages
+- [x] At least three working examples plus negative tests
+- [x] Reviewer-account instructions contain no committed credentials
+- [ ] Deploy version 0.8.1
+- [ ] Validate production discovery, tool inventory, resources, and OAuth E2E
+- [ ] Add the production URL as a custom Claude connector and run all reviewer prompts
+- [ ] Upload branding assets and enter listing copy in Anthropic's developer portal
+- [ ] Supply reviewer credentials privately in the portal
+- [ ] Review the final representation and submit (requires account-owner confirmation)

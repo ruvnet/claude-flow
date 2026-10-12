@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.5.1 with lifecycle keywords"
+step "1. plugin.json declares 0.6.6 with lifecycle keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.5.1" ]]; then bad "expected 0.5.1, got '$v'"; else
+if [[ "$v" != "0.6.6" ]]; then bad "expected 0.6.6, got '$v'"; else
   miss=""
   for k in mcp workflow-templates pause-resume lifecycle; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -110,6 +110,25 @@ for k in native-workflow agent-fanout pipeline parallel; do
   grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
 done
 [[ -z "$miss" ]] && ok || bad "missing native keywords:$miss"
+
+# M. The mod (ADR-445 pattern): hooks module registered, files within the 500-line rule, no network or process access in the hooks
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$ROOT/hooks/hooks.json" || mod_ok=0
+for f in options screen guard command status register; do
+  [[ -f "$ROOT/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$ROOT/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: userConfig defaults are safe (guard defaults on)"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+process.exit(c.guard && c.guard.default === "on" ? 0 : 1)
+' "$ROOT/.claude-plugin/plugin.json" && ok || bad "userConfig defaults wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

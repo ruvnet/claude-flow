@@ -1,7 +1,7 @@
 {
   "name": "ruflo-sparc",
   "description": "SPARC methodology — Specification, Pseudocode, Architecture, Refinement, Completion phases with gate checks",
-  "version": "0.2.1",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,21 @@
     "refinement",
     "mcp",
     "phase-gates",
-    "quality-gates"
-  ]
+    "quality-gates",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse specs and phase artifacts that hold a secret in sparc namespaces.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

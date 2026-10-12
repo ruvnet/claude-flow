@@ -1,7 +1,7 @@
 {
   "name": "ruflo-ruvector",
-  "description": "Self-learning vector database via npx ruvector@0.2.25 — HNSW, adaptive LoRA embeddings, code-graph clustering, hooks routing, brain/SONA, 103 MCP tools",
-  "version": "0.2.2",
+  "description": "Self-learning vector database via npx ruvector@0.2.25 — HNSW, adaptive LoRA embeddings, code-graph clustering, hooks routing, brain/SONA, 103 MCP tools. As a mod (ADR-445): a write guard that keeps secrets out of the vector store and shared brain, /ruvector-mod, and a status file the console shows",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -18,6 +18,22 @@
     "hooks",
     "sona",
     "brain",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse calls to this plugin's write tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

@@ -1,0 +1,67 @@
+# Changelog: ruflo-core
+
+Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
+
+## 0.2.8 — 2026-10-11
+- fix: the PostToolUse Bash shim stands down when command recording is switched off (`CLAUDE_FLOW_HOOKS_RECORD_COMMANDS=0` or `CLAUDE_FLOW_HOOKS_ENABLED=false`), so no CLI process is started per Bash call (#4056)
+
+## 0.2.7 — 2026-10-11
+- fix: researcher agent calls agentdb_semantic-route, pattern-search, context-synthesize, hierarchical-store/recall and causal-edge with their real parameter names (input, topK, maxEntries, key/value/tier, sourceId/targetId/relation); it now follows edges with agentdb_graph-query and agentdb_graph-pathfinder (causal-edge only records)
+- fix: drop the invalid `--train-neural` flag from `hooks post-task` in the coder and researcher agents
+- fix: README no longer states stale tool and command counts; smoke expectation corrected to 11
+
+## 0.2.6 — 2026-07-29
+- feat: hand route/post-edit to the ruflo mod via RUFLO_MODS_OWNS (ADR-404)
+- fix: repair CI regressions surfaced by the integrated community fixes
+- fix: resolve installed CLI before npx fallback
+- fix: fail marker-preserving hash drift in strict mode
+- fix: quote-aware split for RUFLO_HOOK_CLI_OVERRIDE
+- fix: apply the Windows argv fix from #3322 to the other three shim copies
+- fix: make WITNESS_ED25519_ROOT actually resolve @noble/ed25519 (#3200)
+- fix: verified event identity must win over publisher-controlled content
+- chore: and 2 more changes (git log -- plugins/ruflo-core)
+
+## 0.2.5 — 2026-07-29
+- fix: resolve current runtime and verification defects for v3.32.36
+- fix: make ruflo-core/ruflo-cost-tracker hooks Windows-native
+- chore: bump to 3.32.27
+- chore: align namespace and stable hook shims
+
+## 0.2.4 — 2026-07-16
+- fix: harden hooks, statusline, security, and plugin MCP integration
+
+## 0.2.3 — 2026-07-16
+- feat: rename ruflo-wasm → ruflo-agent + Claude Managed Agents (cloud) runtime — ADR-115 (proposed→accepted, implemented)
+- feat: ADR-095 G2 — pluggable ConsensusTransport + Ed25519 message signing (step 1)
+- fix: ship stable Windows-safe Ruflo integration
+- fix: unblock ADR-104 and witness source checks
+- fix: unblock main — TS shim types + dispatcher import + witness re-sign
+- fix: commit .mcp.json + exempt plugin-shipped templates from gitignore
+- fix: unblock CI build, witness verify, and trajectory smoke (#2311 #2274 #2312 #2275)
+- fix: reconcile stale smoke contract assertions across 23 plugins
+- chore: and 11 more changes (git log -- plugins/ruflo-core)
+
+## 0.2.2 — 2026-05-11
+- feat: ADR-112 — 285/285 tool descriptions have 'Use when …' guidance + CI guard + #1892 statusline
+- feat: performance verification + capability historical reference
+- feat: per-OS verification cognitive containers + tutorial README
+- feat: ADR-103 witness temporal history + plugin-distributed toolkit
+- fix: ruflo-core hooks call `npx ruflo@alpha` not `npx claude-flow@alpha`
+- fix: #1883 + #1884 — WSL path resolution + import-key sanitization + CI guard
+- fix: bin/cli.js MCP-stdio auto-detect overrode explicit -t http
+- fix: fix #1874 + add MCP protocol-compliance smoke layer
+- chore: and 2 more changes (git log -- plugins/ruflo-core)
+
+## 0.2.1 — 2026-05-08
+- fix: #1859 #1862 ruflo-core hooks + CLI flag priority
+- fix: hooks per-plugin layout — ruflo-core install now loads hooks (#1748 Issue 1)
+- fix: coder agents now read docs/adr/*.md alongside docs/SPEC.md (#1749)
+- chore: 0.2.0 → 0.2.1 (publish #1859 #1862 fix)
+
+## 0.2.0 — 2026-05-04
+- feat: v0.2.0 — adopt foundation plugin contract (ADR-0001, MCP server contract, sibling ADR cross-references)
+- feat: add 10 new ruflo plugins, optimize all 32, add READMEs and user guide
+- fix: rename plugin commands to avoid built-in conflicts; bump default Opus to 4.7
+
+## 0.1.0 — 2026-04-27
+- feat: add 19 Claude Code native plugins with 64 skills, 25 commands, 21 agents

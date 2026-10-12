@@ -11,6 +11,10 @@ on:
       - 'plugins/ruflo-core/scripts/witness/**'
       - 'plugins/ruflo-core/scripts/test-hooks.mjs'
       - 'plugins/ruflo-cost-tracker/scripts/test-hooks.mjs'
+      # #3558 — installed-CLI resolution for cost-tracker's memory/hooks calls
+      - 'plugins/ruflo-cost-tracker/scripts/_npx.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/_ruflo-cli.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs'
       - 'verification/**'
       # scripts/*.mjs audits (tool-descriptions, plugin-packages, hook-commands)
       - 'scripts/**'
@@ -163,6 +167,10 @@ on:
       - 'plugins/ruflo-core/scripts/witness/**'
       - 'plugins/ruflo-core/scripts/test-hooks.mjs'
       - 'plugins/ruflo-cost-tracker/scripts/test-hooks.mjs'
+      # #3558 — installed-CLI resolution for cost-tracker's memory/hooks calls
+      - 'plugins/ruflo-cost-tracker/scripts/_npx.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/_ruflo-cli.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs'
       - 'scripts/**'
       - '**/hooks/hooks.json'
       - '**/scripts/ruflo-hook.cjs'
@@ -459,6 +467,14 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: v3/pnpm-lock.yaml
 
+      # When a better-sqlite3/hnswlib-node prebuild download times out, node-gyp
+      # compiles from source, and macos-latest's Python 3.12 has no distutils.
+      - name: Setup Python for node-gyp (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install dependencies
         working-directory: v3
         run: pnpm install --frozen-lockfile
@@ -466,6 +482,11 @@ jobs:
       - name: Build
         working-directory: v3
         run: pnpm build
+
+      - name: Windows MetaHarness doctor regression (#3186)
+        if: matrix.os == 'windows-2022'
+        working-directory: v3/@claude-flow/cli
+        run: pnpm exec vitest run __tests__/doctor-metaharness-windows-3186.test.ts
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -650,6 +671,11 @@ jobs:
         shell: bash
         run: |
           node plugins/ruflo-cost-tracker/scripts/test-hooks.mjs
+
+      - name: cost-tracker prefers the installed ruflo CLI over npx @latest (#3558)
+        shell: bash
+        run: |
+          node plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs
 
   browser-rvf-create-flags-smoke:
     # Regression guard for ruvnet/ruflo#2015 — the ruflo-browser

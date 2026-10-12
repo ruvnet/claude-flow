@@ -58,6 +58,15 @@ function envValue(env, name) {
 }
 
 /**
+ * Where the npx fallback resolves ruflo from: the plugin's data dir or the
+ * user's home, never the cwd (the opened project). `--prefix` only changes
+ * package resolution; the CLI still runs with the project as its cwd.
+ */
+function npxPrefix(env = process.env) {
+  return envValue(env, 'CLAUDE_PLUGIN_DATA') || envValue(env, 'PLUGIN_DATA') || require('os').homedir();
+}
+
+/**
  * Locate a command on PATH using fs only.
  *
  * Deliberately NOT `execSync('where ...')` / `command -v`: that spawns a
@@ -76,6 +85,9 @@ function resolveCommandPath(command, env = process.env, platform = process.platf
     ? (envValue(env, 'PATHEXT') || '.COM;.EXE;.BAT;.CMD').split(';')
     : [''];
   for (const dir of dirs) {
+    // A relative or empty PATH entry resolves against the cwd, i.e. the
+    // opened project; never resolve the CLI from there.
+    if (!hasSeparator && !(platform === 'win32' ? path.win32 : path.posix).isAbsolute(dir)) continue;
     for (const ext of extensions) {
       const base = path.resolve(dir || '.', command);
       const candidates = ext
@@ -271,7 +283,7 @@ function invokeCli(hookSubcommand, hookArgs, stdinData) {
   // itself works correctly. The bash version doesn't hit this because it
   // backgrounded the work.
   if (process.env.RUFLO_HOOK_SKIP_NPX !== '1') {
-    invokeHook('npx', ['--prefer-offline', '--yes', 'ruflo@latest'], hookSubcommand, hookArgs, stdinData);
+    invokeHook('npx', ['--prefer-offline', '--yes', '--prefix', npxPrefix(), 'ruflo@latest'], hookSubcommand, hookArgs, stdinData);
   }
 }
 
@@ -391,6 +403,17 @@ function precompactAuto() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+/**
+ * #4056: command history is opt-out. When the person has switched it off the
+ * shim does not even start the CLI for a Bash event (the CLI re-checks, and
+ * also reads hooks.recordCommands from the config files).
+ */
+function commandRecordingOff(env = process.env) {
+  const off = new Set(['0', 'false', 'off', 'no']);
+  return [env.CLAUDE_FLOW_HOOKS_RECORD_COMMANDS, env.CLAUDE_FLOW_HOOKS_ENABLED]
+    .some((v) => v !== undefined && off.has(String(v).trim().toLowerCase()));
+}
+
 function main() {
   const [subcommand] = process.argv.slice(2);
   if (!subcommand) done(); // no subcommand — no-op, same as bash version
@@ -406,6 +429,15 @@ function main() {
     done();
   }
 
+  // ADR-404: when the ruflo mod records edits in-process it sets
+  // RUFLO_MODS_OWNS on the Claude Code process; this hook then stands down so
+  // an edit is recorded once, as hook-handler.cjs does. Telemetry only: the
+  // PreToolUse permission paths below never consult it.
+  if (subcommand === 'post-edit' &&
+      String(process.env.RUFLO_MODS_OWNS || '').split(',').some((owned) => owned.trim() === 'post-edit')) {
+    done();
+  }
+
   const stdinData = readStdinRaw();
   const event = parseEventJson(stdinData);
 
@@ -416,6 +448,7 @@ function main() {
 
   // PostToolUse: derive CLI flags from the hook event JSON (replaces jq).
   if (subcommand === 'post-command') {
+    if (commandRecordingOff()) done();
     const cmd = event?.tool_input?.command;
     if (!cmd) done(); // bash version: `[ -z "$CMD" ] && exit 0`
     const exitCode = event?.tool_response?.exit_code ?? 0;
@@ -456,4 +489,4 @@ if (process.env.RUFLO_HOOK_UNIT_TEST !== '1') {
   main();
 }
 
-module.exports = { escapeCmdArg, invokeHook, resolveCommandPath, resolveInvocation, resolveNpmShim };
+module.exports = { commandRecordingOff, escapeCmdArg, invokeHook, npxPrefix, resolveCommandPath, resolveInvocation, resolveNpmShim };

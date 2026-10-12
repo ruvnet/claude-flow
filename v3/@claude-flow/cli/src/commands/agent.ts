@@ -349,6 +349,18 @@ const statusCommand: Command = {
         includeHistory: false,
       });
 
+      // The MCP tool answers an unknown id with status "not_found" and no other fields.
+      // Rendering that as a record printed "Agent: undefined", "Invalid Date" and
+      // "undefined%" and exited 0, so scripts and agents took it as success.
+      if (((status as { status?: string }).status) === 'not_found') {
+        if (ctx.flags.format === 'json') {
+          output.printJson(status);
+        } else {
+          output.printError(`Agent not found: ${agentId}`);
+        }
+        return { success: false, exitCode: 1 };
+      }
+
       if (ctx.flags.format === 'json') {
         output.printJson(status);
         return { success: true, data: status };

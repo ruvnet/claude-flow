@@ -156,6 +156,11 @@ else process.exit(2);
   const baseEnv = { ...process.env, PATH: `${TRAP}:${process.env.PATH}`, RUFLO_METAHARNESS_CACHE_BASE: join(TMP, 'empty-cache-base') };
   delete baseEnv.RUFLO_METAHARNESS_SKIP_LOCAL;
   delete baseEnv.CLI_CORE;
+  delete baseEnv.RUFLO_PLUGIN_SKIP_LOCAL_CLI;
+  // #3558: Phase 4 asserts the npx fallback; an installed `ruflo` on the
+  // developer's PATH would now be preferred over it. PATH resolution has its
+  // own test (test-cli-resolution-3558.mjs).
+  baseEnv.RUFLO_PLUGIN_SKIP_PATH_CLI = '1';
   const trapped = () => (existsSync(TRAP_LOG) ? readFileSync(TRAP_LOG, 'utf-8').trim() : '');
   const resetTrap = () => rmSync(TRAP_LOG, { force: true });
   const run = (script, args, env = baseEnv, scriptsDir = PLUGIN_SCRIPTS, cwd = PROJECT) => {

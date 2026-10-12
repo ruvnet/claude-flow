@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/providers",
-  "version": "3.0.0-alpha.6",
+  "version": "3.0.0",
   "description": "Multi-LLM Provider System for Claude Flow V3",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -8,7 +8,7 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.js",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
@@ -64,7 +64,6 @@
     "node": ">=20.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

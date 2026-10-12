@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/shared",
-  "version": "3.0.0-alpha.8",
+  "version": "3.0.3",
   "type": "module",
   "description": "Shared module - common types, events, utilities, core interfaces",
   "main": "dist/index.js",
@@ -16,6 +16,10 @@
     "./resilience": "./dist/resilience/index.js",
     "./src/plugin-interface.js": "./dist/plugin-interface.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "test": "vitest run",
     "build": "tsc"
@@ -37,7 +41,6 @@
     "zod": "^3.22.4"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

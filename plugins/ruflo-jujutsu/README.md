@@ -73,3 +73,15 @@ bash plugins/ruflo-jujutsu/scripts/smoke.sh
 
 - `ruflo-adr` — `/adr check` consumes this plugin's `analyze_diff` output
 - `ruflo-agentdb` — namespace convention owner
+
+## As a mod
+
+This plugin ships a function-hook mod (ADR-445, `hooks/register.ts`). It makes no network call, spawns no process and makes no model call.
+
+- **Guard** (tighten-only, on by default): Refuses `github_pr_manage` create/review whose title or body holds a key, token or password (PR text is public), and `merge`/`close` unless the call carries `confirm: true`. A refusal never echoes the secret.
+- **`/jujutsu-mod`**: `status`, `recent`, `tools` (which of this plugin's tools are connected) and `scan <text>` (would the guard refuse it). Answered locally.
+- **Status file**: `.claude-flow/jujutsu-mod/status.json` (`{version: 1, updatedMs, guard, calls, total, blocked, recent}`, counters only, never tool input), written at session start and after every call to this plugin's tools.
+
+Options (`userConfig`): `guard` (on), `confirmPrActions` (on).
+
+Test it: `claude plugin validate plugins/ruflo-jujutsu`, `claude plugin test plugins/ruflo-jujutsu`, `bash plugins/ruflo-jujutsu/scripts/smoke.sh`.

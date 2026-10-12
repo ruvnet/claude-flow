@@ -354,6 +354,7 @@ export class MonitoringHooks {
    * Get metrics for a specific name
    */
   getMetrics(name: string, since?: number): MetricEvent[] {
+    this.expireMetrics();
     let filtered = this.metrics.filter(m => m.name === name);
     if (since) {
       filtered = filtered.filter(m => m.timestamp >= since);
@@ -365,6 +366,7 @@ export class MonitoringHooks {
    * Get all metrics summary
    */
   getMetricsSummary(): Record<string, { count: number; lastValue: number; avgValue: number }> {
+    this.expireMetrics();
     const summary: Record<string, { count: number; sum: number; lastValue: number }> = {};
 
     for (const metric of this.metrics) {
@@ -443,12 +445,15 @@ export class MonitoringHooks {
     }
   }
 
-  private cleanupMetrics(): void {
-    const now = Date.now();
-    const cutoff = now - this.config.retentionMs;
-
-    // Remove old metrics
+  /** Drop metrics older than retentionMs (also applied on reads, #3855). */
+  private expireMetrics(): void {
+    const cutoff = Date.now() - this.config.retentionMs;
     this.metrics = this.metrics.filter(m => m.timestamp > cutoff);
+  }
+
+  private cleanupMetrics(): void {
+    // Remove old metrics
+    this.expireMetrics();
 
     // Limit total metrics
     if (this.metrics.length > this.config.maxMetrics) {

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-bbs-federation",
-  "description": "AgentBBS cross-host agent federation for ruflo (ADR-164). Phase 1 exposes room coordination — federation_bbs_register / federation_bbs_publish / federation_bbs_watch / federation_bbs_human_join. Phase 2 (v3.40.0) adds signed cross-host federation — federation_bbs_identity (persistent Ed25519 node identity), federation_bbs_peer_add (pin a peer by nodeId + public key), federation_bbs_peers (audit/unpin), federation_bbs_serve (read-only pull endpoint), and federation_bbs_sync (pull pinned peers and union-merge what verifies). Every merged envelope is Ed25519-verified against a pinned key; unsigned/misattributed/oversize/over-hop envelopes are dropped and counted. Transport is HTTP pull and works on any network (Tailscale, LAN, VPN, loopback) — no tailnet required. Coordinates work ownership via claim messages (ClaimIssued/Released/Handoff/Ack). agentbbs lives in optionalDependencies; every handler gracefully degrades to {degraded:true} when the package is missing (ADR-150 pattern).",
-  "version": "0.2.0",
+  "description": "AgentBBS cross-host agent federation for ruflo (ADR-164). Phase 1 exposes room coordination — federation_bbs_register / federation_bbs_publish / federation_bbs_watch / federation_bbs_human_join. Phase 2 (v3.40.0) adds signed cross-host federation — federation_bbs_identity (persistent Ed25519 node identity), federation_bbs_peer_add (pin a peer by nodeId + public key), federation_bbs_peers (audit/unpin), federation_bbs_serve (read-only pull endpoint), and federation_bbs_sync (pull pinned peers and union-merge what verifies). Every merged envelope is Ed25519-verified against a pinned key; unsigned/misattributed/oversize/over-hop envelopes are dropped and counted. Transport is HTTP pull and works on any network (Tailscale, LAN, VPN, loopback) — no tailnet required. Coordinates work ownership via claim messages (ClaimIssued/Released/Handoff/Ack). agentbbs lives in optionalDependencies; every handler gracefully degrades to {degraded:true} when the package is missing (ADR-150 pattern). As a mod (ADR-445 pattern): a tighten-only tool guard, a local slash command, and a status file the console shows.",
+  "version": "0.3.3",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -25,6 +25,33 @@
     "cockpit",
     "optional-dependency",
     "graceful-degradation",
-    "adr-164"
-  ]
+    "adr-164",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Tool guard",
+      "description": "Refuse clearly harmful calls to this plugin's tools (tighten-only: it can only deny, never allow).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "allowWildcardBind": {
+      "type": "string",
+      "title": "Allow wildcard serve bind",
+      "description": "Let federation_bbs_serve listen on every interface (0.0.0.0). Off by default: bind one routable address.",
+      "required": false,
+      "default": "off",
+      "options": [
+        "off",
+        "on"
+      ]
+    }
+  }
 }
