@@ -130,6 +130,14 @@ python3 plugins/ruflo-console/scripts/render-theme-demo.py /tmp/ruflo-demo-new
 
 Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs include a 38 second MP4 at 12 fps, a GIF at 6 fps, captured cell frames and an assertion receipt. Native host rendering and live AI theme generation remain separate acceptance checks.
 
+For a genuine animated vector export of those same captured frames, install Python fontTools and run:
+
+```sh
+python3 plugins/ruflo-console/scripts/render-theme-svg.py /tmp/ruflo-demo-new
+```
+
+`ruflo-console-demo.svg` contains outlined glyphs, block paths and reusable row symbols, replayed with native SVG discrete animation over the same 38 seconds. It has no embedded images, video, scripts, external fonts or other external assets. The complete 456-frame replay is approximately 20 MB. It scales through its viewBox; open the file in an SVG animation capable browser when a document preview shows only a still frame.
+
 The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
 
 **Generate with Claude** or **Generate with Codex** runs the bundled `generate-console-theme` skill through AI Terminal with its existing confirmation and model controls. Enter the design brief first, generate a preset, then paste the returned JSON into **Import theme JSON** and review before saving. The generator produces palette and motion variations of the existing Orbital renderer, not executable animation code. No additional API credentials are requested. Installed Claude plugins discover the bundled skill; Codex can read `plugins/ruflo-console/skills/generate-console-theme/SKILL.md` directly in this checkout.
