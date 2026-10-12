@@ -6,7 +6,7 @@
  * <prefix>/lib/node_modules/ruflo/node_modules/@claude-flow/cli, which none
  * of resolveCliBinForHook()'s project-relative candidates cover. Every
  * SessionStart on such a machine therefore spawned
- * `npx --prefer-offline @claude-flow/cli hooks refresh-*`: a second copy of
+ * `npx --prefer-offline --prefix <helper root> @claude-flow/cli hooks refresh-*`: a second copy of
  * the CLI that follows the registry's latest instead of the pinned version,
  * and cannot start offline on a cold npx cache.
  *
@@ -136,11 +136,13 @@ function expectRanCli(result: Result, bin: string) {
   ]));
 }
 
-function expectFellBackToNpx(result: Result) {
+// The npx fallback resolves from the helper's own install root, which for
+// the sandbox's project-level helper is the project (cliSpawnArgs()).
+function expectFellBackToNpx(result: Result, sb: Sandbox) {
   expect(result.cli).toEqual([]);
   expect(result.npx.sort()).toEqual([
-    '--prefer-offline @claude-flow/cli hooks refresh-advisor --quiet',
-    '--prefer-offline @claude-flow/cli hooks refresh-funnel --quiet',
+    `--prefer-offline --prefix ${sb.project} @claude-flow/cli hooks refresh-advisor --quiet`,
+    `--prefer-offline --prefix ${sb.project} @claude-flow/cli hooks refresh-funnel --quiet`,
   ]);
 }
 
@@ -215,12 +217,12 @@ describe.skipIf(process.platform === 'win32')('hook-handler.cjs — global CLI b
       const sb = sandbox();
       const prefix = path.join(sb.root, 'npm-global');
       npmGlobalRuflo(prefix, { built: false });
-      expectFellBackToNpx(await runSessionRestore(sb, [path.join(prefix, 'bin')], { npm_config_prefix: prefix }));
+      expectFellBackToNpx(await runSessionRestore(sb, [path.join(prefix, 'bin')], { npm_config_prefix: prefix }), sb);
     });
 
     it('still falls back to npx when there is no global install at all', { timeout: 30_000 }, async () => {
       const sb = sandbox();
-      expectFellBackToNpx(await runSessionRestore(sb, []));
+      expectFellBackToNpx(await runSessionRestore(sb, []), sb);
     });
 
     it('never trusts a relative PATH entry, so a bare `./ruflo` is not picked up', { timeout: 30_000 }, async () => {
@@ -228,7 +230,7 @@ describe.skipIf(process.platform === 'win32')('hook-handler.cjs — global CLI b
       const pkg = path.join(sb.project, 'vendor', 'ruflo');
       fakeCli(path.join(pkg, 'node_modules', '@claude-flow', 'cli'));
       linkedPackage(pkg, 'ruflo', 'bin/ruflo.js', sb.project); // ./ruflo in the project root
-      expectFellBackToNpx(await runSessionRestore(sb, ['.']));
+      expectFellBackToNpx(await runSessionRestore(sb, ['.']), sb);
     });
   });
 });
