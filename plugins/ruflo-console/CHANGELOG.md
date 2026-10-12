@@ -2,9 +2,6 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
-## 0.43.5 — 2026-10-12
-- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
-
 ## 0.43.4 — 2026-10-12
 - fix: the console's pictures show on Claude Code Desktop, the editor and the mobile app. The banner, title art, topology, maps, gauges and charts were all missing there, and so were the text lines meant to stand in for them: the host completes every element table with every name, and on those surfaces its `Raster` draws an empty fragment, so the console believed it could draw pictures and drew empty boxes. The surface now decides (not the table): the terminal keeps its `Raster` and gets no `Svg`; Desktop, VS Code and mobile get each picture as one `Svg` of the same cells (Block Elements and braille glyphs as rectangles, other glyphs placed cell by cell, colours kept, background transparent). A picture that would pass the host's 131,072-character `Svg` limit falls back to its text line, so one large picture cannot invalidate the whole tree; nothing is blitted where nothing is mounted; and a host that does not name its surface is treated as the terminal. The model-facing text is unchanged (#4111, thanks @proffesor-for-testing, #4112)
 
