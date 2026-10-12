@@ -597,7 +597,7 @@ export class CommandParser {
       for (const opt of layer) {
         const key = this.normalizeKey(opt.name);
         if (flags[key] === undefined && opt.default !== undefined) {
-          flags[key] = opt.default as string | boolean | number | string[];
+          flags[key] = (Array.isArray(opt.default) ? [...opt.default] : opt.default) as string | boolean | number | string[];
         }
       }
     }
@@ -607,7 +607,7 @@ export class CommandParser {
       for (const [key, value] of Object.entries(this.options.defaults)) {
         const normalizedKey = this.normalizeKey(key);
         if (flags[normalizedKey] === undefined) {
-          flags[normalizedKey] = value as string | boolean | number | string[];
+          flags[normalizedKey] = (Array.isArray(value) ? [...value] : value) as string | boolean | number | string[];
         }
       }
     }
