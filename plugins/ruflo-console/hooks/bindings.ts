@@ -21,6 +21,7 @@ import { workflowsActions } from './wf-actions'
 import { missionActions } from './mission-control'
 import { catalogActions } from './plugin-catalog'
 import { saveAllowed } from './remember'
+import { themeActions } from './themes'
 import { pluginNames, settingsActions } from './settings'
 import { catalogOf } from './plugin-catalog'
 import { wireAnatole } from './anatole'
@@ -408,6 +409,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
     // An rvlite query is MCP-only: it goes to the AI terminal typed, as ▸ edit does, and runs only when sent.
     vector: vectorActions(state, runner, text => actions.term.load('claude', text)),
     evolve: evolveActions(state, host, text => actions.term.ask('claude', text)),
+    themes: themeActions(state, host, (agent, text) => actions.term.ask(agent, text)),
     settings: settingsActions(state, host, runner, (agent, text) => actions.term.ask(agent, text), () => CLI_PREFIXES[state.options.cli], () => pluginNames(state, (catalogOf(state).plugins ?? []).filter(plugin => plugin.options.length > 0).map(plugin => plugin.name))),
     mission: { ...missionActions(state, host, runner), ...claudeActions(state, host, runner) },
     ask: askActions(state, host, runner, () => actions),

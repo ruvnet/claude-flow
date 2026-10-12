@@ -1,7 +1,7 @@
 {
   "name": "ruflo-console",
   "description": "ruflo's cockpit inside Claude Code and the one /ruflo command for every ruflo mod (function hooks, early access). Views: overview with health alerts, swarm topology graph, claims flow with TTL rings, federation map, plugin health matrix, learning curve and pipeline, MetaHarness radar and audit trend, memory, cost gauge, agent timeline, approvals queue, event stream, a main menu, an x.ruv.io federation board, an AI terminal (codex, claude or both in remembered sessions, streamed), Skills (npx skills), a Hive-Mind view, a MetaHarness lab, agent drill-down; a command palette for confirm-gated actions through the ruflo CLI; a band above the prompt. Reads ruflo's files and the CLI's local JSON; anything not measured reads n/a. The one network call it makes by itself is a daily read of the published plugin.json at github.com/ruvnet/ruflo to offer an update (Settings → Updates: ask, auto, or off); it installs only through Claude Code's own claude plugin update, and never a new major version without asking.",
-  "version": "0.42.7",
+  "version": "0.43.0",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -85,17 +85,18 @@
     "look": {
       "type": "string",
       "title": "Look",
-      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds).",
+      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds). orbital uses black telemetry panels, square red borders, muted values and green health indicators; best with a dark terminal.",
       "default": "bbs",
       "options": [
         "bbs",
-        "plain"
+        "plain",
+        "orbital"
       ]
     },
     "boot": {
       "type": "boolean",
       "title": "Boot screen",
-      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s.",
+      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s. Orbital uses a rotating ASCII globe for 1.5 seconds, up to 6 seconds while initial data is pending; fps 0 skips it.",
       "default": true
     },
     "eventsPersist": {

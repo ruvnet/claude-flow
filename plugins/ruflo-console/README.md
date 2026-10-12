@@ -83,3 +83,64 @@ An optional **Project Anatole** section on the Security & Doctor page (key `u`) 
 - **Shows** the mode, the baseline's maturity ("learning 62%"), open alerts by severity, blocked and `degraded`; one row per rule (OWASP refs, severity, an off · notify · block chip, hits and acked share over the last 200 alerts, "changed from default"); the open alerts with `ack` and `allow`. The Findings meter counts open alerts, labelled as Anatole's.
 - **Runs** `/protector run` and `/protector replay` into the page's Result panel.
 - **Edits** the mode (off, learn, notify, enforce) and per-rule modes through `/protector`; every change asks first and its confirm row starts with `Effect:`. `enforce` is declared an install-class action and `reset-baseline` a delete-class one, so Claude's console tools always wait for you on both (palette ids `anatole-mode`, `anatole-rule`, `anatole-ack`, `anatole-allow`, `anatole-reset`, `anatole-run`, `anatole-replay`).
+
+## Orbital theme
+
+An optional dark telemetry look inspired by compact system monitors: black panel background, square red borders, warm red headings, muted readable values and green health indicators. It uses the existing live views and command palette; no extra polling, simulated metrics or model calls. BBS remains the default.
+
+Choose Settings → ruflo-console → Look → orbital, or run in your shell:
+
+```sh
+printf '%s\n' '{"look":"orbital"}' | claude plugin configure ruflo-console@ruflo --values-stdin
+```
+
+Reload plugins after changing the option. Select `bbs` or `plain` to restore those looks. A dark terminal background gives the closest match; terminal graphics and host controls keep their existing renderer. Narrow panes retain the existing responsive layout.
+
+Orbital keeps the original Ruflo block mark visible after boot on every page, above navigation. Wide headers use an eight-row composition with a shaded block extrusion, moving highlight, rotating ASCII Earth and travelling scan. Smaller panes retain the original two-row block mark inside a compact header. The optional boot intro uses the same Earth rotation (one turn per 12 seconds), with actual self-check counts below it. It runs for 1.5 seconds when data is ready, at most 6 seconds while data is pending. Set `fps` to `0` for still headers and no boot intro. Existing frame scheduling stops motion in hidden or unfocused panes. The sweep and globe are decoration, not measured activity or a progress percentage.
+
+Orbital adapts to the pane allocation. Below 48 drawing columns or 30 available rows, boot uses a compact check summary of at most nine rows. Failure totals remain near the top, with the first failing area shown when a third row fits. The persistent header uses its expanded layout from 78 drawing columns with eight available header rows. Short panes keep two rows; the native host's text-only mode below 44 pane columns retains a text Ruflo identity. Header width reserves the existing toolbar icon space and is capped at 120 columns. Resize dimensions are recorded before the header is mounted so the animation loop continues at the new size. The existing live topology remains in the Swarm page body; Theme Studio provides the decorative orchestration preview.
+
+### Theme Studio
+
+Open **Main Menu → Tools → Theme Studio**, the **Tools** navigation group, or `/ruflo themes`. Settings also links to the studio. Choose Classic BBS, Terminal plain or Orbital. Studio selections persist and override the plugin's configured look until **Use configured look** is selected.
+
+Six bundled **Color presets** load with one click and persist across sessions. They retain the animated Ruflo header, globe, stars and topology at standard speed. Bundled presets do not consume the twelve custom theme slots. Every primary foreground role meets at least 4.5:1 contrast against its background; decorative shading may be dimmer.
+
+| Preset | Palette |
+| --- | --- |
+| Arctic | Ice cyan, seafoam and deep navy |
+| Synthwave | Orchid, mint and dark violet |
+| Amber CRT | Warm amber, parchment and dark bronze |
+| Emerald | Jade, pale green and forest black |
+| Solar Flare | Peach, gold and dark terracotta |
+| Moonlight | Periwinkle, silver and midnight blue |
+
+Select a preset to load it immediately. Edit colors or motion and choose **Save and apply** to create a custom copy; bundled originals remain available. Portable version 1 JSON presets also load through **AI → Import theme JSON**, followed by **Save and apply**. **Use configured look** restores the plugin setting.
+
+### Reproduce the theme workflow demo
+
+The demo drives actual console view handlers through boot, Main Menu, all six presets, custom color and motion, save, fresh state restoration from a local JSON store, portable JSON import, reduced motion, and 80/116 column layouts. It checks each transition and writes `receipt.json`. This is a renderer integration demo, not a native Claude host recording: other console actions are not exercised, the FPS setting is changed by the harness, and no AI provider is invoked.
+
+From the repository root, with Node:
+
+```sh
+npx tsx plugins/ruflo-console/scripts/theme-demo.mts /tmp/ruflo-demo-new
+```
+
+Use a fresh output directory. The capture refuses to overwrite an existing `demo-session.json`; omitting the directory creates a unique temporary directory and prints its path. Outputs are `frames.json` (the captured terminal cells for every step, with a caption, palette and column count) and `receipt.json` (what was and was not exercised: no native host, no AI provider). Turning the frames into a GIF or video is left to your own renderer; the repository ships none, so no Python or image library is needed.
+
+For a genuine animated vector export of those same captured frames, run (Node only):
+
+```sh
+node plugins/ruflo-console/scripts/render-theme-svg.mjs /tmp/ruflo-demo-new
+```
+
+`ruflo-console-demo.svg` contains text runs, block rectangles and reusable row symbols (the font is your system monospace), replayed with native SVG discrete animation over the same 38 seconds. It has no embedded images, video, scripts or other external assets. The complete 456-frame replay is approximately 20 MB. It scales through its viewBox; open the file in an SVG animation capable browser when a document preview shows only a still frame.
+
+The terminal color picker provides swatches and exact `#RRGGBB` entry for headings, success, failure, warning, information and background. Preview the globe and swarm motion, adjust speed and decorative layers, then **Save preview and apply**. Up to twelve named custom presets are stored locally through the host; reusing a name replaces that preset. Failed saves leave the active theme unchanged. Settings `fps: 0` still disables animation. Layouts retain the compact/narrow fallbacks.
+
+**Generate with Claude** or **Generate with Codex** runs the bundled `generate-console-theme` skill through AI Terminal with its existing confirmation and model controls. Enter the design brief first, generate a preset, then paste the returned JSON into **Import theme JSON** and review before saving. The generator produces palette and motion variations of the existing Orbital renderer, not executable animation code. No additional API credentials are requested. Installed Claude plugins discover the bundled skill; Codex can read `plugins/ruflo-console/skills/generate-console-theme/SKILL.md` directly in this checkout.
+
+Imports are limited to 4096 characters and a strict version 1 data schema. Status labels and actual check results remain unchanged. Saving requires at least 3:1 foreground/background contrast; the generator aims for 4.5:1.
+
+Theme Studio uses focused Colors, Motion and AI tabs. At 100 content columns it places the editor beside a persistent globe and routing preview; narrower panes stack both panels with a compact routing strip. A single color role picker replaces the repeated swatch lists. Minimum contrast is shown before saving, and Discard draft changes restores the active palette without deleting saved themes.

@@ -356,6 +356,7 @@ export function settingsView(ctx: Ctx): RenderElement {
 
   const rows: RenderElement[] = [rule(ctx, 'Settings', `${shown.length} shown of ${everything.length} · ${changed} changed`)]
 
+  rows.push(button(ctx, 'st-theme-studio', 'Theme Studio: colors and animation', () => ctx.act.view('themes')))
   rows.push(
     row(
       ctx,

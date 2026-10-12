@@ -321,6 +321,8 @@ export const register: Register = (on, raw: PluginOptions) => {
     state.pane.isFocused = e.props.isFocused === true
     state.pane.columns = columns
     state.pane.placement = e.props.placement
+    // Height-dependent art must use this render's allocation before its Raster size is recorded.
+    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
     // A reload while the pane stayed up: timers are gone, so resume them from here.
     if (!state.timers.has('watch')) control.resume()
 
@@ -328,8 +330,6 @@ export const register: Register = (on, raw: PluginOptions) => {
 
     state.mounted = new Map([...pictures].map(([key, grid]) => [key, { columns: grid.columns, rows: grid.rows }]))
     control.animate()
-
-    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
 
     const tree = paneView({ kit: withClearing(kit, state, control.actions.clearField, { columns, repaint: () => host?.invalidate() }), state, nowMs: Date.now(), columns, pictures, act: control.actions })
 
