@@ -229,7 +229,8 @@ export class CommandParser {
         const parseResult = this.parseFlag(args, i, aliases, booleanFlags, stringFlags);
 
         // Apply to result flags
-        Object.assign(result.flags, parseResult.flags);
+        const { _: ignoredPositionals, ...parsedFlags } = parseResult.flags;
+        Object.assign(result.flags, parsedFlags);
         i = parseResult.nextIndex;
         continue;
       }
