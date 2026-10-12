@@ -50,7 +50,7 @@ CONSOLE_DRIVE_INSTALL="$PWD:ruflo-mods@ruflo" RUFLO_E2E_LIVE=1 bash plugins/rufl
 The same views the mod draws, on five pages (Overview, Cost, Swarm, Events, Missions), drawn by a small standalone terminal host instead of Claude Code, and a sixth, AI, that asks Codex or OpenRouter. The five are read-only; the AI page shows a card of exactly what would be sent and sends only after a `y`; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
 
 ```bash
-npx ruflo tui                    # interactive: 1-5 or o c s e m pick a page, Tab/Shift-Tab cycle, j/k, PgUp/PgDn, g/G, r refresh, q quit
+npx ruflo tui                    # interactive: 1-6 or o c s e m a pick a page, Tab/Shift-Tab cycle, j/k, PgUp/PgDn, g/G, r refresh, q quit
 npx ruflo tui --view swarm       # start on the Swarm page
 npx ruflo tui --view ai --model openai/gpt-4o-mini --max-spend-usd 0.1   # ask OpenRouter on a cheap model, stopping at $0.10 reported (key in $OPENROUTER_API_KEY, never shown)
 npx ruflo tui --no-ai            # without the AI page

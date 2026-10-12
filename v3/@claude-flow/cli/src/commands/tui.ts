@@ -9,7 +9,7 @@
  * a one-line hint and exit 2, unless --plain asks for one frame as plain text and exit 0 (ADR-489 decision E).
  *
  *   npx ruflo tui                 # interactive, in a terminal
- *   npx ruflo tui --view swarm    # start on the Swarm page (keys 1-5 or o c s e m switch pages)
+ *   npx ruflo tui --view swarm    # start on the Swarm page (keys 1-6 or o c s e m a switch pages)
  *   npx ruflo tui --plain | head  # one plain frame, exit 0 (scripts, CI)
  *   npx ruflo tui | cat           # not a terminal and no --plain: a hint on stderr, exit 2
  */
@@ -65,7 +65,7 @@ export const tuiCommand: Command = {
   ],
   examples: [
     { command: 'npx ruflo tui', description: 'Open the console in this terminal' },
-    { command: 'npx ruflo tui --view swarm', description: 'Start on the Swarm page (keys 1-5 switch pages, tab cycles, q quits)' },
+    { command: 'npx ruflo tui --view swarm', description: 'Start on the Swarm page (keys 1-6 switch pages, tab cycles, q quits)' },
     { command: 'npx ruflo tui --view ai --model openai/gpt-4o-mini --max-spend-usd 0.1', description: 'The AI page on a cheap OpenRouter model, stopping at $0.10 reported (key in $OPENROUTER_API_KEY, never shown)' },
     { command: 'npx ruflo tui --plain | head -40', description: 'One plain frame, exit 0: for scripts and CI (no terminal needed)' },
   ],
