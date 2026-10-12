@@ -88,11 +88,11 @@ describe('the board and the confirm-gated removal', () => {
     const spec = removalSpec(envOf())
 
     expect(spec).not.toBeNull()
-    expect(spec?.shows).toBe(`git -C ${ROOT} worktree remove ${wt('old')}`)
+    expect(spec?.shows).toBe(`git -C ${ROOT} -c core.fsmonitor=false -c core.hooksPath=/dev/null -c status.showUntrackedFiles=normal worktree remove ${wt('old')}`)
     expect(spec?.shows).not.toContain('--force')
     expect(spec).toMatchObject({ declared: 'delete', args: [], label: 'remove 1 merged, clean worktree' })
     expect(spec?.note).toMatch(/branches stay/)
-    expect(REMOVE_ARGV(ROOT, wt('old'))).toEqual(['git', '-C', ROOT, 'worktree', 'remove', wt('old')])
+    expect(REMOVE_ARGV(ROOT, wt('old'))).toEqual(['git', '-C', ROOT, '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-c', 'status.showUntrackedFiles=normal', 'worktree', 'remove', wt('old')])
   })
 
   it('offers nothing before the live processes were checked (the timer read never checks them)', async () => {

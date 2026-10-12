@@ -46,13 +46,18 @@ export const REMOVABLE_DIRS = ['.claude/worktrees', '.git-worktrees'] as const
 
 export const LIST_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'worktree', 'list', '--porcelain']
 // status is the one probe that can run a program from the repository's config (core.fsmonitor) and that refreshes the index (a write, and a lock another
-// session's git may want): both are switched off, after '-C <dir>' so the directory stays the third word.
-export const STATUS_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'status', '--porcelain=v1']
+// session's git may want): both are switched off, after '-C <dir>' so the directory stays the third word. Untracked files are listed whatever
+// status.showUntrackedFiles says: with it at 'no' a worktree holding new, unsaved files would read clean, and removal deletes them.
+export const STATUS_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'status', '--porcelain=v1', '--untracked-files=normal']
 /** Ignored files and folders (a folder is one entry): 'git worktree remove' deletes these too, and they are where a .env or a key lives. */
 export const IGNORED_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory']
 export const AHEAD_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'rev-list', '--left-right', '--count', 'origin/main...HEAD']
 export const REF_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'log', '-1', '--format=%ct', 'origin/main']
-export const REMOVE_ARGV = (main: string, path: string): readonly string[] => ['git', '-C', main, 'worktree', 'remove', path]
+// Removal runs its own `git status` on the worktree first. That runs core.fsmonitor and fires post-index-change from the repository (its
+// config or .git/hooks), so both are switched off. It also skips untracked files when status.showUntrackedFiles is 'no', and then deletes
+// them without --force, so the setting is pinned to git's default. Still possible: a filter.<driver>.clean or .process command (see diffArgv
+// in wf-drill-io.ts), and changes hidden by index flags (assume-unchanged, skip-worktree, core.ignoreStat), which git's check does not see.
+export const REMOVE_ARGV = (main: string, path: string): readonly string[] => ['git', '-C', main, '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-c', 'status.showUntrackedFiles=normal', 'worktree', 'remove', path]
 export const PROCS_ARGV: readonly string[] = ['/usr/bin/find', '/proc', '-maxdepth', '3', '-regextype', 'posix-extended', '-regex', '/proc/[0-9]+/(cwd|exe|fd/[0-9]+)', '-lname', '/*', '-printf', '%p\\t%l\\n']
 
 // eslint-disable-next-line no-control-regex

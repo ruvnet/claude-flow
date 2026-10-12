@@ -64,12 +64,17 @@ describe('the stub endpoint receives exactly what the card showed', () => {
 
     expect(card.ok).toBe(true)
 
+    // Counted from here: the other cases share this server, and a shuffled run can send first.
+    const before = seen.length
     const answered = await sendTo(d, target, 'compare raft and paxos')
 
-    expect(seen).toHaveLength(1)
-    expect(seen[0]).toMatchObject({ method: 'POST', url: '/v1/chat/completions', contentType: 'application/json', authorization: `Bearer ${KEY}` })
-    expect(seen[0]?.body).toBe(chatBody({ name: 'stub', baseUrl: base, keyEnv: 'STUB_MODEL_KEY', model: 'stub-model' }, 'compare raft and paxos'))
-    expect(card.ok && card.payload.shows).toContain(seen[0]?.body)
+    expect(seen).toHaveLength(before + 1)
+
+    const sent = seen[before]
+
+    expect(sent).toMatchObject({ method: 'POST', url: '/v1/chat/completions', contentType: 'application/json', authorization: `Bearer ${KEY}` })
+    expect(sent?.body).toBe(chatBody({ name: 'stub', baseUrl: base, keyEnv: 'STUB_MODEL_KEY', model: 'stub-model' }, 'compare raft and paxos'))
+    expect(card.ok && card.payload.shows).toContain(sent?.body)
     expect(card.ok && card.payload.shows).toContain('Authorization: Bearer ‹from $STUB_MODEL_KEY›')
     expect(card.ok && card.payload.shows).not.toContain(KEY)
     expect(answered).toMatchObject({ ok: true, state: 'reply', tokensIn: 7, tokensOut: 5, costUsd: 0.00012, model: 'stub-model' })
@@ -87,9 +92,11 @@ describe('the stub endpoint receives exactly what the card showed', () => {
 
   it('with NONE as the key name no Authorization header is sent', async () => {
     const d = depsOf(`endpoint:open=${base}|NONE|stub-model`)
+    const before = seen.length
 
     await sendTo(d, targetOf(d, 'open'), 'hi')
-    expect(seen.at(-1)?.authorization).toBeUndefined()
+    expect(seen).toHaveLength(before + 1)
+    expect(seen[before]?.authorization).toBeUndefined()
   })
 })
 
