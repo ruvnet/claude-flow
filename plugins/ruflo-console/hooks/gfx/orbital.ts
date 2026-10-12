@@ -38,24 +38,48 @@ function blank(columns: number, rows: number): Grid {
   return grid
 }
 
-/** Orthographic rotating Earth, using only ASCII cells. Rotation repeats every 12 seconds. */
+/** Tilted orthographic Earth with fixed sunlight and a sparse starfield. One turn takes 12 seconds. */
 export function orbitalGlobe(columns: number, rows: number, timeMs: number): Grid {
   const height = Math.max(5, Math.min(24, Math.floor(rows) || 5))
   const grid = blank(columns, height)
   const radius = Math.min((height - 1) / 2, (grid.columns - 1) / 4)
   const angle = (Number.isFinite(timeMs) ? timeMs % 12000 : 0) / 12000 * TAU
+  const tilt = 23.4 * Math.PI / 180
+  const pitch = 0.18
+  const tint = (color: number, brightness: number): number => {
+    const channel = (shift: number) => Math.round(((color >>> shift) & 255) * brightness)
+    return (channel(16) << 16) | (channel(8) << 8) | channel(0)
+  }
   for (let y = 0; y < height; y++) for (let x = 0; x < grid.columns; x++) {
     const nx = (x - (grid.columns - 1) / 2) / (radius * 2)
     const ny = ((height - 1) / 2 - y) / radius
     const r2 = nx * nx + ny * ny
-    if (r2 > 1) continue
+    if (r2 > 1) {
+      // Stable positions, slow brightness changes, and clear space around the limb.
+      const seed = ((x + 17) * 73856093 ^ (y + 11) * 19349663) >>> 0
+      if (r2 > 1.2 && seed % 113 === 0) {
+        const glow = 0.45 + 0.3 * (1 + Math.sin(angle + seed % 31)) / 2
+        grid.set(x, y, seed % 3 === 0 ? '+' : '.', tint(INK, glow), BLACK)
+      }
+      continue
+    }
     const z = Math.sqrt(1 - r2)
-    const lat = Math.asin(ny) * 180 / Math.PI
-    const lon = ((Math.atan2(nx, z) + angle) * 180 / Math.PI + 540) % 360 - 180
+    // Transform the visible surface into the tilted planet's coordinates before spinning its longitude.
+    const ax = nx * Math.cos(tilt) + ny * Math.sin(tilt)
+    const ay = -nx * Math.sin(tilt) + ny * Math.cos(tilt)
+    const py = ay * Math.cos(pitch) + z * Math.sin(pitch)
+    const pz = z * Math.cos(pitch) - ay * Math.sin(pitch)
+    const lat = Math.asin(Math.max(-1, Math.min(1, py))) * 180 / Math.PI
+    const lon = ((Math.atan2(ax, pz) + angle) * 180 / Math.PI + 540) % 360 - 180
     const land = onLand(lon, lat)
-    const meridian = Math.abs(lon / 30 - Math.round(lon / 30)) < 0.045
-    const parallel = Math.abs(lat / 30 - Math.round(lat / 30)) < 0.045
-    grid.set(x, y, land ? (z > 0.55 ? '#' : '+') : meridian || parallel ? ':' : '.', land ? (z > 0.55 ? INK : RED) : DIM, BLACK)
+    const sun = Math.max(0, -0.58 * nx + 0.4 * ny + 0.71 * z)
+    const brightness = 0.2 + 0.8 * sun
+    const meridian = Math.abs(lon / 30 - Math.round(lon / 30)) < 0.055
+    const parallel = Math.abs(lat / 30 - Math.round(lat / 30)) < 0.055
+    const glyph = land ? (sun > 0.65 ? '#' : sun > 0.3 ? '+' : ':') : meridian || parallel ? ':' : '.'
+    // A coral limb and dim night side keep the sphere readable without filling it solid.
+    const base = z < 0.28 ? RED : land ? INK : GREEN
+    grid.set(x, y, glyph, tint(base, land || z < 0.28 ? brightness : brightness * 0.48), BLACK)
   }
   return grid
 }
@@ -99,7 +123,7 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
     grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!), BLACK)
   }
   grid.text(0, 3, ' ruvnet / ORBITAL', DIM)
-  const globe = orbitalGlobe(Math.min(38, grid.columns), 14, timeMs)
+  const globe = orbitalGlobe(grid.columns, 14, timeMs)
   const left = Math.floor((grid.columns - globe.columns) / 2)
   for (let y = 0; y < globe.rows; y++) for (let x = 0; x < globe.columns; x++) {
     const i = (y * globe.columns + x) * 3
