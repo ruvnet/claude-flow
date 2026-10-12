@@ -64,9 +64,6 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
       const ringY = -nx * 0.259 + ny * 0.966
       const ring = ringX * ringX / 3.24 + ringY * ringY / 0.16
       if (Math.abs(ring - 1) < 0.09) grid.set(x, y, '.', 0x543b32, BLACK)
-      const satelliteX = 1.8 * Math.cos(angle)
-      const satelliteY = 0.4 * Math.sin(angle)
-      if (Math.abs(ringX - satelliteX) < 0.09 && Math.abs(ringY - satelliteY) < 0.1) grid.set(x, y, '+', RED, BLACK)
       // Stable positions, slow brightness changes, and clear space around the limb.
       const seed = ((x + 17) * 73856093 ^ (y + 11) * 19349663) >>> 0
       if (r2 > 1.2 && seed % 113 === 0) {
@@ -90,8 +87,23 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
     const parallel = Math.abs(lat / 30 - Math.round(lat / 30)) < 0.055
     const glyph = land ? (sun > 0.65 ? '#' : sun > 0.3 ? '+' : ':') : meridian || parallel ? ':' : '.'
     // A coral limb and dim night side keep the sphere readable without filling it solid.
-    const base = z < 0.28 ? RED : land ? INK : GREEN
-    grid.set(x, y, glyph, tint(base, land || z < 0.28 ? Math.max(z < 0.28 ? 0.58 : 0, brightness) : brightness * 0.48), BLACK)
+    const sweepAngle = (Math.atan2(ny, nx) - angle * 2 + TAU * 3) % TAU
+    const scanGlow = Math.max(0, 1 - sweepAngle / 0.45) * 0.24
+    const base = scanGlow > 0.1 ? GREEN : z < 0.28 ? RED : land ? INK : GREEN
+    const light = land || z < 0.28 ? Math.max(z < 0.28 ? 0.58 : 0, brightness) : brightness * 0.48
+    grid.set(x, y, glyph, tint(base, Math.min(1, light + scanGlow)), BLACK)
+  }
+  // A single marker with a short fading trail follows the orbit, passing behind the planet.
+  for (let trail = 5; trail >= 0; trail--) {
+    const phase = angle - trail * 0.07
+    const rx = 1.8 * Math.cos(phase)
+    const ry = 0.4 * Math.sin(phase)
+    const sx = rx * 0.966 - ry * 0.259
+    const sy = rx * 0.259 + ry * 0.966
+    if (sx * sx + sy * sy < 1 && Math.sin(phase) < 0) continue
+    const x = Math.round((grid.columns - 1) / 2 + sx * radius * 2)
+    const y = Math.round((height - 1) / 2 - sy * radius)
+    grid.set(x, y, trail === 0 ? '+' : '.', tint(trail === 0 ? INK : RED, 1 - trail * 0.14), BLACK)
   }
   return grid
 }
@@ -103,7 +115,10 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
   const title = ` RUFLO / ${label.toUpperCase()} `
   grid.text(0, 0, title.slice(0, grid.columns), RED)
   grid.text(0, 1, '-'.repeat(grid.columns), DIM)
-  grid.set(((tick % grid.columns) + grid.columns) % grid.columns, 1, '+', RED)
+  for (let tail = 4; tail >= 0; tail--) {
+    const x = (((tick - tail) % grid.columns) + grid.columns) % grid.columns
+    grid.set(x, 1, tail === 0 ? '>' : '=', tail === 0 ? INK : tail < 3 ? RED : DIM)
+  }
   for (let x = 0; x < grid.columns - 12; x++) {
     const phase = ((x - tick) % 19 + 19) % 19
     grid.set(x, 2, phase === 9 ? '|' : phase === 8 || phase === 10 ? '/' : phase === 7 || phase === 11 ? '.' : '_', phase >= 7 && phase <= 11 ? GREEN : DIM)
@@ -129,7 +144,7 @@ function orbitalBrandColor(color: number): number {
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[]): Grid {
   const grid = blank(columns, 30)
   // Reuse the original console banner, including its half-block font and sweep, recolored for Orbital.
-  const banner = bannerPicture(project, grid.columns, timeMs)
+  const banner = bannerPicture(project, grid.columns, timeMs, Math.max(0, Number.isFinite(timeMs) ? timeMs : 0))
   for (let y = 0; y < banner.rows; y++) for (let x = 0; x < banner.columns; x++) {
     const i = (y * banner.columns + x) * 3
     grid.set(x, y, banner.cells[i]!, orbitalBrandColor(banner.cells[i + 1]!), BLACK)
@@ -159,14 +174,21 @@ export function orbitalBoot(project: string, columns: number, timeMs: number, ch
     const errors = checks.filter(check => !check.ok)
     const successes = checks.filter(check => check.ok)
     const slots = Math.max(0, 4 - Math.min(4, errors.length))
-    const page = Math.floor(age / 1200)
+    const page = Math.floor(age / 2200)
     const shown = [...errors.slice(0, 4), ...Array.from({ length: Math.min(slots, successes.length) }, (_, i) => successes[(page * slots + i) % successes.length]!)]
     shown.forEach((check, i) => {
-      const reveal = Math.max(0, Math.floor(((age % 1200) - i * 100) / 25))
+      const reveal = Math.max(0, Math.floor(((age % 2200) - i * 80) / 25))
       const name = check.ok ? check.area.toUpperCase().slice(0, reveal) : check.area.toUpperCase()
       const status = check.ok ? '[PASS]' : '[FAIL]'
       const detail = !check.ok && check.problems.length > 0 ? ` / ${check.problems[0]}` : ''
       grid.text(0, 23 + i, ` ${status} ${name}${detail}`, check.ok ? GREEN : RED)
+      const cursor = 8 + name.length
+      if (check.ok && reveal < check.area.length && cursor < grid.columns) grid.set(cursor, 23 + i, '_', INK)
+      if (grid.columns >= 55 && check.ok) {
+        const phase = ((age % 2200) - i * 80) / 350
+        const light = phase >= 0 && phase < 1 ? INK : DIM
+        grid.text(grid.columns - 12, 23 + i, ':: VERIFIED', light)
+      }
     })
     grid.text(0, 27, ` ${checks.length} areas / ${errors.length} failures / local registry checks`, DIM)
   }
