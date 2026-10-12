@@ -21,7 +21,7 @@ import { isBooting, isCompactPane, NAV_STYLES, VIEWS, type ViewId } from '../sta
 import { agentView } from './agent'
 import { automateResult, automateView } from './automate'
 import { claimsView } from './claims'
-import { ago, button, clip, col, confirmRow, isBbs, isOrbital, row, setLook, text, THEME, type Ctx } from './common'
+import { ago, art as drawArt, button, clip, col, confirmRow, isBbs, isOrbital, row, setLook, text, THEME, type Ctx } from './common'
 import { costView } from './cost'
 import { evolveResult, evolveView } from './evolve'
 import { catalogView } from './plugin-catalog'
@@ -297,9 +297,11 @@ function wildcat(ctx: Ctx): { strip: RenderElement[]; art: RenderElement[] } {
         ],
       }),
     ],
-    art: art !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(art.toRaster('title'))] : [],
+    art: listOf(drawArt(ctx, art, 'title', `ruflo console: ${ctx.state.view}`)),
   }
 }
+
+const listOf = <T>(item: T | null): T[] => (item === null ? [] : [item])
 
 /** The views whose lab result block can be drawn alone (so finding it costs one block, not a second page). */
 const RESULT_OF: Partial<Record<ViewId, (ctx: Ctx) => RenderElement[]>> = {
@@ -327,9 +329,9 @@ export function paneView(base: Ctx): RenderElement {
   if (isBooting(ctx.state, ctx.nowMs)) {
     const boot = ctx.pictures.get('boot')
 
-    return boot !== undefined && ctx.kit.Raster !== undefined
-      ? col(ctx, [ctx.kit.Raster(boot.toRaster('boot'))], 'boot')
-      : col(ctx, [text(ctx, 'RUFLO AGENT SWARM CONSOLE · loading…', { bold: true, color: THEME.head })], 'boot')
+    const intro = drawArt(ctx, boot, 'boot', 'RUFLO AGENT SWARM CONSOLE · loading…')
+
+    return col(ctx, [intro ?? text(ctx, 'RUFLO AGENT SWARM CONSOLE · loading…', { bold: true, color: THEME.head })], 'boot')
   }
   // A section of a page is a bordered card (views/card.ts): the body is drawn narrower by the border and padding, through a kit that groups its rows.
   const cardsOn = hasCards(base.columns, isCompactPane(base.state))
@@ -374,12 +376,14 @@ export function paneView(base: Ctx): RenderElement {
   const hasInlineConfirm = attention.keys.get(body)?.has('confirm') === true
   const header = ctx.pictures.get('header')
   const isCompact = isCompactPane(ctx.state)
+  // A surface that draws no Raster (the desktop draws the same picture as an Svg) gets the Orbital banner's words where the picture is not drawn.
   const fallbackBrand = isOrbital() && ctx.kit.Raster === undefined ? [text(ctx, 'RUFLO / AGENT SWARM CONSOLE', { bold: true, color: THEME.head, wrap: 'truncate-end' })] : []
   // The logo banner leads the main menu in every layout, compact too (the other pages lead with their own title art there).
-  const title = (!isCompact || ctx.state.view === 'menu') && header !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(header.toRaster('header'))] : ctx.state.view === 'menu' ? fallbackBrand : []
+  const banner = (!isCompact || ctx.state.view === 'menu') && header !== undefined ? drawArt(ctx, header, 'header', 'RUFLO / AGENT SWARM CONSOLE') : null
+  const title = banner !== null ? [banner] : ctx.state.view === 'menu' ? fallbackBrand : []
   const about = blurb(ctx)
-  const orbitalArt = ctx.pictures.get('title')
-  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: isOrbital() && orbitalArt !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(orbitalArt.toRaster('title'))] : ctx.state.view !== 'menu' ? fallbackBrand : [] }
+  const orbitalArt = isOrbital() ? drawArt(ctx, ctx.pictures.get('title'), 'title', `ruflo console: ${ctx.state.view}`) : null
+  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: orbitalArt !== null ? [orbitalArt] : ctx.state.view !== 'menu' ? fallbackBrand : [] }
   // The status row (keys, sync, Palette, Actions) sits above the body, so a tall view cannot push it off the screen; only the main menu keeps it below its prompt, as a BBS does.
   const isMenu = ctx.state.view === 'menu'
   // The terminal's own Enter-again confirm stays under its field, where the field is.

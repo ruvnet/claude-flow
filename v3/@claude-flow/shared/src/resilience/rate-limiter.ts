@@ -194,7 +194,7 @@ export class SlidingWindowRateLimiter implements RateLimiter {
     if (!entries) return;
 
     const cutoff = Date.now() - this.options.windowMs;
-    const filtered = entries.filter((e) => e.timestamp >= cutoff);
+    const filtered = entries.filter((e) => e.timestamp > cutoff);
 
     if (filtered.length === 0) {
       this.requests.delete(key);
@@ -274,7 +274,7 @@ export class TokenBucketRateLimiter implements RateLimiter {
       allowed: bucket.tokens >= 1,
       remaining: Math.floor(bucket.tokens),
       resetAt: new Date(bucket.lastRefill + this.options.windowMs),
-      retryAfter: bucket.tokens >= 1 ? 0 : this.options.windowMs,
+      retryAfter: bucket.tokens >= 1 ? 0 : Math.max(0, bucket.lastRefill + this.options.windowMs - Date.now()),
       total: this.options.maxRequests,
       used: this.options.maxRequests - Math.floor(bucket.tokens),
     };
@@ -292,7 +292,7 @@ export class TokenBucketRateLimiter implements RateLimiter {
         allowed: false,
         remaining: 0,
         resetAt: new Date(bucket.lastRefill + this.options.windowMs),
-        retryAfter: this.options.windowMs,
+        retryAfter: Math.max(0, bucket.lastRefill + this.options.windowMs - Date.now()),
         total: this.options.maxRequests,
         used: this.options.maxRequests,
       };

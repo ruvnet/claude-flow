@@ -5,7 +5,7 @@ import { hitsOf, isHit } from '../data/memmap'
 import { drawable, layout, MAP_ROWS, memmapPicture, SPACE_COLORS, spacesOf, type MapEntry, type MapPoint } from '../gfx/memmap'
 import type { Grid } from '../gfx/raster'
 import type { State } from '../state'
-import { clip, count, live, row, rule, text, type Ctx } from './common'
+import { art, clip, count, live, row, rule, text, type Ctx } from './common'
 import { note } from './subhead'
 
 /** Namespaces named in the key at most: a store with hundreds would otherwise grow the page without bound. */
@@ -52,7 +52,9 @@ export function memmapPictures(state: State, columns: number): Map<string, Grid>
 function mapPicture(ctx: Ctx, entries: number, spaces: number): RenderElement {
   const grid = ctx.pictures.get('memmap') ?? memmapPictures(ctx.state, ctx.columns - 2).get('memmap')
 
-  return grid === undefined || ctx.kit.Raster === undefined ? text(ctx, `the map needs a terminal that draws pictures: ${entries} entries in ${spaces} namespaces`, { dimColor: true }) : ctx.kit.Raster(grid.toRaster('memmap'))
+  const words = `the map needs a terminal that draws pictures: ${entries} entries in ${spaces} namespaces`
+
+  return art(ctx, grid, 'memmap', words) ?? text(ctx, words, { dimColor: true })
 }
 
 /** The memory map section: the picture, what its places mean (said plainly), the namespace colours and what the last search lit. */
