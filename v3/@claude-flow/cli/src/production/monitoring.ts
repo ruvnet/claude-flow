@@ -110,6 +110,7 @@ export class MonitoringHooks {
   private healthStatus: HealthStatus;
   private startTime = Date.now();
   private activeRequests = 0;
+  private requestGeneration = 0;
   private requestCount = 0;
   private errorCount = 0;
   private healthChecks: Map<string, () => Promise<{ healthy: boolean; message?: string }>> = new Map();
@@ -191,10 +192,14 @@ export class MonitoringHooks {
     this.requestCount++;
     const startTime = Date.now();
 
+    const generation = this.requestGeneration;
+    let completed = false;
     this.counter('request_started', 1, { requestId });
 
     // Return end function
     return () => {
+      if (completed || generation !== this.requestGeneration) return;
+      completed = true;
       this.activeRequests--;
       const duration = Date.now() - startTime;
       this.responseTimes.push(duration);
@@ -394,6 +399,7 @@ export class MonitoringHooks {
    * Reset all metrics
    */
   reset(): void {
+    this.requestGeneration++;
     this.metrics = [];
     this.responseTimes = [];
     this.alerts = [];
