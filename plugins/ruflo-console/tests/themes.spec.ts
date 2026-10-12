@@ -5,6 +5,7 @@ import type { Host } from '../hooks/host'
 import { orbitalBoot, orbitalGlobe, orbitalHeader } from '../hooks/gfx/orbital'
 import { picturesOf } from '../hooks/views/frames'
 import { groupOf, findPages } from '../hooks/nav-state'
+import { paneView } from '../hooks/views/pane'
 import { GROUPS } from '../hooks/views/menu'
 const flush = async () => { await new Promise(resolve => setTimeout(resolve, 0)) }
 const copy = () => JSON.parse(JSON.stringify(ORBITAL_THEME))
@@ -15,6 +16,21 @@ describe('Theme Studio', () => {
     expect(groupOf('themes')).toBe('TOOLS')
     expect(findPages('color')).toContain('themes')
     expect(GROUPS.find(g => g.title === 'TOOLS')!.sections.flatMap(s => s.items).some(i => i.go === 'themes')).toBe(true)
+  })
+  it('opens from the real main menu and retains the existing console shell', () => {
+    const state = newState({ look: 'orbital', boot: false }); state.view = 'menu'; state.pane.rows = 60
+    const noop: any = new Proxy(() => undefined, { get: () => noop })
+    const act = new Proxy(noop, { get: (_, key) => key === 'view' ? (view: typeof state.view) => { state.view = view } : noop })
+    const kit = Object.fromEntries(['Box', 'Text', 'Button', 'Input', 'Raster'].map(type => [type, (props: any) => ({ type, props })]))
+    const flat = (node: any): any[] => node && typeof node === 'object' ? [node, ...(Array.isArray(node.props?.children) ? node.props.children.flatMap(flat) : flat(node.props?.children))] : []
+    const draw = () => paneView({ state, kit, act, columns: 116, nowMs: 5000, pictures: picturesOf(state, 116, 5000, 5000) } as any)
+    const entry = flat(draw()).find(node => node.props?.key === 'menu-go-themes')
+    expect(entry).toBeDefined(); entry.props.onPress()
+    expect(state.view).toBe('themes')
+    const keys = flat(draw()).map(node => node.props?.key)
+    for (const key of ['tabs', 'pane-icons', 'footer', 'theme-layout', 'tab-menu', 'theme-editor', 'theme-stage']) expect(keys).toContain(key)
+    flat(draw()).find(node => node.props?.key === 'tab-menu').props.onPress()
+    expect(state.view).toBe('menu')
   })
   it('keeps editor and preview within one width at the breakpoint', () => {
     for (const width of [12, 20, 44, 72, 99, 100, 120, 160, 240]) {
