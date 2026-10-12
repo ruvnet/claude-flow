@@ -95,10 +95,22 @@ export function edges(model: TopoModel): [number, number][] {
  * A dot runs from the leader to a node once each time the console sees an event about that agent (data); the leader's
  * slow heartbeat is decoration.
  */
-export function topologyPicture(model: TopoModel, columns: number, rows: number, t: number): Grid {
+export function topologyPicture(model: TopoModel, columns: number, rows: number, t: number, depth = false, motionTime = t): Grid {
   const grid = new Grid(columns, rows)
   const canvas = new Braille(columns, rows)
   const points = layout(model, canvas.width, canvas.height)
+  // Gentle perspective rocking preserves the model's real edges and labels.
+  if (depth) {
+    const yaw = Math.sin(motionTime / 2400) * 0.42
+    for (const point of points) {
+      const nx = (point.x - canvas.width / 2) / (canvas.width / 2)
+      const ny = (point.y - canvas.height / 2) / (canvas.height / 2)
+      const z = nx * Math.sin(yaw) + ny * 0.18
+      const scale = 2.5 / (2.5 - z)
+      point.x = canvas.width / 2 + nx * Math.cos(yaw) * scale * canvas.width * 0.4
+      point.y = canvas.height / 2 + ny * scale * canvas.height * 0.4
+    }
+  }
   const links = edges(model)
   const leader = points[0]
 
@@ -155,7 +167,8 @@ export function topologyPicture(model: TopoModel, columns: number, rows: number,
     const breath = !node.isLeader && isBusy(node.status) ? 0.45 * Math.sin(t / 330 + i) ** 2 : 0
     const color = flash ? 0xffffff : node.isLeader ? mix(COLOR.accent, 0xffffff, heartbeat) : mix(nodeColor(node), 0xffffff, breath)
 
-    grid.set(cx, cy, node.isLeader ? '★' : isBusy(node.status) ? '◉' : '●', color)
+    if (depth) grid.set(cx + 1, cy + 1, '░', 0x49332c)
+    grid.set(cx, cy, depth ? (node.isLeader ? '◈' : isDown(node.status) ? '×' : isBusy(node.status) ? '◉' : '◇') : node.isLeader ? '★' : isBusy(node.status) ? '◉' : '●', color)
 
     if (room >= 5 || node.isLeader) {
       const label = node.label.slice(0, Math.max(3, room - 1))

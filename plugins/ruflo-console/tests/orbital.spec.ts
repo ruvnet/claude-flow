@@ -116,9 +116,24 @@ it('gives swarm control its own bounded routing animation', () => {
   for (const width of [20, 44, 72]) {
     const first = orbitalHeader('swarm control', width, 0)
     const later = orbitalHeader('swarm control', width, 500)
-    expect([first.columns, first.rows]).toEqual([width, 8])
+    expect([first.columns, first.rows]).toEqual([width, 12])
     expect(first.cells).not.toEqual(later.cells)
-    expect(gridText(first)).toContain('[ + ]')
+    expect(gridText(first)).toContain('◈')
     expect(gridText(first)).not.toContain('agents online')
   }
+})
+
+import { topologyPicture } from '../hooks/gfx/pictures'
+it('preserves real topology labels and statuses in the depth view', () => {
+  const model = { topology: 'hierarchical', nodes: [
+    { id: 'hub', label: 'queen', status: 'leader', isLeader: true },
+    { id: 'a', label: 'worker', status: 'busy', isLeader: false },
+    { id: 'b', label: 'down', status: 'offline', isLeader: false },
+  ] }
+  const before = JSON.stringify(model)
+  const first = topologyPicture(model, 72, 16, 0, true)
+  const next = topologyPicture(model, 72, 16, 1200, true)
+  for (const label of ['queen', 'worker', 'down', '◈', '◉', '×']) expect(gridText(next)).toContain(label)
+  expect(first.cells).not.toEqual(next.cells)
+  expect(JSON.stringify(model)).toBe(before)
 })

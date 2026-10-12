@@ -226,7 +226,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     case 'swarm': {
       const model = topoModelOf(snapshot, recentByAgent(state.events, nowMs, PULSE_MS + 600), nowMs)
 
-      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t))
+      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t, state.options.look === 'orbital', state.options.fps > 0 ? t : 0))
       break
     }
     case 'hive':

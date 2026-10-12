@@ -111,7 +111,7 @@ export function orbitalGlobe(columns: number, rows: number, timeMs: number): Gri
 /** Fixed-height header: red scan line, travelling ASCII pulse and an orbit marker. */
 export function orbitalHeader(label: string, columns: number, timeMs: number): Grid {
   const swarm = /swarm/i.test(label)
-  const grid = blank(columns, swarm ? 8 : 4)
+  const grid = blank(columns, swarm ? 12 : 4)
   const tick = Math.floor((Number.isFinite(timeMs) ? timeMs : 0) / 160)
   const title = ` RUFLO / ${label.toUpperCase()} `
   grid.text(0, 0, title.slice(0, grid.columns), RED)
@@ -128,26 +128,42 @@ export function orbitalHeader(label: string, columns: number, timeMs: number): G
   if (swarm) {
     // A decorative routing motif, separate from the page's measured swarm topology.
     for (let y = 1; y < grid.rows; y++) grid.text(0, y, ' '.repeat(grid.columns), DIM)
-    const center = { x: Math.floor(grid.columns / 2), y: 3 }
-    const spread = Math.max(4, Math.floor(grid.columns * 0.34))
-    const nodes = [-1, 1].flatMap(side => [1, 3, 5].map(y => ({ x: center.x + side * spread, y })))
+    const center = { x: Math.floor(grid.columns / 2), y: 5 }
     const ms = Number.isFinite(timeMs) ? timeMs : 0
-    nodes.forEach((node, index) => {
+    const phase = ms / 12000 * TAU
+    const icons = ['◇', '□', '△', '◎', '◇', '□']
+    const nodes = icons.map((icon, index) => {
+      const angle = phase + index * TAU / icons.length
+      const z = Math.sin(angle)
+      const perspective = 2.8 / (2.8 - z * 0.5)
+      return { icon, index, z, x: Math.round(center.x + Math.cos(angle) * grid.columns * 0.32 * perspective), y: Math.round(center.y + (Math.sin(angle) * 2.3 + Math.cos(angle) * 0.7) * perspective) }
+    }).sort((a, b) => a.z - b.z)
+    const drawHub = () => {
+      grid.text(center.x - 2, center.y + 1, ' ░░░ ', 0x4b2924)
+      grid.text(center.x - 2, center.y, '[ ◈ ]', INK)
+    }
+    let hubDrawn = false
+    nodes.forEach(node => {
+      if (!hubDrawn && node.z >= 0) { drawHub(); hubDrawn = true }
       const dx = node.x - center.x
       const dy = node.y - center.y
       const steps = Math.max(Math.abs(dx), Math.abs(dy))
-      const pulse = ((ms / 1400 + index / nodes.length) % 1 + 1) % 1
-      for (let step = 1; step < steps; step++) {
+      const pulse = ((ms / 1700 + node.index / icons.length) % 1 + 1) % 1
+      for (let step = 3; step < steps; step++) {
         const f = step / steps
         const x = Math.round(center.x + dx * f)
         const y = Math.round(center.y + dy * f)
-        const distance = pulse - f
-        grid.set(x, y, distance >= 0 && distance < 0.12 ? (dx < 0 ? '<' : '>') : '.', distance >= 0 && distance < 0.12 ? GREEN : 0x35413c)
+        const lit = pulse - f >= 0 && pulse - f < 0.14
+        grid.set(x, y, lit ? '•' : '·', lit ? GREEN : node.z < 0 ? 0x29342f : 0x58675e)
       }
-      grid.text(node.x - 1, node.y, '[o]', pulse > 0.8 ? INK : RED)
+      if (node.z > 0) {
+        grid.text(node.x, node.y + 1, '░░', 0x4b2924)
+        grid.text(node.x - 1, node.y, `[${node.icon}]`, pulse > 0.8 ? INK : RED)
+      } else grid.set(node.x, node.y, node.icon, DIM)
     })
-    grid.text(center.x - 2, center.y, '[ + ]', INK)
-    grid.text(1, 7, ' Decorative routing / live topology below', DIM)
+    if (!hubDrawn) drawHub()
+    grid.text(1, 10, ' ◈ HUB   ◇ WORKER   □ TOOL   ◎ MEMORY', DIM)
+    grid.text(1, 11, ' Decorative orbit / live topology below', DIM)
   } else if (grid.columns >= 30) grid.text(0, 3, ' ruvnet / agent swarm console', DIM)
   return grid
 }
