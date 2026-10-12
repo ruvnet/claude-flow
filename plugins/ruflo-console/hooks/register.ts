@@ -183,7 +183,7 @@ export const register: Register = (on, raw: PluginOptions) => {
 
     const built = here
       .run(['git', '-C', root, 'rev-parse', '--show-prefix'], 3_000)
-      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
+      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
       .then(described => {
         setBuild(described !== null && described.exitCode === 0 ? buildOf(described.stdout) : '')
         here.invalidate()

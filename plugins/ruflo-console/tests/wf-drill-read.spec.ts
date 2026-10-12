@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { FILTER_KEYS_ARGV } from '../hooks/data/git-filters'
 import { diffArgv, isProjectDir, isRunFile, parseNumstat } from '../hooks/data/wf-drill-io'
+
+/** The repository lists no filter driver: git config --get-regexp exits 1 and prints nothing. */
+const NO_FILTERS = { exitCode: 1, stdout: '' }
 import { bindWorkflowDrill } from '../hooks/wf-drill'
 import { drillOf } from '../hooks/views/wf-detail'
 import { back, line, sample, SECRET, use } from './fixtures/wf-drill'
@@ -30,15 +34,16 @@ describe('Files and Result', () => {
   })
 
   it('reads the worktree diff stat through one fixed argv when bound, and joins it to the named files', async () => {
-    const world = await worldOf(liveFiles(), {}, async () => ({ exitCode: 0, stdout: '3\t1\ta.ts\n-\t-\timg.png\nnot a numstat line\n' }))
+    const world = await worldOf(liveFiles(), {}, async argv => (argv.includes('--get-regexp') ? NO_FILTERS : { exitCode: 0, stdout: '3\t1\ta.ts\n-\t-\timg.png\nnot a numstat line\n' }))
+
 
     bindWorkflowDrill(world.state, world.host as never)
     toAgent(world)
     click(frame(world).tree, 'wf-sub-files')
     await flush()
 
-    expect(world.spied.runs).toEqual([diffArgv(WT)])
-    expect(world.spied.runs[0]).toEqual(['git', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-C', WT, 'diff', '--numstat', '--no-renames', '--no-color', '--no-ext-diff', '--no-textconv', 'HEAD', '--'])
+    expect(world.spied.runs).toEqual([[...FILTER_KEYS_ARGV(WT)], diffArgv(WT)])
+    expect(world.spied.runs[1]).toEqual(['git', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-C', WT, 'diff', '--numstat', '--no-renames', '--no-color', '--no-ext-diff', '--no-textconv', 'HEAD', '--'])
 
     const text = screen(world)
 
@@ -52,7 +57,7 @@ describe('Files and Result', () => {
     const hash = 'a'.repeat(40)
     const path = `${WT}/node_modules/.pnpm/pkg@1.2.3_${hash}/index.ts`
     const text = [line('assistant', 1, [use('t1', 'Edit', { file_path: path, old_string: 'a', new_string: 'b' })]), line('user', 2, [back('t1', 'ok')])].join('\n')
-    const world = await worldOf(liveFiles({ [`${RUN}/agent-a1.jsonl`]: text }), {}, async () => ({ exitCode: 0, stdout: `5\t2\tnode_modules/.pnpm/pkg@1.2.3_${hash}/index.ts\n` }))
+    const world = await worldOf(liveFiles({ [`${RUN}/agent-a1.jsonl`]: text }), {}, async argv => (argv.includes('--get-regexp') ? NO_FILTERS : { exitCode: 0, stdout: `5\t2\tnode_modules/.pnpm/pkg@1.2.3_${hash}/index.ts\n` }))
 
     bindWorkflowDrill(world.state, world.host as never)
     toAgent(world)

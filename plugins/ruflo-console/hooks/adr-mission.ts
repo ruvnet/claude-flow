@@ -107,7 +107,7 @@ export async function syncAdrDigest(state: State, host: Host): Promise<void> {
 /** Files changed in the project: uncommitted work, and commits since the mission began. Read-only git. */
 export async function changedFiles(host: Pick<Host, 'run'>, cwd: string, sinceMs: number): Promise<string[]> {
   const out = new Set<string>()
-  const status = await host.run(['git', '-C', cwd, 'status', '--porcelain'], 15_000).catch(() => null)
+  const status = await host.run(['git', '-C', cwd, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'status', '--porcelain'], 15_000).catch(() => null)
 
   for (const line of (status?.stdout ?? '').split('\n')) {
     const path = line.slice(3).split(' -> ').pop()?.trim().replace(/^"|"$/g, '')

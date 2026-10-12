@@ -12,6 +12,7 @@
  *   find /proc ... -printf '%p\t%l\n'                            what every process has as cwd, exe and open fd (own processes only)
  * The one write, `git -C <main> worktree remove <path>` with no --force, lives in views/wf-worktrees.ts behind the confirm card.
  */
+import { filterGuarded } from './git-filters'
 import { plain } from './parse'
 import { cleanText } from './wf-clean'
 import type { WfRun } from './workflows'
@@ -46,13 +47,18 @@ export const REMOVABLE_DIRS = ['.claude/worktrees', '.git-worktrees'] as const
 
 export const LIST_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'worktree', 'list', '--porcelain']
 // status is the one probe that can run a program from the repository's config (core.fsmonitor) and that refreshes the index (a write, and a lock another
-// session's git may want): both are switched off, after '-C <dir>' so the directory stays the third word.
-export const STATUS_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'status', '--porcelain=v1']
+// session's git may want): both are switched off, after '-C <dir>' so the directory stays the third word. Untracked files are listed whatever
+// status.showUntrackedFiles says: with it at 'no' a worktree holding new, unsaved files would read clean, and removal deletes them.
+export const STATUS_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'status', '--porcelain=v1', '--untracked-files=normal']
 /** Ignored files and folders (a folder is one entry): 'git worktree remove' deletes these too, and they are where a .env or a key lives. */
 export const IGNORED_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, '--no-optional-locks', '-c', 'core.fsmonitor=false', 'ls-files', '--others', '--ignored', '--exclude-standard', '--directory']
 export const AHEAD_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'rev-list', '--left-right', '--count', 'origin/main...HEAD']
 export const REF_ARGV = (dir: string): readonly string[] => ['git', '-C', dir, 'log', '-1', '--format=%ct', 'origin/main']
-export const REMOVE_ARGV = (main: string, path: string): readonly string[] => ['git', '-C', main, 'worktree', 'remove', path]
+// Removal runs its own `git status` on the worktree first. That runs core.fsmonitor and fires post-index-change from the repository (its
+// config or .git/hooks), so both are switched off. It also skips untracked files when status.showUntrackedFiles is 'no', and then deletes
+// them without --force, so the setting is pinned to git's default. Still possible: a filter.<driver>.clean or .process command (see diffArgv
+// in wf-drill-io.ts), and changes hidden by index flags (assume-unchanged, skip-worktree, core.ignoreStat), which git's check does not see.
+export const REMOVE_ARGV = (main: string, path: string): readonly string[] => ['git', '-C', main, '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-c', 'status.showUntrackedFiles=normal', 'worktree', 'remove', path]
 export const PROCS_ARGV: readonly string[] = ['/usr/bin/find', '/proc', '-maxdepth', '3', '-regextype', 'posix-extended', '-regex', '/proc/[0-9]+/(cwd|exe|fd/[0-9]+)', '-lname', '/*', '-printf', '%p\\t%l\\n']
 
 // eslint-disable-next-line no-control-regex
@@ -178,12 +184,19 @@ const oneLine = async (io: WtIo, argv: readonly string[], timeoutMs: number): Pr
 /** Whether `cwd` is this worktree or inside it: the one a session is working in. */
 export const isCurrentDir = (cwd: string, path: string): boolean => cwd === path || cwd.startsWith(`${path}/`)
 
+/** A probe that compares the work tree with HEAD can run a filter driver from the repository's config (git-filters.ts): it runs with them blanked, or is an unknown. */
+const guardedLine = async (io: WtIo, dir: string, argv: readonly string[], timeoutMs: number): Promise<string | null> => {
+  const guarded = await filterGuarded(io.run, dir, argv)
+
+  return guarded === null ? null : oneLine(io, guarded, timeoutMs)
+}
+
 async function probeOne(io: WtIo, entry: WtEntry, cwd: string, runs: readonly WfRun[]): Promise<WtRow> {
   const base: WtRow = { ...entry, dirty: null, ignoredSecrets: null, ahead: null, behind: null, createdMs: null, maker: makerOf(entry, runs), isCurrent: isCurrentDir(cwd, entry.path) }
 
   if (!entry.isSafe || entry.isBare || entry.isPrunable) return base
 
-  const [status, counts, ignored, link] = await Promise.all([oneLine(io, STATUS_ARGV(entry.path), 30_000), oneLine(io, AHEAD_ARGV(entry.path), 15_000), oneLine(io, IGNORED_ARGV(entry.path), 30_000), io.stat(`${entry.path}/.git`).catch(() => undefined)])
+  const [status, counts, ignored, link] = await Promise.all([guardedLine(io, entry.path, STATUS_ARGV(entry.path), 30_000), oneLine(io, AHEAD_ARGV(entry.path), 15_000), oneLine(io, IGNORED_ARGV(entry.path), 30_000), io.stat(`${entry.path}/.git`).catch(() => undefined)])
   const pair = counts === null ? null : /^(\d+)\s+(\d+)\s*$/.exec(counts)
 
   return {

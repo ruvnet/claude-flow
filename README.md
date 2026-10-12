@@ -49,6 +49,10 @@ npx -y ruflo@latest mcp start
 
 MCP exposes Ruflo tools to your client. The console and mods above are Claude Code integrations; hook support depends on the client.
 
+<img src="docs/assets/readme/icons/terminal.svg" width="28" height="28" alt=""> **Prefer a plain terminal? Optional.** The console also runs on its own, with no Claude Code: `npx ruflo tui` (add `--plain` to print one frame for scripts). It shows Overview, Cost, Swarm, Events and Missions, plus an optional AI page. [Terminal UI guide](docs/USERGUIDE.md#terminal-ui-optional)
+
+<p align="center"><img src="docs/assets/ruflo-tui-compact.svg" width="640" alt="Looping recording of the optional ruflo terminal UI cycling through Overview, Cost, Swarm, Events and Missions in a sample project"></p>
+
 [Compare install paths](#quick-start) · [Open the console](#console-walkthrough) · [User guide](docs/USERGUIDE.md)
 
 <div align="center">

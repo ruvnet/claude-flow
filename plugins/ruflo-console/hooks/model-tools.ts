@@ -215,7 +215,7 @@ function stateJson(deps: ModelToolDeps, filter: string): string {
     title: VIEWS.find(view => view.id === state.view)?.label ?? state.view,
     screen,
     waiting: state.pending === null ? null : { ...(askedBy(state.pending) !== '' && { askedBy: askedBy(state.pending).replace(/: $/, '') }), label: modelLine(state.pending.label, 120), expect: modelLine(state.pending.expect, 160), note: state.pending.note === undefined ? undefined : modelLine(state.pending.note, 160) },
-    lastResult: state.outcome === null ? null : { label: modelLine(state.outcome.label, 100), ok: state.outcome.ok, detail: modelLine(state.outcome.detail, 200), lines: (state.outcome.lines ?? []).slice(0, 12).map(line => modelLine(line, 160)) },
+    lastResult: state.outcome === null ? null : { label: modelLine(state.outcome.label, 100), ok: state.outcome.ok, detail: modelLine(state.outcome.detail, 200), lines: (state.outcome.lines ?? []).slice(0, 12).map(line => modelLine(line, 160)), ...(state.outcome.expired === true && { expired: true }) },
     entries,
     entryCount: all.length,
     entriesNote: entries.length < (words.length === 0 ? all.length : entries.length) || (words.length > 0 && entries.length === 40) ? 'the list is cut: pass filter (words in an id or label) to find other entries' : undefined,

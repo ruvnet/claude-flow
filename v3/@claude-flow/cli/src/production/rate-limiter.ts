@@ -152,6 +152,7 @@ export class RateLimiter {
     resetAt: number;
   } {
     const limits = this.getLimits(operation);
+    const capacity = Math.floor(limits.maxRequests * this.config.burstMultiplier);
     const bucketKey = userId && this.config.perUserLimits
       ? `${operation}:${userId}`
       : `global:${operation}`;
@@ -162,8 +163,8 @@ export class RateLimiter {
     if (!bucket) {
       return {
         current: 0,
-        limit: limits.maxRequests,
-        remaining: limits.maxRequests,
+        limit: capacity,
+        remaining: capacity,
         resetAt: now + limits.windowMs,
       };
     }
@@ -173,8 +174,8 @@ export class RateLimiter {
 
     return {
       current: validRequests.length,
-      limit: limits.maxRequests,
-      remaining: Math.max(0, limits.maxRequests - validRequests.length),
+      limit: capacity,
+      remaining: Math.max(0, capacity - validRequests.length),
       resetAt: validRequests.length > 0
         ? validRequests[0] + limits.windowMs
         : now + limits.windowMs,

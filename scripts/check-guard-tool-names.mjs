@@ -13,7 +13,7 @@
 //
 // Exit: 0 clean · 1 unmatched watched names · 3 nothing extracted / empty registry (fail loud).
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -115,4 +115,6 @@ function main() {
   process.exit(r.unmatched.length ? 1 : 0);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) main();
+// Node canonicalizes the module URL, while argv can retain a symlinked path
+// (including macOS /var -> /private/var). Do not silently skip CLI checks.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();

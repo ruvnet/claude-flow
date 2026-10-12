@@ -26,6 +26,15 @@ Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, 
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
 
+## [3.56.8] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.8. `@claude-flow/shared` 3.0.4 was published earlier and is now pinned exactly (3.56.7 still pinned 3.0.3). No other published package changed since 3.56.7; signed helpers did not change.
+
+### Fixed
+
+- `@claude-flow/shared` 3.0.4: the RVF event log repairs an incomplete or damaged tail before appending (#4031 by @rudycelekli); a clean install can import `.`, `./core` and `./mcp` because zod and express are now declared, and the tarball no longer ships compiled tests (#4089, #4091 by @proffesor-for-testing; the fresh-consumer finding came from @martinvlad, with `scripts/smoke-shared-fresh-consumer.mjs`).
+- `hooks coverage-gaps`: files with no executable lines are no longer reported as 0%, overall coverage is line-weighted, the command reads `coverage-final.json`, and the report size is capped (#4082-#4084, reported by @ronmikailov; #4097). Plugin workflow contracts for `ruflo-testgen` and `ruflo-sparc` were corrected in the same change (#4085-#4088; marketplace plugins, not npm).
+
 ## [3.56.7] - 2026-10-11
 
 Minor-feature patch: `@claude-flow/codex` 3.0.4 (published standalone; the CLI and root pin it exactly) and `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.7. Signed helpers changed (#4071, re-signed there).
