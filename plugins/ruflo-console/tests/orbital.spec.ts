@@ -32,7 +32,7 @@ describe('orbital theme', () => {
   })
 })
 
-import { orbitalGlobe, orbitalHeader, orbitalBoot } from '../hooks/gfx/orbital'
+import { orbitalGlobe, orbitalHeader, orbitalBoot, orbitalMasthead } from '../hooks/gfx/orbital'
 import { isBooting, VIEWS } from '../hooks/state'
 import { picturesOf } from '../hooks/views/frames'
 import type { Grid } from '../hooks/gfx/raster'
@@ -89,15 +89,15 @@ describe('orbital motion', () => {
     const state = newState({})
     state.options.look = 'orbital'
     state.options.boot = false
-    for (const view of VIEWS) {
+    for (const view of VIEWS) for (const width of [60, 116, 200]) {
       state.view = view.id
       const key = view.id === 'menu' ? 'header' : 'title'
       state.options.fps = 12
-      expect(picturesOf(state, 60, 1000, 1000).get(key)?.cells).not.toEqual(picturesOf(state, 60, 2000, 2000).get(key)?.cells)
+      expect(picturesOf(state, width, 1000, 1000).get(key)?.cells).not.toEqual(picturesOf(state, width, 2000, 2000).get(key)?.cells)
       state.options.fps = 0
-      const still = picturesOf(state, 60, 1000, 1000).get(key)
+      const still = picturesOf(state, width, 1000, 1000).get(key)
       expect(still).toBeDefined()
-      expect(still!.cells).toEqual(picturesOf(state, 60, 2000, 2000).get(key)!.cells)
+      expect(still!.cells).toEqual(picturesOf(state, width, 2000, 2000).get(key)!.cells)
     }
   })
 })
@@ -162,7 +162,28 @@ it('reserves icon room and switches layouts as the pane is resized', () => {
   for (const [columns, rows] of [[160, 50], [44, 24], [72, 20], [200, 60], [20, 10]]) {
     state.pane.rows = rows!
     const header = picturesOf(state, columns!, 1000, 1000).get('title')!
-    expect(header.columns).toBeLessThanOrEqual(Math.max(1, columns! - 16))
+    expect(header.columns).toBeLessThanOrEqual(Math.max(1, columns! < 40 ? columns! : columns! - 16))
     expect(header.rows).toBeLessThanOrEqual(Math.max(1, rows! - 12))
   }
+})
+
+it('keeps the original block brand after boot with bounded moving art and optional globe', async () => {
+  const { ORBITAL_THEME } = await import('../hooks/themes')
+  for (const columns of [1, 8, 19, 28, 44, 72, 78, 100, 120, 200]) {
+    for (const rows of [1, 2, 4, 8]) {
+      const first = orbitalMasthead('Main Menu', columns, 0, rows)
+      const next = orbitalMasthead('Main Menu', columns, 1400, rows)
+      expect(first.columns).toBeLessThanOrEqual(columns)
+      expect(first.rows).toBeLessThanOrEqual(rows)
+      expect([next.columns, next.rows]).toEqual([first.columns, first.rows])
+      if (columns >= 19 && rows >= 2) expect(gridText(first)).toMatch(/[█▀▄]/)
+      if (columns >= 19 && rows >= 4) expect(first.cells).not.toEqual(next.cells)
+    }
+  }
+  const off = { ...ORBITAL_THEME, motion: { ...ORBITAL_THEME.motion, globe: false, topology: false } }
+  const grid = orbitalMasthead('Theme Studio', 100, 0, 8, off)
+  expect(gridText(grid)).toContain('THEME STUDIO')
+  expect(gridText(grid)).toContain('█')
+  expect(gridText(grid)).not.toContain('#')
+  expect(grid.cells).not.toEqual(orbitalMasthead('Theme Studio', 100, 0).cells)
 })

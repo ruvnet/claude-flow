@@ -228,6 +228,59 @@ function orbitalBrandColor(color: number, theme = ORBITAL_THEME): number {
   return (ch(16) << 16) | (ch(8) << 8) | ch(0)
 }
 
+/** Persistent console identity, using the original half-block logo and its entry/sweep animation. */
+export function orbitalMasthead(label: string, columns: number, timeMs: number, maxRows = 8, theme = ORBITAL_THEME, age = Infinity): Grid {
+  const { RED, GREEN, INK, BLACK, DIM } = colors(theme)
+  const wide = columns >= 78 && maxRows >= 8
+  const grid = blank(columns, Math.max(1, Math.min(wide ? 8 : 4, maxRows)), theme)
+  const ms = Number.isFinite(timeMs) ? Math.max(0, timeMs) : 0
+  const logo = bannerPicture('', 19, ms, age)
+  if (wide) {
+    // Scale the original four pixel rows to eight, keeping terminal half-block resolution.
+    // A fixed extrusion sits behind the face; only the highlight moves, so the mark stays legible.
+    const face: { x: number; y: number; glyph: number; color: number }[] = []
+    for (let y = 0; y < logo.rows; y++) for (let x = 0; x < logo.columns; x++) {
+      const i = (y * logo.columns + x) * 3
+      const ch = String.fromCodePoint(logo.cells[i]!)
+      if (ch === ' ') continue
+      const color = orbitalBrandColor(logo.cells[i + 1]!, theme)
+      const halves = ch === '▀' ? [true, false] : ch === '▄' ? [false, true] : [true, true]
+      for (let half = 0; half < 2; half++) if (halves[half]) for (let dx = 0; dx < 2; dx++) face.push({ x: x * 2 + dx, y: 1 + y * 2 + half, glyph: 0x2588, color })
+    }
+    for (const cell of face) grid.set(cell.x + 2, cell.y + 1, '▓', mix(BLACK, RED, 0.33), BLACK)
+    for (const cell of face) grid.set(cell.x, cell.y, cell.glyph, cell.color, BLACK)
+    grid.text(0, 0, 'RUVNET / AGENT SWARM CONSOLE', DIM)
+    grid.text(0, 6, label.toUpperCase().slice(0, 40), INK)
+    if (theme.motion.globe) {
+      const globe = orbitalGlobe(Math.min(40, grid.columns - 43), 7, ms, theme)
+      const left = grid.columns - globe.columns
+      for (let y = 0; y < globe.rows; y++) for (let x = 0; x < globe.columns; x++) {
+        const i = (y * globe.columns + x) * 3
+        grid.set(left + x, y, globe.cells[i]!, globe.cells[i + 1]!, BLACK)
+      }
+    }
+  } else if (grid.columns >= 19 && grid.rows >= 2) {
+    for (let y = 0; y < logo.rows; y++) for (let x = 0; x < logo.columns; x++) {
+      const i = (y * logo.columns + x) * 3
+      grid.set(x, y, logo.cells[i]!, orbitalBrandColor(logo.cells[i + 1]!, theme), BLACK)
+    }
+    if (grid.columns >= 34) grid.text(22, 0, label.toUpperCase().slice(0, grid.columns - 22), INK)
+    if (grid.rows >= 3) grid.text(0, 2, `RUFLO / ${label.toUpperCase()}`.slice(0, grid.columns), DIM)
+  } else grid.text(0, 0, 'RUFLO'.slice(0, grid.columns), RED)
+
+  // This raster is mounted and blitted by the shared frame loop on every page.
+  if (grid.rows >= 4) {
+    const y = grid.rows - 1
+    const tick = Math.floor(ms / 80)
+    for (let x = 0; x < grid.columns; x++) grid.set(x, y, '·', mix(BLACK, GREEN, 0.3), BLACK)
+    for (let tail = 0; tail < 7; tail++) {
+      const x = ((tick - tail) % grid.columns + grid.columns) % grid.columns
+      grid.set(x, y, tail === 0 ? '▸' : '▪', tail === 0 ? INK : mix(BLACK, GREEN, 1 - tail / 8), BLACK)
+    }
+  }
+  return grid
+}
+
 /** Checks are actual self-check results; the globe and sweep are explicitly decorative. */
 export function orbitalBoot(project: string, columns: number, timeMs: number, checks?: readonly BootCheck[], maxRows = 30, theme = ORBITAL_THEME): Grid {
   const { RED, GREEN, INK, BLACK, DIM, BAD } = colors(theme)

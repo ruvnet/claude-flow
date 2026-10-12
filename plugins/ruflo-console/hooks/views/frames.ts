@@ -8,7 +8,7 @@ import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
 import { presentAgents, swarmStatusOf } from '../data/swarm-status'
-import { orbitalBoot, orbitalHeader, orbitalGlobe } from '../gfx/orbital'
+import { orbitalBoot, orbitalHeader, orbitalGlobe, orbitalMasthead } from '../gfx/orbital'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -219,7 +219,9 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
 
   if (state.options.look === 'orbital') {
     const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
-    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalHeader(page, Math.max(1, Math.min(120, columns - iconCells(false) - ICON_SLACK)), motionTime, state.pane.rows > 0 ? Math.max(1, state.pane.rows - 12) : 16, theme))
+    const room = Math.max(1, Math.min(120, columns < 40 ? columns : columns - iconCells(false) - ICON_SLACK))
+    const rows = state.pane.rows > 0 ? Math.max(1, Math.min(state.pane.rows < 24 ? 2 : 8, state.pane.rows - 12)) : 8
+    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalMasthead(page, room, motionTime, rows, theme, headerAge))
   }
 
   if (state.view === 'themes') {
