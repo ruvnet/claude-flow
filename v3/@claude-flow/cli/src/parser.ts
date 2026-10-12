@@ -164,7 +164,6 @@ export class CommandParser {
     // command, because that's what caused `daemon start` to resolve as `start`
     // with `daemon` left as a positional.
     let resolvedCmd: Command | undefined;
-    let resolvedSub: Command | undefined;
     const resolvedCommands: Command[] = [];
     let sawFirstPositional = false;
     for (let index = 0; index < args.length; index++) {
@@ -201,7 +200,6 @@ export class CommandParser {
         const child = parent.subcommands.find(sc => sc.name === arg || sc.aliases?.includes(arg));
         if (child) {
           resolvedCommands.push(child);
-          resolvedSub ??= child;
           continue;
         }
       }
@@ -291,7 +289,7 @@ export class CommandParser {
     // `default: true` silently dropped and reached the action handler as
     // `undefined`. That trapped `memory store --upsert` and every other
     // subcommand that leaned on a per-flag default.
-    this.applyDefaults(result.flags, resolvedCmd, resolvedSub);
+    this.applyDefaults(result.flags, resolvedCommands);
 
     return result;
   }
@@ -589,15 +587,10 @@ export class CommandParser {
     return flags;
   }
 
-  private applyDefaults(flags: ParsedFlags, command?: Command, subcommand?: Command): void {
-    // #2775: apply defaults from globals AND the resolved command/subcommand.
-    // Subcommand > command > global (later writes lose to earlier — because
-    // we only set when `undefined`, so the FIRST option definition that
-    // supplies a default wins; walk narrow-to-broad so subcommand options
-    // apply before broader ones do).
-    const layers: CommandOption[][] = [];
-    if (subcommand?.options) layers.push(subcommand.options);
-    if (command?.options) layers.push(command.options);
+  private applyDefaults(flags: ParsedFlags, commands: Command[]): void {
+    // Walk every resolved command from narrow to broad so nested defaults
+    // have the same precedence as their declared flag types.
+    const layers = [...commands].reverse().map(command => command.options ?? []);
     layers.push(this.globalOptions);
 
     for (const layer of layers) {
