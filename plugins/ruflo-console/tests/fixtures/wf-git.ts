@@ -1,6 +1,7 @@
 /**
  * A stand-in for git and /proc for the worktree specs: a fixed list, per-path dirty and ahead counts, ages and a process listing.
  */
+import { FILTER_KEYS_ARGV } from '../../hooks/data/git-filters'
 import { AHEAD_ARGV, IGNORED_ARGV, LIST_ARGV, parseProcs, PROCS_ARGV, REF_ARGV, REMOVE_ARGV, STATUS_ARGV, type WtIo, type WtRead, type WtRow } from '../../hooks/data/wf-worktrees'
 import type { Kit } from '../../hooks/views/common'
 
@@ -63,6 +64,8 @@ export function ioOf(w: World): WtIo {
       const dir = argv[2] ?? ''
       const key = argv.join(' ')
 
+      // the filter-driver listing (git config --get-regexp): a repository with none exits 1 and prints nothing
+      if (key === FILTER_KEYS_ARGV(dir).join(' ')) return { stdout: '', stderr: '', exitCode: 1 }
       if (key === PROCS_ARGV.join(' ')) return { stdout: w.procs, stderr: 'find: Permission denied', exitCode: 1 }
       if (key === LIST_ARGV(dir).join(' ')) return { stdout: w.list, stderr: '', exitCode: 0 }
       if (key === REF_ARGV(dir).join(' ')) return w.hasRef ? { stdout: `${Math.floor((NOW - 2 * 3_600_000) / 1000)}\n`, stderr: '', exitCode: 0 } : { stdout: '', stderr: 'unknown revision', exitCode: 128 }

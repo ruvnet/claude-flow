@@ -12,6 +12,7 @@
  *   find /proc ... -printf '%p\t%l\n'                            what every process has as cwd, exe and open fd (own processes only)
  * The one write, `git -C <main> worktree remove <path>` with no --force, lives in views/wf-worktrees.ts behind the confirm card.
  */
+import { filterGuarded } from './git-filters'
 import { plain } from './parse'
 import { cleanText } from './wf-clean'
 import type { WfRun } from './workflows'
@@ -183,12 +184,19 @@ const oneLine = async (io: WtIo, argv: readonly string[], timeoutMs: number): Pr
 /** Whether `cwd` is this worktree or inside it: the one a session is working in. */
 export const isCurrentDir = (cwd: string, path: string): boolean => cwd === path || cwd.startsWith(`${path}/`)
 
+/** A probe that compares the work tree with HEAD can run a filter driver from the repository's config (git-filters.ts): it runs with them blanked, or is an unknown. */
+const guardedLine = async (io: WtIo, dir: string, argv: readonly string[], timeoutMs: number): Promise<string | null> => {
+  const guarded = await filterGuarded(io.run, dir, argv)
+
+  return guarded === null ? null : oneLine(io, guarded, timeoutMs)
+}
+
 async function probeOne(io: WtIo, entry: WtEntry, cwd: string, runs: readonly WfRun[]): Promise<WtRow> {
   const base: WtRow = { ...entry, dirty: null, ignoredSecrets: null, ahead: null, behind: null, createdMs: null, maker: makerOf(entry, runs), isCurrent: isCurrentDir(cwd, entry.path) }
 
   if (!entry.isSafe || entry.isBare || entry.isPrunable) return base
 
-  const [status, counts, ignored, link] = await Promise.all([oneLine(io, STATUS_ARGV(entry.path), 30_000), oneLine(io, AHEAD_ARGV(entry.path), 15_000), oneLine(io, IGNORED_ARGV(entry.path), 30_000), io.stat(`${entry.path}/.git`).catch(() => undefined)])
+  const [status, counts, ignored, link] = await Promise.all([guardedLine(io, entry.path, STATUS_ARGV(entry.path), 30_000), oneLine(io, AHEAD_ARGV(entry.path), 15_000), oneLine(io, IGNORED_ARGV(entry.path), 30_000), io.stat(`${entry.path}/.git`).catch(() => undefined)])
   const pair = counts === null ? null : /^(\d+)\s+(\d+)\s*$/.exec(counts)
 
   return {

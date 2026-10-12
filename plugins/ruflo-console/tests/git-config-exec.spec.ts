@@ -5,7 +5,7 @@
  * status.showUntrackedFiles says, so a worktree holding new files is never read as clean and deleted. Each real-git case has a positive control:
  * the same config does its harm under the plain command, so a marker that stays absent means the guard held, not that the probe could not see it.
  *
- * Not covered here: filter.<driver>.clean/.process commands, lazy fetches in a partial clone, changes hidden by index flags (assume-unchanged,
+ * Filter drivers are covered in git-filter-guard.spec.ts. Not covered here: lazy fetches in a partial clone, changes hidden by index flags (assume-unchanged,
  * skip-worktree, core.ignoreStat), and commands the person configures themselves (mission gates).
  */
 import { execFile, spawn } from 'node:child_process'
