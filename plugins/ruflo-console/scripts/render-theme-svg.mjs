@@ -57,11 +57,11 @@ const rowId = cells => {
 const label = (s, x, y, fg, size = 16) => `<text ${FONT} font-size="${size}" fill="${fg}" x="${x}" y="${y + size - 1}" xml:space="preserve">${esc(s)}</text>`
 const parts = frames.map((f, n) => {
   const start = n / frames.length, end = (n + 1) / frames.length
-  const [times, values] = n === 0 ? [`0;${end.toFixed(12)};1`, 'visible;hidden;hidden']
-    : n === frames.length - 1 ? [`0;${start.toFixed(12)};1`, 'hidden;visible;visible']
-    : [`0;${start.toFixed(12)};${end.toFixed(12)};1`, 'hidden;visible;hidden;hidden']
+  const [times, values] = n === 0 ? [`0;${end.toFixed(12)};1`, 'inline;none;none']
+    : n === frames.length - 1 ? [`0;${start.toFixed(12)};1`, 'none;inline;inline']
+    : [`0;${start.toFixed(12)};${end.toFixed(12)};1`, 'none;inline;none;none']
   const left = 24 + (116 - f.columns) * 5
-  return `<g id="frame${n}" visibility="${n === 0 ? 'visible' : 'hidden'}"><animate attributeName="visibility" calcMode="discrete" values="${values}" keyTimes="${times}" dur="${duration}s" repeatCount="indefinite"/>`
+  return `<g id="frame${n}" display="${n === 0 ? 'inline' : 'none'}"><animate attributeName="display" calcMode="discrete" values="${values}" keyTimes="${times}" dur="${duration}s" repeatCount="indefinite"/>`
     + `<rect fill="${f.bg}" width="${width}" height="${height}"/>`
     + label('RUFLO / COMPLETE THEME WORKFLOW', 24, 16, f.accent) + label(f.caption, 24, 45, '#a8b2bd', 12)
     + `<path stroke="${f.accent}" d="M24 68H${width - 24}"/>`
