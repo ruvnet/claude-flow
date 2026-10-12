@@ -145,7 +145,7 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear 
   const place = lines.length > room ? ` · ${top + 1}-${Math.min(lines.length, top + room)}/${lines.length}` : ''
   const footer = `${depth === 'none' ? '' : `${ESC}[2m`}${clean(keyLine(columns, place, session.page === 'ai' && session.ai !== null ? aiKeyTiers(session.ai.mode, session.ai.card !== null) : undefined))}${depth === 'none' ? '' : `${ESC}[0m`}`
 
-  io.stdout.write(`${reset}${ESC}[H${navLine(session.state.view as TuiView, columns, depth)}${ESC}[K\r\n${[...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')].map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${footer}`)
+  io.stdout.write(`${reset}${ESC}[H${navLine(session.page, columns, depth)}${ESC}[K\r\n${[...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')].map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${footer}`)
 
   // The question card is on screen now: from here a `y` may answer it, and not before (#3983).
   if (session.cardFits) ai?.drawn()
