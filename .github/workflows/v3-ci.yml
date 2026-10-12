@@ -347,7 +347,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          # Node 22, not env.NODE_VERSION (20, end of life since 2026-04-30).
+          # On Node 20 an import that fails while evaluating its module graph
+          # (sharp is never built here, so agentic-flow's reasoningbank import
+          # throws) still raises an unhandled rejection after the caller has
+          # caught it. The run then reports unhandled errors that are not
+          # defects in the code under test.
+          node-version: '22'
           cache: 'pnpm'
           cache-dependency-path: v3/pnpm-lock.yaml
 
