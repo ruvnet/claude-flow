@@ -625,9 +625,27 @@ importers:
 
   '@claude-flow/shared':
     dependencies:
+      '@types/ws':
+        specifier: ^8.5.10
+        version: 8.18.1
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.5
+      express:
+        specifier: '>=4.22.2'
+        version: 5.2.1
+      helmet:
+        specifier: ^7.2.0
+        version: 7.2.0
       sql.js:
         specifier: ^1.10.3
         version: 1.13.0
+      ws:
+        specifier: ^8.21.0
+        version: 8.21.1
+      zod:
+        specifier: ^3.22.4
+        version: 3.25.76
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -641,27 +659,9 @@ importers:
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.9
-      '@types/ws':
-        specifier: ^8.5.10
-        version: 8.18.1
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.5
-      express:
-        specifier: '>=4.22.2'
-        version: 5.2.1
-      helmet:
-        specifier: ^7.1.0
-        version: 7.2.0
       vitest:
         specifier: '>=4.1.0'
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
-      ws:
-        specifier: ^8.16.0
-        version: 8.19.0
-      zod:
-        specifier: ^3.22.4
-        version: 3.25.76
 
   '@claude-flow/swarm':
     devDependencies:
@@ -13566,18 +13566,6 @@ packages:
         optional: true
     dev: false
 
-  /ws@8.19.0:
-    resolution: {integrity: sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-    dev: true
 
   /ws@8.20.0:
     resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}
