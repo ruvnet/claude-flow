@@ -21,7 +21,7 @@ import {
  */
 export const analyzeDiffTool: MCPTool = {
   name: 'analyze_diff',
-  description: 'Heuristically analyze git diff paths, changed lines, and one-commit subjects for risk and change classification.',
+  description: 'Heuristically analyze git diff paths, changed lines, and one-commit subjects for risk and classification. Use when preparing a review that needs a quick evidence-based summary; inspect the diff for final judgment.',
   category: 'analyze',
   tags: ['diff', 'risk', 'classification', 'git'],
   inputSchema: {
@@ -97,7 +97,7 @@ export const analyzeDiffTool: MCPTool = {
  */
 export const diffRiskTool: MCPTool = {
   name: 'analyze_diff-risk',
-  description: 'Heuristically assess git diff risk from changed file paths, sizes, and status.',
+  description: 'Heuristically assess git diff risk from changed file paths, sizes, and status. Use when triaging which files merit closer human review; this is not a security guarantee.',
   category: 'analyze',
   tags: ['diff', 'risk', 'git'],
   inputSchema: {
@@ -140,7 +140,7 @@ export const diffRiskTool: MCPTool = {
  */
 export const diffClassifyTool: MCPTool = {
   name: 'analyze_diff-classify',
-  description: 'Heuristically classify a git diff from changed lines, file paths, and a single-commit subject when available.',
+  description: 'Heuristically classify a git diff from changed lines, file paths, and a single-commit subject when available. Use when you need a coarse change category; inspect the diff to confirm.',
   category: 'analyze',
   tags: ['diff', 'classification', 'git'],
   inputSchema: {
@@ -230,7 +230,7 @@ export const diffReviewersTool: MCPTool = {
  */
 export const fileRiskTool: MCPTool = {
   name: 'analyze_file-risk',
-  description: 'Heuristically assess risk for a file path and optional change metadata.',
+  description: 'Heuristically assess risk for a file path and optional change metadata. Use when triaging a changed file for focused review; inspect the source for final judgment.',
   category: 'analyze',
   tags: ['file', 'risk'],
   inputSchema: {
@@ -287,7 +287,7 @@ export const fileRiskTool: MCPTool = {
  */
 export const diffStatsTool: MCPTool = {
   name: 'analyze_diff-stats',
-  description: 'Count changed files, additions, and deletions in a git diff.',
+  description: 'Count changed files, additions, and deletions in a git diff. Use when you need a quick size summary before inspecting the full patch.',
   category: 'analyze',
   tags: ['diff', 'stats', 'git'],
   inputSchema: {
