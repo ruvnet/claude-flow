@@ -1,14 +1,14 @@
 {
   "manifest": {
     "schema": "ruflo-witness/v1",
-    "issuedAt": "2026-10-12T16:35:59.474Z",
-    "gitCommit": "78981548fa0620664af0e53a0253234646eb191f",
-    "branch": "release/3.56.8",
+    "issuedAt": "2026-10-12T20:47:18.945Z",
+    "gitCommit": "f7423b1c6284757ccde24e64462256b00fb2efdf",
+    "branch": "release/3.56.9",
     "os": "linux",
     "releases": {
-      "ruflo": "3.56.8",
-      "claude-flow": "3.56.8",
-      "@claude-flow/cli": "3.56.8",
+      "ruflo": "3.56.9",
+      "claude-flow": "3.56.9",
+      "@claude-flow/cli": "3.56.9",
       "@claude-flow/memory": "3.0.4"
     },
     "summary": {
@@ -117,7 +117,7 @@
         "id": "#1697",
         "desc": "rvf-wasm overrides",
         "file": "package.json",
-        "sha256": "14aeb69a38b0d4b3d50c290a72fd159a1700ca512950197032363e774a6f7681",
+        "sha256": "c1d78d089a7eed5c453a7616403c991d2b686db13197b1d5c0211bbc77041aff",
         "marker": "@ruvector/rvf-wasm",
         "markerVerified": true
       },
@@ -141,7 +141,7 @@
         "id": "#1721",
         "desc": "postinstall copies all dist/src/* siblings",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "4a892ed558865dec4156de31e50b952a5f501b48a7a9cb79f292c20246c6c699",
+        "sha256": "d79e0eb6abad574594b09de4c3daf886280c28fc219caaa408787d15b0e3cd86",
         "marker": "postinstall.cjs",
         "markerVerified": true
       },
@@ -461,7 +461,7 @@
         "id": "#1795",
         "desc": "umbrella package missing cli-core dep (ERR_MODULE_NOT_FOUND)",
         "file": "package.json",
-        "sha256": "14aeb69a38b0d4b3d50c290a72fd159a1700ca512950197032363e774a6f7681",
+        "sha256": "c1d78d089a7eed5c453a7616403c991d2b686db13197b1d5c0211bbc77041aff",
         "marker": "@claude-flow/cli-core",
         "markerVerified": true
       },
@@ -493,7 +493,7 @@
         "id": "#1791.2",
         "desc": "lazy-command pre-load for short flag scoping (also closes #1651)",
         "file": "v3/@claude-flow/cli/dist/src/parser.js",
-        "sha256": "88b3a1bee004d8cf6e368daae32b4c7f5e6a4381d6670039d3600399f6217b60",
+        "sha256": "befb67406cef17a148c0d3baffe36581b9e147f19d65e0dfd656f8450829f17c",
         "marker": "isLazyOnly",
         "markerVerified": true
       },
@@ -629,7 +629,7 @@
         "id": "#1825",
         "desc": "hotfix: workspace: protocol leak in cli optionalDependencies",
         "file": "v3/@claude-flow/cli/package.json",
-        "sha256": "4a892ed558865dec4156de31e50b952a5f501b48a7a9cb79f292c20246c6c699",
+        "sha256": "d79e0eb6abad574594b09de4c3daf886280c28fc219caaa408787d15b0e3cd86",
         "marker": "\"@claude-flow/memory\": \"3.",
         "markerVerified": true
       },
@@ -917,7 +917,7 @@
         "id": "#1927",
         "desc": "ruflo-cost-tracker track.mjs encodeProjectPath now replaces Windows path separators (`\\`) and the drive colon (`:`), not just `/`, so `D:\\project\\Foo` encodes to `D--project-Foo` (matching Claude Code's ~/.claude/projects/<encoded-cwd>/ scheme) instead of being passed through unchanged on Windows. Behavioral CI guard: smoke.sh step 29b runs track.mjs with a Windows-style TRACK_CWD and asserts the 'looked under' path is encoded. (Also fixed smoke.sh step 8 — ADR-0001 is Accepted, not Proposed.)",
         "file": "plugins/ruflo-cost-tracker/scripts/track.mjs",
-        "sha256": "68c851857ee185511fbe680c36513186f9ccf766518c94c9f6a9dc1d76c16db9",
+        "sha256": "1fa861a7b4d5769773301dbf54c5a341b21392ecbc2f4a25a0e656653bea4cb8",
         "marker": "#1927: Claude Code encodes",
         "markerVerified": true
       },
@@ -957,10 +957,10 @@
   },
   "integrity": {
     "manifestHashAlgo": "sha256",
-    "manifestHash": "ec4cd6b9e321d72c8728ebe592b8ecc1c0fa73ec483e75d0ce03a840e9407433",
+    "manifestHash": "e5b5902bf43a682f179d13c47447c64670eb821f6af4198bb36f8a0a8d028a97",
     "signatureAlgo": "ed25519",
-    "publicKey": "eab4524e70a535c6649225484941cc76284255c90ad892d491a1f181d634ea53",
-    "signature": "94e617bbc5d893edcfa19c81b73178ba995d47c7c2a404e495b2396dfae60f39972d913b9d96715041351ceb4bc9dfb5b867e56ae13f5706b61f0fcb0ab6d803",
+    "publicKey": "209992322e6e2a1c2b0e7d3e6fd54e8e8235fb0200069e1758c0501bd7cd69b0",
+    "signature": "ab2e2d339708c22b2c01bfa3289326eb74ef5366cf91fdcb74541f8d3455a04774daf1124769a80938c816d840af52a2b10bc5d871965cd67200c6f0eed71e01",
     "seedDerivation": "sha256(gitCommit + ':ruflo-witness/v1')"
   }
 }

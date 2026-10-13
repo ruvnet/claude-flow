@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-workflows`.
 
+## 0.6.7 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.6.6 — 2026-10-11
 - fix: skills gaia-submission and gaia-debugging named MCP tools that do not exist (`hooks_post_task`, `hooks_pre_task`, `agentdb_pattern_search`, `agentdb_pattern_store`); the real names use a hyphen, so the tools were never pre-approved
 - fix: `gaia-bench run` has no `--dry-run` or `--task-id` (unknown flags are ignored, so the documented cost-estimate and 1-question check started a real, billed run); docs now say so and give a cost estimate path that does not spend, `--voting` corrected to `--voting-attempts`

@@ -117,10 +117,10 @@ importers:
   '@claude-flow/cli':
     dependencies:
       '@claude-flow/cli-core':
-        specifier: 3.7.1
+        specifier: 3.7.2
         version: link:../cli-core
       '@claude-flow/codex':
-        specifier: 3.0.4
+        specifier: 3.0.5
         version: link:../codex
       '@claude-flow/mcp':
         specifier: 3.1.1
@@ -132,10 +132,10 @@ importers:
         specifier: 1.0.1
         version: link:../plugin-agent-federation
       '@claude-flow/security':
-        specifier: 3.0.4
+        specifier: 3.0.5
         version: link:../security
       '@claude-flow/shared':
-        specifier: 3.0.4
+        specifier: 3.0.5
         version: link:../shared
       '@iarna/toml':
         specifier: ^2.2.5

@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.4 — 2026-10-11
 
 - Fix: relation weights in the `graph-navigator` agent disagreed with `kg-extract` (imports 1.0 vs 0.9, implements 0.9 vs 0.7, references 0.5 vs 0.3) and omitted `type-depends-on`; aligned to the skill. Removed invalid `neural train --pattern-type knowledge-graph` (the flag is `--pattern` with a fixed set of values) and `--train-neural`.

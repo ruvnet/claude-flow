@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.4.5 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.4.4 — 2026-10-11
 - fix: dossier-collect and dossier-investigator treat fetched web text as untrusted data: AIDefence screening, no instruction following, public http(s) hosts only, writes confined to the dossier output; aidefence_scan and aidefence_is_safe added to dossier-collect allowed-tools
 - fix: ADR cross-link repaired; smoke expectation corrected to 16

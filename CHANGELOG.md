@@ -26,6 +26,21 @@ Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, 
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
 
+## [3.56.9] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.9, with the bundled leaves `@claude-flow/security` 3.0.5 and `@claude-flow/codex` 3.0.5 published standalone and pinned exactly, and `@claude-flow/shared` 3.0.5 / `@claude-flow/cli-core` 3.7.2 (published earlier) pinned. Signed helpers changed (`hook-handler.cjs`, re-signed in #4096).
+
+### Fixed
+
+- **Policy envelope** (`security` 3.0.5): explicit envelope ceilings require metering, and unmetered worker ceilings stay opt-in (#3503, @rudycelekli).
+- **Codex MCP backend** (`codex` 3.0.5, ruflo wrapper bridge): the opt-in `codex` backend no longer launches `@openai/codex mcp-server`, which current Codex CLI dropped, so it is retired without a startup stall (#3522, @rudycelekli; reported in #3509 by @pacphi).
+- **CLI parser, retry, rate-limit, monitoring and config fixes**: a batch of review findings (#4107; #4000-#4003, #4006-#4011, #4013, #4016, #4017, @rudycelekli and others).
+- `analyze diff` renders the `analyze_diff` result shape (#4102, #4101, @z4forzubair).
+- `shared` 3.0.5 and `cli-core` 3.7.2: narrow-column truncation, rate-window retry times, structured network error codes (#4014, #4015, #4018, @rudycelekli).
+- **ruflo-mods guards** (#4096, @proffesor-for-testing): the root-delete guard no longer misses brace, nesting and fork-bomb forms, the screen `.env` check is fixed, and `init`-generated hooks carry the changes.
+- **Console** (marketplace plugin; its `tui.mjs` is bundled into the CLI): worktree removal runs no fsmonitor or hooks and keeps untracked files (#4092), expired confirm cards are reported by `console_state` (#4067), pictures draw as SVG on Claude Code Desktop (#4112), all by @proffesor-for-testing; the Skills page pins its skills CLI (#4113, @martinvlad).
+- CI: the v3 root suite runs every test file and a crashed run is no longer accepted as a pass (#4099, @proffesor-for-testing); this does not ship in the package.
+
 ## [3.56.8] - 2026-10-12
 
 Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.8. `@claude-flow/shared` 3.0.4 was published earlier and is now pinned exactly (3.56.7 still pinned 3.0.3). No other published package changed since 3.56.7; signed helpers did not change.

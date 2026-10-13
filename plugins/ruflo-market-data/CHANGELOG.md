@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.4 — 2026-10-11
 
 - Fix: candles were routed into the `ruvllm_hnsw_*` router, which the tool documents as holding about 11 patterns. Candle history is now retrieved by key from the `market-data` namespace; the router is described as a small prototype classifier; `ruflo-ruvector` is the pointer for nearest-neighbour search over history.

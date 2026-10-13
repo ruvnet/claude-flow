@@ -106,13 +106,17 @@ const TOOL_GROUPS = {
     source: "gemini-mcp",
   },
 
-  // --- OpenAI Codex ---
+  // --- OpenAI Codex (MCP server mode removed from current CLI; #3509) ---
   codex: {
-    enabled: process.env.MCP_GROUP_CODEX === "true",
-    description: "OpenAI Codex coding agent — code generation and execution (requires OPENAI_API_KEY)",
+    enabled: false,
+    description: "Unavailable: Codex CLI has no MCP server mode. Use Codex dual-mode workers instead.",
     source: "codex",
   },
 };
+
+if (process.env.MCP_GROUP_CODEX === "true") {
+  console.warn("[codex] Codex CLI has no MCP server mode; MCP_GROUP_CODEX is disabled. Use Codex dual-mode workers (codex exec) instead.");
+}
 
 // =============================================================================
 // STDIO MCP CLIENT — Connects to external MCP servers via child process
@@ -257,7 +261,6 @@ const BACKEND_DEFS = [
   { name: "agentic-flow",   command: "npx", args: ["-y", "agentic-flow@alpha", "mcp", "start"], groups: ["agentic-flow"] },
   { name: "claude",         command: "claude", args: ["mcp", "serve"],                  groups: ["claude-code"] },
   { name: "gemini-mcp",     command: "npx", args: ["-y", "gemini-mcp-server"],          groups: ["gemini"] },
-  { name: "codex",          command: "npx", args: ["-y", "@openai/codex", "mcp-server"], groups: ["codex"] },
 ];
 
 const mcpBackends = new Map();
@@ -602,19 +605,7 @@ Requires: GOOGLE_API_KEY environment variable (already set for Gemini models).
 
     codex: `# Codex Group
 
-OpenAI Codex coding agent.
-
-Requires: OPENAI_API_KEY environment variable (already set for OpenAI models).
-
-## Capabilities
-- Code generation and execution
-- Code completion
-- Code explanation
-
-## When to Use
-- Code generation tasks
-- Quick code completions
-- Code explanation and documentation`,
+Unavailable: current Codex CLI has no MCP server mode (#3509). This group is disabled even if MCP_GROUP_CODEX=true, so it exposes no tools. Use the separate Codex dual-mode worker through codex exec. A future MCP adapter requires its own execution and security design.`,
   };
 
   if (topic === "tool" && toolName) {

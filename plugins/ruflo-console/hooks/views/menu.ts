@@ -6,7 +6,7 @@ import type { RenderElement } from 'claude-code'
 import { ACCENT, badgesOf, chip, LOUD, MUTED, PALETTE } from '../menu-style'
 import { VIEWS, type ViewId } from '../state'
 import { barParts } from './bar'
-import { button, clip, col, isBbs, isOrbital, picture, row, text, THEME, type Ctx } from './common'
+import { art, button, clip, col, isBbs, isOrbital, row, text, THEME, type Ctx } from './common'
 import { missionStrip } from './mission-control'
 
 type Item = { label: string; go: string }
@@ -164,9 +164,8 @@ export function menuView(ctx: Ctx): RenderElement {
   // the frame loop and costs one element). A surface that cannot draw pictures gets the still strip.
   if (bbs) {
     rows.push(
-      ctx.pictures.has('palette') && ctx.kit.Raster !== undefined
-        ? picture(ctx, 'palette', '')
-        : ctx.kit.Box({ flexDirection: 'row', key: 'menu-palette', children: PALETTE.map((color, i) => ctx.kit.Box({ key: `menu-palette-${i}`, children: [ctx.kit.Text({ color, children: '▀'.repeat(Math.max(1, Math.floor((ctx.columns - 2) / PALETTE.length))) })] })) }),
+      art(ctx, ctx.pictures.get('palette'), 'palette', 'the accent palette') ??
+        ctx.kit.Box({ flexDirection: 'row', key: 'menu-palette', children: PALETTE.map((color, i) => ctx.kit.Box({ key: `menu-palette-${i}`, children: [ctx.kit.Text({ color, children: '▀'.repeat(Math.max(1, Math.floor((ctx.columns - 2) / PALETTE.length))) })] })) }),
     )
   }
 
