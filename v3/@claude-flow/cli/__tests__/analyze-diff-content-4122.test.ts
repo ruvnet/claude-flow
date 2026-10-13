@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { analyzeDiff, assessFileRisk, classifyDiff, clearDiffCache, suggestReviewers, type DiffFile } from '../src/ruvector/diff-classifier.js';
+import { analyzeDiff, assessFileRisk, classifyDiff, clearDiffCache, DiffClassifier, suggestReviewers, type DiffFile } from '../src/ruvector/diff-classifier.js';
 
 const file = (path: string, additions = 1): DiffFile => ({
   path, status: 'modified', additions, deletions: 0, hunks: 1, binary: false,
@@ -61,6 +61,29 @@ ${additions}
     const files = [file('src/a.ts', 12)];
     expect(classifyDiff(files, featurePatch).primary).toBe('feature');
     expect(classifyDiff(files, bugfixPatch).primary).toBe('bugfix');
+  });
+
+  it('parses large path and malformed hunk headers without losing later hunks', () => {
+    const path = `src/${'a/'.repeat(3000)}component.ts`;
+    const malformedStart = '0'.repeat(3000);
+    const patch = `diff --git a/${path} b/${path}
+--- a/${path}
++++ b/${path}
+@@ -${malformedStart}x +1 @@
++ignored
+@@ -1 +1 @@
+-before
++after
+@@ -4 +4 @@
+-old
++new
+`;
+    const parsed = new DiffClassifier().parseDiff(patch);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].path).toBe(path);
+    expect(parsed[0].hunks).toHaveLength(2);
+    expect(parsed[0].additions).toBe(2);
+    expect(parsed[0].deletions).toBe(2);
   });
 
   it('uses the commit subject in the real async analysis path for a one-commit range', async () => {

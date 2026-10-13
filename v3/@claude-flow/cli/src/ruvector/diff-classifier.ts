@@ -129,9 +129,11 @@ export class DiffClassifier {
     const files: FileDiff[] = [];
     const fileBlocks = diffContent.split(/^diff --git/m).filter(Boolean);
     for (const block of fileBlocks) {
-      const pathMatch = block.match(/a\/(.+?)\s+b\/(.+)/);
-      if (!pathMatch) continue;
-      const path = pathMatch[2];
+      const headerEnd = block.indexOf('\n');
+      const header = block.slice(0, headerEnd < 0 ? undefined : headerEnd);
+      const destination = header.lastIndexOf(' b/');
+      if (!header.startsWith(' a/') || destination < 0) continue;
+      const path = header.slice(destination + 3);
       const hunks = this.parseHunks(block);
       const additions = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === 'add').length, 0);
       const deletions = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type === 'remove').length, 0);
@@ -178,16 +180,39 @@ export class DiffClassifier {
 
   private parseHunks(block: string): DiffHunk[] {
     const hunks: DiffHunk[] = [];
-    const hunkMatches = block.matchAll(/@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@([^\n]*)\n([\s\S]*?)(?=@@|$)/g);
-    for (const match of hunkMatches) {
-      const oldStart = parseInt(match[1], 10);
-      const oldLines = parseInt(match[2] || '1', 10);
-      const newStart = parseInt(match[3], 10);
-      const newLines = parseInt(match[4] || '1', 10);
-      const content = match[6] || '';
-      const changes = this.parseChanges(content, newStart);
-      hunks.push({ oldStart, oldLines, newStart, newLines, content, changes });
+    const readRange = (value: string, prefix: string): [number, number] | null => {
+      if (!value.startsWith(prefix)) return null;
+      const parts = value.slice(1).split(',');
+      if (parts.length > 2 || parts.some(part => !/^\d+$/.test(part))) return null;
+      const start = Number(parts[0]);
+      const count = parts.length === 2 ? Number(parts[1]) : 1;
+      return Number.isSafeInteger(start) && Number.isSafeInteger(count) ? [start, count] : null;
+    };
+    let current: { oldStart: number; oldLines: number; newStart: number; newLines: number; lines: string[] } | null = null;
+    const finish = () => {
+      if (!current) return;
+      const content = current.lines.join('\n');
+      hunks.push({
+        oldStart: current.oldStart, oldLines: current.oldLines,
+        newStart: current.newStart, newLines: current.newLines,
+        content, changes: this.parseChanges(content, current.newStart),
+      });
+    };
+    for (const line of block.split('\n')) {
+      if (line.startsWith('@@ -')) {
+        const end = line.indexOf(' @@', 3);
+        const coordinates = end < 0 ? [] : line.slice(3, end).split(' ');
+        const oldRange = coordinates.length === 2 ? readRange(coordinates[0], '-') : null;
+        const newRange = coordinates.length === 2 ? readRange(coordinates[1], '+') : null;
+        if (oldRange && newRange) {
+          finish();
+          current = { oldStart: oldRange[0], oldLines: oldRange[1], newStart: newRange[0], newLines: newRange[1], lines: [] };
+          continue;
+        }
+      }
+      if (current) current.lines.push(line);
     }
+    finish();
     return hunks;
   }
 
