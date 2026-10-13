@@ -65,7 +65,12 @@ jobs:
         # 60s (was timing out at 151s before SIGKILL). Most plugins
         # still complete in <5s; 300s protects against a genuinely-hung
         # smoke while letting the metaharness fleet finish.
-        run: node scripts/smoke-all-plugins.mjs --timeout 300
+        # Save the report from the same execution. Re-running the whole fleet
+        # solely to obtain JSON can exceed this job's ten-minute deadline.
+        # pipefail preserves the smoke runner's failure exit through tee.
+        run: |
+          set -o pipefail
+          node scripts/smoke-all-plugins.mjs --timeout 300 --format json | tee /tmp/smoke-all-plugins.json
 
       - name: Mod secret screen — every copy matches the origin (ADR-445)
         run: node scripts/sync-mod-screen.mjs --check
@@ -132,10 +137,6 @@ jobs:
         # Claude marketplace plugins expose the ruflo MCP server under the
         # plugin-qualified namespace. Reject standalone namespace references
         # that silently disable tools in plugin skills and agents.
-
-      - name: Upload machine-readable report
-        if: always()
-        run: node scripts/smoke-all-plugins.mjs --format json > /tmp/smoke-all-plugins.json
 
       - uses: actions/upload-artifact@v4
         if: always()
