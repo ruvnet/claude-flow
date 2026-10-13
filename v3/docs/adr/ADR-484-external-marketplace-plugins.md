@@ -54,7 +54,7 @@ Rules for an external entry:
 - **Read from the installed copy.** The Plugin Catalog reads a local plugin from the marketplace clone; an external one has no copy there, so
   its skills, agents, commands, `.mcp.json` and `hooks/register.ts` are read from its install path in Claude Code's
   `installed_plugins.json` (the same checked path the What's new page reads). Not installed, it is listed by its entry alone. Either way
-  the row carries an `EXT` badge and the detail names where it is installed from. Ruflo console 0.43.6.
+  the row carries an `EXT` badge and the detail names where it is installed from. Ships in the next ruflo console release (version set at merge).
 
 Nothing else needed a change: the health matrix lists installed plugins by marketplace (`agentic-qe-fleet@ruflo` is a ruflo plugin there),
 the Mods section already reads any `.claude-flow/*-mod/status.json`, and the scripts that walk `plugins/*` (`audit-plugin-*`,
