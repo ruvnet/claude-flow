@@ -183,7 +183,7 @@ export const diffClassifyTool: MCPTool = {
  */
 export const diffReviewersTool: MCPTool = {
   name: 'analyze_diff-reviewers',
-  description: 'Suggest reviewer roles from git diff paths and risk. Does not identify people or read CODEOWNERS.',
+  description: 'Suggest reviewer roles from git diff paths and risk; does not identify people or read CODEOWNERS. Use when triaging expertise for a change, then consult CODEOWNERS to assign people.',
   category: 'analyze',
   tags: ['diff', 'reviewers', 'git'],
   inputSchema: {
