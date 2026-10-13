@@ -274,9 +274,8 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         // fresh checkout or worktree `.swarm/` does not exist yet, so AgentDB
         // failed to open, the degraded registry was cached for the server's
         // lifetime and hierarchical memory silently ran volatile.
-        if (resolvedPath !== ':memory:') mkdirSync(path.dirname(resolvedPath), { recursive: true });
-
         try {
+          if (resolvedPath !== ':memory:') mkdirSync(path.dirname(resolvedPath), { recursive: true });
           await (registry as any).initialize({
             // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
             dbPath: resolvedPath,

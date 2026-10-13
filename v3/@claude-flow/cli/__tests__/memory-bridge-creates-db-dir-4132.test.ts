@@ -6,7 +6,7 @@
  * on the volatile fallback while every store reported success.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -38,6 +38,17 @@ afterEach(async () => {
 });
 
 describe('#4132 the bridge creates the AgentDB directory before opening it', () => {
+  it('restores console.log when directory creation fails', async () => {
+    const parent = join(root, 'not-a-directory');
+    writeFileSync(parent, 'fixture');
+    const originalLog = console.log;
+    try {
+      expect(await bridge.getControllerRegistry(join(parent, 'agentdb-memory.db'))).toBeNull();
+      expect(bridge.getBridgeFailureReason(join(parent, 'agentdb-memory.db'))).toBeTruthy();
+      expect(console.log).toBe(originalLog);
+    } finally { console.log = originalLog; }
+  });
+
   it('opens a database whose .swarm directory does not exist yet', async () => {
     const db = join(root, 'fresh-worktree', '.swarm', 'agentdb-memory.db');
     expect(existsSync(dirname(db))).toBe(false);
