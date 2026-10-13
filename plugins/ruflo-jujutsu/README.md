@@ -13,7 +13,7 @@ Advanced git workflows with diff analysis, risk scoring, and reviewer recommenda
 
 - **Diff analysis**: Comprehensive change analysis with risk scoring
 - **Change classification**: Auto-categorize as feature, bugfix, refactor, etc.
-- **Reviewer recommendations**: Suggest reviewers based on code ownership
+- **Reviewer role suggestions**: Suggest roles from file paths and risk; resolve actual owners separately from CODEOWNERS
 - **File-level risk**: Per-file risk breakdown for targeted review
 
 ## Commands
@@ -34,7 +34,7 @@ All defined at `v3/@claude-flow/cli/src/mcp-tools/analyze-tools.ts`:
 | `analyze_diff` | Full diff analysis (risk + classification + reviewers + stats) |
 | `analyze_diff-risk` | Risk score for the staged/unstaged diff |
 | `analyze_diff-classify` | Classify change as feature, bugfix, refactor, perf, security, docs, …|
-| `analyze_diff-reviewers` | Recommend reviewers based on code ownership |
+| `analyze_diff-reviewers` | Suggest reviewer roles from paths and risk (does not identify people or read CODEOWNERS) |
 | `analyze_file-risk` | Per-file risk breakdown |
 | `analyze_diff-stats` | Lines added/removed, files touched, complexity delta |
 
