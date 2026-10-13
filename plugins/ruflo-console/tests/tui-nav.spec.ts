@@ -158,6 +158,20 @@ describe('every page, on a host with no Claude session and no mouse', () => {
 })
 
 describe('the terminal loop', () => {
+  it('a terminal that reports 0 columns draws the page at the default width, not a repeated "T" (#4115)', async () => {
+    const t = terminal(0, 0)
+    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+
+    await settle()
+    t.press('q')
+    await expect(running).resolves.toBe(0)
+
+    const text = plain(t.out.join(''))
+
+    expect(text).toMatch(/1 Overview {1,3}2 Cost/)
+    expect(text).not.toContain('Too narrow')
+  })
+
   it('jumps to a page on a digit, cycles with tab and shift-tab, and the page bar follows', async () => {
     const t = terminal()
     const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)

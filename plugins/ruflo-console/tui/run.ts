@@ -117,10 +117,13 @@ export function keyOf(chunk: string): Key {
   }
 }
 
+/** A terminal that reports 0 (or nothing) does not know its size; some `docker exec` without -t and CI `script` wrappers do. Use the default rather than calling it too narrow (#4115). */
+const sized = (value: number | undefined, fallback: number): number => (value !== undefined && Number.isFinite(value) && value > 0 ? value : fallback)
+
 function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear = false): number {
   const ai = session.page === 'ai' ? session.ai : null
-  const raw = io.stdout.columns ?? 100
-  const rows = Math.max(5, io.stdout.rows ?? 30)
+  const raw = sized(io.stdout.columns, 100)
+  const rows = Math.max(5, sized(io.stdout.rows, 30))
   const reset = clear ? `${ESC}[2J` : ''
 
   // Too narrow for a page: say so in a line that fits, rather than a squeezed frame of broken cards.
@@ -157,7 +160,7 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear 
 async function once(session: Session, io: TuiIO, view: TuiView): Promise<number> {
   session.show(view)
   await session.refresh()
-  const columns = Math.max(MIN_COLUMNS, Math.min(200, io.stdout.columns ?? 100))
+  const columns = Math.max(MIN_COLUMNS, Math.min(200, sized(io.stdout.columns, 100)))
 
   io.stdout.write(`${navLine(view, columns, 'none')}\n${session.frame(columns, 'none').join('\n')}\n`)
 
@@ -199,7 +202,7 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       if (view === 'ai' && session.ai !== null && session.ai.press(chunk.toString()).consumed) return draw()
 
       const key = keyOf(chunk.toString())
-      const page = Math.max(1, (io.stdout.rows ?? 30) - 2)
+      const page = Math.max(1, sized(io.stdout.rows, 30) - 2)
 
       if (key === 'quit') return finish()
       if (typeof key === 'object' && key !== null) (view = key.page), (scroll = 0), session.show(view), view === 'ai' && session.ai?.enter()
