@@ -3,6 +3,7 @@
  */
 
 import { execFileSync, execFile } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 
 export interface DiffClassifierConfig {
@@ -64,7 +65,7 @@ const DEFAULT_CONFIG: DiffClassifierConfig = {
   minConfidence: 0.5,
 };
 
-const CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
+const COMMIT_CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
   feature: [/^feat/, /add.*feature/, /implement/, /new.*functionality/i],
   bugfix: [/^fix/, /bug/, /patch/, /resolve.*issue/i, /hotfix/i],
   refactor: [/^refactor/, /restructure/, /reorganize/, /cleanup/i, /rename/i],
@@ -74,10 +75,34 @@ const CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
   style: [/^style/, /format/, /lint/, /prettier/, /eslint/],
 };
 
+// File paths and commit subjects are different signals. Prefixes such as
+// "fix" and words such as "bug" are useful in subjects, but match unrelated
+// paths like src/debug/logger.ts and src/dispatcher.ts.
+const PATH_CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
+  docs: [/(^|\/)docs?\//i, /(^|\/)readme(?:\.[^/]*)?$/i, /\.mdx?$/i],
+  test: [/(^|\/)(?:__tests__|tests?|specs?)\//i, /\.(?:test|spec)\.[^/]+$/i],
+  config: [/(^|\/)(?:configs?\/|config(?:\.[^/]*)?$)/i, /\.config\.[^/]+$/i,
+    /(^|\/)(?:package|tsconfig)(?:\.[^/]*)?\.json$/i, /(^|\/)\.env(?:\.[^/]*)?$/i],
+  style: [/\.(?:css|scss|sass|less)$/i],
+};
+
 const IMPACT_KEYWORDS: Record<string, number> = {
   security: 3, auth: 3, payment: 3, database: 2, api: 2, core: 2,
   util: 1, helper: 1, test: 0, mock: 0, fixture: 0,
 };
+
+function pathHasTerm(path: string, term: string): boolean {
+  const tokens = path.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase().split(/[^a-z0-9]+/);
+  const aliases: Record<string, string[]> = {
+    auth: ['auth', 'authentication', 'authorization', 'authenticator', 'oauth'],
+    util: ['util', 'utils', 'utility', 'utilities'],
+    test: ['test', 'tests'],
+    mock: ['mock', 'mocks'],
+    fixture: ['fixture', 'fixtures'],
+    config: ['config', 'configuration'],
+  };
+  return (aliases[term] ?? [term]).some(value => tokens.includes(value));
+}
 
 export class DiffClassifier {
   private config: DiffClassifierConfig;
@@ -129,7 +154,15 @@ export class DiffClassifier {
 
   classifyCommitMessage(message: string): DiffClassification['primary'] {
     const lowerMessage = message.toLowerCase();
-    for (const [type, patterns] of Object.entries(CLASSIFICATION_PATTERNS)) {
+    const conventional = lowerMessage.match(/^([a-z]+)(?:\([^)]*\))?!?:/);
+    const conventionalTypes: Record<string, DiffClassification['primary']> = {
+      feat: 'feature', feature: 'feature', fix: 'bugfix', refactor: 'refactor',
+      docs: 'docs', doc: 'docs', test: 'test', config: 'config', style: 'style',
+    };
+    if (conventional && conventionalTypes[conventional[1]]) {
+      return conventionalTypes[conventional[1]];
+    }
+    for (const [type, patterns] of Object.entries(COMMIT_CLASSIFICATION_PATTERNS)) {
       for (const pattern of patterns) {
         if (pattern.test(lowerMessage)) return type as DiffClassification['primary'];
       }
@@ -187,17 +220,22 @@ export class DiffClassifier {
   }
 
   private getCacheKey(path: string, hunks: DiffHunk[]): string {
-    const hunkSummary = hunks.map(h => h.oldStart + ':' + h.newStart).join(',');
-    return path + ':' + hunkSummary;
+    const digest = createHash('sha256');
+    digest.update(path);
+    for (const hunk of hunks) {
+      digest.update(`${hunk.oldStart}:${hunk.newStart}:`);
+      for (const change of hunk.changes) digest.update(`${change.type}:${change.content}\n`);
+    }
+    return digest.digest('hex');
   }
 
   private determinePrimaryClassification(path: string, hunks: DiffHunk[]): DiffClassification['primary'] {
-    for (const [type, patterns] of Object.entries(CLASSIFICATION_PATTERNS)) {
+    for (const [type, patterns] of Object.entries(PATH_CLASSIFICATION_PATTERNS)) {
       for (const pattern of patterns) { if (pattern.test(path)) return type as DiffClassification['primary']; }
     }
-    const allContent = hunks.flatMap(h => h.changes.map(c => c.content)).join('\n').toLowerCase();
+    const allContent = hunks.flatMap(h => h.changes.filter(c => c.type !== 'context').map(c => c.content)).join('\n').toLowerCase();
     if (/function|class|interface|type\s+\w+/.test(allContent) && hunks.some(h => h.changes.filter(c => c.type === 'add').length > 10)) return 'feature';
-    if (/fix|bug|issue|error|exception/.test(allContent)) return 'bugfix';
+    if (/\b(?:fix(?:ed|es)?|bug|issue|exception)\b/.test(allContent)) return 'bugfix';
     if (this.config.detectRefactoring && this.isRefactoring(hunks)) return 'refactor';
     return 'unknown';
   }
@@ -211,7 +249,7 @@ export class DiffClassifier {
 
   private determineSecondaryClassifications(path: string, hunks: DiffHunk[], primary: DiffClassification['primary']): string[] {
     const secondary: string[] = [];
-    for (const [type, patterns] of Object.entries(CLASSIFICATION_PATTERNS)) {
+    for (const [type, patterns] of Object.entries(PATH_CLASSIFICATION_PATTERNS)) {
       if (type === primary) continue;
       for (const pattern of patterns) { if (pattern.test(path)) { secondary.push(type); break; } }
     }
@@ -220,7 +258,7 @@ export class DiffClassifier {
 
   private calculateConfidence(path: string, hunks: DiffHunk[], primary: DiffClassification['primary']): number {
     let confidence = 0.5;
-    for (const patterns of Object.values(CLASSIFICATION_PATTERNS)) { for (const pattern of patterns) { if (pattern.test(path)) { confidence += 0.2; break; } } }
+    for (const patterns of Object.values(PATH_CLASSIFICATION_PATTERNS)) { for (const pattern of patterns) { if (pattern.test(path)) { confidence += 0.2; break; } } }
     const totalChanges = hunks.reduce((sum, h) => sum + h.changes.length, 0);
     if (totalChanges > 10) confidence += 0.1;
     if (totalChanges > 50) confidence += 0.1;
@@ -230,8 +268,7 @@ export class DiffClassifier {
 
   private determineImpactLevel(path: string, hunks: DiffHunk[]): DiffClassification['impactLevel'] {
     let score = 0;
-    const lowerPath = path.toLowerCase();
-    for (const [keyword, weight] of Object.entries(IMPACT_KEYWORDS)) { if (lowerPath.includes(keyword)) score = Math.max(score, weight); }
+    for (const [keyword, weight] of Object.entries(IMPACT_KEYWORDS)) { if (pathHasTerm(path, keyword)) score = Math.max(score, weight); }
     const totalChanges = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type !== 'context').length, 0);
     if (totalChanges > 100) score = Math.max(score, 2);
     if (totalChanges > 300) score = Math.max(score, 3);
@@ -246,8 +283,8 @@ export class DiffClassifier {
     const typeReviewers: Record<string, string[]> = { feature: ['tech-lead', 'product-owner'], bugfix: ['qa-engineer', 'developer'], refactor: ['senior-developer', 'architect'], docs: ['tech-writer', 'developer'], test: ['qa-engineer', 'developer'], config: ['devops', 'tech-lead'], style: ['developer'], unknown: ['developer'] };
     reviewers.push(...(typeReviewers[primary] || typeReviewers.unknown));
     if (impact === 'critical' || impact === 'high') reviewers.push('security-reviewer');
-    if (/security|auth/.test(path)) reviewers.push('security-team');
-    if (/database|migration/.test(path)) reviewers.push('dba');
+    if (pathHasTerm(path, 'security') || pathHasTerm(path, 'auth')) reviewers.push('security-team');
+    if (pathHasTerm(path, 'database') || pathHasTerm(path, 'migration')) reviewers.push('dba');
     return [...new Set(reviewers)].slice(0, 4);
   }
 
@@ -256,8 +293,8 @@ export class DiffClassifier {
     if (primary !== 'test') strategies.push('unit-tests');
     if (primary === 'feature') strategies.push('integration-tests');
     if (impact === 'high' || impact === 'critical') { strategies.push('regression-tests'); strategies.push('e2e-tests'); }
-    if (/api|endpoint|route|handler/.test(path)) strategies.push('api-contract-tests');
-    if (/security|auth|crypto/.test(path)) strategies.push('security-audit');
+    if (['api', 'endpoint', 'route', 'handler'].some(term => pathHasTerm(path, term))) strategies.push('api-contract-tests');
+    if (['security', 'auth', 'crypto'].some(term => pathHasTerm(path, term))) strategies.push('security-audit');
     return strategies.slice(0, 5);
   }
 
@@ -267,9 +304,9 @@ export class DiffClassifier {
     if (totalChanges > 200) risks.push('Large change set - increased review time needed');
     if (impact === 'critical') risks.push('Critical system component - requires careful review');
     if (impact === 'high') risks.push('High-impact area - monitor after deployment');
-    if (/security|auth/.test(path)) risks.push('Security-sensitive code');
-    if (/database|migration/.test(path)) risks.push('Database changes - ensure backup strategy');
-    if (/config|env/.test(path)) risks.push('Configuration changes - verify all environments');
+    if (pathHasTerm(path, 'security') || pathHasTerm(path, 'auth')) risks.push('Security-sensitive code');
+    if (pathHasTerm(path, 'database') || pathHasTerm(path, 'migration')) risks.push('Database changes - ensure backup strategy');
+    if (pathHasTerm(path, 'config') || pathHasTerm(path, 'env')) risks.push('Configuration changes - verify all environments');
     const allContent = hunks.flatMap(h => h.changes.map(c => c.content)).join('\n');
     if (/TODO|FIXME|HACK/.test(allContent)) risks.push('Contains TODO/FIXME comments');
     if (/password|secret|key|token/i.test(allContent)) risks.push('Potential secrets in code');
@@ -557,24 +594,23 @@ export function assessFileRisk(file: DiffFile): FileRisk {
   }
 
   // Path-based risk
-  const lowerPath = file.path.toLowerCase();
-  if (/security|auth|crypto|password/.test(lowerPath)) {
+  if (['security', 'auth', 'crypto', 'password'].some(term => pathHasTerm(file.path, term))) {
     score += 40;
     reasons.push('Security-sensitive file');
   }
-  if (/payment|billing|transaction/.test(lowerPath)) {
+  if (['payment', 'billing', 'transaction'].some(term => pathHasTerm(file.path, term))) {
     score += 35;
     reasons.push('Payment-related file');
   }
-  if (/database|migration|schema/.test(lowerPath)) {
+  if (['database', 'migration', 'schema'].some(term => pathHasTerm(file.path, term))) {
     score += 25;
     reasons.push('Database-related file');
   }
-  if (/core|main|index/.test(lowerPath)) {
+  if (['core', 'main', 'index'].some(term => pathHasTerm(file.path, term))) {
     score += 15;
     reasons.push('Core module');
   }
-  if (/config|env|settings/.test(lowerPath)) {
+  if (['config', 'env', 'settings'].some(term => pathHasTerm(file.path, term))) {
     score += 20;
     reasons.push('Configuration file');
   }
@@ -634,20 +670,71 @@ function getClassifier(): DiffClassifier {
   return classifierInstance;
 }
 
-/**
- * Classify a diff based on files (uses singleton classifier)
- */
-export function classifyDiff(files: DiffFile[]): DiffClassification {
+/** Classify file metadata with the actual patch and, for one-commit ranges, its subject. */
+export function classifyDiff(files: DiffFile[], patch = '', commitSubject = ''): DiffClassification {
   const classifier = getClassifier();
-  const fileDiffs: FileDiff[] = files.map(f => ({
-    path: f.path,
-    hunks: [],
-    additions: f.additions,
-    deletions: f.deletions,
-    classification: classifier['classifyFile'](f.path, []),
-  }));
+  const parsed = new Map(classifier.parseDiff(patch).map(file => [file.path, file]));
+  const fileDiffs: FileDiff[] = files.map(f => {
+    const patchFile = parsed.get(f.path);
+    const hunks = patchFile?.hunks ?? [];
+    return {
+      path: f.path,
+      hunks,
+      additions: f.additions,
+      deletions: f.deletions,
+      classification: patchFile?.classification ?? classifier['classifyFile'](f.path, hunks),
+    };
+  });
 
-  return classifier['computeOverallClassification'](fileDiffs);
+  const overall = classifier['computeOverallClassification'](fileDiffs);
+  if (fileDiffs.length > 0 && commitSubject) {
+    const subjectType = classifier.classifyCommitMessage(commitSubject);
+    if (subjectType !== 'unknown') {
+      if (overall.primary !== subjectType && overall.primary !== 'unknown') {
+        overall.secondary = [overall.primary, ...overall.secondary].filter((type, index, all) =>
+          type !== subjectType && all.indexOf(type) === index).slice(0, 3);
+      }
+      overall.primary = subjectType;
+      overall.confidence = Math.max(overall.confidence, 0.85);
+    }
+  }
+  return overall;
+}
+
+function getSingleCommitSubjectSync(ref: string): string {
+  if (!ref.includes('..')) return '';
+  try {
+    const output = execFileSync('git', ['log', '-2', '--format=%s', ref],
+      { encoding: 'utf-8', maxBuffer: 64 * 1024 });
+    const subjects = output.trim().split('\n').filter(Boolean);
+    return subjects.length === 1 ? subjects[0] : '';
+  } catch { return ''; }
+}
+
+function getDiffContextSync(ref: string): { patch: string; subject: string } {
+  validateGitRef(ref);
+  let patch = '';
+  try {
+    patch = execFileSync('git', ['diff', '--no-ext-diff', '--no-textconv', '--unified=0', ref],
+      { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
+  } catch { /* A large or unavailable patch falls back to path-only classification. */ }
+  return { patch, subject: getSingleCommitSubjectSync(ref) };
+}
+
+async function getDiffContextAsync(ref: string): Promise<{ patch: string; subject: string }> {
+  validateGitRef(ref);
+  const execFileAsync = promisify(execFile);
+  const patchPromise = execFileAsync('git', ['diff', '--no-ext-diff', '--no-textconv', '--unified=0', ref],
+    { maxBuffer: 10 * 1024 * 1024 }).then(({ stdout }) => stdout).catch(() => '');
+  const subjectPromise = ref.includes('..')
+    ? execFileAsync('git', ['log', '-2', '--format=%s', ref], { maxBuffer: 64 * 1024 })
+      .then(({ stdout }) => {
+        const subjects = stdout.trim().split('\n').filter(Boolean);
+        return subjects.length === 1 ? subjects[0] : '';
+      }).catch(() => '')
+    : Promise.resolve('');
+  const [patch, subject] = await Promise.all([patchPromise, subjectPromise]);
+  return { patch, subject };
 }
 
 /**
@@ -657,15 +744,14 @@ export function suggestReviewers(files: DiffFile[], fileRisks: FileRisk[]): stri
   const reviewers = new Set<string>();
 
   for (const file of files) {
-    const lowerPath = file.path.toLowerCase();
-
-    if (/security|auth|crypto/.test(lowerPath)) reviewers.add('security-team');
-    if (/database|migration/.test(lowerPath)) reviewers.add('dba');
-    if (/api|endpoint|route/.test(lowerPath)) reviewers.add('api-owner');
-    if (/test|spec/.test(lowerPath)) reviewers.add('qa-engineer');
-    if (/config|deploy|ci/.test(lowerPath)) reviewers.add('devops');
-    if (/ui|component|style/.test(lowerPath)) reviewers.add('frontend-lead');
-    if (/model|service|repository/.test(lowerPath)) reviewers.add('backend-lead');
+    const hasAny = (...terms: string[]) => terms.some(term => pathHasTerm(file.path, term));
+    if (hasAny('security', 'auth', 'crypto')) reviewers.add('security-team');
+    if (hasAny('database', 'migration')) reviewers.add('dba');
+    if (hasAny('api', 'endpoint', 'route')) reviewers.add('api-owner');
+    if (hasAny('test', 'spec')) reviewers.add('qa-engineer');
+    if (hasAny('config', 'deploy', 'ci')) reviewers.add('devops');
+    if (hasAny('ui', 'component', 'style')) reviewers.add('frontend-lead');
+    if (hasAny('model', 'service', 'repository')) reviewers.add('backend-lead');
   }
 
   // Add based on risk
@@ -706,7 +792,7 @@ export async function analyzeDiff(options: {
   }
 
   // Use async git diff for non-blocking operation
-  const files = await getGitDiffNumstatAsync(ref);
+  const [files, context] = await Promise.all([getGitDiffNumstatAsync(ref), getDiffContextAsync(ref)]);
 
   // Parallel file risk assessment for large diffs
   const fileRisks = files.length > 20
@@ -714,7 +800,7 @@ export async function analyzeDiff(options: {
     : files.map(assessFileRisk);
 
   const risk = assessOverallRisk(files, fileRisks);
-  const classification = classifyDiff(files);
+  const classification = classifyDiff(files, context.patch, context.subject);
   const recommendedReviewers = suggestReviewers(files, fileRisks);
 
   const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0);
@@ -753,9 +839,10 @@ export function analyzeDiffSync(options: {
   }
 
   const files = getGitDiffNumstat(ref);
+  const context = getDiffContextSync(ref);
   const fileRisks = files.map(assessFileRisk);
   const risk = assessOverallRisk(files, fileRisks);
-  const classification = classifyDiff(files);
+  const classification = classifyDiff(files, context.patch, context.subject);
   const recommendedReviewers = suggestReviewers(files, fileRisks);
 
   const totalAdditions = files.reduce((sum, f) => sum + f.additions, 0);
