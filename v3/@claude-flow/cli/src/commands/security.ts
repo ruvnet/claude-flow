@@ -231,6 +231,8 @@ const scanCommand: Command = {
                 });
               }
             }
+          } else {
+            depsSkipped = 'No package.json found in the scan target; dependency scan could not run.';
           }
         } catch (err) { depsSkipped = `npm audit could not run: ${err instanceof Error ? err.message : String(err)}`; }
       }
@@ -464,7 +466,7 @@ export function interpretNpmAudit(raw: string, dir?: string): NpmAuditResult {
     const summary = typeof audit.error.summary === 'string' ? audit.error.summary : 'npm audit failed.';
     return { ok: false, reason: `npm audit failed (${code}): ${summary}${code === 'ENOLOCK' ? auditHint(dir) : ''}` };
   }
-  if (!audit || typeof audit !== 'object' || !audit.vulnerabilities || typeof audit.vulnerabilities !== 'object') {
+  if (!audit || typeof audit !== 'object' || !audit.vulnerabilities || typeof audit.vulnerabilities !== 'object' || Array.isArray(audit.vulnerabilities)) {
     return { ok: false, reason: 'npm audit returned no vulnerability report.' };
   }
   return { ok: true, vulnerabilities: audit.vulnerabilities as Record<string, NpmAuditVuln> };

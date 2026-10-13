@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { spawnSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
@@ -32,6 +32,7 @@ describe('interpretNpmAudit', () => {
   });
   it('rejects output with no vulnerability report and non-JSON output', () => {
     expect(interpretNpmAudit('{}').ok).toBe(false);
+    expect(interpretNpmAudit('{"vulnerabilities":[]}').ok).toBe(false);
     expect(interpretNpmAudit('not json').ok).toBe(false);
   });
   it('accepts a real report, including an empty one', () => {
@@ -57,6 +58,14 @@ describe('security scan / cve on a lockfile-less (pnpm) project', () => {
     expect(out).not.toContain('No security issues found!');
     const record = JSON.parse(readFileSync(join(dir, '.claude', 'security-scans', 'scan-deps-quick.json'), 'utf-8'));
     expect(record.incomplete).toBe(true);
+    expect(getSecurityStatus(dir).status).toBe('PENDING');
+  });
+
+  it('an explicit dependency scan without package.json is incomplete, not CLEAN', () => {
+    unlinkSync(join(dir, 'package.json'));
+    const res = spawnSync(process.execPath, [CLI_BIN, 'security', 'scan', '--target', dir, '--depth', 'quick', '--type', 'deps'], { encoding: 'utf-8', timeout: 60_000 });
+    expect(res.status).toBe(2);
+    expect(`${res.stdout}${res.stderr}`).toContain('Dependency scan skipped');
     expect(getSecurityStatus(dir).status).toBe('PENDING');
   });
 
