@@ -745,21 +745,43 @@ function getContextDetailed(prompt) {
   const ranked = readJSON(RANKED_PATH);
   if (!ranked || !ranked.entries || ranked.entries.length === 0) return null;
 
-  const promptWords = tokenize(prompt);
+  const promptWords = [...new Set(tokenize(prompt))];
   if (promptWords.length === 0) return null;
-  const promptTrigrams = trigrams(promptWords);
 
-  const ALPHA = 0.6; // content match weight
-  const MIN_THRESHOLD = 0.05;
+  // Query coverage is independent of entry length: a short diagnostic prompt
+  // must still find its exact terms inside a long memory section (#4136).
+  // IDF downweights generic terms shared by many entries. Terms absent from
+  // every entry still count against coverage, so two incidental words cannot
+  // hide the rest of an unrelated prompt.
+  const candidates = ranked.entries.map(entry => ({ entry, words: new Set(entry.words || []) }));
+  const weights = promptWords.map(word => {
+    const frequency = candidates.reduce((count, candidate) => count + Number(candidate.words.has(word)), 0);
+    return Math.log1p((candidates.length - frequency + 0.5) / (frequency + 0.5));
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) return null;
+
+  const MIN_COVERAGE = 0.15;
   const TOP_K = 5;
 
   // Score each entry
   const scored = [];
-  for (const entry of ranked.entries) {
-    const entryTrigrams = trigrams(entry.words || []);
-    const contentMatch = jaccardSimilarity(promptTrigrams, entryTrigrams);
-    const score = ALPHA * contentMatch + (1 - ALPHA) * (entry.pageRank || 0);
-    if (score >= MIN_THRESHOLD) {
+  for (const { entry, words } of candidates) {
+    let matchedWeight = 0;
+    let matchedTerms = 0;
+    for (let i = 0; i < promptWords.length; i++) {
+      if (weights[i] > 0 && words.has(promptWords[i])) {
+        matchedWeight += weights[i];
+        matchedTerms++;
+      }
+    }
+    // A single common word in a long prompt is not evidence of relevance;
+    // PageRank can order relevant entries but cannot make one relevant.
+    if (matchedTerms < Math.min(2, promptWords.length)) continue;
+    const coverage = matchedWeight / totalWeight;
+    if (coverage >= MIN_COVERAGE) {
+      const pageRank = Math.max(0, Math.min(1, Number(entry.pageRank) || 0));
+      const score = 0.9 * coverage + 0.1 * pageRank;
       scored.push({ ...entry, score });
     }
   }
