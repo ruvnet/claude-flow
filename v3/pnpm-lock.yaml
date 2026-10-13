@@ -211,7 +211,7 @@ importers:
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5
       '@claude-flow/memory':
-        specifier: 3.0.4
+        specifier: 3.0.5
         version: link:../memory
       '@metaharness/darwin':
         specifier: ~0.10.2
