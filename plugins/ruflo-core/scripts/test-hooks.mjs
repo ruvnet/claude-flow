@@ -3,7 +3,7 @@
  * Regression guard for ruvnet/ruflo#1859, #1862, #2721, #2816, #2856.
  *
  * Drives every hook command from `hooks/hooks.json` — PreToolUse,
- * PostToolUse, PreCompact, Stop — with synthetic Claude-Code-style stdin,
+ * PostToolUse, PostToolUseFailure, PreCompact, Stop — with synthetic Claude-Code-style stdin,
  * against a locally built CLI, executed EXACTLY as Claude Code/Codex would
  * run it: `spawnSync(command, { shell: true, ... })`, no bash wrapper of
  * our own. That's the point of this rewrite (#2721) — the old version
@@ -77,6 +77,8 @@ const cmdModifyBash = findHook('PreToolUse', 'Bash');
 const cmdModifyFile = findHook('PreToolUse', 'Write|Edit|MultiEdit');
 const cmdPostCommand = findHook('PostToolUse', 'Bash');
 const cmdPostEdit = findHook('PostToolUse', 'Write|Edit|MultiEdit');
+const cmdFailedCommand = findHook('PostToolUseFailure', 'Bash');
+const cmdFailedEdit = findHook('PostToolUseFailure', 'Write|Edit|MultiEdit');
 const cmdPrecompactManual = findHook('PreCompact', 'manual');
 const cmdPrecompactAuto = findHook('PreCompact', 'auto');
 const cmdStop = findHook('Stop', undefined);
@@ -253,6 +255,53 @@ run('Bash hook silently no-ops on empty stdin',
   cmdPostCommand,
   '',
   []);
+
+// #4127: Claude Code sends failed tools to PostToolUseFailure, not PostToolUse.
+// Verify actual plugin registration and the argv passed to the CLI; a hook
+// returning 0 alone would miss the original false-success telemetry bug.
+const recorderOverride = `"${process.execPath}" "${HOOK_RECORDER}"`;
+const recordedArgs = {
+  cliOverride: recorderOverride,
+  // Deduplication is covered separately below; fixed event IDs would otherwise
+  // make a repeated local run skip these argv assertions.
+  env: { RUFLO_HOOK_RECORD_ARGS: '1', RUFLO_DISABLE_HOOK_DEDUP: '1' },
+};
+
+run('Failed Bash hook records non-zero exit and false success',
+  cmdFailedCommand,
+  JSON.stringify({
+    hook_event_name: 'PostToolUseFailure', tool_use_id: 'toolu_failed_bash_4127',
+    tool_input: { command: 'echo failed; exit 3' }, error: 'Exit code 3\nfailed',
+  }),
+  [{ contains: JSON.stringify(['hooks', 'post-command', '-c', 'echo failed; exit 3', '-s', 'false', '-e', '3']) }],
+  recordedArgs);
+
+run('Failed Bash hook without numeric exit is still a failure',
+  cmdFailedCommand,
+  JSON.stringify({
+    hook_event_name: 'PostToolUseFailure', tool_use_id: 'toolu_failed_start_4127',
+    tool_input: { command: 'missing-shell-command' }, error: 'Could not start shell',
+  }),
+  [{ contains: JSON.stringify(['hooks', 'post-command', '-c', 'missing-shell-command', '-s', 'false', '-e', '1']) }],
+  recordedArgs);
+
+run('Failed Edit hook records false success',
+  cmdFailedEdit,
+  JSON.stringify({
+    hook_event_name: 'PostToolUseFailure', tool_use_id: 'toolu_failed_edit_4127',
+    tool_input: { file_path: '/tmp/failed.ts' }, error: 'Permission denied',
+  }),
+  [{ contains: JSON.stringify(['hooks', 'post-edit', '-f', '/tmp/failed.ts', '-s', 'false']) }],
+  recordedArgs);
+
+run('Successful Edit hook still records true success',
+  cmdPostEdit,
+  JSON.stringify({
+    hook_event_name: 'PostToolUse', tool_use_id: 'toolu_success_edit_4127',
+    tool_input: { file_path: '/tmp/success.ts' }, tool_response: {},
+  }),
+  [{ contains: JSON.stringify(['hooks', 'post-edit', '-f', '/tmp/success.ts', '-s', 'true']) }],
+  recordedArgs);
 
 // --- PreCompact: pure guidance text, no CLI call ---
 run('PreCompact (manual) prints guidance and includes custom instructions',
