@@ -2802,6 +2802,20 @@ const workerListCommand: Command = {
   }
 };
 
+// Render the status hooks_worker-dispatch actually returned. Only a status that
+// means work finished may read as "completed" (#4196).
+function dispatchStatusLabel(status: string): string {
+  switch (status) {
+    case 'dispatched': return output.highlight('dispatched (background)');
+    case 'queued': return output.highlight('queued (daemon)');
+    case 'no-daemon': return output.warning('no-daemon (not run)');
+    case 'mcp-only': return output.warning('mcp-only (not queued)');
+    case 'synthetic-completed': return output.warning('recorded (no work executed)');
+    case 'completed': return output.success('completed');
+    default: return output.dim(String(status));
+  }
+}
+
 const workerDispatchCommand: Command = {
   name: 'dispatch',
   description: 'Dispatch a background worker for analysis/optimization',
@@ -2845,6 +2859,7 @@ const workerDispatchCommand: Command = {
           capabilities: string[];
         };
         status: string;
+        note?: string;
         error?: string;
       }>('hooks_worker-dispatch', {
         trigger,
@@ -2874,9 +2889,16 @@ const workerDispatchCommand: Command = {
           { field: 'Description', value: result.config.description },
           { field: 'Est. Duration', value: result.config.estimatedDuration },
           { field: 'Capabilities', value: result.config.capabilities.join(', ') },
-          { field: 'Status', value: result.status === 'dispatched' ? output.highlight('dispatched (background)') : output.success('completed') },
+          { field: 'Status', value: dispatchStatusLabel(result.status) },
         ],
       });
+
+      // The tool says why it could not run the worker (e.g. no daemon); show it
+      // rather than letting a recorded-only dispatch read as finished work (#4196).
+      if (result.note) {
+        output.writeln();
+        output.printWarning(result.note);
+      }
 
       if (background) {
         output.writeln();
