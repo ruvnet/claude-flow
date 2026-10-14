@@ -856,6 +856,11 @@ export const memoryTools: MCPTool[] = [
       type: 'object',
       properties: {
         namespace: { type: 'string', description: 'Filter by namespace' },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Require entries to include all of these tags (AND). Matches the description claim "optionally filtered by namespace/tags".',
+        },
         limit: { type: 'number', description: 'Maximum results (default: 50)' },
         offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
       },
@@ -865,6 +870,9 @@ export const memoryTools: MCPTool[] = [
       const { listEntries } = await getMemoryFunctions();
 
       const namespace = input.namespace as string | undefined;
+      const tags = Array.isArray(input.tags)
+        ? (input.tags as unknown[]).filter((t): t is string => typeof t === 'string' && t.length > 0)
+        : undefined;
       const limit = (input.limit as number) || 50;
       const offset = (input.offset as number) || 0;
 
@@ -873,6 +881,7 @@ export const memoryTools: MCPTool[] = [
       try {
         const result = await listEntries({
           namespace,
+          tags,
           limit,
           offset,
         });
@@ -880,6 +889,7 @@ export const memoryTools: MCPTool[] = [
         const entries = result.entries.map(e => ({
           key: e.key,
           namespace: e.namespace,
+          tags: e.tags ?? [],
           storedAt: e.createdAt,
           updatedAt: e.updatedAt,
           accessCount: e.accessCount,
@@ -1580,7 +1590,9 @@ export const memoryTools: MCPTool[] = [
       } while (entries.length < total);
       const all = { entries };
       const payload = {
-        schema: 'ruflo-memory-export/v1',
+        // ruflo-memory-export/v1.1: tags round-trip with export/import.
+        // v1 importers ignore unknown fields; v1.1 importers restore tags.
+        schema: 'ruflo-memory-export/v1.1',
         exportedAt: new Date().toISOString(),
         namespace: namespace ?? null,
         count: all.entries.length,
@@ -1591,6 +1603,8 @@ export const memoryTools: MCPTool[] = [
           // never-populated alias. Fall back to null only if content is
           // missing for backward-compat with the schema.
           value: typeof e.content === 'string' ? e.content : ((e as { value?: unknown }).value ?? null),
+          // Preserve tags so memory_import is lossless for tag sets.
+          tags: Array.isArray(e.tags) ? e.tags : [],
           createdAt: e.createdAt, updatedAt: e.updatedAt, accessCount: e.accessCount, hasEmbedding: e.hasEmbedding, size: e.size,
         })),
       };
@@ -1609,8 +1623,9 @@ export const memoryTools: MCPTool[] = [
   {
     // #1916: `ruflo memory import <file>` referenced an unregistered tool.
     // Reads a ruflo-memory-export JSON and re-stores each entry.
+    // Honour `tags` on each entry (export v1.1+; ignored if absent).
     name: 'memory_import',
-    description: 'Import memory entries from a JSON export file (produced by memory_export) into .swarm/memory.db, re-embedding values. Use when native Read is wrong because the data must be re-stored as memory rows (with new embeddings), not just read. For importing Claude Code\'s own memory files use memory_import_claude. Pair with memory_export on the source.',
+    description: 'Import memory entries from a JSON export file (produced by memory_export) into .swarm/memory.db, re-embedding values. Preserves tags when present in the export (ruflo-memory-export/v1.1+). Use when native Read is wrong because the data must be re-stored as memory rows (with new embeddings), not just read. For importing Claude Code\'s own memory files use memory_import_claude. Pair with memory_export on the source.',
     category: 'memory',
     inputSchema: {
       type: 'object',
@@ -1634,7 +1649,7 @@ export const memoryTools: MCPTool[] = [
       let vectors = 0;
       const inputPath = String(input.inputPath ?? '');
       if (!inputPath || !existsSync(inputPath)) return { error: `File not found: ${inputPath || '(empty)'}` };
-      let doc: { entries?: Array<{ key: string; namespace?: string; value?: unknown }> };
+      let doc: { entries?: Array<{ key: string; namespace?: string; value?: unknown; tags?: string[] | string }> };
       try { doc = JSON.parse(readFileSync(inputPath, 'utf-8')); }
       catch (e) { return { error: `Invalid export JSON: ${(e as Error).message}` }; }
       const entries = Array.isArray(doc.entries) ? doc.entries : [];
@@ -1656,15 +1671,33 @@ export const memoryTools: MCPTool[] = [
           if (keyError) throw new Error(`${keyError}: ${JSON.stringify(e.key)}`);
         }
       }
-      let imported = 0; let skipped = 0; let failed = 0;
+      let imported = 0; let skipped = 0; let failed = 0; let withTags = 0;
       const errors: string[] = [];
       for (const e of entries) {
         if (!e || typeof e.key !== 'string') { skipped++; continue; }
         const value = typeof e.value === 'string' ? e.value : JSON.stringify(e.value ?? null);
+        // Restore tags from export. Accept array or JSON/comma string
+        // for robustness with hand-edited fidelity manifests.
+        let tags: string[] = [];
+        if (Array.isArray(e.tags)) {
+          tags = e.tags.filter((t): t is string => typeof t === 'string' && t.length > 0);
+        } else if (typeof e.tags === 'string' && e.tags.trim()) {
+          try {
+            const parsed = JSON.parse(e.tags);
+            if (Array.isArray(parsed)) {
+              tags = parsed.filter((t): t is string => typeof t === 'string' && t.length > 0);
+            } else {
+              tags = e.tags.split(',').map(s => s.trim()).filter(Boolean);
+            }
+          } catch {
+            tags = e.tags.split(',').map(s => s.trim()).filter(Boolean);
+          }
+        }
         try {
-          const result = await storeEntry({ key: e.key, value, namespace: nsOverride ?? e.namespace ?? 'default', upsert: input.merge !== false, dbPath });
+          const result = await storeEntry({ key: e.key, value, namespace: nsOverride ?? e.namespace ?? 'default', tags, upsert: input.merge !== false, dbPath });
           if (!result.success) throw new Error(result.error || 'Memory write was rejected');
           imported++;
+          if (tags.length > 0) withTags++;
           if (result.embedding) vectors++;
         } catch (error) {
           failed++;
@@ -1676,7 +1709,7 @@ export const memoryTools: MCPTool[] = [
         error: failed > 0 ? `${failed} memory write(s) failed: ${errors.join('; ')}` : undefined,
         failed,
         inputPath,
-        imported: { entries: imported, vectors, patterns: 0 },
+        imported: { entries: imported, vectors, patterns: 0, withTags },
         skipped,
         duration: Date.now() - t0,
       };
