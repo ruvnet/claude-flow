@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.9 — 2026-10-14
+- fix: the MCP launcher starts the server in the session project (`CLAUDE_PROJECT_DIR`, then `CLAUDE_FLOW_CWD`, then its own working directory; a drive root, the home folder or a missing folder is not a project) and looks for the local CLI from there, so on Windows the CLI and the MCP server keep one `.claude-flow` state, not two (#3987, thanks @socrates6969). It warns on stderr when there is no project. Tested with Windows-style environments only; no Windows machine was available.
+
 ## 0.2.8 — 2026-10-11
 - fix: the PostToolUse Bash shim stands down when command recording is switched off (`CLAUDE_FLOW_HOOKS_RECORD_COMMANDS=0` or `CLAUDE_FLOW_HOOKS_ENABLED=false`), so no CLI process is started per Bash call (#4056)
 
