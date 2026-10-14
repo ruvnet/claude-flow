@@ -283,3 +283,19 @@ export async function sendChat(host: Host, state: State, text: string): Promise<
     refuse(NOT_SENT.rejected)
   }
 }
+
+/** The turn.start side of the mirror: a new main turn starts the streaming answer empty (and reads the new message if Chat is live). A mirror that throws never changes the turn. */
+export function mirrorTurnStart(host: Host | null, state: State): void {
+  try {
+    if (host !== null) onChatTurnStart(host, state)
+    else startChatTurn(state)
+  } catch {
+    // The chat mirror never changes the turn.
+  }
+}
+
+/** The turn.complete side: re-read the settled turns, then drop the streamed text, then redraw; never awaited, never thrown out of the turn. */
+export const mirrorTurnEnd = (host: Host, state: State): void => void endChatTurn(host, state).then(() => redrawChat(host, state)).catch(() => undefined)
+
+/** One streamed text piece of the main answer: kept always, redrawn (throttled) only while Chat is live. */
+export const mirrorChunk = (host: Host | null, state: State, text: string): void => (host !== null ? onChatChunk(host, state, text) : appendPartial(state, text))

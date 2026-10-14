@@ -9,7 +9,7 @@ import { plain } from './data/parse'
 import { dispatch } from './dispatch'
 import { markPicture } from './gfx/pictures'
 import { toChatMsgs } from './chat-msg'
-import { appendPartial, chatStep, endChatTurn, onChatChunk, onChatTurnStart, redrawChat, startChatTurn } from './chat'
+import { chatStep, mirrorChunk, mirrorTurnEnd, mirrorTurnStart } from './chat'
 import type { Host } from './host'
 import { ownerLine, ownerOf } from './tool-owner'
 import { newState, PANE_ID, restore, restoreSessions, storeKeyOf, termStoreKeyOf } from './state'
@@ -120,24 +120,13 @@ export function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => T
     rufloSnapshot: async () => $.ruflo.snapshot(),
     rufloRoute: async () => $.ruflo.lastRoute(),
     rufloSegment: async text => $.ruflo.segment({ id: 'console', text }),
-    // `$.prompt.submit` queues the prompt and resolves as its own turn starts (not when that turn ends; reference.md, "Work that outlives a
-    // dispatch"). It is still never made from inside a command.run hook (`/ruflo yes` is one): it runs from a clock tick, a later event of
-    // its own. A hook's refusal (`{ drop: reason }`) resolves `{ isDropped: true }`; the reason is not passed on (it could quote the text).
-    submitPrompt: (text, opts) =>
-      new Promise<void | { isDropped: true }>((resolve, reject) => {
-        $.clock.after(1, () => void (opts?.asUser === true ? $.prompt.submit({ text, asUser: true }) : $.prompt.submit({ text })).then(result => resolve(typeof result?.drop === 'string' ? { isDropped: true } : undefined), reject))
-      }),
+    // `$.prompt.submit` resolves as its own turn starts; never from inside a command.run hook, so from a clock tick. A hook's `{ drop }` resolves `{ isDropped: true }` (the reason could quote the text); `asUser` is the chat only.
+    submitPrompt: (text, opts) => new Promise<void | { isDropped: true }>((resolve, reject) => $.clock.after(1, () => void (opts?.asUser === true ? $.prompt.submit({ text, asUser: true }) : $.prompt.submit({ text })).then(result => resolve(typeof result?.drop === 'string' ? { isDropped: true } : undefined), reject))),
     fillPrompt: async text => (await $.prompt.fill({ text, mode: 'replace' })).isFilled,
-    runSlash: (command, args) =>
-      new Promise((resolve, reject) => {
-        $.clock.after(1, () => void $.command.run({ command, args }).then(resolve, reject))
-      }),
+    runSlash: (command, args) => new Promise((resolve, reject) => $.clock.after(1, () => void $.command.run({ command, args }).then(resolve, reject))),
     listCommands: async () => (await $.command.list()).map(command => command.name),
     // ADR-465. A tool call waits on the turn like submitPrompt, so it starts from a clock tick, never inside the hook that asked.
-    toolCall: input =>
-      new Promise((resolve, reject) => {
-        $.clock.after(1, () => void $.tool.call(input as never).then(reply => resolve(reply as never), reject))
-      }),
+    toolCall: input => new Promise((resolve, reject) => $.clock.after(1, () => void $.tool.call(input as never).then(reply => resolve(reply as never), reject))),
     toolCheck: async (tool, input) => $.tool.check({ tool, input }),
     httpSend: async (url, init) => {
       const response = await $.http.fetch(url, init)
@@ -406,14 +395,7 @@ export const register: Register = (on, raw: PluginOptions) => {
     // A new turn: the per-turn cap on Claude's console actions starts over.
     state.control.turnCalls = 0
     if (e.agentId === undefined) state.turnStartedMs = Date.now()
-    if (e.agentId === undefined) {
-      try {
-        if (host !== null) onChatTurnStart(host, state)
-        else startChatTurn(state)
-      } catch {
-        // The chat mirror never changes the turn.
-      }
-    }
+    if (e.agentId === undefined) mirrorTurnStart(host, state)
 
     try {
       $.ui.invalidate('ui.render')
@@ -439,8 +421,7 @@ export const register: Register = (on, raw: PluginOptions) => {
       } catch {
         // A note that could not be recorded never changes the turn.
       }
-      // The chat mirror re-reads the settled turns, then drops the streamed text; never awaited, never thrown out of the turn.
-      void endChatTurn(host, state).then(() => redrawChat(host as Host, state)).catch(() => undefined)
+      mirrorTurnEnd(host, state)
     }
 
     return next(e)
@@ -448,7 +429,7 @@ export const register: Register = (on, raw: PluginOptions) => {
 
   // The chat mirror watches the main answer stream in (text chunks only); every chunk passes on unchanged, and so does the result.
   on('turn.step', async function* ($, e, next) {
-    return yield* chatStep(e, next, text => (host !== null ? onChatChunk(host, state, text) : appendPartial(state, text)))
+    return yield* chatStep(e, next, text => mirrorChunk(host, state, text))
   })
 
   // The mission Claude is working on rides in the system prompt (ADR-443); the text changes only when the task does.

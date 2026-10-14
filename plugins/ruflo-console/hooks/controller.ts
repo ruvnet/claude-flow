@@ -426,8 +426,7 @@ export function createController(state: State, host: Host): Controller {
 
     host.invalidate()
     // The terminal is for typing: its field takes the keys as it opens, so letters reach it, not the pane's hotkeys.
-    if (view === 'terminal') focusField('term-input')
-    if (view === 'chat' && chatLive(state)) focusField('chat-send')
+    if (view === 'terminal' || (view === 'chat' && chatLive(state))) focusField(view === 'terminal' ? 'term-input' : 'chat-send')
     // Opening the skills view is the person asking for its lists (npx skills reaches the network, so never unasked).
     if (view === 'skills') {
       void listSkills(state, host)
