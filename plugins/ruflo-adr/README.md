@@ -25,7 +25,7 @@ claude --plugin-dir plugins/ruflo-adr
 | `adr-create` | `/adr-create <title>` | Create a new ADR with sequential numbering and AgentDB registration |
 | `adr-index` | `/adr-index` | Build or rebuild the ADR index and dependency graph in AgentDB (add/update only — never removes) |
 | `adr-review` | `/adr-review [--branch BRANCH]` | Review code changes against accepted ADRs for compliance violations |
-| `adr-verify` | `/adr-verify` | Read back adr-patterns + adr-edges namespaces, surface dangling refs / supersede cycles / status mismatches; exits 1 on cycles |
+| `adr-verify` | `/adr-verify` | Read back adr-patterns + adr-edges namespaces, surface dangling refs / supersede cycles / Unknown statuses; exits 1 on cycles |
 | `adr-reindex` | `/adr-reindex` | Reconcile a **deleted** ADR file: drop-and-rebuild adr-patterns + adr-edges from what's on disk right now |
 
 ## Commands (7 subcommands)

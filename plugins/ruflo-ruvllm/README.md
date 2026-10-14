@@ -9,6 +9,15 @@ RuVLLM local inference with chat formatting, model configuration, MicroLoRA fine
 /plugin install ruflo-ruvllm@ruflo
 ```
 
+## Requirements
+
+The WASM-backed tools (`ruvllm_chat_format`, `ruvllm_microlora_*`, `ruvllm_sona_*`, `ruvllm_hnsw_*`) need `@ruvector/ruvllm-wasm`, which `@claude-flow/cli` does not install. `ruvllm_status` reports `wasm.available: false` plus a `wasm.hint` until it is present:
+
+```bash
+npm i -g @ruvector/ruvllm-wasm   # global ruflo / @claude-flow/cli install
+npm i @ruvector/ruvllm-wasm      # project-local install
+```
+
 ## Features
 
 - **Model configuration**: Generate optimal configs for local inference

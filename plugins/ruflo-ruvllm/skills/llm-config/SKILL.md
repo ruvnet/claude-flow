@@ -15,7 +15,7 @@ When you need to configure local LLM inference, create MicroLoRA adapters for ta
 
 ## Steps
 
-1. **Check status** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_status` to see current model and adapter state
+1. **Check status** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_status` to see current model and adapter state. If `wasm.available` is `false`, install the add-on first (`npm i -g @ruvector/ruvllm-wasm`, or without `-g` in a project) — the MicroLoRA and SONA tools cannot run without it
 2. **Generate config** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_generate_config` with model parameters
 3. **Create MicroLoRA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_create` with `inputDim`, `outputDim`, `rank` (1-4, default 2) and `alpha`
 4. **Adapt MicroLoRA** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_adapt` with `loraId` and a `quality` signal (0.0-1.0), optional `learningRate` and `success`. It takes a feedback score, not a training set

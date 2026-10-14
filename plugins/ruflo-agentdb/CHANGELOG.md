@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-agentdb`.
 
+## 0.4.10 — 2026-10-14
+- fix: the README no longer says the smoke script "calls each documented MCP tool": the default run is an offline structure and documentation check, and `smoke.sh --live` now really exercises the CLI in a temp directory (`agentdb_health` must report available and durable; a `agentdb_hierarchical-store` then `agentdb_hierarchical-recall` round trip must return the entry; the old L1 called a `claude-flow mcp call` command that does not exist) (#4133, thanks @ronmikailov)
+
 ## 0.4.9 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 
