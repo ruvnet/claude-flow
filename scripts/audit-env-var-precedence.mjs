@@ -123,6 +123,7 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_HEADLESS',         // Set/read within same process invocation lifecycle
   'CLAUDE_FLOW_FORCE_UPDATE',     // Set by --force flag internally, then cleared — not external
   'CLAUDE_FLOW_AUTO_UPDATE',      // Auto-update cadence — env-only documented design
+  'RUFLO_DAEMON_LOCK_WAIT_MS',    // How long `daemon start` waits on another start's spawn lock; operator tuning knob, env-only by design (no `daemon start` flag)
 
   // ── Logging / diagnostics ───────────────────────────────────────────────────
   'CLAUDE_FLOW_LOG_LEVEL',
