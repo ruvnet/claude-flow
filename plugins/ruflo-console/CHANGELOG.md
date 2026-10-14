@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.1 — 2026-10-14
+- feat: `ruflo tui` Stages B and C: every console view in the terminal with its actions, pinned panes and a parity check against the console (#4188)
+
 ## 0.44.0 — 2026-10-14
 - feat: `ruflo tui` draws what the console draws. The pictures of the pages (the Classic BBS block-letter titles, the Orbital masthead with its globe, the swarm topology, gauges and charts) are drawn as coloured cells through a terminal Raster, 24-bit where the terminal says so and the nearest of 256 otherwise, and as the words they fall back to with NO_COLOR, a dumb terminal, `--no-pictures` or fewer than 44 columns. Every glyph is a code point that goes through the same sanitiser as the text: a control, invisible or wide one becomes a space
 - feat: the looks of the console in the terminal: Classic BBS (the default, as in the console), Orbital and plain; `--look` picks one and the `t` key steps through them; `--boot` plays the look's start-up screen first
