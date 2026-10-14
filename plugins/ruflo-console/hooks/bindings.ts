@@ -8,6 +8,7 @@ import { claimTask, handoffClaim, releaseClaim, stealClaim, whyNot } from './act
 import { EVENT_KINDS } from './data/events'
 import { evolveActions } from './evolve'
 import { askActions } from './ask-claude'
+import { chatLive, refreshChatAndDraw, sendChat, setDraft } from './chat'
 import { loopActions } from './loops'
 import { optimizerActions } from './optimizer'
 import { navActions } from './nav-state'
@@ -421,6 +422,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
     timeline: timelineActions(state, host, () => host.invalidate(), id => setView(id), (spec, why = 'that cannot run here') => runner.ask(spec, why), question => actions.ask.ask(question, 'timeline')),
     sessions: sessionActions(state, host),
     room: roomActions(state, () => host.invalidate(), (id, text) => runner.runById(id, text), () => roomPages(state)),
+    chat: { send: text => void sendChat(host, state, text).then(() => (chatLive(state) ? refreshChatAndDraw(host, state) : undefined)), draft: text => setDraft(state, text) },
     navigator: navActions(state, () => host.invalidate(), view => actions.view(view)),
     catalog: catalogActions(state, host, runner, text => actions.term.load('claude', text)),
     control: {

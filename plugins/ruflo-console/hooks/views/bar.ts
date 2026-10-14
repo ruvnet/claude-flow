@@ -195,6 +195,7 @@ export const PANEL = { ground: '#1c1c1c', border: '#5f5faf', text: '#d0d0d0', di
 
 /** Links at the end of the standing row, each opening the console on that view: where to go next, whatever is happening. */
 export const BAND_LINKS: readonly { label: string; go: ViewId }[] = [
+  { label: 'Chat', go: 'chat' },
   { label: 'Missions', go: 'missions' },
   { label: 'Swarm', go: 'swarm' },
   { label: 'Security', go: 'secure' },

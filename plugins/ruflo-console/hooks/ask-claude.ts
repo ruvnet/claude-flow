@@ -40,6 +40,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
   room: { default: 'Read The Room feed in my ruflo console: what are the people and agents doing, what is waiting for my yes, and what should I do next?', slash: 'ruflo-observability:observe' },
   xruv: { default: 'How do I get the most out of x.ruv.io, and is anything here a risk?', slash: 'ruflo-federation:federation' },
   terminal: { default: 'Help me use this AI terminal well.' },
+  chat: { default: 'Help me use this chat with Claude well.' },
   skills: { default: 'Which of these skills fit what I am doing, and which should I add?' },
   secure: { default: 'What do these security findings mean, and what should I fix first?', slash: 'ruflo-security-audit:audit' },
   perf: { default: 'Where are the bottlenecks, and what should I optimise first?', slash: 'ruflo-observability:observe' },
@@ -58,7 +59,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
 }
 
 /** Views that share no screen text: a conversation, or setting values. */
-const NOT_SHARED: ReadonlySet<ViewId> = new Set(['terminal', 'settings'])
+const NOT_SHARED: ReadonlySet<ViewId> = new Set(['terminal', 'settings', 'chat'])
 const MAX_DUMP = 4_000
 const MAX_QUESTION = Number.MAX_SAFE_INTEGER
 

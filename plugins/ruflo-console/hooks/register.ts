@@ -8,6 +8,8 @@ import { record } from './data/events'
 import { plain } from './data/parse'
 import { dispatch } from './dispatch'
 import { markPicture } from './gfx/pictures'
+import { toChatMsgs } from './chat-msg'
+import { chatStep, mirrorChunk, mirrorTurnEnd, mirrorTurnStart } from './chat'
 import type { Host } from './host'
 import { ownerLine, ownerOf } from './tool-owner'
 import { newState, PANE_ID, restore, restoreSessions, storeKeyOf, termStoreKeyOf } from './state'
@@ -39,7 +41,7 @@ const RUFLO_TOOL = /^mcp__(claude-flow|ruflo|plugin_ruflo[\w-]*)__/
 /** True while the console itself scrolls the pane to its top, so the terminal's own wheel handling does not take that for the person's wheel. */
 let isResettingScroll = false
 
-function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
+export function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
   const rooted = (path: string) => (path.startsWith('/') ? path : `${cwd.replace(/\/+$/, '')}/${path}`)
   const quietly = (fn: () => unknown) => {
     try {
@@ -103,6 +105,7 @@ function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPre
 
       return { ...(usage.cost?.usd !== undefined && { costUsd: usage.cost.usd }), ...(usage.context?.percent !== undefined && { contextPercent: usage.context.percent }) }
     },
+    session: { messages: async () => toChatMsgs(await $.session.messages()), id: async () => $.session.id() },
     rufloTools: async () => {
       const names = (await $.tool.list()).flatMap(tool => RUFLO_TOOL.exec(tool.name)?.slice(1, 2) ?? [])
 
@@ -117,23 +120,13 @@ function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPre
     rufloSnapshot: async () => $.ruflo.snapshot(),
     rufloRoute: async () => $.ruflo.lastRoute(),
     rufloSegment: async text => $.ruflo.segment({ id: 'console', text }),
-    // Both wait on the turn, so neither may be called from inside a command.run hook (`/ruflo yes` is one): they run from a clock
-    // tick, a later event of their own.
-    submitPrompt: text =>
-      new Promise<void>((resolve, reject) => {
-        $.clock.after(1, () => void $.prompt.submit({ text }).then(() => resolve(), reject))
-      }),
+    // `$.prompt.submit` resolves as its own turn starts; never from inside a command.run hook, so from a clock tick. A hook's `{ drop }` resolves `{ isDropped: true }` (the reason could quote the text); `asUser` is the chat only.
+    submitPrompt: (text, opts) => new Promise<void | { isDropped: true }>((resolve, reject) => $.clock.after(1, () => void (opts?.asUser === true ? $.prompt.submit({ text, asUser: true }) : $.prompt.submit({ text })).then(result => resolve(typeof result?.drop === 'string' ? { isDropped: true } : undefined), reject))),
     fillPrompt: async text => (await $.prompt.fill({ text, mode: 'replace' })).isFilled,
-    runSlash: (command, args) =>
-      new Promise((resolve, reject) => {
-        $.clock.after(1, () => void $.command.run({ command, args }).then(resolve, reject))
-      }),
+    runSlash: (command, args) => new Promise((resolve, reject) => $.clock.after(1, () => void $.command.run({ command, args }).then(resolve, reject))),
     listCommands: async () => (await $.command.list()).map(command => command.name),
     // ADR-465. A tool call waits on the turn like submitPrompt, so it starts from a clock tick, never inside the hook that asked.
-    toolCall: input =>
-      new Promise((resolve, reject) => {
-        $.clock.after(1, () => void $.tool.call(input as never).then(reply => resolve(reply as never), reject))
-      }),
+    toolCall: input => new Promise((resolve, reject) => $.clock.after(1, () => void $.tool.call(input as never).then(reply => resolve(reply as never), reject))),
     toolCheck: async (tool, input) => $.tool.check({ tool, input }),
     httpSend: async (url, init) => {
       const response = await $.http.fetch(url, init)
@@ -402,6 +395,7 @@ export const register: Register = (on, raw: PluginOptions) => {
     // A new turn: the per-turn cap on Claude's console actions starts over.
     state.control.turnCalls = 0
     if (e.agentId === undefined) state.turnStartedMs = Date.now()
+    if (e.agentId === undefined) mirrorTurnStart(host, state)
 
     try {
       $.ui.invalidate('ui.render')
@@ -427,9 +421,15 @@ export const register: Register = (on, raw: PluginOptions) => {
       } catch {
         // A note that could not be recorded never changes the turn.
       }
+      mirrorTurnEnd(host, state)
     }
 
     return next(e)
+  })
+
+  // The chat mirror watches the main answer stream in (text chunks only); every chunk passes on unchanged, and so does the result.
+  on('turn.step', async function* ($, e, next) {
+    return yield* chatStep(e, next, text => mirrorChunk(host, state, text))
   })
 
   // The mission Claude is working on rides in the system prompt (ADR-443); the text changes only when the task does.

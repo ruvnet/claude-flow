@@ -1,6 +1,7 @@
 import type { CommandSpec, HookStream, PaneOpenArgs, ProcessRunResult, ProcessSpawnChunk, ProcessSpawnResult, Timer, UiBlitArgs } from 'claude-code'
 
 import type { ReaderFs } from './data/files'
+import type { ChatMsg } from './chat-msg'
 import type { ToastLevel } from './toast-policy'
 import type { RufloRoute, RufloSnapshot } from '../types'
 
@@ -39,6 +40,8 @@ export type Host = {
   /** Starts a command and streams what it writes; `input` goes to its stdin, which is then closed. */
   spawn: (argv: readonly string[], input?: string) => HookStream<ProcessSpawnChunk, ProcessSpawnResult>
   usage: () => Promise<{ costUsd?: number; contextPercent?: number }>
+  /** The live conversation of the main session (never a subagent's): the newest turns as ChatMsg (tool names only, no tool results), and the session id. */
+  session: { messages: () => Promise<ChatMsg[]>; id: () => Promise<string> }
   /** The ruflo / claude-flow MCP tools the model can call now, and the servers they come from. */
   rufloTools: () => Promise<{ tools: number; servers: string[] }>
   settings: () => Promise<unknown>
@@ -50,7 +53,9 @@ export type Host = {
   rufloRoute: () => Promise<RufloRoute | null>
   rufloSegment: (text: string | null) => Promise<void>
   /** Submits a prompt to the primary Claude session as a visible turn of its own (once idle). */
-  submitPrompt: (text: string) => Promise<void>
+  /** `asUser` submits the text as the person's own words (the model reads it bare, not framed as a plugin message); only the chat passes it. */
+  /** Resolves `{ isDropped: true }` when a hook declined the prompt (`{ drop }`); the hook's reason is never carried. */
+  submitPrompt: (text: string, opts?: { asUser?: boolean }) => Promise<void | { isDropped: true }>
   /** Puts text in the prompt box as the draft (the person presses Enter); false where there is no box. */
   fillPrompt: (text: string) => Promise<boolean>
   /** The names of the slash commands the session offers now (built-in, plugin and MCP alike). */

@@ -119,6 +119,8 @@ export type Actions = {
   timeline: TimelineActions
   /** The Room (ADR-448): the draft, what to send through, the feed's source filter, search, pause and paging. */
   room: RoomActions
+  /** The console's chat with Claude (PR-C): Enter in the `chat-send` field sends the message directly as a user turn (screened first, one send at a time). */
+  chat: { send: (text: string) => void; draft: (text: string) => void }
   /** The session workspace (ADR-486): select, move, jump from the attention queue, rescan, and the (unavailable) native open. */
   sessions: SessionActions
   /** Ask Claude about this section (a visible prompt or a /btw aside) or run the plugin command that fits it: each asks first. */

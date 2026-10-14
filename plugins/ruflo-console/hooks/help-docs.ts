@@ -41,6 +41,7 @@ export const GROUP_BLURB: Record<HelpGroup, string> = {
 
 /** The guide for each page: what opening help from that page shows first. */
 export const VIEW_TOPIC: Partial<Record<ViewId, string>> = {
+  chat: 'chat',
   missions: 'mission',
   overview: 'setup',
   swarm: 'swarm',

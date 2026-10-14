@@ -207,6 +207,21 @@ export const CORE_TOPICS: readonly HelpTopic[] = [
     keywords: ['schedule', 'workflow', 'worker', 'daemon', 'autopilot', 'loop', 'sentry', 'background'],
   },
   {
+    id: 'chat',
+    title: 'Chat with Claude',
+    group: 'Work',
+    summary: 'read this session’s conversation and talk to Claude from the console',
+    steps: [
+      { text: 'Open Chat from the menu (SWARM, start here), a tab, the band link above the prompt, or /ruflo chat.', go: { view: 'chat' } },
+      { text: 'The last messages are shown: yours framed as you, Claude’s as claude, and a tool-only answer as … used <tools>.' },
+      { text: 'Type in the field and press Enter. Your words go in as a normal turn, after a check for secrets; mid-turn it queues.' },
+      { text: 'The answer streams in under the last message. Nothing of the conversation is written to disk or sent to a model by the console.' },
+      { text: 'Settings → Session preview turns the page off; it then draws no message text, and console_state never includes any.' },
+    ],
+    related: ['terminal', 'settings'],
+    keywords: ['chat', 'talk', 'conversation', 'message', 'reply', 'claude', 'session', 'transcript'],
+  },
+  {
     id: 'terminal',
     title: 'The AI terminal',
     group: 'Work',

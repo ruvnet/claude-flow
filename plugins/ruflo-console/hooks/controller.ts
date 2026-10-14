@@ -24,6 +24,7 @@ import { advance, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
 import { loadSaved } from './startup-loads'
 import { openLoaders } from './view-open'
+import { chatLive } from './chat'
 import { listSkills } from './skills'
 import { readDrillLogs } from './drill-logs'
 import { entryAge } from './menu-entry'
@@ -425,7 +426,7 @@ export function createController(state: State, host: Host): Controller {
 
     host.invalidate()
     // The terminal is for typing: its field takes the keys as it opens, so letters reach it, not the pane's hotkeys.
-    if (view === 'terminal') focusField('term-input')
+    if (view === 'terminal' || (view === 'chat' && chatLive(state))) focusField(view === 'terminal' ? 'term-input' : 'chat-send')
     // Opening the skills view is the person asking for its lists (npx skills reaches the network, so never unasked).
     if (view === 'skills') {
       void listSkills(state, host)

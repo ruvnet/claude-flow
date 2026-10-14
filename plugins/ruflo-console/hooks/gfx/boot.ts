@@ -31,6 +31,7 @@ const LOG_MS_PER = 120
 /** Every area of the console, in menu order: what the boot log brings online. */
 export const BOOT_MODULES: readonly { name: string; note: string }[] = [
   { name: 'Missions', note: 'goal → SPARC plan → tasks' },
+  { name: 'Chat', note: 'read and talk to the live session' },
   { name: 'Overview', note: 'subsystems, health, Optimizer' },
   { name: 'Swarm', note: 'topology, agents, tasks' },
   { name: 'Workflows', note: 'Claude Code runs and the swarm' },

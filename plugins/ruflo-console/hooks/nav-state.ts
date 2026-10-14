@@ -8,7 +8,7 @@ import { VIEWS, type State, type ViewId } from './state'
 
 /** The nav's groups, the main menu's own, each in rows short enough to spell their names: every view but the menu is in exactly one. */
 export const NAV_GROUPS: readonly { title: string; icon: string; rows: readonly (readonly ViewId[])[] }[] = [
-  { title: 'SWARM', icon: '🐝', rows: [['missions', 'overview', 'swarm', 'workflows'], ['hive', 'claims', 'approvals']] },
+  { title: 'SWARM', icon: '🐝', rows: [['chat', 'missions', 'overview', 'swarm'], ['workflows', 'hive', 'claims', 'approvals']] },
   { title: 'MIND', icon: '🧠', rows: [['learning', 'neural', 'metaharness', 'evolve', 'memory', 'vector']] },
   { title: 'SAFETY', icon: '🛡️', rows: [['secure', 'cost', 'perf', 'timeline', 'events', 'room']] },
   { title: 'NETWORK', icon: '🌐', rows: [['federation', 'xruv', 'sandbox', 'skills', 'market']] },
