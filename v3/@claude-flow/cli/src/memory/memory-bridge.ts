@@ -23,7 +23,7 @@ import { resolveAgentdbBetterSqlite3 } from './shared-sqlite.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS } from './embedding-q8.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { realpathSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { validateFeedbackPatterns } from './feedback-patterns.js';
@@ -270,7 +270,12 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
           origLog.apply(console, args);
         };
 
+        // #4132: better-sqlite3 cannot create a missing parent directory. In a
+        // fresh checkout or worktree `.swarm/` does not exist yet, so AgentDB
+        // failed to open, the degraded registry was cached for the server's
+        // lifetime and hierarchical memory silently ran volatile.
         try {
+          if (resolvedPath !== ':memory:') mkdirSync(path.dirname(resolvedPath), { recursive: true });
           await (registry as any).initialize({
             // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
             dbPath: resolvedPath,
