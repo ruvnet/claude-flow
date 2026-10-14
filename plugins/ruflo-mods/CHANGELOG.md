@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-mods`.
 
+## 0.6.2 — 2026-10-14
+- fix: the mod's route context uses the same query-coverage scoring as hook-handler.cjs (inflection variants, IDF weights, coverage >= 0.15), so a short prompt finds a long memory entry and "migrations" finds "migration" (#4136, #4172); the ADR-404 parity test holds again
+
 ## 0.6.1 — 2026-10-12
 - fix: root-delete guard expands brace lists (`rm -rf {/*,}`), judges deep nesting by tokens instead of a literal phrase, catches fork-bomb definitions in any spacing or name, and keeps its option checks linear (#4093, thanks @proffesor-for-testing)
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)

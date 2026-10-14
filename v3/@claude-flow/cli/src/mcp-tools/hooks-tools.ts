@@ -3422,7 +3422,7 @@ export const hooksTrajectoryEnd: MCPTool = {
     } catch { /* prototype path — never blocks trajectory finalization */ }
 
     // SONA Learning - process trajectory outcome for routing optimization
-    let sonaResult: { learned: boolean; patternKey: string; confidence: number } = {
+    let sonaResult: { learned: boolean; patternKey: string; confidence: number; reinforcedNeighbour?: boolean; routingGate?: { threshold: number; confidence: number; reached: boolean; successesNeeded: number } } = {
       learned: false, patternKey: '', confidence: 0
     };
     let ewcResult: { consolidated: boolean; penalty: number } = {
@@ -3450,6 +3450,8 @@ export const hooksTrajectoryEnd: MCPTool = {
             learned: result.learned,
             patternKey: result.patternKey,
             confidence: result.confidence,
+            reinforcedNeighbour: result.reinforcedNeighbour,
+            routingGate: result.routingGate,
           };
         } catch {
           // SONA learning failed, continue without it
@@ -3618,6 +3620,8 @@ export const hooksTrajectoryEnd: MCPTool = {
         sonaUpdate: sonaResult.learned,
         sonaPatternKey: sonaResult.patternKey || undefined,
         sonaConfidence: sonaResult.confidence || undefined,
+        sonaReinforcedNeighbour: sonaResult.reinforcedNeighbour || undefined,
+        sonaRoutingGate: sonaResult.routingGate,
         ewcConsolidation: ewcResult.consolidated,
         ewcPenalty: ewcResult.penalty || undefined,
         patternsExtracted,

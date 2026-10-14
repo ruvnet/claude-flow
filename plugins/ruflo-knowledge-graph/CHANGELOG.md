@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.6 — 2026-10-14
+- fix: kg-traverse reads edges with `agentdb_graph-query` (k-hop) and `agentdb_graph-pathfinder`, not the write-only `agentdb_causal-edge`; it no longer calls `agentdb_context-synthesize` (entity records are not validated task episodes, so it always answered `no-eligible-episodes`) and says what to do when encryption at rest (RFE1) makes the graph unreadable; the graph-navigator agent lists the same read tools (#4135, #4161, thanks @ronmikailov)
+
 ## 0.3.5 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 

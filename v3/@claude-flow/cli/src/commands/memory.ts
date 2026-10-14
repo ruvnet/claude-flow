@@ -3,6 +3,7 @@
  * Memory operations for AgentDB integration
  */
 import { validateAppendConditions } from '../memory/append-conditions.js';
+import { DEFAULT_SEARCH_THRESHOLD, nearMisses } from '../memory/search-defaults.js';
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
@@ -463,7 +464,7 @@ const searchCommand: Command = {
       // default to 0.7, which silently re-broke #2558: `memory search` matched
       // content word-for-word and still returned nothing. Regression guard:
       // __tests__/memory-search-recall-2558.test.ts.
-      default: 0.3
+      default: 0.2
     },
     {
       name: 'type',
@@ -532,7 +533,9 @@ const searchCommand: Command = {
     // coalescing preserves an explicit zero. Fallback aligned with the
     // option's declared `default: 0.7` (was `0.3` — the two disagreed
     // and --help advertised a default the code did not honor).
-    const threshold = ctx.flags.threshold as number ?? 0.3;
+    const threshold = ctx.flags.threshold as number ?? DEFAULT_SEARCH_THRESHOLD;
+    // The parser fills the option's declared default, so an untouched flag arrives as the default value.
+    const thresholdWasDefault = ctx.flags.threshold === undefined || ctx.flags.threshold === DEFAULT_SEARCH_THRESHOLD;
     const searchType = ctx.flags.type as string || 'semantic';
     const buildHnsw = (ctx.flags['build-hnsw'] || ctx.flags.buildHnsw) as boolean;
     const requestedIntent = (ctx.flags.intent as string) || 'mixed';
@@ -785,6 +788,15 @@ const searchCommand: Command = {
 
       if (results.length === 0) {
         output.printWarning('No results found');
+        if (thresholdWasDefault) {
+          const near = await nearMisses(searchEntries, { query, namespace, provenanceFilter, dbPath: dbPathSearch });
+          if (near) {
+            output.writeln(output.dim(`  ${near.hint.replace(' in nearMisses', ' below').replace('Pass threshold: 0', 'Pass --threshold 0')}`));
+            for (const n of near.nearMisses) {
+              output.writeln(output.dim(`    ${n.similarity.toFixed(2)}  ${n.namespace}/${n.key}`));
+            }
+          }
+        }
         await warnIfSiblingHasRows(ctx.flags.path);
         output.writeln(output.dim('Try: claude-flow memory store -k "key" --value "data"'));
         return { success: true, data: [] };

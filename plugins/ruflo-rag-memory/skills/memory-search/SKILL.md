@@ -1,67 +1,61 @@
 ---
 name: memory-search
-description: SOTA semantic search — hybrid (sparse+dense), Graph RAG multi-hop, MMR diversity reranking, recency weighting
+description: Search Ruflo memory with semantic retrieval, keyword/semantic union, or optional SmartRetrieval reranking
 allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__memory_search_unified mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize
-argument-hint: "<query> [--hybrid] [--graph-rag] [--namespace NAME]"
+argument-hint: "<query> [--hybrid] [--smart] [--namespace NAME]"
 ---
 
-# Memory Search (SOTA)
+# Memory Search
 
-State-of-the-art semantic search across Ruflo memory with multiple retrieval strategies.
+Search Ruflo's stored memories. Select a strategy supported by the Ruflo CLI or MCP tool, and report which one actually ran.
 
-## Strategy Selection
+## Strategy selection
 
-Choose based on query type:
-- **Default** (dense): fast single-hop semantic match
-- **--hybrid**: sparse + dense with RRF fusion (20-49% better for keyword+semantic queries)
-- **--graph-rag**: multi-hop knowledge retrieval (30-60% better for reasoning queries)
+- **Default:** semantic retrieval through `memory search` or MCP `memory_search`.
+- **`--hybrid`:** CLI keyword + semantic result union, deduplicated and sorted by score. This is not the `ruvector search` CLI and does not claim Graph RAG or sparse/dense RRF.
+- **`--smart`:** request query expansion, RRF across variants, recency weighting, and MMR diversity. The MCP tool can fall back to plain search if the installed memory package lacks `smartSearch`; inspect the returned fallback note before claiming SmartRetrieval ran.
+- **Cross-namespace:** MCP `memory_search_unified` merges and deduplicates results from multiple namespaces.
+
+If the user requests `--graph-rag`, explain that this plugin has no supported text-query Graph RAG command. Offer `--smart` semantic retrieval as a clearly labeled fallback; do not claim graph traversal.
 
 ## Steps
 
-1. **Parse query and flags** — extract search text and strategy flags from arguments
-2. **Select retrieval strategy**:
+1. Parse the query, optional namespace, result limit, and strategy flags. Omit `--namespace` to search all namespaces.
+   For CLI commands, treat the query as untrusted shell input: use POSIX single-quote escaping for embedded apostrophes and reject embedded newlines. Do not interpolate it inside double quotes.
+2. Run one of the supported paths:
 
-   **Dense search (default)**:
+   **Semantic (default)**
    ```bash
-   npx @claude-flow/cli@latest memory search --query "QUERY" --namespace NAMESPACE --limit 10
+   npx @claude-flow/cli@latest memory search --query 'QUERY' --limit 10
    ```
-   Or via MCP: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "QUERY", namespace: "NAMESPACE", limit: 10 })`
+   MCP: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "QUERY", limit: 10 })`
 
-   **Hybrid search** (when --hybrid or query has specific keywords):
+   **Keyword + semantic union (`--hybrid`)**
    ```bash
-   npx ruvector search "QUERY" --hybrid --limit 10
+   npx @claude-flow/cli@latest memory search --query 'QUERY' --type hybrid --limit 10
    ```
+   Add `--namespace NAMESPACE` only when the user requests one.
 
-   **Graph RAG** (when --graph-rag or multi-hop reasoning needed):
+   **Smart retrieval (`--smart`)**
    ```bash
-   npx ruvector search "QUERY" --graph-rag --limit 10
+   npx @claude-flow/cli@latest memory search --query 'QUERY' --smart --limit 10
    ```
+   MCP: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "QUERY", smart: true, limit: 10 })`
 
-   **Smart retrieval** (when --smart or complex recall needed):
-   ```bash
-   npx @claude-flow/cli@latest memory search --query "QUERY" --smart --limit 10
-   ```
-   Or via MCP: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "QUERY", smart: true, limit: 10 })`
-
-   Applies 5-phase pipeline: query expansion, RRF fusion, recency boost, MMR diversity, session round-robin.
-   Best for: multi-session recall, temporal queries, diverse result sets.
-
-   **Unified cross-namespace**:
+   **Cross-namespace bridge search**
    `mcp__plugin_ruflo-core_ruflo__memory_search_unified({ query: "QUERY", limit: 10 })`
 
-3. **Apply MMR reranking** — for diverse results, filter near-duplicates (cosine > 0.92) while maximizing relevance
-4. **Apply recency weighting** — boost recent entries with exponential decay (0.95/day)
-5. **Synthesize context** (for complex queries):
-   `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize({ query: "QUERY", sources: ["patterns", "tasks", "solutions"] })`
-6. **Present results** — ranked by composite score (relevance * diversity * recency), with source namespace attribution
+3. For a complex query, optionally request AgentDB context synthesis with its registered schema:
+   `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize({ query: "QUERY", maxEntries: 10 })`
+4. Present the returned entries with namespace attribution. Distinguish raw `similarity` from SmartRetrieval's `rankingScore`; neither is a probability of truth. State when SmartRetrieval fell back to plain search.
 
-## Namespace Guide
+## Namespace guide
 
-| Namespace | Best For |
-|-----------|----------|
-| `patterns` | "How did we handle X?" |
-| `tasks` | "What was the context for Y?" |
-| `solutions` | "How did we fix Z?" |
-| `feedback` | "What did the user prefer?" |
-| `security` | "Known vulnerabilities in..." |
-| (omit) | Search all namespaces |
+| Namespace | Typical content |
+|-----------|-----------------|
+| `patterns` | Reusable approaches |
+| `tasks` | Task context |
+| `solutions` | Resolved problems |
+| `feedback` | User corrections |
+| `security` | Security notes |
+| (omit) | All available namespaces |

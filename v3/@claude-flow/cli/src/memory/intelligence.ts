@@ -562,8 +562,12 @@ class LocalReasoningBank {
    * Deduplicates by content: if a pattern with the same content already
    * exists, the existing entry is updated (bumped usageCount, higher
    * confidence wins, refreshed lastUsedAt) instead of adding a duplicate.
+   *
+   * Returns true only when a NEW pattern was added (#3979 item 4): callers that
+   * keep a "patterns learned" counter must not count a merge or an update of an
+   * existing pattern as a newly learned one.
    */
-  store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): void {
+  store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): boolean {
     const now = Date.now();
     const stored: StoredPattern = {
       ...pattern,
@@ -583,6 +587,9 @@ class LocalReasoningBank {
       if (idx >= 0) {
         this.patternList[idx] = stored;
       }
+      this.patterns.set(pattern.id, stored);
+      this.saveToDisk();
+      return false;
     } else {
       // Check for content-duplicate before inserting a new entry
       const contentDupe = this.patternList.find(p => p.content === pattern.content);
@@ -596,7 +603,7 @@ class LocalReasoningBank {
         // Keep the Map in sync with the mutated object
         this.patterns.set(contentDupe.id, contentDupe);
         this.saveToDisk();
-        return;
+        return false;
       }
 
       // Evict oldest if at capacity
@@ -613,6 +620,7 @@ class LocalReasoningBank {
 
     // Trigger persistence (debounced)
     this.saveToDisk();
+    return true;
   }
 
   /**
@@ -1220,7 +1228,7 @@ export async function recordTrajectory(
       if (verdict === 'success') {
         for (const step of enrichedSteps) {
           if (step.embedding && step.embedding.length > 0) {
-            reasoningBank.store({
+            const added = reasoningBank.store({
               id: `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: step.type,
               content: step.content,
@@ -1229,7 +1237,10 @@ export async function recordTrajectory(
               metadata: step.metadata || {},
               createdAt: Date.now(),
             });
-            bumpStat('patternsLearned');
+            // #3979 item 4: count only patterns that were actually added. A step
+            // whose content already exists is merged into that pattern, so the
+            // counter no longer climbs once per successful step.
+            if (added) bumpStat('patternsLearned');
           }
         }
       }
