@@ -87,7 +87,7 @@ const PATH_CLASSIFICATION_PATTERNS: Record<string, RegExp[]> = {
 };
 
 const IMPACT_KEYWORDS: Record<string, number> = {
-  security: 3, auth: 3, payment: 3, database: 2, api: 2, core: 2,
+  payment: 3, database: 2, api: 2, core: 2,
   util: 1, helper: 1, test: 0, mock: 0, fixture: 0,
 };
 
@@ -102,6 +102,21 @@ function pathHasTerm(path: string, term: string): boolean {
     config: ['config', 'configuration'],
   };
   return (aliases[term] ?? [term]).some(value => tokens.includes(value));
+}
+
+// Match path terms rather than substrings: `encryption` must trigger review,
+// while unrelated names such as `author` and `tokenizer` must not.
+const SECURITY_PATH_TERMS = new Set([
+  'security', 'secure', 'auth', 'oauth', 'authenticate', 'authentication',
+  'authorization', 'authorized', 'authenticator', 'crypto', 'cryptography',
+  'encrypt', 'encryption', 'encrypted', 'decrypt', 'decryption', 'decrypted',
+  'cipher', 'secret', 'secrets', 'password', 'passwords', 'token', 'tokens',
+  'vault', 'kms',
+]);
+
+function isSecuritySensitivePath(path: string): boolean {
+  const terms = path.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase().split(/[^a-z0-9]+/);
+  return terms.some(term => SECURITY_PATH_TERMS.has(term));
 }
 
 export class DiffClassifier {
@@ -294,6 +309,7 @@ export class DiffClassifier {
   private determineImpactLevel(path: string, hunks: DiffHunk[]): DiffClassification['impactLevel'] {
     let score = 0;
     for (const [keyword, weight] of Object.entries(IMPACT_KEYWORDS)) { if (pathHasTerm(path, keyword)) score = Math.max(score, weight); }
+    if (isSecuritySensitivePath(path)) score = Math.max(score, 3);
     const totalChanges = hunks.reduce((sum, h) => sum + h.changes.filter(c => c.type !== 'context').length, 0);
     if (totalChanges > 100) score = Math.max(score, 2);
     if (totalChanges > 300) score = Math.max(score, 3);
@@ -308,7 +324,7 @@ export class DiffClassifier {
     const typeReviewers: Record<string, string[]> = { feature: ['tech-lead', 'product-owner'], bugfix: ['qa-engineer', 'developer'], refactor: ['senior-developer', 'architect'], docs: ['tech-writer', 'developer'], test: ['qa-engineer', 'developer'], config: ['devops', 'tech-lead'], style: ['developer'], unknown: ['developer'] };
     reviewers.push(...(typeReviewers[primary] || typeReviewers.unknown));
     if (impact === 'critical' || impact === 'high') reviewers.push('security-reviewer');
-    if (pathHasTerm(path, 'security') || pathHasTerm(path, 'auth')) reviewers.push('security-team');
+    if (isSecuritySensitivePath(path)) reviewers.push('security-team');
     if (pathHasTerm(path, 'database') || pathHasTerm(path, 'migration')) reviewers.push('dba');
     return [...new Set(reviewers)].slice(0, 4);
   }
@@ -319,7 +335,7 @@ export class DiffClassifier {
     if (primary === 'feature') strategies.push('integration-tests');
     if (impact === 'high' || impact === 'critical') { strategies.push('regression-tests'); strategies.push('e2e-tests'); }
     if (['api', 'endpoint', 'route', 'handler'].some(term => pathHasTerm(path, term))) strategies.push('api-contract-tests');
-    if (['security', 'auth', 'crypto'].some(term => pathHasTerm(path, term))) strategies.push('security-audit');
+    if (isSecuritySensitivePath(path)) strategies.push('security-audit');
     return strategies.slice(0, 5);
   }
 
@@ -329,7 +345,7 @@ export class DiffClassifier {
     if (totalChanges > 200) risks.push('Large change set - increased review time needed');
     if (impact === 'critical') risks.push('Critical system component - requires careful review');
     if (impact === 'high') risks.push('High-impact area - monitor after deployment');
-    if (pathHasTerm(path, 'security') || pathHasTerm(path, 'auth')) risks.push('Security-sensitive code');
+    if (isSecuritySensitivePath(path)) risks.push('Security-sensitive code');
     if (pathHasTerm(path, 'database') || pathHasTerm(path, 'migration')) risks.push('Database changes - ensure backup strategy');
     if (pathHasTerm(path, 'config') || pathHasTerm(path, 'env')) risks.push('Configuration changes - verify all environments');
     const allContent = hunks.flatMap(h => h.changes.map(c => c.content)).join('\n');
@@ -430,19 +446,23 @@ const CACHE_TTL_MS = 5000; // 5 seconds - short TTL since diffs change frequentl
  * Only allows safe characters: alphanumeric, -, _, /, ., ~, ^
  */
 function validateGitRef(ref: string): void {
-  // Block shell metacharacters and dangerous patterns
-  if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
-    throw new Error(`Invalid git ref: contains unsafe characters`);
-  }
-  // Block multiple dots (path traversal)
-  if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
-    if (!/^\w+\.\.[.\w]+$/.test(ref)) {
-      throw new Error(`Invalid git ref: suspicious pattern`);
-    }
-  }
-  // Max length check
   if (ref.length > 256) {
     throw new Error(`Invalid git ref: too long`);
+  }
+  // A ref is passed as one argv element, but still must not be an option or
+  // contain shell metacharacters. A range may omit its right endpoint (HEAD).
+  if (!/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(ref)) {
+    throw new Error(`Invalid git ref: contains unsafe characters`);
+  }
+  if (ref.includes('..')) {
+    const range = ref.match(/^(.+?)(\.\.\.?)(.*)$/);
+    // Only one range separator is allowed. In particular, reject traversal
+    // inside either endpoint, while accepting branch paths and ancestry syntax.
+    if (!range || range[1].includes('..') || range[3].includes('..') ||
+        !/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(range[1]) ||
+        (range[3] !== '' && !/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(range[3]))) {
+      throw new Error(`Invalid git ref: suspicious pattern`);
+    }
   }
 }
 
@@ -619,7 +639,7 @@ export function assessFileRisk(file: DiffFile): FileRisk {
   }
 
   // Path-based risk
-  if (['security', 'auth', 'crypto', 'password'].some(term => pathHasTerm(file.path, term))) {
+  if (isSecuritySensitivePath(file.path)) {
     score += 40;
     reasons.push('Security-sensitive file');
   }
@@ -770,7 +790,7 @@ export function suggestReviewers(files: DiffFile[], fileRisks: FileRisk[]): stri
 
   for (const file of files) {
     const hasAny = (...terms: string[]) => terms.some(term => pathHasTerm(file.path, term));
-    if (hasAny('security', 'auth', 'crypto')) reviewers.add('security-team');
+    if (isSecuritySensitivePath(file.path)) reviewers.add('security-team');
     if (hasAny('database', 'migration')) reviewers.add('dba');
     if (hasAny('api', 'endpoint', 'route')) reviewers.add('api-owner');
     if (hasAny('test', 'spec')) reviewers.add('qa-engineer');
