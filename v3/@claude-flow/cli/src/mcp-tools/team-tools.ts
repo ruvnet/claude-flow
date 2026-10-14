@@ -15,8 +15,12 @@
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateText } from './validate-input.js';
 import { loadBus, type BusOp, type TeamBus } from './team-bus.js';
-import { normalizeAgentLabel, resolveHost, TeamHostsError } from './team-hosts/index.js';
-import { buildExecHostPlans, stringList } from './team-hosts/plan.js';
+import { normalizeAgentLabel } from './team-hosts/identity.js';
+
+// The host registry pulls in @claude-flow/codex (the shared env policy). Load
+// it on first use so importing the MCP tool table does not.
+const loadHosts = () => import('./team-hosts/index.js');
+const loadPlan = () => import('./team-hosts/plan.js');
 
 const SPAWN_KEYS = ['team', 'agent', 'role', 'prompt', 'next', 'hosts', 'model'];
 /** Likely mistakes for a known key, so the error can say what was meant. */
@@ -80,6 +84,7 @@ export const teamTools: MCPTool[] = [
     },
     handler: async (input) => {
       try {
+        const { resolveHost } = await loadHosts();
         resolveHost(String(input.host || 'grok'), getProjectCwd());
       } catch (e) {
         return { success: false, error: (e as Error).message };
@@ -128,6 +133,7 @@ export const teamTools: MCPTool[] = [
       const model = input.model === undefined ? undefined : String(input.model);
       let hostPlans: Record<string, Record<string, unknown>>;
       try {
+        const { buildExecHostPlans, stringList } = await loadPlan();
         const bus = await loadBus();
         const status = await bus.teamStatus(root, { team: input.team });
         const team = (status as { team: { id: string; name: string; host?: string } }).team;
@@ -138,7 +144,6 @@ export const teamTools: MCPTool[] = [
           stringList(input.next), labels, bus.ROLE_DEFAULTS, model,
         );
       } catch (e) {
-        if (e instanceof TeamHostsError) return { success: false, error: e.message };
         return { success: false, error: (e as Error).message || String(e) };
       }
       return run('spawnMember', {

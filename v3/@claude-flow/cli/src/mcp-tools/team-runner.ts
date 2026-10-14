@@ -13,6 +13,7 @@ import { hostname } from 'node:os';
 import { join, relative } from 'node:path';
 import { getProjectCwd } from './types.js';
 import { getAdapter, isProtectedEnvName } from './team-hosts/index.js';
+import { loadCodexDualMode } from './team-hosts/codex-dual-mode.js';
 import { resolveExecPlan, type ResolvedExecPlan } from './team-hosts/plan.js';
 import { loadBus, loadStore, type BusMessage, type StoreMember, type StoreTeam, type TeamBus } from './team-bus.js';
 import {
@@ -229,8 +230,8 @@ export async function runTeamAgent(opts: TeamRunOptions): Promise<TeamRunResult>
     };
   }
 
-  const dual = await import('@claude-flow/codex/dual-mode').catch(() => undefined);
-  if (!dual || typeof dual.runHeadlessProcess !== 'function') {
+  const dual = await loadCodexDualMode();
+  if (!dual || typeof dual.runHeadlessProcess !== 'function' || typeof dual.buildWorkerEnvironment !== 'function') {
     return abandon('`ruflo team run` needs a newer @claude-flow/codex (runHeadlessProcess is missing)');
   }
 

@@ -6,7 +6,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isProtectedEnvName } from '@claude-flow/codex/dual-mode';
+import { loadCodexDualMode } from './codex-dual-mode.js';
 import { readStopIdentity } from './identity.js';
 import {
   EXEC_PLACEHOLDERS,
@@ -26,14 +26,21 @@ const HOST_KEYS = new Set(['kind', 'command', 'args', 'promptVia', 'passEnv', 'i
 
 /**
  * Names a command host's passEnv may never re-add: secrets and Ruflo's own
- * identity/policy variables. Re-exported from `@claude-flow/codex` — the
+ * identity/policy variables. Delegates to `@claude-flow/codex` — the
  * SAME function `buildWorkerEnvironment` uses to strip the base environment
  * before spawning any host. #3513 MAJOR A: these used to be two separately
  * maintained regexes, and the base-environment strip's was the narrower one,
  * so a command host's environment leaked names its own `passEnv` validation
  * would have refused. One deny policy now, consulted from both places.
  */
-export { isProtectedEnvName } from '@claude-flow/codex/dual-mode';
+const envPolicy = (await loadCodexDualMode())?.isProtectedEnvName;
+
+export function isProtectedEnvName(name: string): boolean {
+  if (typeof envPolicy !== 'function') {
+    throw new TeamHostsError('team-hosts.json: @claude-flow/codex could not be loaded, so passEnv cannot be checked; reinstall ruflo');
+  }
+  return envPolicy(name);
+}
 
 export class TeamHostsError extends Error {}
 
