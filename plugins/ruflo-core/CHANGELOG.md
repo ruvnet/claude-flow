@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.11 — 2026-10-14
+- perf: the MCP launcher runs the resolved local CLI inside its own process instead of spawning a second node (one process, about half the memory, a faster first answer: measured here with a stub CLI as 2 processes to 1, 89 MB to 46 MB, 30 ms to 19 ms spawn-to-initialize); `RUFLO_MCP_SPAWN=1` restores the child process, and the npx fallback still spawns (#3989, thanks @socrates6969). The real-CLI startup numbers in the PR (149 MB to 81 MB, 1.3 s to 0.7 s) were not re-measured.
+
 ## 0.2.10 — 2026-10-14
 - fix: the MCP launcher starts the server in the session project (`CLAUDE_PROJECT_DIR`, then `CLAUDE_FLOW_CWD`, then its own working directory; a drive root, the home folder or a missing folder is not a project) and looks for the local CLI from there, so on Windows the CLI and the MCP server keep one `.claude-flow` state, not two (#3987, thanks @socrates6969). It warns on stderr when there is no project. Tested with Windows-style environments only; no Windows machine was available.
 
