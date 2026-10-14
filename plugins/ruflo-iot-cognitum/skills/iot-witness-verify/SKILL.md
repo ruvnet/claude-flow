@@ -7,7 +7,7 @@ argument-hint: "<device-id>"
 Verify the witness chain integrity for a Cognitum Seed device.
 
 Steps:
-1. `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot witness verify DEVICE_ID`
+1. `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot witness verify DEVICE_ID`
 2. Check for epoch gaps and hash chain breaks
 3. Report integrity score (0.0–1.0)
 4. If gaps found, store for audit trail:

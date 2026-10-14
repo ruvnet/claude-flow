@@ -9,11 +9,11 @@ export const CONSOLE_CONFIG = JSON.stringify({
     refreshSeconds: { type: 'number', title: 'Disk refresh (seconds)', description: 'How often ruflo’s files are re-read (2 to 60).', default: 3 },
     fps: { type: 'number', title: 'Animation frames per second', description: 'Frame cap while the pane is shown (0 to 12).', default: 8 },
     panel: { type: 'string', title: 'Cockpit pane', description: 'auto opens the cockpit at session start.', default: 'auto', options: ['auto', 'command', 'off'] },
-    look: { type: 'string', title: 'Look', description: 'bbs draws ANSI-BBS art; plain is text only.', default: 'bbs', options: ['bbs', 'plain'] },
+    look: { type: 'string', title: 'Look', description: 'bbs draws ANSI-BBS art; plain is text only.', default: 'bbs', options: ['bbs', 'plain', 'orbital'] },
     boot: { type: 'boolean', title: 'Boot screen', description: 'Play the dial-up boot screen when the cockpit opens.', default: true },
   },
   inputs: { cli: 'npx-offline', refreshSeconds: '', fps: '', panel: 'auto', look: 'bbs', boot: 'true' },
-  choices: { cli: ['npx-offline', 'npx', 'ruflo', 'claude-flow'], panel: ['auto', 'command', 'off'], look: ['bbs', 'plain'], boot: ['true', 'false'] },
+  choices: { cli: ['npx-offline', 'npx', 'ruflo', 'claude-flow'], panel: ['auto', 'command', 'off'], look: ['bbs', 'plain', 'orbital'], boot: ['true', 'false'] },
   configured: [],
   unconfigured: ['cli', 'refreshSeconds', 'fps', 'panel', 'look', 'boot'],
 })

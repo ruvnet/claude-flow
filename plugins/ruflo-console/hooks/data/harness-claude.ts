@@ -6,7 +6,7 @@
  * Declared: discovery and preview. Claude Code writes no approval request into the transcript, so `approvals` is not claimed.
  */
 import { repoOf, no, yes, type Capabilities, type HarnessAdapter, type Preview, type ScanEnv, type ScanResult, type SessionRow, type SessionStatus, type Signals } from './harness'
-import { isRecord, isTestCommand, scanRecords, shown, str, testLine, timeMs } from './harness-text'
+import { believedAt, isRecord, isTestCommand, scanRecords, shown, str, testLine, timeMs } from './harness-text'
 import { settle, type Candidate, type Memory } from './harness-track'
 import { under } from './files'
 
@@ -37,6 +37,17 @@ const EDITS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
 const FILES_MAX = 8
 const ACTIVE_MS = 90_000
 const FAIL_QUIET_MS = 30_000
+/**
+ * The two whole results Claude Code writes when the person refuses a tool call at the permission prompt (both read on this machine): the
+ * refusal sentence alone (optionally with Claude Code's own "Note:" paragraph after it), or the refusal and the person's reply. Matched as that
+ * structure, never as a prefix: a genuine error that merely quotes the sentence is still a failure.
+ */
+const REFUSED = "The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file)."
+const REFUSED_STOP = `${REFUSED} STOP what you are doing and wait for the user to tell you how to proceed.`
+const REFUSED_SAID = `${REFUSED} To tell you how to proceed, the user said:\n`
+const isRefusal = (body: string): boolean => body === REFUSED_STOP || body.startsWith(`${REFUSED_STOP}\n\nNote: `) || (body.startsWith(REFUSED_SAID) && body.length > REFUSED_SAID.length)
+
+const resultText = (content: unknown): string => (typeof content === 'string' ? content : Array.isArray(content) ? content.map(part => (isRecord(part) && typeof part.text === 'string' ? part.text : '')).join('\n') : '')
 
 export function summarizeClaude(text: string, id: string): ClaudeSummary {
   const out: ClaudeSummary = { cwd: null, branch: null, title: null, idMismatch: false, lastAtMs: null, pendingTool: null, preview: { latest: '', tool: null, files: [], test: null }, signals: { question: false, approval: false, failed: false, turnEndedAtMs: null }, costUsd: null, costPartial: false }
@@ -57,6 +68,9 @@ export function summarizeClaude(text: string, id: string): ClaudeSummary {
     if (str(record.gitBranch) !== undefined) out.branch = shown(record.gitBranch, 60)
 
     if ((type === 'assistant' || type === 'user') && at !== undefined) convAtMs = Math.max(convAtMs, at)
+    // The person typed (a prompt, or an interrupt such as "[Request interrupted by user for tool use]"): whatever failed before is theirs to
+    // see in their terminal now, and the session waits on them, not on a failure.
+    if (type === 'user' && isRecord(record.message) && typeof record.message.content === 'string' && record.message.content !== '') afterError = false
 
     if (type === 'ai-title') out.title = shown(record.aiTitle, 80) || out.title
     else if (type === 'last-prompt') prompt = shown(record.lastPrompt, 80) || prompt
@@ -73,6 +87,8 @@ export function summarizeClaude(text: string, id: string): ClaudeSummary {
           const line = shown(block.text, 600)
 
           if (line !== '') out.preview.latest = line
+          afterError = false
+        } else if (block.type === 'text' && type === 'user') {
           afterError = false
         } else if (block.type === 'tool_use' && type === 'assistant') {
           const name = shown(block.name, 40)
@@ -91,7 +107,10 @@ export function summarizeClaude(text: string, id: string): ClaudeSummary {
           afterError = false
         } else if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
           const call = open.get(block.tool_use_id.slice(0, 100))
-          const failed = block.is_error === true
+          const body = resultText(block.content)
+          // A refusal at the permission prompt is the person's decision: is_error is set, but nothing failed. (Esc on it writes a user text
+          // block after the result, which clears the error below.)
+          const failed = block.is_error === true && !isRefusal(body)
 
           open.delete(block.tool_use_id.slice(0, 100))
           if (call?.name === 'AskUserQuestion') out.signals.question = false
@@ -99,8 +118,6 @@ export function summarizeClaude(text: string, id: string): ClaudeSummary {
           lastErrorAtMs = failed ? (at ?? null) : lastErrorAtMs
 
           if (call !== undefined && isTestCommand(call.command)) {
-            const body = typeof block.content === 'string' ? block.content : Array.isArray(block.content) ? block.content.map(part => (isRecord(part) && typeof part.text === 'string' ? part.text : '')).join('\n') : ''
-
             out.preview.test = `${failed ? 'failed' : 'passed'}${testLine(body) === null ? '' : `: ${testLine(body)}`}`
           }
         }
@@ -109,6 +126,7 @@ export function summarizeClaude(text: string, id: string): ClaudeSummary {
   })
 
   out.signals.failed = afterError && lastErrorAtMs !== null && open.size === 0
+  out.signals.failedAtMs = out.signals.failed ? lastErrorAtMs : null
   out.pendingTool = open.size > 0 ? [...open.values()].map(call => call.name).pop() ?? null : null
   out.title = out.title ?? prompt
   if (out.pendingTool === null) out.signals.question = false
@@ -149,7 +167,8 @@ export function claudeRow(cand: Candidate, held: { value: ClaudeSummary | null; 
     stale: held.stale,
     external: true,
     cost: s === null || s.costUsd === null ? { label: 'unavailable', note: 'the transcript holds no cost entry' } : { label: 'reported', usd: s.costUsd, ...(s.costPartial && { note: 'some models unpriced' }) },
-    signals: s?.signals ?? { question: false, approval: false, failed: false, turnEndedAtMs: null },
+    // Times a record claims are held to the file's mtime and the clock (believedAt), so a skewed timestamp cannot pin "seen" in the future.
+    signals: s === null ? { question: false, approval: false, failed: false, turnEndedAtMs: null } : { ...s.signals, turnEndedAtMs: believedAt(s.signals.turnEndedAtMs, cand.mtimeMs, nowMs), failedAtMs: believedAt(s.signals.failedAtMs, cand.mtimeMs, nowMs) },
     preview: s === null ? null : s.preview,
     context: [],
     noPreview: held.noPreview,
@@ -234,7 +253,7 @@ export function claudeAdapter(): HarnessAdapter & { reset(): void } {
       for (const [path, cand] of known) if (!names.has(cand.folder)) known.delete(path)
 
       const tracked = [...known.values()].filter(cand => env.nowMs - cand.mtimeMs < RECENT_MS || cand.mtimeMs === 0).sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_TRACKED)
-      const settled = await settle(env.fs, memory, tracked, (text, _whole, cand) => summarizeClaude(text, cand.nativeId))
+      const settled = await settle(env.fs, memory, tracked, (text, _whole, cand) => summarizeClaude(text, cand.nativeId), env.budget)
 
       for (const path of [...memory.keys()]) if (!known.has(path)) memory.delete(path)
 

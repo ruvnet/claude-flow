@@ -82,5 +82,5 @@ export function missionAnswer(state: State, paletteId: string | null): string | 
   if (paletteId === 'mission-goal') return mc.planned === null ? 'type a goal after the id: /ruflo plan <goal>' : planText(mc.planned, mc.goal, settingsOf(state).ai)
   if (paletteId === 'mission-status') return statusText(state)
 
-  return mc.last === null ? null : `${mc.last.ok ? '✓' : '✗'} ${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`
+  return mc.last === null ? null : [`${mc.last.ok ? '✓' : '✗'} ${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`, ...(mc.last.lines ?? []).map(line => `  ${line}`)].join('\n')
 }

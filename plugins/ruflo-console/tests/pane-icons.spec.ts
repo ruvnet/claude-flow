@@ -107,8 +107,17 @@ describe('the icon row', () => {
       expect([...glyph].length, name).toBe(1)
       expect(glyph, name).not.toBe('?')
       // None may be an emoji, or have an emoji form: a terminal can draw those two cells wide, and the lit icon (bold) would then jump.
-      expect(glyph, name).not.toMatch(/\p{Extended_Pictographic}|\p{Emoji_Presentation}/u)
+      // \p{Emoji} is exactly "has an emoji form" (⚙ yes, ⛭ no); \p{Extended_Pictographic} also covers reserved emoji-range
+      // code points such as ⛭ that have no emoji form, which is why settings uses it.
+      expect(glyph, name).not.toMatch(/\p{Emoji}|\p{Emoji_Presentation}/u)
     }
+  })
+
+  it('the emoji-form check tells a gear with an emoji form from one without', () => {
+    const emojiForm = /\p{Emoji}|\p{Emoji_Presentation}/u
+    expect('⚙').toMatch(emojiForm) // U+2699 takes an emoji form with U+FE0F
+    expect('☀').toMatch(emojiForm)
+    for (const glyph of ['⛭', '⌂', '⌘', 'ʔ', '⟳']) expect(glyph).not.toMatch(emojiForm)
   })
 
   it('each icon does its one thing', () => {

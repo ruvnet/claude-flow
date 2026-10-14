@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-adr v0.5.4 (ADR-0001, ADR-0002).
+# Structural smoke test for ruflo-adr v0.5.5 (ADR-0001, ADR-0002).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -9,10 +9,10 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # 1. plugin.json bump + new keywords
-step "1. plugin.json declares 0.5.4 with new keywords"
+step "1. plugin.json declares 0.5.7 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.5.4" ]]; then
-  bad "expected 0.5.4, got '$v'"
+if [[ "$v" != "0.5.7" ]]; then
+  bad "expected 0.5.7, got '$v'"
 else
   miss=""
   for k in lifecycle compliance causal-graph mcp; do

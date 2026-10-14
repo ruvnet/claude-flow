@@ -67,14 +67,15 @@ Several plugins shipped with subtle MCP bugs the loop has been finding. Don't re
 
 ## Plugin.json schema
 
-Required fields:
-- `name` — plugin identifier (kebab-case)
+Required fields (the repo gate `scripts/audit-plugin-manifest.mjs` fails without them):
+- `name` — plugin identifier (kebab-case, must equal the directory name)
 - `description` — what the plugin does
-- `version` — semver
+- `version` — semver (`X.Y.Z`, optional pre-release suffix); bump it on every change, because marketplace users only receive a plugin when its version changes
+- `keywords` — non-empty array of strings
 
 Recommended fields:
 - `author` — `{ "name": "...", "url": "..." }`
-- `homepage`, `license`, `keywords`
+- `homepage`, `license`
 
 Optional fields:
 - `graph_adapter` — ADR-130 graph intelligence contract (commented out by default in generated output):
@@ -96,7 +97,7 @@ Browse available tools: `mcp__plugin_ruflo-core_ruflo__transfer_plugin-info`
 
 Common tool categories:
 - `memory_*` — storage, search, retrieval
-- `agentdb_*` — 15 controller-bridge tools (do NOT pass `namespace` arg — they route by tier or ReasoningBank); call `agentdb_controllers` at runtime for the canonical list
+- `agentdb_*` — 20 controller-bridge tools (the count grows) (do NOT pass `namespace` arg — they route by tier or ReasoningBank); call `agentdb_controllers` at runtime for the canonical list
 - `neural_*` — neural training and prediction
 - `hooks_*` — lifecycle hooks and intelligence
 - `browser_*` — browser automation

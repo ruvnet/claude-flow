@@ -21,7 +21,7 @@ Before starting any non-trivial task. Replaces manual agent selection with data-
 4. **Predict outcome** — `mcp__plugin_ruflo-core_ruflo__neural_predict` with the task description for a confidence-scored prediction.
 5. **Spawn the recommended agent** at the recommended model tier.
 6. **(If `--why` was passed)** — call `mcp__plugin_ruflo-core_ruflo__hooks_explain` to surface the routing rationale to the user.
-7. **After task completes** — call `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome` with `success: true|false` to train the router.
+7. **After task completes** — call `mcp__plugin_ruflo-core_ruflo__hooks_model-outcome` with `{ task, model, outcome: "success"|"failure"|"escalated" }` to train the router.
 
 ## 3-Tier Model Routing
 
@@ -38,11 +38,11 @@ When `hooks_route` returns `[CODEMOD_AVAILABLE]` for a deterministic intent (`va
 Closing the routing loop is mandatory:
 
 ```bash
-# Success
-mcp tool call hooks_model-outcome --json -- '{"taskId": "T123", "success": true, "model": "haiku"}'
+# Success (task, model and outcome are all required; model is haiku|sonnet|opus)
+npx @claude-flow/cli@latest mcp exec -t hooks_model-outcome -p '{"task": "fix the flaky retry test", "model": "haiku", "outcome": "success"}'
 
-# Failure with reason
-mcp tool call hooks_model-outcome --json -- '{"taskId": "T123", "success": false, "model": "haiku", "reason": "complexity-misjudged"}'
+# The model was too small and the work moved up a tier: use "escalated"; use "failure" if it did not work out
+npx @claude-flow/cli@latest mcp exec -t hooks_model-outcome -p '{"task": "fix the flaky retry test", "model": "haiku", "outcome": "escalated"}'
 ```
 
 The router learns from these calls. Skipping them = no learning.
@@ -52,5 +52,5 @@ The router learns from these calls. Skipping them = no learning.
 ```bash
 npx @claude-flow/cli@latest hooks route --task "description"
 npx @claude-flow/cli@latest hooks pre-task --description "description"
-npx @claude-flow/cli@latest hooks explain --topic "routing decision"
+npx @claude-flow/cli@latest hooks explain --task "description" --verbose
 ```

@@ -67,3 +67,20 @@ export const membersText = (status: Pick<SwarmStatus, 'listed' | 'found'>): stri
 /** The record's status as a run state, so Workflows says what Overview says; null for a status it does not know. */
 export const swarmRunState = (status: SwarmStatus): 'failed' | 'active' | 'stalled' | 'finished' | null =>
   /fail|error/i.test(status.status) ? 'failed' : /^running$|active/i.test(status.status) ? (status.isStale ? 'stalled' : 'active') : /terminat|stop|shut|complete|done|finish/i.test(status.status) ? 'finished' : null
+
+/**
+ * The agents with evidence of being here now, by the same rule as a swarm's staleness: busy now, created within SWARM_STALE_MS, or seen to
+ * change status since `fromMs` (the console logs the first status it sees for every agent, so one entry alone is not activity). The agent store
+ * keeps every agent ever spawned; without this, weeks-old idle records read as present.
+ */
+export function presentAgents(agents: readonly AgentRecord[], log: ReadonlyMap<string, readonly { atMs: number; status: string }[]>, fromMs: number, nowMs: number): AgentRecord[] {
+  return uniqueAgents(agents).filter(agent => {
+    if (BUSY.test(agent.status) || /working/i.test(agent.status)) return true
+
+    const created = sinceOf(agent.createdAtMs, nowMs)
+
+    if (created !== undefined && nowMs - created <= SWARM_STALE_MS) return true
+
+    return (log.get(agent.id) ?? []).some((entry, i) => i > 0 && entry.atMs >= fromMs)
+  })
+}

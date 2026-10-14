@@ -35,4 +35,16 @@ describe('plugin discovery: unverified registry fallback is labelled honestly', 
     expect(second.demo).toBe(true);
     expect(second.source).toMatch(/\(demo\)$/);
   });
+
+  it('lists no retired agentic-qe shim and only curates plugins it actually lists', async () => {
+    const svc = new PluginDiscoveryService({ requireVerification: true } as never);
+    const { registry } = await svc.discoverRegistry(svc.listRegistries()[0].name);
+    const ids = new Set(registry!.plugins.map((p) => p.id));
+
+    // The in-repo shim was removed; agentic-qe ships as its own package and Claude Code plugin.
+    expect(ids.has('@claude-flow/plugin-agentic-qe')).toBe(false);
+    for (const list of [registry!.featured, registry!.trending, registry!.newest, registry!.official]) {
+      for (const id of list) expect(ids.has(id)).toBe(true);
+    }
+  });
 });

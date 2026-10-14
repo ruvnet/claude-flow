@@ -13,7 +13,28 @@ Follow the TDD London School (mock-first) approach:
 5. **Repeat** -- add the next behavior
 
 Before starting: `mcp__plugin_ruflo-core_ruflo__hooks_pre-task({ description: "TDD: FEATURE_NAME" })`
-After completing: `mcp__plugin_ruflo-core_ruflo__hooks_post-task({ taskId: "tdd-FEATURE", success: true, storeResults: true })`
+Before reporting the outcome, run the final target tests and the regression suite after the last edit. Record the actual commands, exit codes, whether tests ran, and failing test names. The initial red test is expected during TDD; only the final validation determines success.
+
+Call `mcp__plugin_ruflo-core_ruflo__hooks_post-task` with the observed result, including when the task is abandoned or validation is interrupted. Set `completed`, `targetTestsRan`, and `regressionTestsRan` to true only when observed; use null for missing exit codes. Skipped or unrun validation is not success. Never substitute an expected result for an observed one.
+
+The following example maps those observations to the hook input (tool-call notation):
+```javascript
+const success = completed && targetTestsRan && regressionTestsRan
+  && targetExitCode === 0 && regressionExitCode === 0;
+mcp__plugin_ruflo-core_ruflo__hooks_post-task({
+  taskId: "tdd-FEATURE",
+  success,
+  storeResults: true,
+  task: JSON.stringify({
+    feature: "FEATURE",
+    targetCommand, targetExitCode, targetTestsRan,
+    regressionCommand, regressionExitCode, regressionTestsRan,
+    failingTestNames,
+    failureReason: success ? null : failureReason
+  })
+});
+```
+On failure, report `success: false` and the failing test names in `task`. If the runner failed before identifying tests, or the task was abandoned, state that reason instead of inventing test names.
 
 Principles:
 - Mock external dependencies at boundaries

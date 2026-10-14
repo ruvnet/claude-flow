@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.7 — 2026-10-11
+- fix: `swarm watch --stream`, `swarm health` and `swarm shutdown` are not ruflo CLI subcommands; added `scripts/swarm-watch.mjs`, a Monitor-friendly poller of `swarm status --format json` that prints NDJSON on change, and pointed watch/monitor-stream at it; health and stop use `swarm_health`, `swarm stop` / `swarm_shutdown`
+- chore: release the host-specific Codex hook manifest merged in #4050
+
 ## 0.3.6 — 2026-10-09
 - fix: the ADR digest read from `.claude-flow/console/adr-digest.json` is accepted only in the exact shape ruflo-console writes (its header, one line per listed record with that record's status, no hidden or bidi characters) and is re-rendered with each record's text as a quoted value, inside the swarm's own framing that says it is project data and not an instruction (#3941, #3942, thanks @proffesor-for-testing)
 

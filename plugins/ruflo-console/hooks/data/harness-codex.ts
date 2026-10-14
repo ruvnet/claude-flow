@@ -6,7 +6,7 @@
  */
 import { under } from './files'
 import { no, yes, repoOf, type Capabilities, type HarnessAdapter, type Preview, type ScanEnv, type ScanResult, type SessionRow, type SessionStatus, type Signals } from './harness'
-import { isRecord, scanRecords, shown, str, timeMs } from './harness-text'
+import { believedAt, isRecord, scanRecords, shown, str, timeMs } from './harness-text'
 import { settle, type Candidate, type Memory } from './harness-track'
 
 export const CODEX_CAPS: Capabilities = {
@@ -46,17 +46,23 @@ export function summarizeCodex(text: string, whole = true): CodexSummary {
       out.open = true
       out.signals.turnEndedAtMs = null
       out.signals.failed = false
+      out.signals.failedAtMs = null
     } else if (type === 'event_msg' && kind === 'task_complete') {
       out.open = false
       out.signals.turnEndedAtMs = at ?? out.signals.turnEndedAtMs
       out.signals.failed = false
+      out.signals.failedAtMs = null
 
       const last = shown(payload.last_agent_message, 600)
 
       if (last !== '') out.preview.latest = last
     } else if (type === 'event_msg' && kind === 'turn_aborted') {
+      // "interrupted" is the person pressing Esc (every abort in the rollouts read here): their choice, so the session is idle, not failed.
+      const interrupted = str(payload.reason) === 'interrupted'
+
       out.open = false
-      out.signals.failed = true
+      out.signals.failed = !interrupted
+      out.signals.failedAtMs = interrupted ? null : (at ?? null)
       out.preview.latest = `turn aborted${str(payload.reason) === undefined ? '' : `: ${shown(payload.reason, 60)}`}`
     } else if (type === 'response_item' && (kind === 'function_call' || kind === 'custom_tool_call') && typeof payload.call_id === 'string') {
       calls.set(payload.call_id.slice(0, 100), shown(payload.name, 40))
@@ -71,11 +77,13 @@ export function summarizeCodex(text: string, whole = true): CodexSummary {
 
 const idOfName = (name: string): string | undefined => /^rollout-.{1,40}?-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/.exec(name)?.[1]
 const ACTIVE_MS = 90_000
+/** As for Claude (ADR-486 §2.3): an abort is a failure only when nothing followed it for this long. */
+const FAIL_QUIET_MS = 30_000
 const DAYS = 14
 const MAX_TRACKED = 60
 
 const statusOf = (s: CodexSummary, mtimeMs: number, nowMs: number): SessionStatus => {
-  if (s.signals.failed) return 'failed'
+  if (s.signals.failed && nowMs - mtimeMs >= FAIL_QUIET_MS) return 'failed'
   if (s.open && nowMs - mtimeMs < ACTIVE_MS * 4) return 'working'
 
   return s.signals.turnEndedAtMs !== null ? 'done' : 'idle'
@@ -119,7 +127,7 @@ export function codexRow(cand: Candidate, held: { value: CodexSummary | null; no
     stale: held.stale,
     external: true,
     cost: { label: 'unavailable', note: 'rollouts carry token counts, not dollars' },
-    signals: s?.signals ?? { question: false, approval: false, failed: false, turnEndedAtMs: null },
+    signals: s === null ? { question: false, approval: false, failed: false, turnEndedAtMs: null } : { ...s.signals, turnEndedAtMs: believedAt(s.signals.turnEndedAtMs, cand.mtimeMs, nowMs), failedAtMs: believedAt(s.signals.failedAtMs, cand.mtimeMs, nowMs) },
     preview: s === null ? null : s.preview,
     context: [],
     noPreview: held.noPreview,
@@ -176,7 +184,7 @@ export function codexAdapter(): HarnessAdapter & { reset(): void } {
       }
 
       const tracked = [...known.values()].sort((a, b) => b.mtimeMs - a.mtimeMs).slice(0, MAX_TRACKED)
-      const settled = await settle(env.fs, memory, tracked, (text, whole) => summarizeCodex(text, whole))
+      const settled = await settle(env.fs, memory, tracked, (text, whole) => summarizeCodex(text, whole), env.budget)
 
       for (const path of [...memory.keys()]) if (!known.has(path)) memory.delete(path)
 

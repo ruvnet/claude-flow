@@ -80,31 +80,21 @@ export class TokenOptimizer extends EventEmitter {
 
   async initialize(): Promise<void> {
     try {
-      // Dynamic import of agentic-flow main module
-      const af = await safeImport<any>('agentic-flow');
-
-      if (af) {
-        this.agenticFlowAvailable = true;
-
-        // Load ReasoningBank (exported path)
-        const rb = await safeImport<any>('agentic-flow/reasoningbank');
-        if (rb && rb.retrieveMemories) {
-          this.reasoningBank = rb;
-        }
-
-        // Load Agent Booster (exported path)
-        const ab = await safeImport<any>('agentic-flow/agent-booster');
-        if (ab) {
-          // Agent booster may export different API
-          this.agentBooster = ab.agentBooster || ab.AgentBooster || ab;
-        }
-
-        // Config tuning is part of main module or agent-booster
-        // Use our fallback with anti-drift defaults
-        if (af.configTuning) {
-          this.configTuning = af.configTuning;
-        }
+      // Only library subpaths: importing the agentic-flow root entry runs its
+      // CLI main() in 3.0.0-alpha.x. No published root exports configTuning,
+      // so the anti-drift defaults below are used.
+      const rb = await safeImport<any>('agentic-flow/reasoningbank');
+      if (rb && rb.retrieveMemories) {
+        this.reasoningBank = rb;
       }
+
+      const ab = await safeImport<any>('agentic-flow/agent-booster');
+      if (ab) {
+        // Agent booster may export different API
+        this.agentBooster = ab.agentBooster || ab.AgentBooster || ab;
+      }
+
+      this.agenticFlowAvailable = rb !== null || ab !== null;
     } catch {
       this.agenticFlowAvailable = false;
     }
