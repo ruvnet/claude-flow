@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { generateKeyPairSync } from 'node:crypto';
-import { adoptSignedConfig, PROVEN_CONFIG_STAMP, ADOPTED_CONFIG_FILE } from '../src/config/proven-config-refresh.js';
+import { adoptSignedConfig, isRufloProject, PROVEN_CONFIG_STAMP, ADOPTED_CONFIG_FILE } from '../src/config/proven-config-refresh.js';
 import { signProvenConfig, type ProvenConfigManifest, type InstallEnv } from '../src/config/proven-config.js';
 
 const kp = generateKeyPairSync('ed25519', { publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
@@ -27,6 +27,7 @@ const env: InstallEnv = { platform: 'darwin', versions: { ruflo: '3.24.0' } };
 function project(): string {
   const cwd = mkdtempSync(join(tmpdir(), 'pcfg-'));
   mkdirSync(join(cwd, '.claude'), { recursive: true });
+  writeFileSync(join(cwd, '.claude', 'settings.json'), '{}'); // ruflo init's marker (#4176)
   return cwd;
 }
 
@@ -66,6 +67,27 @@ describe('adoptSignedConfig (ADR-177 propagation)', () => {
     const r = adoptSignedConfig(cwd, signed, env, { pubkeyPem: kp.publicKey });
     expect(r.adopted).toBe(false);
     expect(r.skipped).toBeUndefined();
+  });
+
+  it('is a no-op in a directory Claude Code created .claude/.cc-writes in (#4176)', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'cc-only-'));
+    mkdirSync(join(cwd, '.claude', '.cc-writes'), { recursive: true });
+    const r = adoptSignedConfig(cwd, signProvenConfig(manifest(), kp.privateKey), env, { pubkeyPem: kp.publicKey });
+    expect(r.adopted).toBe(false);
+    expect(existsSync(join(cwd, '.claude', ADOPTED_CONFIG_FILE))).toBe(false);
+    expect(existsSync(join(cwd, '.claude', PROVEN_CONFIG_STAMP))).toBe(false);
+  });
+
+  it('isRufloProject: init markers count, a bare or Claude-Code-only .claude does not (#4176)', () => {
+    const bare = mkdtempSync(join(tmpdir(), 'bare-')); mkdirSync(join(bare, '.claude'));
+    expect(isRufloProject(bare)).toBe(false);
+    const helpers = mkdtempSync(join(tmpdir(), 'helpers-')); mkdirSync(join(helpers, '.claude', 'helpers'), { recursive: true });
+    expect(isRufloProject(helpers)).toBe(true);
+    const stamped = mkdtempSync(join(tmpdir(), 'stamped-')); mkdirSync(join(stamped, '.claude'));
+    writeFileSync(join(stamped, '.claude', PROVEN_CONFIG_STAMP), 'x');
+    expect(isRufloProject(stamped)).toBe(true);
+    expect(isRufloProject(project())).toBe(true);
+    expect(isRufloProject(join(tmpdir(), 'does-not-exist-4176'))).toBe(false);
   });
 
   it('is a no-op outside a ruflo project (no .claude)', () => {

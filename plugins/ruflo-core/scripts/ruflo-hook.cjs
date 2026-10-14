@@ -40,7 +40,7 @@
 
 'use strict';
 
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -64,6 +64,105 @@ function envValue(env, name) {
  */
 function npxPrefix(env = process.env) {
   return envValue(env, 'CLAUDE_PLUGIN_DATA') || envValue(env, 'PLUGIN_DATA') || require('os').homedir();
+}
+
+/**
+ * #4176: run the CLI from the project root, not from wherever the session's
+ * shell last `cd`ed to. Claude Code keeps a `cd` across Bash calls, so without
+ * an explicit cwd every hook spawned the CLI inside a subdirectory and the CLI
+ * wrote .claude-flow/ and proven-config state there. CLAUDE_PROJECT_DIR is the
+ * host's own statement of the project root; anything that is not an existing
+ * absolute directory is ignored (the CLI then keeps the process cwd, as before).
+ */
+function projectCwd(env = process.env) {
+  const dir = envValue(env, 'CLAUDE_PROJECT_DIR');
+  if (!dir || !path.isAbsolute(dir)) return undefined;
+  try { return fs.statSync(dir).isDirectory() ? dir : undefined; } catch { return undefined; }
+}
+
+/**
+ * #4128: telemetry must not sit on the tool path. Measured 0.9 s per PreToolUse
+ * and 1.5-4 s per PostToolUse (a cold CLI start each time). Unless a test asks
+ * for the synchronous path (RUFLO_HOOK_DEBUG_STDOUT=1 or RUFLO_HOOK_SYNC=1) the
+ * CLI is started detached and the shim returns at once. Two guards keep that
+ * from becoming a process storm in a tool-call burst: a small slot table (the
+ * default of 4 concurrent telemetry CLIs, RUFLO_HOOK_MAX_PARALLEL to change it;
+ * over the cap an event is dropped, because this is best-effort telemetry) and a
+ * 0600 temp file that carries the event JSON to the child's stdin, so the shim
+ * can exit without waiting for a pipe to drain.
+ */
+function backgroundEnabled(env = process.env) {
+  if ((envValue(env, 'RUFLO_HOOK_DEBUG_STDOUT') || '') === '1') return false;
+  return !/^(1|true|yes|on)$/i.test(envValue(env, 'RUFLO_HOOK_SYNC') || '');
+}
+
+function hookTempDir(name, env = process.env) {
+  return path.join(envValue(env, 'RUFLO_HOOK_TMP_DIR') || os.tmpdir(), name);
+}
+
+function pidAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; } catch (error) { return error?.code === 'EPERM'; }
+}
+
+/** Claim one of N slots for this project. Returns {release(pid)} or null when all are busy. */
+function acquireSlot(env = process.env, keepAlways = false) {
+  const max = Math.max(1, Math.min(32, Number.parseInt(envValue(env, 'RUFLO_HOOK_MAX_PARALLEL') || '4', 10) || 4));
+  try {
+    const project = crypto.createHash('sha256').update(path.resolve(projectCwd(env) || process.cwd())).digest('hex').slice(0, 16);
+    const dir = path.join(hookTempDir('ruflo-hook-slots-v1', env), project);
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    for (let i = 0; i < max; i++) {
+      const file = path.join(dir, 'slot-' + i);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const fd = fs.openSync(file, 'wx', 0o600);
+          fs.writeSync(fd, String(Date.now()));
+          fs.closeSync(fd);
+          return { file };
+        } catch (error) {
+          if (error?.code !== 'EEXIST') return keepAlways ? { file: null } : null;
+          // Reclaim a slot whose CLI is gone (pid recorded after spawn) or that is stale.
+          let content = '';
+          try { content = fs.readFileSync(file, 'utf8'); } catch { continue; }
+          const [stamp, pid] = content.split(':');
+          const age = Date.now() - Number(stamp);
+          const dead = pid !== undefined && !pidAlive(Number(pid));
+          if (dead || !(age < 120_000)) { try { fs.unlinkSync(file); } catch { /* raced */ } continue; }
+          break;
+        }
+      }
+    }
+    return keepAlways ? { file: null } : null;
+  } catch {
+    return keepAlways ? { file: null } : null; // cannot track: run, never block the turn
+  }
+}
+
+function recordSlotPid(slot, pid) {
+  if (!slot?.file || !pid) return;
+  try { fs.writeFileSync(slot.file, Date.now() + ':' + pid, { mode: 0o600 }); } catch { /* best effort */ }
+}
+
+/** Write the event to a private temp file and hand back a read fd for the child's stdin. */
+function stdinFd(input, env = process.env) {
+  const dir = hookTempDir('ruflo-hook-stdin-v1', env);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, crypto.randomBytes(12).toString('hex'));
+  fs.writeFileSync(file, input || '', { mode: 0o600 });
+  const fd = fs.openSync(file, 'r');
+  return { fd, file };
+}
+
+/** Delete stdin files older than an hour (Windows cannot unlink a file still open in the child). */
+function sweepStdinFiles(env = process.env) {
+  try {
+    const dir = hookTempDir('ruflo-hook-stdin-v1', env);
+    for (const name of fs.readdirSync(dir)) {
+      const file = path.join(dir, name);
+      try { if (Date.now() - fs.statSync(file).mtimeMs > 3_600_000) fs.unlinkSync(file); } catch { /* raced */ }
+    }
+  } catch { /* none */ }
 }
 
 /**
@@ -184,6 +283,51 @@ function escapeCmdArg(arg) {
 }
 
 /**
+ * Start the CLI detached (see backgroundEnabled) and return at once. Same
+ * resolution rules as the synchronous path: no shell where one can be avoided,
+ * every element escaped where cmd.exe is unavoidable. Returns true when a CLI
+ * was started, false when the event was dropped over the concurrency cap or the
+ * start failed. Never throws.
+ */
+function invokeBackground(bin, binArgs, hookSubcommand, hookArgs, stdinData, { env, platform, cwd, keep }) {
+  let slot = null;
+  let input = null;
+  try {
+    slot = acquireSlot(env, keep);
+    if (!slot) return false;
+    const args = [...binArgs, 'hooks', hookSubcommand, ...hookArgs];
+    const invocation = resolveInvocation(bin, binArgs, { env, platform });
+    const useShell = !invocation && platform === 'win32' && bin !== 'node' && bin !== process.execPath;
+    input = stdinFd(stdinData, env);
+    const child = spawn(
+      invocation ? invocation.command : (useShell ? escapeCmdArg(bin) : bin),
+      invocation ? [...invocation.args, 'hooks', hookSubcommand, ...hookArgs] : (useShell ? args.map(escapeCmdArg) : args),
+      {
+        stdio: [input.fd, 'ignore', 'ignore'],
+        env,
+        ...(cwd ? { cwd } : {}),
+        detached: true,
+        windowsHide: true,
+        shell: useShell,
+      },
+    );
+    child.on('error', () => { /* best effort: the host never sees a hook failure */ });
+    child.unref();
+    recordSlotPid(slot, child.pid);
+    return true;
+  } catch {
+    if (slot?.file) { try { fs.unlinkSync(slot.file); } catch { /* none */ } }
+    return false;
+  } finally {
+    if (input) {
+      try { fs.closeSync(input.fd); } catch { /* closed */ }
+      try { fs.unlinkSync(input.file); } catch { /* Windows keeps it until the child exits; swept later */ }
+      if (Math.random() < 0.05) sweepStdinFiles(env);
+    }
+  }
+}
+
+/**
  * Spawn the CLI with the hook subcommand + args, forwarding stdinData.
  * Returns true on success (exit 0), false otherwise. Never throws.
  */
@@ -197,14 +341,18 @@ function invokeHook(bin, binArgs, hookSubcommand, hookArgs, stdinData, options =
   // flag-wiring regressions). Production never sets this — hooks must
   // never leak CLI output into the host (Cursor's PreToolUse contract).
   const debug = (envValue(env, 'RUFLO_HOOK_DEBUG_STDOUT') || '') === '1';
+  const cwd = projectCwd(env);
   const base = {
     input: stdinData || '',
     encoding: 'utf8',
     stdio: debug ? ['pipe', 'pipe', 'pipe'] : ['pipe', 'ignore', 'ignore'],
     timeout: 30_000,
     env,
+    ...(cwd ? { cwd } : {}),
   };
+  const background = options.background === true && backgroundEnabled(env);
   try {
+    if (background) return invokeBackground(bin, binArgs, hookSubcommand, hookArgs, stdinData, { env, platform, cwd, keep: options.keep === true });
     // Layer 1 — no shell. resolveInvocation() maps the command to a real
     // executable, and on Windows maps npm's .cmd/.ps1 shim to the .js
     // entrypoint it wraps, so this becomes `node <entry>` and CreateProcess
@@ -257,6 +405,8 @@ function splitCliOverride(str) {
 
 /** Best-effort: try ruflo, then claude-flow, then npx. Never throws. */
 function invokeCli(hookSubcommand, hookArgs, stdinData) {
+  // Telemetry runs detached (#4128); Stop is never dropped by the concurrency cap.
+  const options = { background: true, keep: hookSubcommand === 'session-end' };
   // Test-only escape hatch: point at a specific local build instead of the
   // commandExists() PATH probe (used by test-hooks.mjs and the plugin-hooks
   // real-command smoke so tests exercise the build under test, not whatever
@@ -265,15 +415,15 @@ function invokeCli(hookSubcommand, hookArgs, stdinData) {
   const override = process.env.RUFLO_HOOK_CLI_OVERRIDE;
   if (override) {
     const [bin, ...binArgs] = splitCliOverride(override);
-    invokeHook(bin, binArgs, hookSubcommand, hookArgs, stdinData);
+    invokeHook(bin, binArgs, hookSubcommand, hookArgs, stdinData, options);
     return;
   }
   if (resolveCommandPath('ruflo')) {
-    invokeHook('ruflo', [], hookSubcommand, hookArgs, stdinData);
+    invokeHook('ruflo', [], hookSubcommand, hookArgs, stdinData, options);
     return;
   }
   if (resolveCommandPath('claude-flow')) {
-    invokeHook('claude-flow', [], hookSubcommand, hookArgs, stdinData);
+    invokeHook('claude-flow', [], hookSubcommand, hookArgs, stdinData, options);
     return;
   }
   // SKIP npx when RUFLO_HOOK_SKIP_NPX=1 — used by CI smokes that test the
@@ -283,7 +433,7 @@ function invokeCli(hookSubcommand, hookArgs, stdinData) {
   // itself works correctly. The bash version doesn't hit this because it
   // backgrounded the work.
   if (process.env.RUFLO_HOOK_SKIP_NPX !== '1') {
-    invokeHook('npx', ['--prefer-offline', '--yes', '--prefix', npxPrefix(), 'ruflo@latest'], hookSubcommand, hookArgs, stdinData);
+    invokeHook('npx', ['--prefer-offline', '--yes', '--prefix', npxPrefix(), 'ruflo@latest'], hookSubcommand, hookArgs, stdinData, options);
   }
 }
 
@@ -499,4 +649,4 @@ if (process.env.RUFLO_HOOK_UNIT_TEST !== '1') {
   main();
 }
 
-module.exports = { commandRecordingOff, escapeCmdArg, invokeHook, npxPrefix, resolveCommandPath, resolveInvocation, resolveNpmShim };
+module.exports = { acquireSlot, backgroundEnabled, commandRecordingOff, escapeCmdArg, projectCwd, invokeHook, npxPrefix, resolveCommandPath, resolveInvocation, resolveNpmShim };
