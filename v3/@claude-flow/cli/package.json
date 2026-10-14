@@ -48,6 +48,7 @@
       "import": "./dist/src/index.js"
     },
     "./dist/*": "./dist/*",
+    "./package.json": "./package.json",
     "./ruvector": {
       "types": "./dist/src/ruvector/index.d.ts",
       "import": "./dist/src/ruvector/index.js"
