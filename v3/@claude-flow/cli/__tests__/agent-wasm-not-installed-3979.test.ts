@@ -1,59 +1,49 @@
 // #3979 item 1: `ruflo mcp exec -t wasm_gallery_list` on a global install failed with
 //   Failed to initialize @ruvector/rvagent-wasm: Error [ERR_MODULE_NOT_FOUND]: Cannot find package ...
-// because (a) the package is imported by dist/src/ruvector/agent-wasm.js but was not
-// declared in the CLI's package.json, so `npm i -g ruflo` never installed it, and
-// (b) when it is missing the error is a raw module-resolution trace rather than a
-// plain "not installed" message with the fix. Both are checked here.
+// a raw module-resolution trace. It is now "not installed" with the fix. The package stays OPTIONAL
+// and is deliberately NOT in the CLI's optionalDependencies (guard no-cli-optdep-bloat-2561).
+// The mapping is tested directly (no module mocking), so it does not depend on the test runner's
+// mock-factory error wrapping.
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { agentWasmLoadError, isMissingAgentWasm, AGENT_WASM_NOT_INSTALLED_MESSAGE } from '../src/ruvector/agent-wasm.js';
 
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '../package.json'), 'utf8'));
 
-afterEach(() => {
-  vi.resetModules();
-  vi.doUnmock('@ruvector/rvagent-wasm');
-});
-
-describe('@ruvector/rvagent-wasm packaging (#3979 item 1)', () => {
-  it('is declared as an optional dependency so a global install fetches it', () => {
-    expect(pkg.optionalDependencies?.['@ruvector/rvagent-wasm']).toBeTruthy();
-    // Optional, never a hard dependency: ruflo must still install and run without it.
+describe('@ruvector/rvagent-wasm stays optional (#3979 item 1, #2561)', () => {
+  it('is not a dependency or optionalDependency of the CLI (bloat guard)', () => {
     expect(pkg.dependencies?.['@ruvector/rvagent-wasm']).toBeUndefined();
+    expect(pkg.optionalDependencies?.['@ruvector/rvagent-wasm']).toBeUndefined();
   });
 });
 
-describe('initAgentWasm() when @ruvector/rvagent-wasm is missing (#3979 item 1)', () => {
-  it('says the package is not installed and how to install it, instead of a raw resolution trace', async () => {
-    vi.doMock('@ruvector/rvagent-wasm', () => {
-      throw Object.assign(new Error("Cannot find package '@ruvector/rvagent-wasm' imported from /x/agent-wasm.js"), {
-        code: 'ERR_MODULE_NOT_FOUND',
-      });
-    });
-    const mod = await import('../src/ruvector/agent-wasm.js');
+describe('agentWasmLoadError() (#3979 item 1)', () => {
+  const trace = "Cannot find package '@ruvector/rvagent-wasm' imported from /x/agent-wasm.js";
 
-    const err = await mod.initAgentWasm().then(() => null, (e: unknown) => e as Error);
-    expect(err).toBeInstanceOf(Error);
-    expect(err!.message).toMatch(/@ruvector\/rvagent-wasm is not installed/);
-    expect(err!.message).toMatch(/npm install/);
-    expect(err!.message).not.toMatch(/ERR_MODULE_NOT_FOUND|Cannot find package/);
+  it.each([
+    ['ERR_MODULE_NOT_FOUND with a code', Object.assign(new Error(trace), { code: 'ERR_MODULE_NOT_FOUND' })],
+    ['MODULE_NOT_FOUND (CJS) with a code', Object.assign(new Error("Cannot find module '@ruvector/rvagent-wasm'"), { code: 'MODULE_NOT_FOUND' })],
+    ['a wrapper that dropped the code but kept the text', new Error(`[wrapper] ${trace}`)],
+  ])('says the package is not installed and how to install it: %s', (_name, err) => {
+    expect(isMissingAgentWasm(err)).toBe(true);
+    const out = agentWasmLoadError(err);
+    expect(out.message).toBe(AGENT_WASM_NOT_INSTALLED_MESSAGE);
+    expect(out.message).toMatch(/@ruvector\/rvagent-wasm is not installed/);
+    expect(out.message).toMatch(/npm install/);
+    expect(out.message).not.toMatch(/ERR_MODULE_NOT_FOUND|Cannot find package/);
   });
 
-  it('still reports a genuine initialization failure as one', async () => {
-    vi.doMock('@ruvector/rvagent-wasm', () => ({
-      WasmAgent: class {},
-      initSync: () => {
-        throw new Error('wasm bytes rejected');
-      },
-    }));
-    const mod = await import('../src/ruvector/agent-wasm.js');
+  it('does not mistake a missing OTHER package for a missing rvagent-wasm', () => {
+    const other = Object.assign(new Error("Cannot find package 'left-pad' imported from /x.js"), { code: 'ERR_MODULE_NOT_FOUND' });
+    expect(isMissingAgentWasm(other)).toBe(false);
+    expect(agentWasmLoadError(other).message).toMatch(/^Failed to initialize @ruvector\/rvagent-wasm: /);
+  });
 
-    const err = await mod.initAgentWasm().then(() => null, (e: unknown) => e as Error);
-    expect(err).toBeInstanceOf(Error);
-    // Either the package resolves here and init fails (Failed to initialize ...),
-    // or it is genuinely absent in this checkout (not installed). It must never
-    // be reported as the wrong one of the two.
-    expect(err!.message).toMatch(/Failed to initialize @ruvector\/rvagent-wasm|@ruvector\/rvagent-wasm is not installed/);
+  it('still reports a genuine initialization failure as one', () => {
+    const out = agentWasmLoadError(new Error('wasm bytes rejected'));
+    expect(out.message).toMatch(/^Failed to initialize @ruvector\/rvagent-wasm: .*wasm bytes rejected/);
+    expect(out.message).not.toMatch(/is not installed/);
   });
 });
