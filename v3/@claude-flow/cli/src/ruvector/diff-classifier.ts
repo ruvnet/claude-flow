@@ -384,19 +384,23 @@ const CACHE_TTL_MS = 5000; // 5 seconds - short TTL since diffs change frequentl
  * Only allows safe characters: alphanumeric, -, _, /, ., ~, ^
  */
 function validateGitRef(ref: string): void {
-  // Block shell metacharacters and dangerous patterns
-  if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
-    throw new Error(`Invalid git ref: contains unsafe characters`);
-  }
-  // Block multiple dots (path traversal)
-  if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
-    if (!/^\w+\.\.[.\w]+$/.test(ref)) {
-      throw new Error(`Invalid git ref: suspicious pattern`);
-    }
-  }
-  // Max length check
   if (ref.length > 256) {
     throw new Error(`Invalid git ref: too long`);
+  }
+  // A ref is passed as one argv element, but still must not be an option or
+  // contain shell metacharacters. A range may omit its right endpoint (HEAD).
+  if (!/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(ref)) {
+    throw new Error(`Invalid git ref: contains unsafe characters`);
+  }
+  if (ref.includes('..')) {
+    const range = ref.match(/^(.+?)(\.\.\.?)(.*)$/);
+    // Only one range separator is allowed. In particular, reject traversal
+    // inside either endpoint, while accepting branch paths and ancestry syntax.
+    if (!range || range[1].includes('..') || range[3].includes('..') ||
+        !/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(range[1]) ||
+        (range[3] !== '' && !/^[a-zA-Z0-9_][a-zA-Z0-9_\-./~^@]*$/.test(range[3]))) {
+      throw new Error(`Invalid git ref: suspicious pattern`);
+    }
   }
 }
 
