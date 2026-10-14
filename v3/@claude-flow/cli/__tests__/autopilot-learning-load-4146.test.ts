@@ -6,7 +6,9 @@ import { getLearningLoadError, tryLoadLearning } from '../src/autopilot-state.js
 describe('autopilot learning loads past the agentic-flow exports map (#4146)', () => {
   it('the bare subpath really is blocked (the bug precondition)', () => {
     const r = spawnSync(process.execPath, ['--input-type=module', '-e', "import('agentic-flow/dist/coordination/autopilot-learning.js').catch(e => console.log(e.code))"], { cwd: process.cwd(), encoding: 'utf8' });
-    expect(r.stdout.trim()).toBe('ERR_PACKAGE_PATH_NOT_EXPORTED');
+    // The subpath is blocked by the exports map (ERR_PACKAGE_PATH_NOT_EXPORTED) where agentic-flow ships the
+    // file, and simply absent (ERR_MODULE_NOT_FOUND) in an install that does not: either way the bare import fails.
+    expect(['ERR_PACKAGE_PATH_NOT_EXPORTED', 'ERR_MODULE_NOT_FOUND']).toContain(r.stdout.trim());
   });
 
   it('tryLoadLearning no longer fails with ERR_PACKAGE_PATH_NOT_EXPORTED', async () => {
