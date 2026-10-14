@@ -596,6 +596,8 @@ npx ruflo tui --fps 12              # frames per second for moving pictures, 0-3
 npx ruflo tui --no-anim             # draw the pictures still (same as --fps 0)
 npx ruflo tui --no-pictures         # the words of each picture only
 npx ruflo tui --boot                # play the look's start-up screen first
+npx ruflo tui --mouse               # click a page in the bar, scroll with the wheel (every action also has a key)
+npx ruflo tui --view federation     # open on any console page, not only the first six
 npx ruflo tui --plain | head -40    # print one plain frame and exit 0 (scripts, CI; the plain look, no colour)
 ```
 
@@ -610,6 +612,10 @@ Without a terminal and without `--plain`, `tui` prints a one-line hint and exits
 | `j` `k` or the arrow keys | Scroll |
 | `r` | Read the files again |
 | `t` | Next look: Classic BBS, Orbital, plain |
+| `0` | The main menu: the console's board, with each entry's key (press it to open that page) |
+| `:` or `/` | Go to any page by name, id or key: `settings`, `go federation`, `terminal` |
+| `Esc` or Backspace | Back to the page you were on |
+| `y` / `n` | Only while a confirm card is on screen: `y` runs the command it shows, `n` or `Esc` drops it |
 | `q` or `Ctrl-C` | Quit |
 
 **What each page shows.** It reads Ruflo's own files and the CLI's output in the current project, and says `n/a` for anything it cannot measure.
@@ -637,7 +643,7 @@ y sends it · n cancels · it expires in 59 s
 - **OpenRouter** needs `OPENROUTER_API_KEY` in your environment. The key is named by its variable and never shown. Requests go only to `https://openrouter.ai` and to the HTTPS hosts you name with `--convo-targets` (or `RUFLO_TUI_CONVO_TARGETS`, syntax `endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;...`), with no redirects. `--model` picks the model (default `openrouter/auto`), and `--max-spend-usd` stops sending once the provider-reported spend reaches the cap (default `0.5`).
 - `--no-ai` turns the AI page off.
 
-**Limits.** Read-only except the AI page. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. The animation was measured on Linux: at 8 frames per second it used about 2–3% of one core and 14–80 KB/s of terminal output depending on the look and window size (Orbital on a 200 by 50 window is the heaviest), and 30 frames per second about 9% and 230 KB/s. The pages beyond these six, the main menu with its grouped navigation, and clicking are the next stage of ADR-489. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
+**Limits.** It reads files and changes nothing, except what you ask for by name and confirm with a single `y` on the console card, and the AI page after its own card. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. The animation was measured on Linux: at 8 frames per second it used about 2–3% of one core and 14–80 KB/s of terminal output depending on the look and window size (Orbital on a 200 by 50 window is the heaviest), and 30 frames per second about 9% and 230 KB/s. **Every console page opens here** (33 of them, from the main menu `0` or the go prompt `:`), each with the console's own body. What changes is recorded per page in ADR-489: most are read-only here because their action buttons wait for the confirm gate (the next stage); the Room needs a Claude Code session and says so on one screen; the console's terminal is this shell's AI page. **Actions.** The go prompt (`:`) also takes an action by name, such as `swarm-stop` or `evolve plan`: a read runs at once; a change shows the console's confirm card (who asked, the exact command, what it will do) pinned under the bar, and only a single `y` runs it, and only when the whole card fits on screen. A paste, Enter or a card cut off by a small window runs nothing. Settings cannot be changed here yet. On the menu the console's keys work (`b` Hive-Mind, `9` Memory Lab, …; `q` still quits and `p` is the go prompt), so a letter there is not the page-bar letter. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
 
 **In Claude Code**, the same console has an optional Orbital look and a Theme Studio: run `/ruflo themes`. See the [console README](../plugins/ruflo-console/README.md#orbital-theme).
 

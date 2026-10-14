@@ -70,7 +70,7 @@ describe('keys', () => {
     expect([keyOf('o'), keyOf('c'), keyOf('s'), keyOf('e'), keyOf('m'), keyOf('a')]).toEqual([{ page: 'overview' }, { page: 'cost' }, { page: 'swarm' }, { page: 'events' }, { page: 'missions' }, { page: 'ai' }])
     expect([keyOf('\t'), keyOf(`${ESC}[C`), keyOf('l')]).toEqual(['next', 'next', 'next'])
     expect([keyOf(`${ESC}[Z`), keyOf(`${ESC}[D`), keyOf('h')]).toEqual(['prev', 'prev', 'prev'])
-    expect([keyOf('0'), keyOf('7'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
+    expect([keyOf('7'), keyOf('8'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
   })
 
   it('has no key for Room: its content is a message box and Claude sessions this host does not have', () => {
@@ -87,8 +87,8 @@ describe('page bar and key line', () => {
     expect(widthOf(navLine('missions', 60, '256'))).toBeLessThanOrEqual(60)
   })
 
-  it('has a short key line for a narrow terminal and says read-only on a wide one', () => {
-    expect(keyLine(100)).toContain('read-only')
+  it('has a short key line for a narrow terminal and says ask first on a wide one', () => {
+    expect(keyLine(100)).toContain('ask first')
     expect(keyLine(100)).toContain('q quit')
     expect(keyLine(50)).toBe('1-6 page · j/k scroll · q quit')
     expect(keyLine(25)).toBe('1-6 page · q quit')
