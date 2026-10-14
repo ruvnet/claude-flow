@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.7 — 2026-10-14
+- fix: Mission Control's prose wraps on word breaks instead of ending in "…" at 80 columns (tmux): the kind description, the empty-goal hint, the lifecycle line and each planned task line (#3899, the rest of what 0.40.2 did for Approvals and a mission's objective).
+
 ## 0.43.5 — 2026-10-12
 - fix: the Skills page runs a pinned skills CLI (`skills@1.7.2`, like the AI page's pinned Codex) instead of whatever npm `latest` is: `npx -y skills` fetched and ran the newest release on every visit to the page (it lists on open) and on every add, remove, update, init and use, with the person's permissions. The hints name the pin from one constant. The pin fixes the top-level package only: its own dependencies (tar, yaml) are npm ranges resolved on the first fetch, and the first run needs the network. 1.7.2 is published by vercel-labs/skills with no install-time scripts (#4113, thanks @martinvlad)
 
