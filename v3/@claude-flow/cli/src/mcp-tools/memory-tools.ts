@@ -16,6 +16,7 @@ import { join, resolve } from 'path';
 import { createHash } from 'crypto';
 import type { MCPTool } from './types.js';
 import { validateIdentifier } from './validate-input.js';
+import { DEFAULT_SEARCH_THRESHOLD, nearMisses } from '../memory/search-defaults.js';
 
 // Legacy JSON store interface (for migration)
 interface LegacyMemoryEntry {
@@ -623,7 +624,7 @@ export const memoryTools: MCPTool[] = [
         query: { type: 'string', description: 'Search query (semantic similarity)' },
         namespace: { type: 'string', description: 'Namespace to search (default: all namespaces — omit to search across every namespace)' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
-        threshold: { type: 'number', description: 'Minimum raw retrieval relevance 0-1 for candidate admission, applied per query before SmartRetrieval ranking; not a floor on rankingScore (default: 0.3)' },
+        threshold: { type: 'number', description: 'Minimum raw retrieval relevance 0-1 for candidate admission, applied per query before SmartRetrieval ranking; not a floor on rankingScore (default: 0.2; calibrated for the bundled embedding model, pass 0 to see every match)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval — query expansion, RRF fusion, recency boost, MMR diversity; preserves raw similarity and adds rankingScore (default: false)' },
         provenance_filter: {
           type: 'array',
@@ -654,7 +655,8 @@ export const memoryTools: MCPTool[] = [
       // in the search layer actually fires.
       const namespace = input.namespace as string | undefined;
       const limit = (input.limit as number) ?? 10;
-      const threshold = (input.threshold as number) ?? 0.3;
+      const threshold = (input.threshold as number) ?? DEFAULT_SEARCH_THRESHOLD;
+      const thresholdWasDefault = input.threshold === undefined || input.threshold === null;
 
       validateMemoryInput(undefined, undefined, query, namespace);
 
@@ -729,10 +731,15 @@ export const memoryTools: MCPTool[] = [
               };
             });
 
+            const smartNearMisses = results.length === 0 && thresholdWasDefault
+              ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+              : undefined;
+
             return {
               query,
               results,
               total: results.length,
+              ...(smartNearMisses ?? {}),
               searchTime: `${duration.toFixed(2)}ms`,
               backend: 'SmartRetrieval (RRF + MMR + Recency)',
               stats: smartResult.stats,
@@ -782,10 +789,15 @@ export const memoryTools: MCPTool[] = [
           };
         });
 
+        const nearMissInfo = results.length === 0 && thresholdWasDefault
+          ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+          : undefined;
+
         return {
           query,
           results,
           total: results.length,
+          ...(nearMissInfo ?? {}),
           searchTime: `${duration.toFixed(2)}ms`,
           backend: 'HNSW + sql.js',
           ...(smartFallbackReason ? { smartFallback: smartFallbackReason } : {}),
