@@ -8,6 +8,9 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 - feat: pictures move at `--fps` (0-30, default 8, the console's own default; 0 and `--no-anim` draw them still). An animation tick rewrites only the rows that changed, nothing is drawn while the terminal reports it is behind another window, and a slow terminal skips frames rather than queueing them
 - fix: `ruflo tui --plain` prints the plain look, so a script's frame has the same words as before
 
+## 0.43.7 — 2026-10-14
+- fix: Mission Control's prose wraps on word breaks instead of ending in "…" at 80 columns (tmux): the kind description, the empty-goal hint, the lifecycle line and each planned task line (#3899, the rest of what 0.40.2 did for Approvals and a mission's objective).
+
 ## 0.43.6 — 2026-10-14
 - fix: the analyze page describes REVIEWERS as reviewer roles suggested from file paths and risk, not people from the history (#4163, thanks @rudycelekli)
 

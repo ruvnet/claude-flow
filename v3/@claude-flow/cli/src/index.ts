@@ -19,6 +19,7 @@ import { dirname, join } from 'path';
 import type { Command, CommandContext, CommandResult, V3Config, CLIError } from './types.js';
 import { CommandParser, commandParser } from './parser.js';
 import { OutputFormatter, output } from './output.js';
+import { resolveTargetCommand } from './command-resolution.js';
 import { commands, commandsByCategory, getCommandsByCategory, commandRegistry, getCommand, getCommandAsync, getCommandNames, getLazyCommandNames, hasCommand } from './commands/index.js';
 import { suggestCommand } from './suggest.js';
 import { runStartupUpdateCheck } from './update/index.js';
@@ -283,60 +284,11 @@ export class CLI {
         process.exit(1);
       }
 
-      // Handle subcommand (supports nested subcommands)
-      let targetCommand = command;
-      let subcommandArgs = positional;
-
-      // Process command path (e.g., ['hooks', 'worker', 'list'])
-      // Note: When parser includes subcommand in commandPath, positional already excludes it
-      if (commandPath.length > 1 && command.subcommands) {
-        const subcommandName = commandPath[1];
-        const subcommand = command.subcommands.find(
-          sc => sc.name === subcommandName || sc.aliases?.includes(subcommandName)
-        );
-
-        if (subcommand) {
-          targetCommand = subcommand;
-          // Parser already extracted subcommand from positional, so use as-is
-          subcommandArgs = positional;
-
-          // Check for nested subcommand (level 2)
-          if (commandPath.length > 2 && subcommand.subcommands) {
-            const nestedName = commandPath[2];
-            const nestedSubcommand = subcommand.subcommands.find(
-              sc => sc.name === nestedName || sc.aliases?.includes(nestedName)
-            );
-            if (nestedSubcommand) {
-              targetCommand = nestedSubcommand;
-              // Parser already extracted nested subcommand too
-              subcommandArgs = positional;
-            }
-          }
-        }
-      } else if (positional.length > 0 && command.subcommands) {
-        // Check if first positional is a subcommand
-        const subcommandName = positional[0];
-        const subcommand = command.subcommands.find(
-          sc => sc.name === subcommandName || sc.aliases?.includes(subcommandName)
-        );
-
-        if (subcommand) {
-          targetCommand = subcommand;
-          subcommandArgs = positional.slice(1);
-
-          // Check for nested subcommand (level 2 from positional)
-          if (subcommandArgs.length > 0 && subcommand.subcommands) {
-            const nestedName = subcommandArgs[0];
-            const nestedSubcommand = subcommand.subcommands.find(
-              sc => sc.name === nestedName || sc.aliases?.includes(nestedName)
-            );
-            if (nestedSubcommand) {
-              targetCommand = nestedSubcommand;
-              subcommandArgs = subcommandArgs.slice(1);
-            }
-          }
-        }
-      }
+      // Handle subcommands at any depth (#4157): walk the parsed command path, or the
+      // positional arguments when the path only names the top-level command.
+      const resolved = resolveTargetCommand(command, commandPath, positional);
+      const targetCommand = resolved.target;
+      const subcommandArgs = resolved.args;
 
       // Validate flags
       const validationErrors = this.parser.validateFlags(flags, targetCommand);

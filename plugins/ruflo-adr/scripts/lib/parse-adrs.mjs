@@ -36,6 +36,9 @@ export function normalizeAdrId(raw) {
   return digits.length >= 4 ? `ADR-${digits}` : `ADR-${digits.padStart(3, '0')}`;
 }
 
+// #4126: an index table (README.md, index.md) or a template (template*.md) in docs/adr is not an ADR.
+const NON_ADR_FILE = /^(?:readme|index|template[^/]*)\.md$/i;
+
 export function findAdrs(dir, out = [], visited = new Set()) {
   let canonical;
   try { canonical = realpathSync(dir); } catch { return out; }
@@ -50,7 +53,7 @@ export function findAdrs(dir, out = [], visited = new Set()) {
     try { st = statSync(p); } catch { continue; }
     if (st.isDirectory()) {
       findAdrs(p, out, visited);
-    } else if (e.endsWith('.md') && (p.includes('/docs/adr/') || p.includes('/docs/adrs/'))) {
+    } else if (e.endsWith('.md') && !NON_ADR_FILE.test(e) && (p.includes('/docs/adr/') || p.includes('/docs/adrs/'))) {
       out.push(p);
     }
   }
@@ -111,7 +114,12 @@ function parseStatus(text) {
   if (m) return m[1].trim();
   // Also handle full-bold MADR style: **Status: Value** (entire phrase bolded)
   m = /^[-*+]?\s*\*\*Status:\s*([A-Za-z][A-Za-z\- ]*?)(?:\s*\([^)]*\))?\*\*\s*$/m.exec(text);
-  return m ? m[1].trim() : 'Unknown';
+  if (m) return m[1].trim();
+  // #4126: real status lines carry more than one parenthetical: a link ("superseded by
+  // [ADR-025](...) (2026-07-02)"), a date plus a note ("accepted (2026-07-02) — spike
+  // closed"), an amendment marker. The leading keyword is the status; ignore the rest.
+  m = /^[-*+]?\s*\*\*Status:?\*\*:?[ \t]*\**[ \t]*([A-Za-z][A-Za-z-]*)\b/m.exec(text);
+  return m ? m[1] : 'Unknown';
 }
 
 function parseDate(text) {
@@ -189,6 +197,13 @@ function parseLinks(text, selfId) {
   for (const value of values('(?:Amended[ -]by|Amends)')) for (const ref of extractAdrRefs(value)) out.push({ from: selfId, to: ref, relation: 'amends' });
   for (const value of values('(?:Related|Relates)')) for (const ref of extractAdrRefs(value)) out.push({ from: selfId, to: ref, relation: 'related' });
   for (const value of values('Depends[ -]on')) for (const ref of extractAdrRefs(value)) out.push({ from: selfId, to: ref, relation: 'depends-on' });
+  // #4126: "Status: superseded by ADR-025" names the superseding ADR; the edge runs
+  // old -> new, the same direction a "Supersedes:" line in the newer ADR produces.
+  const sb = /^[-*+]?\s*\*\*Status:?\*\*:?[ \t]*\**[ \t]*superseded[ \t]+by\b(.*)$/im.exec(text);
+  if (sb) {
+    const [ref] = extractAdrRefs(sb[1].replace(/\[([^\]]*)\]\([^)]*\)/g, '$1'));
+    if (ref && ref !== selfId) out.push({ from: selfId, to: ref, relation: 'supersedes' });
+  }
   return out;
 }
 
