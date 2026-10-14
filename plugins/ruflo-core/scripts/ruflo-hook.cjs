@@ -18,7 +18,7 @@
  *     empty stdout: a bare Cursor permission object is not valid Codex
  *     hook JSON and is rejected with "hook returned invalid pre-tool-use
  *     JSON output" (#2816, #2856).
- *   - post-command / post-edit  (PostToolUse)  — parse the hook event JSON
+ *   - post-command / post-edit  (PostToolUse/Failure)  — parse the hook event JSON
  *     from stdin (no jq), extract the same fields the bash version pulled
  *     with jq, and forward them as CLI flags.
  *   - precompact-manual / precompact-auto  (PreCompact) — static guidance
@@ -446,19 +446,29 @@ function main() {
     done();
   }
 
-  // PostToolUse: derive CLI flags from the hook event JSON (replaces jq).
+  // Both completion events use the same commands. Failed tools have no
+  // tool_response.exit_code; Claude Code supplies hook_event_name and an error
+  // beginning with "Exit code N" when a shell exited normally. Never let a
+  // missing code turn PostToolUseFailure into a recorded success (#4127).
   if (subcommand === 'post-command') {
     if (commandRecordingOff()) done();
     const cmd = event?.tool_input?.command;
     if (!cmd) done(); // bash version: `[ -z "$CMD" ] && exit 0`
-    const exitCode = event?.tool_response?.exit_code ?? 0;
-    invokeCli('post-command', ['-c', String(cmd), '-s', String(exitCode === 0), '-e', String(exitCode)], stdinData);
+    const failed = event?.hook_event_name === 'PostToolUseFailure';
+    const errorExit = typeof event?.error === 'string'
+      ? /^Exit code ([1-9]\d*)\b/.exec(event.error)?.[1]
+      : undefined;
+    const parsedExit = Number(errorExit);
+    const exitCode = failed
+      ? (Number.isSafeInteger(parsedExit) && parsedExit > 0 ? parsedExit : 1)
+      : (event?.tool_response?.exit_code ?? 0);
+    invokeCli('post-command', ['-c', String(cmd), '-s', String(!failed && exitCode === 0), '-e', String(exitCode)], stdinData);
     done();
   }
   if (subcommand === 'post-edit') {
     const file = event?.tool_input?.file_path ?? event?.tool_input?.path;
     if (!file) done(); // bash version: `[ -z "$FILE" ] && exit 0`
-    invokeCli('post-edit', ['-f', String(file), '-s', 'true'], stdinData);
+    invokeCli('post-edit', ['-f', String(file), '-s', String(event?.hook_event_name !== 'PostToolUseFailure')], stdinData);
     done();
   }
 
