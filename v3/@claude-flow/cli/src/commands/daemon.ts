@@ -167,32 +167,41 @@ const startCommand: Command = {
       const stateDir = join(resolve(projectRoot), '.claude-flow');
       lockFile = join(stateDir, 'daemon.lock');
       try { fs.mkdirSync(stateDir, { recursive: true }); } catch { /* exists */ }
-      try {
-        lockFd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
-        fs.writeSync(lockFd, String(process.pid));
-      } catch (e) {
-        if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
-          // Another `daemon start` is mid-spawn. Wait up to 5s for it to
-          // finish, then re-check the PID file. If the holder crashed
-          // mid-spawn, fall through and reset; killStaleDaemons + a fresh
-          // attempt will recover.
-          const deadline = Date.now() + 5000;
-          while (Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 100));
-            const winnerPid = getBackgroundDaemonPid(projectRoot);
-            if (winnerPid && isProcessRunning(winnerPid)) {
-              if (!quiet) {
-                output.printWarning(`Daemon already running in background (PID: ${winnerPid}). Stop it first with: daemon stop`);
-              }
-              return { success: true };
+      lockFd = tryAcquireDaemonLock(lockFile);
+      if (lockFd === null) {
+        // Another `daemon start` is mid-spawn. Wait for it while its holder
+        // is alive; only a lock whose holder is DEAD is stale and may be
+        // retaken — atomically, via O_EXCL again, never by proceeding
+        // lockless. The old fixed 5s timeout + unlink let every waiter
+        // through on Windows, where the holder's killStaleDaemons
+        // (`tasklist /v`) routinely takes longer than that, and each waiter
+        // then forked its own daemon (3 per workspace observed).
+        const waitMs = Number(process.env.RUFLO_DAEMON_LOCK_WAIT_MS) > 0
+          ? Number(process.env.RUFLO_DAEMON_LOCK_WAIT_MS)
+          : 60_000;
+        const deadline = Date.now() + waitMs;
+        while (lockFd === null) {
+          const winnerPid = getBackgroundDaemonPid(projectRoot);
+          if (winnerPid && isProcessRunning(winnerPid)) {
+            if (!quiet) {
+              output.printWarning(`Daemon already running in background (PID: ${winnerPid}). Stop it first with: daemon stop`);
             }
+            return { success: true };
           }
-          // Stale lockfile from a crashed prior attempt — clear it and
-          // proceed without a held lock. Worst case we double-spawn ONCE
-          // and the killStaleDaemons sweep below cleans up.
-          try { fs.unlinkSync(lockFile); } catch { /* ignore */ }
-        } else {
-          throw e;
+          if (daemonLockIsStale(lockFile)) {
+            try { fs.unlinkSync(lockFile); } catch { /* raced with another taker */ }
+            lockFd = tryAcquireDaemonLock(lockFile);
+            continue;
+          }
+          if (Date.now() >= deadline) {
+            // A live process is still starting the daemon. Spawning another
+            // would be the duplicate this lock exists to prevent.
+            if (!quiet) {
+              output.printWarning('Another `daemon start` is still in progress for this workspace; not starting a second daemon.');
+            }
+            return { success: true };
+          }
+          await new Promise((r) => setTimeout(r, 100));
         }
       }
       // Dedup check while holding the lock.
@@ -276,14 +285,21 @@ const startCommand: Command = {
       // Writing it before startDaemon() causes checkExistingDaemon() to detect
       // our own PID and return early, leaving no workers scheduled (#1478 Bug 1).
 
-      // Clean up PID file on exit
+      // Clean up PID file on exit — only if it is OURS. A process that lost
+      // the singleton race must never delete the winner's PID file, or the
+      // next auto-start sees "no daemon" and forks yet another one.
       const cleanup = () => {
         try {
-          if (fs.existsSync(pidFile)) {
+          if (fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf-8').trim() === String(process.pid)) {
             fs.unlinkSync(pidFile);
           }
         } catch { /* ignore */ }
       };
+      // WorkerDaemon.start() declines (returns without running) when another
+      // live daemon already owns daemon.pid. Such a process must exit rather
+      // than park on the keep-alive below: it has no workers and no TTL, so
+      // it would linger as an idle duplicate forever.
+      const declined = (d: WorkerDaemon) => !d.getStatus().running;
       process.on('exit', cleanup);
       process.on('SIGINT', () => { cleanup(); process.exit(0); });
       process.on('SIGTERM', () => { cleanup(); process.exit(0); });
@@ -298,6 +314,11 @@ const startCommand: Command = {
 
         const daemon = await startDaemon(projectRoot, config);
         const status = daemon.getStatus();
+        if (declined(daemon)) {
+          spinner.stop();
+          output.printWarning(`Daemon already running (PID: ${getBackgroundDaemonPid(projectRoot) ?? 'unknown'}); not starting a second one.`);
+          return { success: true };
+        }
 
         spinner.succeed('Worker daemon started (foreground mode)');
 
@@ -360,7 +381,8 @@ const startCommand: Command = {
         setInterval(() => {}, 60_000);
         await new Promise(() => {}); // Never resolves - daemon runs until killed
       } else {
-        await startDaemon(projectRoot, config);
+        const daemon = await startDaemon(projectRoot, config);
+        if (declined(daemon)) return { success: true };
         setInterval(() => {}, 60_000); // Keep alive with ref'd handle (#1478)
         await new Promise(() => {}); // Keep alive
       }
@@ -934,6 +956,39 @@ function getBackgroundDaemonPid(projectRoot: string): number | null {
     return isNaN(pid) ? null : pid;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Atomically create the launcher lock and stamp it with our PID.
+ * Returns the fd, or null when another process holds the lock.
+ */
+function tryAcquireDaemonLock(lockFile: string): number | null {
+  try {
+    const fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+    fs.writeSync(fd, String(process.pid));
+    return fd;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') return null;
+    throw e;
+  }
+}
+
+/**
+ * A lock is stale only when its holder is gone. An empty lock is the brief
+ * window between O_EXCL create and the PID write, so it counts as held
+ * unless it has been empty for a while (holder crashed in that window).
+ */
+function daemonLockIsStale(lockFile: string): boolean {
+  try {
+    const raw = fs.readFileSync(lockFile, 'utf-8').trim();
+    const pid = parseInt(raw, 10);
+    if (!raw || Number.isNaN(pid)) {
+      return Date.now() - fs.statSync(lockFile).mtimeMs > 10_000;
+    }
+    return pid !== process.pid && !isProcessRunning(pid);
+  } catch {
+    return false; // vanished: the next O_EXCL attempt decides
   }
 }
 

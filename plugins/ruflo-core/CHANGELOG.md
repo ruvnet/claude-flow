@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.10 — 2026-10-14
+- fix: the MCP launcher starts the server in the session project (`CLAUDE_PROJECT_DIR`, then `CLAUDE_FLOW_CWD`, then its own working directory; a drive root, the home folder or a missing folder is not a project) and looks for the local CLI from there, so on Windows the CLI and the MCP server keep one `.claude-flow` state, not two (#3987, thanks @socrates6969). It warns on stderr when there is no project. Tested with Windows-style environments only; no Windows machine was available.
+
 ## 0.2.9 — 2026-10-14
 - fix: failed Bash commands and failed edits are recorded as failures: PostToolUseFailure is registered and forwarded to post-command / post-edit with `-s false` and the real exit code, so the learning layer no longer sees a 100% success rate (#4127, thanks @rudycelekli for #4170)
 - fix: the hook shim starts the CLI from CLAUDE_PROJECT_DIR, so a session that `cd`ed into a subdirectory no longer gets .claude-flow/ and proven-config files written there (#4176)

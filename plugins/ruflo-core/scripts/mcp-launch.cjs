@@ -27,12 +27,57 @@
  * RUFLO_MCP_SKIP_NPX=1 rejects an unpinned fallback.
  */
 
-const { existsSync } = require('fs');
-const { join, dirname, resolve, isAbsolute, delimiter } = require('path');
+const { existsSync, statSync } = require('fs');
+const { join, dirname, resolve, isAbsolute, delimiter, parse } = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
 
 const MCP_ARGS = ['mcp', 'start'];
+
+function comparablePath(p) {
+  // resolve() normalises separators and drops trailing slashes (except on a root).
+  const r = resolve(p);
+  return process.platform === 'win32' ? r.toLowerCase() : r;
+}
+
+/**
+ * A directory that cannot be a project root: a filesystem root ('/', 'C:\')
+ * or the user's home directory. Home is compared against os.homedir() as well
+ * as $HOME/$USERPROFILE because $HOME is normally unset on Windows, which made
+ * a $HOME-only guard a no-op there.
+ */
+function isNonProjectDir(dir, home, env = process.env) {
+  const target = comparablePath(dir);
+  if (target === comparablePath(parse(target).root)) return true;
+  for (const h of [home, env.HOME, env.USERPROFILE]) {
+    if (h && comparablePath(h) === target) return true;
+  }
+  return false;
+}
+
+function isDirectory(dir) {
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The directory the MCP server should treat as the project. Claude Code
+ * exposes the session's project as CLAUDE_PROJECT_DIR; an explicit
+ * CLAUDE_FLOW_CWD is honoured next; the launcher's own cwd is the
+ * backwards-compatible fallback. Home/root/missing values are skipped so a
+ * stale global variable cannot redirect every session into ~/.claude-flow.
+ */
+function resolveProjectDir(env = process.env, cwd = process.cwd(), home = os.homedir()) {
+  for (const candidate of [env.CLAUDE_PROJECT_DIR, env.CLAUDE_FLOW_CWD]) {
+    if (!candidate) continue;
+    const dir = resolve(cwd, candidate);
+    if (isDirectory(dir) && !isNonProjectDir(dir, home, env)) return dir;
+  }
+  return resolve(cwd);
+}
 
 function isRunnableCli(candidate) {
   try {
@@ -86,9 +131,15 @@ function resolveLocalCliBin(cwd, home, env = process.env) {
   return null;
 }
 
-function buildLaunchSpec(localBin, env = process.env) {
+function buildLaunchSpec(localBin, env = process.env, projectDir = null) {
+  // Start the server *in* the project and say so explicitly: tools built on
+  // getProjectCwd() read CLAUDE_FLOW_CWD, tools that call process.cwd() read
+  // the spawn cwd. Both must match the folder the CLI writes state to.
+  const placement = projectDir
+    ? { cwd: projectDir, env: { ...env, CLAUDE_FLOW_CWD: projectDir } }
+    : {};
   if (localBin) {
-    return { command: process.execPath, args: [localBin, ...MCP_ARGS], shell: false };
+    return { command: process.execPath, args: [localBin, ...MCP_ARGS], shell: false, ...placement };
   }
   if (env.RUFLO_MCP_SKIP_NPX === '1') {
     throw new Error('No built local CLI found and RUFLO_MCP_SKIP_NPX=1 forbids the @latest fallback');
@@ -102,11 +153,12 @@ function buildLaunchSpec(localBin, env = process.env) {
     command: npxCmd,
     args: ['-y', '@claude-flow/cli@latest', ...MCP_ARGS],
     shell: process.platform === 'win32',
+    ...placement,
   };
 }
 
-function launch({ command, args, shell }) {
-  const child = spawn(command, args, { stdio: 'inherit', env: process.env, shell });
+function launch({ command, args, shell, cwd, env }) {
+  const child = spawn(command, args, { stdio: 'inherit', env: env || process.env, shell, cwd });
 
   // Forward termination signals so Claude Code can stop the MCP server the
   // same way it would if it had spawned the real binary directly.
@@ -130,12 +182,22 @@ function launch({ command, args, shell }) {
 
 if (require.main === module) {
   try {
-    const localBin = resolveLocalCliBin(process.cwd(), os.homedir());
-    launch(buildLaunchSpec(localBin));
+    const home = os.homedir();
+    const projectDir = resolveProjectDir(process.env, process.cwd(), home);
+    if (isNonProjectDir(projectDir, home)) {
+      // stderr only: stdout is the MCP stdio channel.
+      process.stderr.write(
+        `[mcp-launch] warning: no project directory (session started in ${projectDir}); ` +
+        'MCP state will be kept there, not in folders CLI commands run from. ' +
+        'Start Claude Code inside the project or set CLAUDE_FLOW_CWD.\n',
+      );
+    }
+    const localBin = resolveLocalCliBin(projectDir, home);
+    launch(buildLaunchSpec(localBin, process.env, projectDir));
   } catch (error) {
     process.stderr.write(`[mcp-launch] ${error.message}\n`);
     process.exitCode = 1;
   }
 }
 
-module.exports = { resolveLocalCliBin, buildLaunchSpec, MCP_ARGS };
+module.exports = { resolveLocalCliBin, resolveProjectDir, isNonProjectDir, buildLaunchSpec, MCP_ARGS };
