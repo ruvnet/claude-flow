@@ -2,6 +2,12 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.0 — 2026-10-14
+- feat: `ruflo tui` draws what the console draws. The pictures of the pages (the Classic BBS block-letter titles, the Orbital masthead with its globe, the swarm topology, gauges and charts) are drawn as coloured cells through a terminal Raster, 24-bit where the terminal says so and the nearest of 256 otherwise, and as the words they fall back to with NO_COLOR, a dumb terminal, `--no-pictures` or fewer than 44 columns. Every glyph is a code point that goes through the same sanitiser as the text: a control, invisible or wide one becomes a space
+- feat: the looks of the console in the terminal: Classic BBS (the default, as in the console), Orbital and plain; `--look` picks one and the `t` key steps through them; `--boot` plays the look's start-up screen first
+- feat: pictures move at `--fps` (0-30, default 8, the console's own default; 0 and `--no-anim` draw them still). An animation tick rewrites only the rows that changed, nothing is drawn while the terminal reports it is behind another window, and a slow terminal skips frames rather than queueing them
+- fix: `ruflo tui --plain` prints the plain look, so a script's frame has the same words as before
+
 ## 0.43.7 — 2026-10-14
 - fix: Mission Control's prose wraps on word breaks instead of ending in "…" at 80 columns (tmux): the kind description, the empty-goal hint, the lifecycle line and each planned task line (#3899, the rest of what 0.40.2 did for Approvals and a mission's objective).
 

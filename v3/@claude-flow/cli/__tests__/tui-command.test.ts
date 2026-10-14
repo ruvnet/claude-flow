@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { aiPage, locateTuiBundle, tuiCommand } from '../src/commands/tui.js';
+import { aiPage, locateTuiBundle, lookFlags, tuiCommand } from '../src/commands/tui.js';
 
 /** The command names capability-brain.ts lists, read from the source so the test fails if `tui` is dropped. */
 const COMMANDS_FOR_BRAIN = [...readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'mcp-tools', 'capability-brain.ts'), 'utf8').matchAll(/'([a-z][a-z-]*)'/g)].map(match => match[1]);
@@ -146,5 +146,26 @@ describe('tui command', () => {
     }
     expect(out.join('')).toBe('');
     expect(errs.join('')).toMatch(/not an interactive terminal.*--plain/s);
+  });
+});
+
+describe('the look and motion flags', () => {
+  it('pass a valid look, an fps from 0 to 30 (a number or digits), --no-anim, --no-pictures and --boot, and nothing else', () => {
+    expect(lookFlags({})).toEqual({});
+    expect(lookFlags({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true })).toEqual({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true });
+    expect(lookFlags({ look: 'bbs', fps: '30' })).toEqual({ look: 'bbs', fps: 30 });
+    expect(lookFlags({ fps: 0 })).toEqual({ fps: 0 });
+  });
+
+  it('ignore a bad value instead of passing it on', () => {
+    expect(lookFlags({ look: 'neon; rm -rf /', fps: 31 })).toEqual({});
+    expect(lookFlags({ look: 7, fps: -1 })).toEqual({});
+    expect(lookFlags({ fps: '1e9' })).toEqual({});
+    expect(lookFlags({ fps: 'NaN', anim: true, pictures: true, boot: false })).toEqual({});
+    expect(lookFlags(undefined)).toEqual({});
+  });
+
+  it('are listed in the command\'s options', () => {
+    expect((tuiCommand.options ?? []).map(option => option.name)).toEqual(expect.arrayContaining(['look', 'fps', 'anim', 'pictures', 'boot']));
   });
 });

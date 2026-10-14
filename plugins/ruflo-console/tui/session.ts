@@ -6,7 +6,8 @@
 import { createController, type Controller } from '../hooks/controller'
 import type { Host } from '../hooks/host'
 import { newState, type State } from '../hooks/state'
-import { BODIES } from '../hooks/views/pane'
+import { picturesOf } from '../hooks/views/frames'
+import { BODIES, NARROW } from '../hooks/views/pane'
 import { standalonePane } from '../hooks/views/standalone-pane'
 import { render, terminalKit, type Depth } from './ansi'
 import { aiConfigOf, openAi, type Ai, type AiOptions as AiPageOptions } from './ai'
@@ -24,7 +25,18 @@ export type TuiView = (typeof TUI_VIEWS)[number]
 export type ConsoleView = Exclude<TuiView, 'ai'>
 
 /** What the AI page may do. Absent: the page says it is off and the host refuses every spawn, send and key read (phase 2). */
+export type Look = 'bbs' | 'orbital' | 'plain'
+export const LOOKS: readonly Look[] = ['bbs', 'orbital', 'plain']
+
 export type SessionOptions = Omit<NodeHostOptions, 'ai'> & {
+  /** The console's look (settings: look): Classic BBS is the default, as in the console. */
+  look?: Look
+  /** Frames per second for moving pictures (settings: fps, default 8; 0 draws every picture still). */
+  fps?: number
+  /** False draws no pictures: the words each picture falls back to. */
+  pictures?: boolean
+  /** True plays the look's start-up screen for its first seconds (settings: boot), as the console does. Off by default here. */
+  boot?: boolean
   aiPage?: AiPageOptions & { codexBin?: string; fetch?: typeof fetch }
 }
 
@@ -39,6 +51,11 @@ export type Session = {
   aiStatus: AiStatus
   /** True when the last AI frame had the whole question card on screen: only then may a y answer it. */
   cardFits: boolean
+  /** The look now drawn, and a step to the next one (bbs, orbital, plain). */
+  look: Look
+  cycleLook: () => Look
+  /** True when this frame has anything that moves (a picture drawn at fps above 0): the shell redraws on its clock only then. */
+  moving: () => boolean
   /** The page now showing. */
   page: TuiView
   /** Reads the disk again and runs the page's read-only probes, then returns. Never throws. */
@@ -70,7 +87,7 @@ export function openSession(options: SessionOptions, host?: Host): Session {
     }),
   }
   const node = host ?? createNodeHost(hostOptions)
-  const state = newState({ look: 'plain', fps: 0, boot: false, panel: 'off', eventsPersist: false } as never)
+  const state = newState({ look: options.look ?? 'bbs', fps: options.fps ?? 8, boot: options.boot === true, panel: 'off', eventsPersist: false } as never)
 
   state.cwd = options.cwd
   state.isInteractive = true
@@ -79,13 +96,14 @@ export function openSession(options: SessionOptions, host?: Host): Session {
   state.pane.isOpen = true
   state.pane.isShown = true
   state.pane.isFocused = true
-  state.pane.bootAtMs = 0
+  state.pane.bootAtMs = options.boot === true ? Date.now() : 0
 
   const controller = createController(state, node)
   const ai = page === undefined ? null : openAi(state, node, page)
   const aiStatus: AiStatus = { codex: ai === null ? 'off' : 'checking…', openrouter: ai === null ? 'off' : 'checking…' }
   let current: TuiView = 'overview'
   let cardFits = false
+  let isMoving = false
 
   const ready = Promise.all([node.home().then(home => void (state.home = home ?? null), () => undefined), node.configDir().then(dir => void (state.configDir = dir ?? null), () => undefined)])
 
@@ -101,6 +119,17 @@ export function openSession(options: SessionOptions, host?: Host): Session {
     get page() {
       return current
     },
+    get look() {
+      return state.options.look as Look
+    },
+    cycleLook: () => {
+      const next = LOOKS[(LOOKS.indexOf(state.options.look as Look) + 1) % LOOKS.length] as Look
+
+      state.options.look = next
+
+      return next
+    },
+    moving: () => isMoving,
     refresh: async () => {
       try {
         await ready
@@ -128,6 +157,8 @@ export function openSession(options: SessionOptions, host?: Host): Session {
     },
     frame: (columns, depth, rows = 30) => {
       state.pane.columns = columns
+      state.pane.rows = Math.max(0, rows)
+      isMoving = false
 
       if (current === 'ai') {
         const drawn = aiFrame(state, ai, aiStatus, columns, depth, rows)
@@ -137,7 +168,14 @@ export function openSession(options: SessionOptions, host?: Host): Session {
         return drawn.lines
       }
 
-      const tree = standalonePane({ kit: terminalKit(), state, nowMs: Date.now(), columns, pictures: new Map(), act: controller.actions }, BODIES[state.view])
+      // Pictures need colour and room: without either the views say in words what the picture shows (the same fallback the console has below NARROW columns).
+      const draws = options.pictures !== false && depth !== 'none' && columns >= NARROW
+      const now = Date.now()
+      const pictures = draws ? picturesOf(state, columns, now, now, false) : new Map()
+
+      isMoving = draws && state.options.fps > 0 && pictures.size > 0
+
+      const tree = standalonePane({ kit: terminalKit({ raster: draws }), state, nowMs: now, columns, pictures, act: controller.actions }, BODIES[state.view])
 
       return render(tree, columns, depth)
     },
