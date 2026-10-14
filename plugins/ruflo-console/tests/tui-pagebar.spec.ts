@@ -50,7 +50,7 @@ const lit = (row: string) => [...row.matchAll(/\u001b\[7m ([^\u001b]*) \u001b\[0
 
 async function run(columns = 100) {
   const t = terminal(columns)
-  const running = runTui({ cwd: project, home: join(root, 'home'), aiPage: {} }, t.io)
+  const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), aiPage: {} }, t.io)
 
   await settle(250)
 
