@@ -707,7 +707,11 @@ export const memoryTools: MCPTool[] = [
               });
               return {
                 results: r.results.map(e => ({
-                  id: e.id,
+                  // #2271: searchEntries() truncates ids to 12 chars ("entry_" +
+                  // the leading digits of Date.now()), so entries written within
+                  // ~2.8h share one id and RRF fused them into a single result.
+                  // SmartRetrieval dedupes on id: give it the (namespace, key) tuple.
+                  id: JSON.stringify([e.namespace, e.key]),
                   key: e.key,
                   content: e.content,
                   score: e.score,

@@ -699,7 +699,9 @@ const searchCommand: Command = {
           });
           return {
             results: r.results.map(e => ({
-              id: e.id,
+              // #2271: searchEntries() ids are truncated to 12 chars and collide
+              // for entries written within ~2.8h; SmartRetrieval dedupes on id.
+              id: JSON.stringify([e.namespace, e.key]),
               key: e.key,
               content: e.content,
               score: e.score,
