@@ -266,3 +266,50 @@ describe('TieredMemoryStore — durability (#2887)', () => {
     ).toEqual({ n: 0 });
   });
 });
+
+describe('TieredMemoryStore — multi-word recall (#4152)', () => {
+  const LESSON = "#1851: parseInt(pair, 16) tolerates trailing garbage ('1z' -> 1); validate the whole hex body before decoding";
+  let store: TieredMemoryStore;
+  beforeEach(() => {
+    store = new TieredMemoryStore();
+    store.store('lesson-1851', LESSON, 'semantic');
+    store.store('unrelated', 'Concrete slabs must cure for 7 days before heavy loads', 'semantic');
+  });
+
+  it('three words taken from the stored value find it (they used to return [])', () => {
+    expect(store.recall('parseInt trailing garbage').map(e => e.key)).toEqual(['lesson-1851']);
+  });
+
+  it('a natural-language question about the lesson finds it', () => {
+    const hit = store.recall('why did malformed hex like 1z decode instead of failing');
+    expect(hit.map(e => e.key)).toContain('lesson-1851');
+    expect(hit.map(e => e.key)).not.toContain('unrelated');
+  });
+
+  it('single words and exact phrases still work and rank first', () => {
+    expect(store.recall('hex').map(e => e.key)).toEqual(['lesson-1851']);
+    expect(store.recall('validate the whole hex body').map(e => e.key)[0]).toBe('lesson-1851');
+  });
+
+  it('a query that shares only one incidental word with an entry does not match', () => {
+    expect(store.recall('how long before heavy rain arrives tomorrow').map(e => e.key)).toEqual([]);
+  });
+
+  it('ranks the better term coverage first, then the newest', () => {
+    const s = new TieredMemoryStore();
+    s.store('a', 'trailing garbage in hex input', 'working');
+    s.store('b', 'trailing garbage', 'working');
+    s.store('c', 'garbage only here', 'working');
+    expect(s.recall('hex trailing garbage').map(e => e.key)[0]).toBe('a');
+  });
+
+  it('stop words alone match nothing', () => {
+    expect(store.recall('what is the').map(e => e.key)).toEqual([]);
+  });
+
+  it('respects topK and validity windows as before', () => {
+    const s = new TieredMemoryStore();
+    for (let i = 0; i < 8; i++) s.store(`k${i}`, `parse trailing garbage ${i}`, 'working');
+    expect(s.recall('parse trailing garbage', 3)).toHaveLength(3);
+  });
+});
