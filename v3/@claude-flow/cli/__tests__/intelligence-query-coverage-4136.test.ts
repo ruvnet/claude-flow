@@ -48,6 +48,20 @@ describe.each(helpers)('route memory recall (%s)', (helper) => {
     expect(recall(helper, 'firebase JWT refresh rotation HTTP 500', entries)).toBeNull();
   });
 
+  it('matches inflected forms: migrations/migration, deploying/deploy', () => {
+    const inflected = [
+      ...entries,
+      { id: 'migration-runner', summary: 'pgTAP migration runner', words: ['migration', 'runner', 'replays', 'file', 'deploy', ...filler], pageRank: 0.001 },
+    ];
+    const hit = recall(helper, 'the runner replays migrations while deploying', inflected);
+    expect(hit?.surfaced[0]?.id).toBe('migration-runner');
+  });
+
+  it('does not stem short words into unrelated ones', () => {
+    const shortEntries = [{ id: 'bus', summary: 'bus', words: ['bus', 'ran', ...filler], pageRank: 0.001 }];
+    expect(recall(helper, 'running busy ranges', shortEntries)).toBeNull();
+  });
+
   it('finds a different long entry on its own distinctive terms', () => {
     const hit = recall(helper, 'the wrangler token expired during release', entries);
     expect(hit?.surfaced[0]?.id).toBe('wrangler-token');

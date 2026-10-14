@@ -739,6 +739,24 @@ function appendRecall(detailed, meta) {
  * getContext(prompt) — Called from route. Budget: <15ms.
  * Matches prompt to ranked entries, returns top-5 formatted context.
  */
+/**
+ * Inflection variants of a prompt term (plural, -ed, -ing, -ion and their
+ * stems), so "migrations" finds an entry that says "migration" and "deploying"
+ * finds "deploy". Exact term matching alone lost what the old trigram overlap
+ * caught (#4136). The stem keeps at least 4 characters so short words stay exact.
+ */
+function termVariants(word) {
+  const out = new Set([word]);
+  for (const suffix of ['s', 'es', 'ed', 'ing', 'ion', 'ions']) out.add(word + suffix);
+  for (const suffix of ['ions', 'ion', 'ing', 'ed', 'es', 's']) {
+    if (word.length - suffix.length >= 4 && word.endsWith(suffix)) {
+      const stem = word.slice(0, -suffix.length);
+      out.add(stem); out.add(stem + 'e'); out.add(stem + 's');
+    }
+  }
+  return [...out];
+}
+
 function getContextDetailed(prompt) {
   if (!prompt) return null;
 
@@ -754,8 +772,10 @@ function getContextDetailed(prompt) {
   // every entry still count against coverage, so two incidental words cannot
   // hide the rest of an unrelated prompt.
   const candidates = ranked.entries.map(entry => ({ entry, words: new Set(entry.words || []) }));
-  const weights = promptWords.map(word => {
-    const frequency = candidates.reduce((count, candidate) => count + Number(candidate.words.has(word)), 0);
+  const variants = promptWords.map(termVariants);
+  const hasTerm = (words, i) => variants[i].some(v => words.has(v));
+  const weights = promptWords.map((word, i) => {
+    const frequency = candidates.reduce((count, candidate) => count + Number(hasTerm(candidate.words, i)), 0);
     return Math.log1p((candidates.length - frequency + 0.5) / (frequency + 0.5));
   });
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
@@ -770,7 +790,7 @@ function getContextDetailed(prompt) {
     let matchedWeight = 0;
     let matchedTerms = 0;
     for (let i = 0; i < promptWords.length; i++) {
-      if (weights[i] > 0 && words.has(promptWords[i])) {
+      if (weights[i] > 0 && hasTerm(words, i)) {
         matchedWeight += weights[i];
         matchedTerms++;
       }
