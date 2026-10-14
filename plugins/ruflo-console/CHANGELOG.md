@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.6 — 2026-10-14
+- fix: the console reads the project on Windows (#4175, thanks @GangOn0215). Every path under the working directory came out as `C:\dev\app/C:\dev\app/.claude-flow/...` (the working directory prefixed twice, because the host wrapper counted only a leading `/` as absolute), so every read failed with ENOENT, the project showed as "Unregistered" and the pane never opened on its own. A drive path (`C:\x` or `C:/x`) and a UNC share (`\\server\share`) now count as absolute (`hooks/data/abs-path.ts`). Tested on win32-style paths only: no Windows machine was available to run the pane. The same leading-`/` test still guards a few other spots (ADR folder, event export, workflow file, mission cost, plugin catalog); those refuse Windows paths rather than misplace them, and are left to the Windows work in #4036.
+
 ## 0.43.5 — 2026-10-12
 - fix: the Skills page runs a pinned skills CLI (`skills@1.7.2`, like the AI page's pinned Codex) instead of whatever npm `latest` is: `npx -y skills` fetched and ran the newest release on every visit to the page (it lists on open) and on every add, remove, update, init and use, with the person's permissions. The hints name the pin from one constant. The pin fixes the top-level package only: its own dependencies (tar, yaml) are npm ranges resolved on the first fetch, and the first run needs the network. 1.7.2 is published by vercel-labs/skills with no install-time scripts (#4113, thanks @martinvlad)
 
