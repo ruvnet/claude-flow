@@ -32,7 +32,7 @@ Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.10. `@claude-flow
 
 ### Added
 
-- `ruflo tui` draws the console's pictures, looks and motion (console 0.44.0, #4182). The bundled `tui.mjs` is rebuilt.
+- `ruflo tui` draws the console's pictures, looks and motion (console 0.44.0, #4182). The bundled `tui.mjs` is rebuilt. The TUI draws at the default size when the terminal reports 0 columns (#4160, @martinvlad).
 
 ### Changed
 
