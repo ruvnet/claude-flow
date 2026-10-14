@@ -153,6 +153,117 @@ function pad(line: string, width: number): string {
   return line + ' '.repeat(Math.max(0, width - widthOf(line)))
 }
 
+const B64 = new Map<string, number>([...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'].map((ch, i) => [ch, i]))
+/** The most cells one picture may hold: a bound on what a hostile or corrupt `cells` string can make us decode. */
+const MAX_PICTURE_CELLS = 200 * 90
+
+/** Decodes the base64 of `Grid.encode()` (little-endian u32 triplets) or null when it is not exactly `count` cells. Pure: no Buffer. */
+function decodeCells(text: unknown, count: number): Uint32Array | null {
+  if (typeof text !== 'string' || text.length !== Math.ceil((count * 12) / 3) * 4) return null
+
+  const out = new Uint8Array(count * 12)
+  let at = 0
+
+  for (let i = 0; i < text.length; i += 4) {
+    const a = B64.get(text[i] as string)
+    const b = B64.get(text[i + 1] as string)
+    const c = text[i + 2] === '=' ? 0 : B64.get(text[i + 2] as string)
+    const d = text[i + 3] === '=' ? 0 : B64.get(text[i + 3] as string)
+
+    if (a === undefined || b === undefined || c === undefined || d === undefined) return null
+
+    const n = (a << 18) | (b << 12) | (c << 6) | d
+
+    if (at < out.length) out[at++] = (n >> 16) & 255
+    if (at < out.length) out[at++] = (n >> 8) & 255
+    if (at < out.length) out[at++] = n & 255
+  }
+
+  const view = new Uint32Array(count * 3)
+
+  for (let i = 0; i < view.length; i++) view[i] = ((out[i * 4] as number) | ((out[i * 4 + 1] as number) << 8) | ((out[i * 4 + 2] as number) << 16) | ((out[i * 4 + 3] as number) << 24)) >>> 0
+
+  return view
+}
+
+const LEVELS = [0, 95, 135, 175, 215, 255] as const
+
+/** The nearest of the 256-colour cube and the grey ramp to a 24-bit colour. */
+function nearest256(r: number, g: number, b: number): number {
+  const near = (n: number) => LEVELS.reduce((best, level, i) => (Math.abs(level - n) < Math.abs((LEVELS[best] as number) - n) ? i : best), 0)
+  const [ri, gi, bi] = [near(r), near(g), near(b)]
+  const cubeDistance = (LEVELS[ri] as number - r) ** 2 + (LEVELS[gi] as number - g) ** 2 + (LEVELS[bi] as number - b) ** 2
+  const grey = Math.max(0, Math.min(23, Math.round(((r + g + b) / 3 - 8) / 10)))
+  const level = 8 + grey * 10
+  const greyDistance = (level - r) ** 2 + (level - g) ** 2 + (level - b) ** 2
+
+  return greyDistance < cubeDistance ? 232 + grey : 16 + 36 * ri + 6 * gi + bi
+}
+
+/** A Grid colour (0xRRGGBB, or the terminal's own above 0xFFFFFF) as the SGR parameters for one ground, or '' for the default. */
+function cellColor(value: number, ground: 38 | 48, depth: Depth): string {
+  if (depth === 'none' || value >>> 24 !== 0) return ''
+
+  const [r, g, b] = [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+
+  return depth === 'truecolor' ? `${ground};2;${r};${g};${b}` : `${ground};5;${nearest256(r, g, b)}`
+}
+
+const glyphs = new Map<number, string>()
+
+/** One cell's glyph through `clean` once (a cell is a code point, never an escape): control, invisible and wide ones become a space, so a picture cannot move the cursor or break the row. */
+function glyphOf(code: number): string {
+  const known = glyphs.get(code)
+
+  if (known !== undefined) return known
+
+  const ch = code < 0x20 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff) ? ' ' : String.fromCodePoint(code)
+  const cleaned = clean(ch)
+  const glyph = cleaned.length === 0 || cellsOf(cleaned.codePointAt(0) as number) !== 1 || cleaned === SECRET_LINE ? ' ' : cleaned
+
+  if (glyphs.size < 4096) glyphs.set(code, glyph)
+
+  return glyph
+}
+
+/** A Raster (the console's picture cells) as terminal lines no wider than `width`: colour per run of cells, the style closed at each row's end. */
+function rasterLines(props: Record<string, unknown>, width: number, depth: Depth): string[] {
+  const columns = typeof props.columns === 'number' && Number.isInteger(props.columns) ? props.columns : 0
+  const rows = typeof props.rows === 'number' && Number.isInteger(props.rows) ? props.rows : 0
+
+  if (columns < 1 || rows < 1 || columns * rows > MAX_PICTURE_CELLS) return []
+
+  const data = decodeCells(props.cells, columns * rows)
+
+  if (data === null) return []
+
+  const lines: string[] = []
+  const shown = Math.max(1, Math.min(columns, width))
+
+  for (let y = 0; y < rows; y++) {
+    let out = ''
+    let style = ''
+
+    for (let x = 0; x < shown; x++) {
+      const at = (y * columns + x) * 3
+      const fg = cellColor(data[at + 1] as number, 38, depth)
+      const bg = cellColor(data[at + 2] as number, 48, depth)
+      const next = fg === '' && bg === '' ? '' : [fg, bg].filter(code => code !== '').join(';')
+
+      if (next !== style) {
+        out += next === '' ? RESET : `\u001b[0;${next}m`
+        style = next
+      }
+
+      out += glyphOf(data[at] as number)
+    }
+
+    lines.push(style === '' ? out : `${out}${RESET}`)
+  }
+
+  return lines
+}
+
 const BORDER = {
   round: ['╭', '╮', '╰', '╯', '─', '│'],
   single: ['┌', '┐', '└', '┘', '─', '│'],
@@ -167,6 +278,8 @@ export function render(node: unknown, width: number, depth: Depth): string[] {
   const { type, props } = node as Node
 
   if (props.hidden === true || props.display === 'none') return []
+
+  if (type === 'Raster') return rasterLines(props, width, depth)
 
   if (type === 'Text') {
     const text = textOf(props.children)
@@ -223,9 +336,12 @@ export function render(node: unknown, width: number, depth: Depth): string[] {
   return [`${edge}${frame[0]}${frame[4].repeat(across)}${frame[1]}${close}`, ...body.map(line => `${edge}${frame[5]}${close}${pad(line, across)}${edge}${frame[5]}${close}`), `${edge}${frame[2]}${frame[4].repeat(across)}${frame[3]}${close}`]
 }
 
-/** The kit the views build with: plain element records for `render`. No Raster and no Input, so a picture takes its words and a text field its command fallback. */
-export function terminalKit(): Kit {
+/**
+ * The kit the views build with: plain element records for `render`. With `raster` it has a Raster, so the views draw their pictures
+ * (the same cells Claude Code draws); without it, and with no Input, a picture takes its words and a text field its command fallback.
+ */
+export function terminalKit(options: { raster?: boolean } = {}): Kit {
   const make = (type: string) => (props: Record<string, unknown>) => ({ type, props }) as never
 
-  return { Box: make('Box'), Text: make('Text'), Button: make('Button') }
+  return { Box: make('Box'), Text: make('Text'), Button: make('Button'), ...(options.raster === true && { Raster: make('Raster') }) }
 }

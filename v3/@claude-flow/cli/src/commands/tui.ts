@@ -42,6 +42,21 @@ function cliEntry(): string | undefined {
   return existsSync(entry) ? entry : undefined;
 }
 
+/** The look and motion flags: `--look bbs|orbital|plain` (default bbs, as in the console), `--fps N` (0-30, default 8; 0 draws pictures still), `--no-anim`, `--no-pictures`. A bad value is ignored, never passed on. */
+export function lookFlags(flags: Record<string, unknown> | undefined): { look?: string; fps?: number; anim?: boolean; pictures?: boolean; boot?: boolean } {
+  const look = flags?.look;
+  const fps = flags?.fps;
+  const number = typeof fps === 'number' ? fps : typeof fps === 'string' && /^\d{1,2}$/.test(fps) ? Number(fps) : undefined;
+
+  return {
+    ...(look === 'bbs' || look === 'orbital' || look === 'plain' ? { look } : {}),
+    ...(number !== undefined && Number.isFinite(number) && number >= 0 && number <= 30 ? { fps: Math.floor(number) } : {}),
+    ...(flags?.anim === false ? { anim: false } : {}),
+    ...(flags?.pictures === false ? { pictures: false } : {}),
+    ...(flags?.boot === true ? { boot: true } : {}),
+  };
+}
+
 /** The AI page's settings from the flags (and one environment variable for the endpoint list). Absent flags leave the defaults; a bad number is ignored, never passed on. */
 export function aiPage(flags: Record<string, unknown> | undefined): { model?: string; maxSpendUsd?: number; convoTargets?: string } {
   const model = typeof flags?.model === 'string' && flags.model !== '' ? flags.model : undefined;
@@ -61,6 +76,11 @@ export const tuiCommand: Command = {
     { name: 'model', description: 'OpenRouter model for this session (default openrouter/auto)', type: 'string' as const },
     { name: 'max-spend-usd', description: 'Stop sending to OpenRouter once the provider-reported spend reaches this (default 0.5)', type: 'number' as const },
     { name: 'convo-targets', description: 'Extra OpenAI-compatible endpoints, the console convoTargets syntax: endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;... (a key is named by its environment variable). Also RUFLO_TUI_CONVO_TARGETS', type: 'string' as const },
+    { name: 'look', description: 'The console look: bbs (default, as in Claude Code) | orbital | plain. Key t cycles them', type: 'string' as const },
+    { name: 'fps', description: 'Frames per second for moving pictures, 0-30 (default 8; 0 draws every picture still)', type: 'number' as const },
+    { name: 'anim', description: 'Animate the pictures. --no-anim draws them still', type: 'boolean' as const, default: true },
+    { name: 'pictures', description: 'Draw the pictures of the console (title art, swarm graph, gauges). --no-pictures shows their words only', type: 'boolean' as const, default: true },
+    { name: 'boot', description: 'Play the look\'s start-up screen first (as the console\'s boot setting)', type: 'boolean' as const, default: false },
     { name: 'plain', description: 'Print one frame as plain text and exit 0 (scripts and CI). Without it, a non-terminal gets a hint and exit 2', type: 'boolean' as const, default: false },
   ],
   examples: [
@@ -100,7 +120,7 @@ export const tuiCommand: Command = {
 
     try {
       const code = await mod.runTui(
-        { cwd: ctx.cwd ?? process.cwd(), view: wanted, ...(ctx.flags?.plain === true && { plain: true }), ...(ctx.flags?.ai !== false && { aiPage: aiPage(ctx.flags) }), ...(cliEntry() !== undefined && { cliEntry: cliEntry() }), ...(process.env.CLAUDE_CONFIG_DIR !== undefined && { configDir: process.env.CLAUDE_CONFIG_DIR }) },
+        { cwd: ctx.cwd ?? process.cwd(), view: wanted, ...lookFlags(ctx.flags), ...(ctx.flags?.plain === true && { plain: true }), ...(ctx.flags?.ai !== false && { aiPage: aiPage(ctx.flags) }), ...(cliEntry() !== undefined && { cliEntry: cliEntry() }), ...(process.env.CLAUDE_CONFIG_DIR !== undefined && { configDir: process.env.CLAUDE_CONFIG_DIR }) },
         { stdin: process.stdin, stdout: process.stdout, stderr: process.stderr, env: process.env, signal: stop.signal },
       );
       return { success: code === 0, exitCode: code };

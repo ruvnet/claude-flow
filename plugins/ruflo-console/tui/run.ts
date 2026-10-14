@@ -5,7 +5,7 @@
  */
 import type { Depth } from './ansi'
 import { cells, clean, widthOf } from './ansi'
-import { openSession, TUI_VIEWS, type Session, type SessionOptions, type TuiView } from './session'
+import { openSession, TUI_VIEWS, type Look, type Session, type SessionOptions, type TuiView } from './session'
 
 export type TuiInput = {
   isTTY?: boolean
@@ -24,7 +24,7 @@ export type TuiOutput = {
   off?: (event: 'resize', fn: () => void) => unknown
 }
 export type TuiIO = { stdin: TuiInput; stdout: TuiOutput; stderr: { write: (text: string) => unknown }; env: Record<string, string | undefined>; signal?: AbortSignal }
-export type TuiOptions = { cwd: string; view?: TuiView; plain?: boolean; cliEntry?: string; configDir?: string; home?: string; pluginRoot?: string; refreshMs?: number; /** The AI page's settings; absent: the page is off. */ aiPage?: SessionOptions['aiPage'] }
+export type TuiOptions = { cwd: string; view?: TuiView; plain?: boolean; cliEntry?: string; configDir?: string; home?: string; pluginRoot?: string; refreshMs?: number; /** The look (bbs | orbital | plain: default bbs) and the frames per second of moving pictures (default 8, at most 30; 0 draws them still). */ look?: Look; fps?: number; /** False: no animation (a still frame, like fps 0). */ anim?: boolean; /** False: no pictures, only their words. */ pictures?: boolean; /** True: play the start-up screen first (as the console's boot setting). */ boot?: boolean; /** The AI page's settings; absent: the page is off. */ aiPage?: SessionOptions['aiPage'] }
 
 export const isTuiView = (value: unknown): value is TuiView => typeof value === 'string' && (TUI_VIEWS as readonly string[]).includes(value)
 
@@ -37,6 +37,10 @@ export function depthOf(env: Record<string, string | undefined>): Depth {
 }
 
 const ESC = '\u001b'
+/** Frames per second for moving pictures: the console's default 8, a whole number from 0 (still) to 30. Anything else is the default. */
+export const DEFAULT_FPS = 8
+export const MAX_FPS = 30
+export const fpsOf = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(MAX_FPS, Math.floor(value))) : DEFAULT_FPS)
 /** Below this the frame is a short message, not a squeezed page. The page bar and the key line shorten to what fits. */
 export const MIN_COLUMNS = 40
 
@@ -57,7 +61,7 @@ export function navLine(view: TuiView, columns: number, depth: Depth): string {
 /** The key line under the page: every key when there is room, fewer keys as the terminal narrows, always inside `columns` (the scroll position, when there is one, is counted in). `own` replaces the page keys (the AI page has its own). */
 export function keyLine(columns: number, place = '', own?: readonly string[]): string {
   const pages = `1-${TUI_VIEWS.length}`
-  const tiers = own ?? [`${pages} or o c s e m a page · tab next · r refresh · j/k scroll · q quit · read-only`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
+  const tiers = own ?? [`${pages} or o c s e m a page · tab next · r refresh · t look · j/k scroll · q quit · read-only`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
   const fits = tiers.find(line => cells(line + place) <= columns) ?? tiers[tiers.length - 1] as string
 
   return `${fits}${place}`.slice(0, columns)
@@ -72,7 +76,7 @@ export function aiKeyTiers(mode: 'type' | 'nav', hasCard: boolean): string[] {
 }
 
 /** One keypress as an action, from the bytes a terminal sends. Anything else is ignored. */
-export type Key = 'quit' | { page: TuiView } | 'next' | 'prev' | 'refresh' | 'down' | 'up' | 'pagedown' | 'pageup' | 'top' | 'bottom' | null
+export type Key = 'quit' | 'look' | { page: TuiView } | 'next' | 'prev' | 'refresh' | 'down' | 'up' | 'pagedown' | 'pageup' | 'top' | 'bottom' | null
 
 export function keyOf(chunk: string): Key {
   switch (chunk) {
@@ -90,6 +94,8 @@ export function keyOf(chunk: string): Key {
       return 'prev'
     case 'r':
       return 'refresh'
+    case 't':
+      return 'look'
     case 'j':
     case `${ESC}[B`:
       return 'down'
@@ -117,15 +123,43 @@ export function keyOf(chunk: string): Key {
   }
 }
 
-function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear = false): number {
+/** What the last frame put on the screen, so the next one rewrites only the rows that changed (a moving picture then costs its own rows, not a whole redraw). */
+type Memory = { lines: string[]; columns: number; rows: number }
+
+/** A whole frame, from the home position: the page bar, the body rows, then the key line (the shape every key press and resize draws). */
+function writeFrame(io: TuiIO, screen: string[], memory: Memory, columns: number, rows: number, clear: boolean): void {
+  const body = screen.slice(1, -1)
+
+  memory.lines = screen
+  memory.columns = columns
+  memory.rows = rows
+  io.stdout.write(`${clear ? `${ESC}[2J` : ''}${ESC}[H${screen[0]}${ESC}[K\r\n${body.map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${screen[screen.length - 1]}`)
+}
+
+/** An animation tick: only the rows that differ from the last frame, each at its own position (a moving picture costs its own rows, not a whole redraw). Anything else is a whole frame. */
+function writeTick(io: TuiIO, screen: string[], memory: Memory, columns: number, rows: number): void {
+  if (memory.columns !== columns || memory.rows !== rows || memory.lines.length !== screen.length) return writeFrame(io, screen, memory, columns, rows, true)
+
+  let out = ''
+
+  screen.forEach((line, i) => {
+    if (memory.lines[i] !== line) out += `${ESC}[${i + 1};1H${line}${ESC}[K`
+  })
+  memory.lines = screen
+
+  if (out !== '') io.stdout.write(out)
+}
+
+function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, memory: Memory, clear = false, tick = false): number {
   const ai = session.page === 'ai' ? session.ai : null
   const raw = io.stdout.columns ?? 100
   const rows = Math.max(5, io.stdout.rows ?? 30)
-  const reset = clear ? `${ESC}[2J` : ''
 
   // Too narrow for a page: say so in a line that fits, rather than a squeezed frame of broken cards.
   if (raw < MIN_COLUMNS) {
-    io.stdout.write(`${reset}${ESC}[H${'Too narrow: need 40 columns (q quits)'.slice(0, Math.max(1, raw))}${ESC}[K${ESC}[J`)
+    memory.lines = []
+    memory.columns = 0
+    io.stdout.write(`${ESC}[2J${ESC}[H${'Too narrow: need 40 columns (q quits)'.slice(0, Math.max(1, raw))}${ESC}[K`)
 
     return 0
   }
@@ -145,7 +179,12 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, clear 
   const place = lines.length > room ? ` · ${top + 1}-${Math.min(lines.length, top + room)}/${lines.length}` : ''
   const footer = `${depth === 'none' ? '' : `${ESC}[2m`}${clean(keyLine(columns, place, session.page === 'ai' && session.ai !== null ? aiKeyTiers(session.ai.mode, session.ai.card !== null) : undefined))}${depth === 'none' ? '' : `${ESC}[0m`}`
 
-  io.stdout.write(`${reset}${ESC}[H${navLine(session.page, columns, depth)}${ESC}[K\r\n${[...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')].map(line => `${line}${ESC}[K`).join('\r\n')}${ESC}[J\r\n${footer}`)
+  const body = [...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')]
+
+  const screen = [navLine(session.page, columns, depth), ...body, footer]
+
+  if (tick && !clear) writeTick(io, screen, memory, columns, rows)
+  else writeFrame(io, screen, memory, columns, rows, clear)
 
   // The question card is on screen now: from here a `y` may answer it, and not before (#3983).
   if (session.cardFits) ai?.drawn()
@@ -176,7 +215,7 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     return 2
   }
 
-  const session = openSession({ cwd: options.cwd, ...(options.cliEntry !== undefined && { cliEntry: options.cliEntry }), ...(options.configDir !== undefined && { configDir: options.configDir }), ...(options.home !== undefined && { home: options.home }), ...(options.pluginRoot !== undefined && { pluginRoot: options.pluginRoot }), ...(options.aiPage !== undefined && { aiPage: options.aiPage }) })
+  const session = openSession({ cwd: options.cwd, ...((options.look ?? (options.plain === true ? 'plain' : undefined)) !== undefined && { look: options.look ?? 'plain' }), fps: options.anim === false ? 0 : fpsOf(options.fps), ...(options.pictures === false && { pictures: false }), ...(options.boot === true && { boot: true }), ...(options.cliEntry !== undefined && { cliEntry: options.cliEntry }), ...(options.configDir !== undefined && { configDir: options.configDir }), ...(options.home !== undefined && { home: options.home }), ...(options.pluginRoot !== undefined && { pluginRoot: options.pluginRoot }), ...(options.aiPage !== undefined && { aiPage: options.aiPage }) })
   let view: TuiView = options.view ?? 'overview'
 
   try {
@@ -185,9 +224,11 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     const depth = depthOf(io.env)
     let scroll = 0
     let isDone = false
+    let isFocused = true
     let finish: () => void = () => undefined
     const done = new Promise<void>(resolve => void (finish = resolve))
-    const draw = () => void (scroll = paint(session, io, depth, scroll))
+    const memory: Memory = { lines: [], columns: 0, rows: 0 }
+    const draw = (tick = false) => void (scroll = paint(session, io, depth, scroll, memory, false, tick))
     const reread = async () => {
       await session.refresh()
       if (!isDone) draw()
@@ -197,6 +238,10 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     const onKey = (chunk: Buffer | string) => {
       // The AI page takes the keys while you type (digits and letters are text there): Esc hands them back to the shell, and Ctrl-C always quits.
       if (view === 'ai' && session.ai !== null && session.ai.press(chunk.toString()).consumed) return draw()
+
+      // Focus reports (the terminal tells us when it is behind another window): a hidden terminal draws nothing, and a refocused one draws at once.
+      if (chunk.toString() === `${ESC}[O`) return void (isFocused = false)
+      if (chunk.toString() === `${ESC}[I`) return void ((isFocused = true), draw())
 
       const key = keyOf(chunk.toString())
       const page = Math.max(1, (io.stdout.rows ?? 30) - 2)
@@ -212,23 +257,37 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       else if (key === 'top') scroll = 0
       else if (key === 'bottom') scroll = Number.MAX_SAFE_INTEGER
       else if (key === 'refresh') void reread()
+      else if (key === 'look') session.cycleLook()
       else return
 
       draw()
     }
 
     session.show(view)
-    io.stdout.write(`${ESC}[?1049h${ESC}[?25l`)
+    io.stdout.write(`${ESC}[?1049h${ESC}[?25l${ESC}[?1004h`)
     io.stdin.setRawMode(true)
     io.stdin.resume()
     io.stdin.on('data', onKey)
-    const resize = () => void (scroll = paint(session, io, depth, scroll, true))
+    const resize = () => void (scroll = paint(session, io, depth, scroll, memory, true))
 
     io.stdout.on?.('resize', resize)
     io.signal?.addEventListener('abort', finish, { once: true })
     draw()
 
     const timer = setInterval(() => void reread(), Math.max(3000, options.refreshMs ?? 3000))
+    // The frame clock: only while something moves, the terminal is in front, and the last frame was done in time (a slow terminal skips frames, never queues them).
+    const fps = options.anim === false ? 0 : fpsOf(options.fps)
+    let isDrawing = false
+    const clock = fps === 0 ? null : setInterval(() => {
+      if (isDone || isDrawing || !isFocused || !session.moving()) return
+
+      isDrawing = true
+      try {
+        draw(true)
+      } finally {
+        isDrawing = false
+      }
+    }, Math.round(1000 / fps))
 
     void reread()
 
@@ -237,11 +296,12 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     } finally {
       isDone = true
       clearInterval(timer)
+      if (clock !== null) clearInterval(clock)
       io.stdin.off('data', onKey)
       io.stdout.off?.('resize', resize)
       io.stdin.setRawMode(false)
       io.stdin.pause()
-      io.stdout.write(`${ESC}[?25h${ESC}[?1049l`)
+      io.stdout.write(`${ESC}[?1004l${ESC}[?25h${ESC}[?1049l`)
     }
 
     return 0

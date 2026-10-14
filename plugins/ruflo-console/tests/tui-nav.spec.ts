@@ -100,7 +100,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   for (const columns of [80, 120]) {
     it(`draws all six pages at ${columns} columns, no wider than the terminal, with none of Claude Code's chrome`, async () => {
       for (const view of TUI_VIEWS) {
-        const session = openSession({ cwd: project, home: join(root, 'home'), aiPage: {} })
+        const session = openSession({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), aiPage: {} })
 
         try {
           session.show(view)
@@ -123,7 +123,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   }
 
   it('the Missions page reads the mission record only: no goal field, no plan, no research launch', async () => {
-    const session = openSession({ cwd: project, home: join(root, 'home') })
+    const session = openSession({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') })
 
     try {
       session.show('missions')
@@ -139,7 +139,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   })
 
   it('hostile mission text: words only reach the screen (no escape, no token)', async () => {
-    const session = openSession({ cwd: hostile, home: join(root, 'home') })
+    const session = openSession({ look: 'plain', fps: 0, cwd: hostile, home: join(root, 'home') })
 
     try {
       session.show('missions')
@@ -160,7 +160,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
 describe('the terminal loop', () => {
   it('jumps to a page on a digit, cycles with tab and shift-tab, and the page bar follows', async () => {
     const t = terminal()
-    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
     await settle()
     t.press('3')
@@ -181,14 +181,14 @@ describe('the terminal loop', () => {
 
   it('highlights 6 AI in the page bar on the AI page, started there or reached by key (not the page before it)', async () => {
     const started = terminal()
-    const first = runTui({ cwd: project, home: join(root, 'home'), view: 'ai', aiPage: { codexBin: '/nonexistent/codex' } }, started.io)
+    const first = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), view: 'ai', aiPage: { codexBin: '/nonexistent/codex' } }, started.io)
 
     await settle()
     started.press('\u0003')
     await first
 
     const reached = terminal()
-    const second = runTui({ cwd: project, home: join(root, 'home'), aiPage: { codexBin: '/nonexistent/codex' } }, reached.io)
+    const second = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), aiPage: { codexBin: '/nonexistent/codex' } }, reached.io)
 
     await settle()
     reached.press('5')
@@ -210,7 +210,7 @@ describe('the terminal loop', () => {
   it('fills the terminal exactly: the page bar on the first row, the key line on the last', async () => {
     for (const rows of [24, 40]) {
       const t = terminal(100, rows)
-      const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+      const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
       await settle()
       t.press('4')
@@ -228,7 +228,7 @@ describe('the terminal loop', () => {
 
   it('redraws at the new width on a resize, clearing the screen first', async () => {
     const t = terminal(120, 30)
-    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
     await settle()
 
@@ -247,7 +247,7 @@ describe('the terminal loop', () => {
 
   it('under 60 columns it draws the position bar and the short key line; under 40 it says how wide it needs to be', async () => {
     const narrow = terminal(52, 24)
-    const running = runTui({ cwd: project, home: join(root, 'home') }, narrow.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, narrow.io)
 
     await settle()
     expect(plain(narrow.out.join(''))).toContain('‹ 1/6 Overview ›')

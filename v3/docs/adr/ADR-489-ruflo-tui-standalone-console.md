@@ -1,6 +1,6 @@
 # ADR 489: `ruflo tui`: the console in a terminal of its own, over the same views
 
-Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phase 2 (Swarm, Events and Missions, page bar and keys, resize, host capability flag) is implemented in PR #4075; phase 3 (the AI page: Codex and OpenRouter, each question after a card) is implemented in PR 2 of the continuation; phase 4 (actions) is a roadmap that must follow those decisions.
+Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phase 2 (Swarm, Events and Missions, page bar and keys, resize, host capability flag) is implemented in PR #4075; phase 3 (the AI page: Codex and OpenRouter, each question after a card) is implemented in PR 2 of the continuation; phase 4 (pictures, looks and motion) is implemented in console 0.44.0; phase 5 (every console view through this host) and phase 6 (actions) are the roadmap and must follow those decisions.
 
 Date: 2026-10-11
 
@@ -43,7 +43,7 @@ draw `n/a` on a host that cannot measure what they read (see 2.4).
 The console uses no TUI library and writes no terminal escape sequence. Views build an element tree; the Claude Code engine lays it out and draws it. `Raster`
 (`gfx/raster.ts`, `[codePoint, fg, bg]` triplets as base64) is Claude Code's own element, a picture the engine paints. A search for Kitty found nothing in the
 console. The premise "renders to Kitty / 256-colour" is therefore not in the code; the 256-colour note in the project memory is about Claude Code inside tmux.
-A standalone host needs its own renderer for `Box|Text|Button`; `Raster` can take its existing words fallback (`picture()` in `views/common.ts`) until a later phase.
+A standalone host needs its own renderer for `Box|Text|Button`; `Raster` took its words fallback (`picture()` in `views/common.ts`) in phases 1 to 3; phase 4 draws it (section 4, item 4).
 
 ### 2.3 How `npx ruflo` dispatches, and where `tui` fits
 
@@ -158,7 +158,18 @@ not a replacement and not a second implementation.
    - **The gate (#3983).** Enter makes a card showing exactly what would leave the machine (the Codex argv and prompt, or the POST, the model and the key variable's name); only a lone `y` while that card has been **drawn in full** answers it; `n` or Esc drops it; it expires after 60 s; a paste is text, never an answer; a terminal too small to show the whole card cannot answer it. A message that looks like a credential is refused and dropped.
    - **Spend.** `--max-spend-usd` (default 0.5) stops the next OpenRouter question once the provider-reported total reaches it. Codex reports no dollars: its turns are counted and its cost reads n/a. The multi-provider ledger (ADR-437) reads Codex's own rollouts and OpenRouter's key usage; this page adds no writer to it.
    - **Not in this PR:** the per-session **workspace-write opt-in**. The host accepts `workspace-write` when built with `allowWrite` and the guard pins it (tests), but the page offers no toggle and the console's Codex argv is read-only, so no write path exists yet; it needs a card that names the files Codex may change, which is phase 4.
-4. **Actions.** Pressable buttons and fields (an optional lazily loaded input dependency, or hand-rolled), the confirm card, the palette; each write goes through `Runner` as in the mod.
+4. **Pictures, looks and motion (done, console 0.44.0).** The kit gains `Raster` (`tui/ansi.ts`): the Grid's cells drawn as coloured glyphs, 24-bit when `COLORTERM` says so and the nearest of the 256 otherwise. A cell is data: a control, escape, invisible, surrogate or wide code point becomes a space, `cells` that are not exactly `columns*rows` u32 triplets (or exceed 200*90) draw nothing, and the secret-line filter still applies. The standalone pane now leads each page with the same `art()` the console uses (title or masthead, the swarm graph and the other pictures), in the console's three looks (Classic BBS default, Orbital, plain; `--look`, `t`), with `--boot` for the start-up screen. Pictures move at `--fps` (default 8, max 30, `--no-anim` or 0 for still): key presses and resizes write a whole frame as before, animation ticks write only the rows that changed with absolute positioning; ticks are skipped while a frame is being written, and stop while the terminal reports focus lost (`ESC[?1004h`). No colour (`NO_COLOR`, `TERM=dumb`), `--no-pictures`, or under 44 columns: the words of each picture, as before. No new network and no new write path. Measured on Linux/tmux: bundle +1.2 KB gzip; about 2-3% of one core and 14-80 KB/s at 8 fps, about 9% and 230 KB/s at 30 fps (Orbital, 200x50 is the worst case). Unverified: Windows, macOS, terminals other than tmux/xterm-256color.
+5. **Every console view through this host (roadmap).** Each view in the console's `VIEWS` list gets a recorded decision in the parity table below (identical, "Claude Code only" with a one-line reason, or needs a host capability), a main menu with grouped navigation, `go <view>` by name and optional mouse reporting with key fallback.
+6. **Actions.** Pressable buttons and fields (an optional lazily loaded input dependency, or hand-rolled), the confirm card, the palette; each write goes through `Runner` as in the mod.
+
+### Parity with the console (decisions recorded per item; the table is completed in phase 5)
+
+| Console item | Standalone | Why |
+|---|---|---|
+| Title art, masthead, pictures, looks, boot, animation | Same drawings (phase 4) | `art()` and `picturesOf()` are shared; only the Raster surface differs |
+| Overview, Cost, Swarm, Events, Missions, AI | Shipped | phases 1 to 3 |
+| Ask Claude buttons, Claude control card, prompt-box band, toasts, session-tool server, live session transcript (Room) | Claude Code only | they act on, or read from, a running Claude Code session that this host does not have |
+| Remaining views, main menu, command palette, mouse, settings pages | Roadmap (phase 5/6) | not yet decided per view |
 
 ## 5. Risks
 
