@@ -41,6 +41,7 @@ import { EdgeMode } from './modes/edge.js';
 import { BatchMode } from './modes/batch.js';
 import type { ModeImplementation } from './modes/index.js';
 import { deepEncode, deepDecode } from './utils/serialize.js';
+import { assertValidSonaSnapshot } from './utils/sona-state-validation.js';
 
 /**
  * Default mode configurations
@@ -642,13 +643,14 @@ export class SONAManager {
       learningCycles: number;
       lastStatsUpdate: number;
     };
-    if (decoded.schemaVersion !== 1) {
-      throw new Error(`SONAManager: unsupported schemaVersion ${decoded.schemaVersion} (expected 1)`);
-    }
+    // Validate the whole snapshot BEFORE touching any field (see sona-state-validation.ts).
+    assertValidSonaSnapshot(decoded);
+    // Build the mode implementation first: if it throws, nothing has been assigned.
+    const modeImpl = this.createModeImplementation(decoded.currentMode);
     this.currentMode = decoded.currentMode;
     this.config = decoded.config;
     this.optimizations = decoded.optimizations;
-    this.modeImpl = this.createModeImplementation(this.currentMode);
+    this.modeImpl = modeImpl;
     this.trajectories = decoded.trajectories;
     this.patterns = decoded.patterns;
     this.loraWeights = decoded.loraWeights;

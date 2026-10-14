@@ -27,6 +27,7 @@ import {
 } from '../src/utils/serialize.js';
 import { createReasoningBank } from '../src/reasoning-bank.js';
 import { createPatternLearner } from '../src/pattern-learner.js';
+import { assertValidSonaSnapshot } from '../src/utils/sona-state-validation.js';
 
 // SONAManager is exercised separately — importing it here would pull in
 // `modes/balanced.ts` which has a pre-existing load-order issue when
@@ -237,3 +238,54 @@ describe('Retrieval-path observability (#1773 item 2)', () => {
 // deserialize() methods compile and behave correctly per the build, but
 // instantiating SONAManager from a fresh vitest context surfaces a
 // pre-existing class-inheritance bootstrap bug. Tracked for a follow-up.
+
+describe('assertValidSonaSnapshot rejects malformed state before anything is assigned (#4081 review)', () => {
+  const validSnapshot = () => ({
+    schemaVersion: 1,
+    currentMode: 'balanced',
+    config: {},
+    optimizations: {},
+    trajectories: new Map(),
+    patterns: new Map(),
+    loraWeights: new Map(),
+    ewcState: null,
+    stats: {},
+    isInitialized: true,
+    operationCount: 0,
+    totalLatencyMs: 0,
+    learningCycles: 0,
+    lastStatsUpdate: 0,
+  });
+
+  it('accepts a complete, well-typed snapshot', () => {
+    expect(() => assertValidSonaSnapshot(validSnapshot())).not.toThrow();
+  });
+
+  it('keeps the unsupported-schema message', () => {
+    expect(() => assertValidSonaSnapshot({ ...validSnapshot(), schemaVersion: 2 })).toThrow(
+      /unsupported schemaVersion 2/,
+    );
+  });
+
+  const cases: Array<[string, unknown]> = [
+    ['null', null],
+    ['a number', 42],
+    ['an array', []],
+    ['only a schemaVersion', { schemaVersion: 1 }],
+    ['an unknown mode', { ...validSnapshot(), currentMode: 'evil' }],
+    ['a non-string mode', { ...validSnapshot(), currentMode: 7 }],
+    ['config as a number', { ...validSnapshot(), config: 5 }],
+    ['trajectories as a plain object', { ...validSnapshot(), trajectories: {} }],
+    ['patterns as an array', { ...validSnapshot(), patterns: [] }],
+    ['loraWeights as a number', { ...validSnapshot(), loraWeights: 5 }],
+    ['ewcState as a string', { ...validSnapshot(), ewcState: 'x' }],
+    ['isInitialized as a string', { ...validSnapshot(), isInitialized: 'yes' }],
+    ['NaN counters', { ...validSnapshot(), operationCount: Number.NaN }],
+    ['missing counters', { ...validSnapshot(), learningCycles: undefined }],
+  ];
+  for (const [label, state] of cases) {
+    it(`rejects ${label}`, () => {
+      expect(() => assertValidSonaSnapshot(state)).toThrow();
+    });
+  }
+});
