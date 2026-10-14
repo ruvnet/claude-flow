@@ -228,6 +228,9 @@ importers:
       '@napi-rs/keyring':
         specifier: 1.3.0
         version: 1.3.0
+      '@ruvector/rvagent-wasm':
+        specifier: ^0.1.0
+        version: 0.1.0
       agentdb:
         specifier: ^3.0.0-alpha.20
         version: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
@@ -5805,6 +5808,12 @@ packages:
       '@ruvector/ruvllm-linux-arm64-gnu': 2.0.1
       '@ruvector/ruvllm-linux-x64-gnu': 2.0.1
       '@ruvector/ruvllm-win32-x64-msvc': 2.0.1
+
+  /@ruvector/rvagent-wasm@0.1.0:
+    resolution: {integrity: sha512-zhcnU7XfBEfDwkDFscehq6qGU/TW4LNr287xHHXCuNsaTBPlb8YSnkuMNWg6BBIK/X+UdWAsyYESN5jbNQEaBQ==}
+    requiresBuild: true
+    dev: false
+    optional: true
 
   /@ruvector/rvf-node-darwin-arm64@0.1.7:
     resolution: {integrity: sha512-vll3WJwDn3oOfy1PB10IG7/f3zBpFiMNHL2/2tdJmeRR8La/rSPJ0ZH5MDIsfleiVtaWzh9bvVCtVkZ6uo2jeg==}
@@ -13565,7 +13574,6 @@ packages:
       utf-8-validate:
         optional: true
     dev: false
-
 
   /ws@8.20.0:
     resolution: {integrity: sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==}

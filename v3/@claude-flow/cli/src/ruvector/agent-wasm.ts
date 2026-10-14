@@ -61,6 +61,19 @@ export interface ToolResult {
 
 let _wasmReady = false;
 
+/** Shown wherever the optional @ruvector/rvagent-wasm package cannot be loaded. */
+export const AGENT_WASM_NOT_INSTALLED_MESSAGE =
+  '@ruvector/rvagent-wasm is not installed.\n' +
+  'Install it with: npm install @ruvector/rvagent-wasm (or npm install -g @ruvector/rvagent-wasm for a global ruflo)';
+
+/** True when err is the module-resolution failure for @ruvector/rvagent-wasm itself. */
+function isMissingAgentWasm(err: unknown): boolean {
+  const e = err as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === 'string' ? e.code : '';
+  const message = typeof e?.message === 'string' ? e.message : String(err);
+  return (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND') && message.includes('@ruvector/rvagent-wasm');
+}
+
 /**
  * Check if @ruvector/rvagent-wasm is installed and loadable.
  */
@@ -88,6 +101,11 @@ export async function initAgentWasm(): Promise<void> {
     mod.initSync(wasmBytes);
     _wasmReady = true;
   } catch (err) {
+    // #3979 item 1: a missing optional package is "not installed", with the fix,
+    // not a raw ERR_MODULE_NOT_FOUND trace dressed up as an initialization failure.
+    if (isMissingAgentWasm(err)) {
+      throw new Error(AGENT_WASM_NOT_INSTALLED_MESSAGE);
+    }
     throw new Error(`Failed to initialize @ruvector/rvagent-wasm: ${err}`);
   }
 }
