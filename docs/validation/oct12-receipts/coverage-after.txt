@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: \#4082 empty instrumented file is fully covered, not a gap
+ok 1 - \#4082 empty instrumented file is fully covered, not a gap
+  ---
+  duration_ms: 3.701742
+  ...
+# Subtest: \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+ok 2 - \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+  ---
+  duration_ms: 1.758291
+  ...
+# Subtest: \#4083 LCOV aggregates counts for every metric, including unterminated last record
+ok 3 - \#4083 LCOV aggregates counts for every metric, including unterminated last record
+  ---
+  duration_ms: 1.33052
+  ...
+# Subtest: \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+ok 4 - \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+  ---
+  duration_ms: 1.902941
+  ...
+# Subtest: empty or malformed reports do not hide a valid fallback
+ok 5 - empty or malformed reports do not hide a valid fallback
+  ---
+  duration_ms: 1.154881
+  ...
+# Subtest: Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+ok 6 - Istanbul empty-file Unknown sentinel yields numeric 100% in totals and entries
+  ---
+  duration_ms: 0.8879
+  ...
+# Subtest: legacy NYC summary reports remain readable
+ok 7 - legacy NYC summary reports remain readable
+  ---
+  duration_ms: 0.889371
+  ...
+# Subtest: pct-only files retain their percentage but unknown aggregate counts stay conservative
+ok 8 - pct-only files retain their percentage but unknown aggregate counts stay conservative
+  ---
+  duration_ms: 0.87474
+  ...
+# Subtest: mixed counted and uncounted files cannot claim a fully covered aggregate
+ok 9 - mixed counted and uncounted files cannot claim a fully covered aggregate
+  ---
+  duration_ms: 1.678731
+  ...
+# Subtest: valid supplied aggregate percentages including zero take precedence
+ok 10 - valid supplied aggregate percentages including zero take precedence
+  ---
+  duration_ms: 1.477791
+  ...
+# Subtest: incomplete or invalid counts do not manufacture a percentage
+ok 11 - incomplete or invalid counts do not manufacture a percentage
+  ---
+  duration_ms: 3.907532
+  ...
+# Subtest: explicit empty counts across every file remain fully covered
+ok 12 - explicit empty counts across every file remain fully covered
+  ---
+  duration_ms: 0.99171
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 41.4124

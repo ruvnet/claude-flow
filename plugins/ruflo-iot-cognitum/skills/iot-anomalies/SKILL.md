@@ -7,7 +7,7 @@ argument-hint: "<device-id>"
 Run Z-score anomaly detection on a device's recent telemetry.
 
 Steps:
-1. `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot anomalies DEVICE_ID`
+1. `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot anomalies DEVICE_ID`
 2. Review detected anomaly types (spike, flatline, drift, oscillation, pattern-break, cluster-outlier)
 3. If score > 0.9, recommend quarantine
 4. Store anomaly pattern for learning:

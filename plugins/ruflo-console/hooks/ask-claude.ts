@@ -53,6 +53,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
   market: { default: 'Which of these plugins would help most for what I am doing?' },
   adrs: { default: 'Which of my project’s ADRs matter for what I am working on, and does anything I have changed cut across an accepted decision?' },
   whatsnew: { default: 'Which of these plugin changes matter for how I work, and does any breaking change need action from me?' },
+  themes: { default: 'Help me design a readable animated console theme with Theme Studio.' },
   settings: { default: 'Which of these settings should I change for how I work?' },
   agent: { default: 'What is this agent doing, and is anything wrong with it?' },
 }
@@ -144,6 +145,7 @@ export function askActions(state: State, host: Host, runner: Runner, act: () => 
   /** Resolves once the ask is queued (after its screen, when a typed question is screened): a model call waits on it so the ask keeps its origin and level (#3815). */
   const deliver = (mode: 'visible' | 'aside', question: string | undefined, view: ViewId): void | Promise<void> => {
     const byModel = state.control.viaModel
+    const byCall = state.control.callTag ?? undefined
     const typed = plain(question ?? '', MAX_QUESTION).trim()
     const fit = checkLimit(typed, LONG_TEXT_MAX, 'the question', 'sent to Claude as one prompt')
 
@@ -155,6 +157,7 @@ export function askActions(state: State, host: Host, runner: Runner, act: () => 
         {
           label: `ask Claude about ${labelOf(view)}${mode === 'aside' ? ' (/btw aside)' : ''}`,
           byModel,
+          byCall,
           scope: 'ask',
           args: [],
           shows: `${mode === 'aside' ? '/btw ' : ''}“${plain(typed || VIEW_ASK[view].default, 120)}” with this view’s text as data (secrets removed) — ${prompt.length} characters`,

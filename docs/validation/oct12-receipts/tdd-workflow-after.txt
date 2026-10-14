@@ -1,0 +1,45 @@
+TAP version 13
+# Subtest: \#4085 green target and regression records observed outcome
+ok 1 - \#4085 green target and regression records observed outcome
+  ---
+  duration_ms: 3.536922
+  ...
+# Subtest: \#4085 target still red records observed outcome
+ok 2 - \#4085 target still red records observed outcome
+  ---
+  duration_ms: 0.77447
+  ...
+# Subtest: \#4085 regression broken records observed outcome
+ok 3 - \#4085 regression broken records observed outcome
+  ---
+  duration_ms: 0.826051
+  ...
+# Subtest: \#4085 abandoned records observed outcome
+ok 4 - \#4085 abandoned records observed outcome
+  ---
+  duration_ms: 0.79806
+  ...
+# Subtest: \#4085 interrupted runner records observed outcome
+ok 5 - \#4085 interrupted runner records observed outcome
+  ---
+  duration_ms: 0.75474
+  ...
+# Subtest: \#4085 target not run records observed outcome
+ok 6 - \#4085 target not run records observed outcome
+  ---
+  duration_ms: 1.685641
+  ...
+# Subtest: \#4085 regression not run records observed outcome
+ok 7 - \#4085 regression not run records observed outcome
+  ---
+  duration_ms: 0.830791
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 24.251362

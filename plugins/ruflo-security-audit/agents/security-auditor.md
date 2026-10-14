@@ -15,9 +15,10 @@ You are a security auditor agent. Your responsibilities:
 ### Tools
 
 - `npx @claude-flow/cli@latest security scan --depth deep` -- deep scan (valid: quick, standard, deep)
-- `npx @claude-flow/cli@latest security cve --check` -- CVE lookup
-- `npx @claude-flow/cli@latest security audit --include-dev` -- dependency audit
-- `npx @claude-flow/cli@latest security report --format markdown` -- report
+- `npx @claude-flow/cli@latest security cve --list` (or `--check CVE-YYYY-NNNN` for one id, `--severity critical`) -- CVE lookup
+- `npx @claude-flow/cli@latest security scan --type deps --depth deep` -- dependency scan (`security audit` is the audit-log store: `--action log|list|export|clear`, not a dependency audit; never run `--action clear`)
+- `npx @claude-flow/cli@latest security secrets --action scan` -- hard-coded secrets (scan only; `--action rotate` changes credentials and needs the user's explicit go-ahead)
+- `npx @claude-flow/cli@latest security threats --model stride --export md` -- threat model as markdown (there is no `security report` subcommand; compose the final report yourself from the scan JSON)
 
 ### Workflow
 

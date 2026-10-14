@@ -28,7 +28,7 @@ export type NavStyle = 'auto' | 'icons' | 'brief' | 'full'
 export const NAV_STYLES: readonly NavStyle[] = ['auto', 'icons', 'brief', 'full']
 export const NAV_KEY = 'nav-style'
 
-export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'whatsnew' | 'adrs' | 'chat'
+export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'themes' | 'whatsnew' | 'adrs'
 
 /**
  * The views in tab order, each with its hotkey and the inline height it asks for. Digits are the first nine; the three
@@ -74,6 +74,7 @@ export const VIEWS: readonly { id: ViewId; key: string; label: string; short: st
   { id: 'market', key: 'm', label: 'Plugin Catalog', short: 'Cat', icon: '📦', blurb: 'every ruflo plugin, mod and skill: what it ships, install, enable, disable, update, view and use', rows: 50 },
   { id: 'adrs', key: '', label: 'ADRs', short: 'ADR', icon: '📐', blurb: 'your project’s Architecture Decision Records: find, propose, accept and supersede them, attach them to a mission so Claude and the swarm follow what was decided', rows: 44 },
   { id: 'whatsnew', key: '', label: 'What’s new', short: 'New', icon: '🆕', blurb: 'what changed in your ruflo plugins, newest first: from each plugin’s own CHANGELOG, breaking changes pinned until you dismiss them', rows: 40 },
+  { id: 'themes', key: '', label: 'Theme Studio', short: 'Themes', icon: '◈', blurb: 'theme selection, color picker, animated palettes and Claude or Codex theme generator', rows: 50 },
   { id: 'settings', key: 's', label: 'Settings', short: 'Set', icon: '⚙️', blurb: 'simple to advanced settings: plugin options, ruflo config, updates, and the AI terminal’s model and budget, each edited in place', rows: 50 },
 ]
 
@@ -116,8 +117,8 @@ export type Options = GuardOptions & ConvoOptions & SessionOptions & {
   panel: 'auto' | 'command' | 'off'
   /** Lets the federation view ask the public relay for the roster. Off by default: no network without consent. */
   federationNetwork: boolean
-  /** `bbs`: the neon ASCII-art look (default); `plain`: the terminal theme's own colours and plain rules. */
-  look: 'bbs' | 'plain'
+  /** `bbs`: neon (default); `plain`: terminal colours; `orbital`: dark telemetry panels with red accents. */
+  look: 'bbs' | 'plain' | 'orbital'
   /** With the bbs look, a short dial-up boot screen when the cockpit opens. */
   boot: boolean
   /** ADR-474: keep the Events and Timeline history in `.claude-flow/console/` (events.jsonl, lanes.jsonl). On by default; masked text only. */
@@ -141,7 +142,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
     bar: value.bar === 'on' || value.bar === 'off' ? value.bar : 'auto',
     panel: value.panel === 'command' || value.panel === 'off' ? value.panel : 'auto',
     federationNetwork: value.federationNetwork === true,
-    look: value.look === 'plain' ? 'plain' : 'bbs',
+    look: value.look === 'plain' || value.look === 'orbital' ? value.look : 'bbs',
     boot: value.boot !== false,
     eventsPersist: value.eventsPersist !== false && value.eventsPersist !== 'false',
     ...guardOptionsOf(raw),
@@ -151,7 +152,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
 }
 
 /** A mutating action waiting for the person's second press; `shows` is the command line when it is not a ruflo one. */
-export type Pending = { /** Which ask this is (runner.ts hands out ids in order): a Yes names the card it answers, so another card that took its place is never the one run. */ id?: number; label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string; /** Who raised it: Claude's tool call or the person's own action (ADR-450 T14). */ source?: 'claude' | 'you'; /** The class the entry declares for itself; the gate takes the stricter of this and the class read from its words. */ declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** The class of action, set only on Claude's asks. */ kind?: 'write' | 'network' | 'install' | 'spend' | 'delete' }
+export type Pending = { /** Which ask this is (runner.ts hands out ids in order): a Yes names the card it answers, so another card that took its place is never the one run. */ id?: number; label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string; /** Who raised it: Claude's tool call or the person's own action (ADR-450 T14). */ source?: 'claude' | 'you'; /** The class the entry declares for itself; the gate takes the stricter of this and the class read from its words. */ declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** Set only on a card Claude raised by its own direct console_run in this session: the one kind of card it may withdraw (runner.ts also matches the id). */ origin?: 'console_run'; /** The class of action, set only on Claude's asks. */ kind?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** The number of the Claude call that started this ask (ActionSpec.byCall): only that call settles it. */ byCall?: number }
 
 /** The MetaHarness lab's last run: what it was, how it exited, its cost note, and its output as lines to scroll. */
 export type LabResult = { id: string; label: string; ok: boolean; exitCode: number | null; note?: string; lines: string[]; atMs: number }
@@ -174,7 +175,7 @@ export type TermSessions = { codex?: string; claude?: string }
 export const termStoreKeyOf = (cwd: string): string => `ruflo-console/term:${cwd}`
 
 /** What an action did: what ran, how it exited, whether the disk shows the change, and anything it printed to show. */
-export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[] }
+export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[]; /** A confirm card that nobody answered within PENDING_TTL_MS and was cleared unrun (the Room shows it briefly). */ expired?: boolean }
 
 /** One module seen registering since the console loaded, as the engine's scan named it. */
 export type ModSeen = { name: string; provenance: string; isLoaded: boolean; reason?: string; atMs: number }
@@ -198,6 +199,8 @@ export type State = {
   configDir: string | null
   /** False in a session with no pane to show (claude -p, an SDK host): views are then answered as text. */
   isInteractive: boolean
+  /** True on the standalone terminal host (ADR-489): there is no Claude session, prompt box, tab bar or mouse, so the shared chrome and the Claude-only controls are not drawn. False under Claude Code. */
+  isStandalone: boolean
   /** When this module loaded: "since the console loaded" series and stall times count from here. */
   loadedAtMs: number
   view: ViewId
@@ -269,13 +272,19 @@ export type State = {
   /** The dock width asked for (RUFLO_CONSOLE_COLUMNS, 40 to 400); 0 leaves the engine's share. A request: a dragged width wins. */
   dockColumns: number
   pane: { isOpen: boolean; isShown: boolean; isFocused: boolean; columns: number; rows: number; placement: 'dock' | 'inline'; isClosedByPerson: boolean; autoTried: boolean; autoReason: string; /** When the pane last opened: the BBS boot screen plays from here. */ bootAtMs: number; /** When the boot ended: the menu's entry plays from here (0: not yet). */ menuAtMs: number; /** When the page was last switched: its title strikes in from here (0: not since the pane opened). */ viewAtMs: number }
-  /** The size of each Raster as last mounted, by key: a blit of any other size is refused, so none is sent. */
+  /** The size of each Raster as last mounted, by key: a blit of any other size is refused, so none is sent. Empty where the surface draws Svg. */
   mounted: Map<string, { columns: number; rows: number }>
+  /** How many pictures the view in front drew at its last render, Raster or Svg: the frame loop runs while there are any, as it did when all were mounted. */
+  pictured: number
   select: { claim: number; agent: number; task: number; item: number }
   /** The drill-down's agent and what `agent logs` printed for it. */
   drill: { agentId: string | null; logs: string[] | null; logsAtMs: number }
   palette: { isOpen: boolean; query: string; index: number; context: 'all' | 'selection' }
   pending: Pending | null
+  /** The id of the confirm card last put in front of the person (drawn in the shown pane, or named in a typed answer): the one card a bare `/ruflo yes` may answer. */
+  shownCard: number | null
+  /** The last field Enter that raised a card: which entry and text, and the card's id, so Enter again confirms that card and no other that merely reads the same. */
+  askedAgain: { entry: string; text: string; card: number } | null
   /** The key of the element last pressed, and the one the last ask or answer came from: the page draws them right there (views/attention.ts). */
   lastPressed: string | null
   origin: string | null
@@ -310,7 +319,7 @@ export type State = {
     scroll: number
     unseen: number
     /** The text the last Enter asked about: Enter on the same text again confirms it. */
-    asked: { key: string; label: string } | null
+    asked: { key: string; label: string; card: number | null } | null
   }
   /** The skills view: installed skills, the last search, and the change running now. */
   skills: SkillsState
@@ -329,7 +338,7 @@ export type State = {
   /** The Workflows page: the last read of Claude Code's run folders, the cursor, the inspector tab (wf-state.ts). */
   wf: WfState
   /** Claude's control of the console (ADR-444): paused by the person, the call counts, and the log the dashboard shows. */
-  control: { paused: boolean; calls: number; turnCalls: number; /** Model-driven actions this session, by class (ADR-450 T8 budget). */ used: Record<string, number>; log: ControlEntry[]; /** Until when Claude counts as driving (a tool call extends it): the console does not spend a second Claude turn on guidance meanwhile. */ drivingUntilMs: number; /** Claude's console_run / console_set calls running now: an ask that lands while one runs is settled (gated) by that call; one that lands with none running (console_open and console_state settle nothing) is checked by the runner. */ activeCalls: number; /** True while one of Claude's tool calls is running: a person's "always allow" answer must not let Claude's call skip the level and confirm checks (ADR-444). */ viaModel: boolean }
+  control: { paused: boolean; calls: number; turnCalls: number; /** Model-driven actions this session, by class (ADR-450 T8 budget). */ used: Record<string, number>; log: ControlEntry[]; /** Until when Claude counts as driving (a tool call extends it): the console does not spend a second Claude turn on guidance meanwhile. */ drivingUntilMs: number; /** Claude's console_run / console_set calls running now: an ask that lands while one runs is settled (gated) by that call; one that lands with none running (console_open and console_state settle nothing) is checked by the runner. */ activeCalls: number; /** True while one of Claude's tool calls is running: a person's "always allow" answer must not let Claude's call skip the level and confirm checks (ADR-444). */ viaModel: boolean; /** The last number handed to a console_run / console_set call, and the number of the call whose synchronous start is running now (null when none is). */ callSeq: number; callTag: number | null }
 }
 
 export function newState(raw: PluginOptions | undefined): State {
@@ -340,6 +349,7 @@ export function newState(raw: PluginOptions | undefined): State {
     nostrKeyVerifiedAtMs: null,
     configDir: null,
     isInteractive: true,
+    isStandalone: false,
     loadedAtMs: Date.now(),
     view: 'overview',
     back: 'overview',
@@ -385,10 +395,13 @@ export function newState(raw: PluginOptions | undefined): State {
     fieldText: new Map(),
     pane: { isOpen: false, isShown: false, isFocused: false, columns: 0, rows: 0, placement: 'inline', isClosedByPerson: false, autoTried: false, autoReason: '', bootAtMs: 0, menuAtMs: 0, viewAtMs: 0 },
     mounted: new Map(),
+    pictured: 0,
     select: { claim: 0, agent: 0, task: 0, item: 0 },
     drill: { agentId: null, logs: null, logsAtMs: 0 },
     palette: { isOpen: false, query: '', index: 0, context: 'all' },
     pending: null,
+    shownCard: null,
+    askedAgain: null,
     lastPressed: null,
     origin: null,
     outcome: null,
@@ -407,7 +420,7 @@ export function newState(raw: PluginOptions | undefined): State {
     timers: new Map(),
     stats: { renders: [], refreshes: [], frames: [] },
     wf: emptyWf(),
-    control: { paused: false, calls: 0, turnCalls: 0, used: {}, log: [], drivingUntilMs: 0, activeCalls: 0, viaModel: false },
+    control: { paused: false, calls: 0, turnCalls: 0, used: {}, log: [], drivingUntilMs: 0, activeCalls: 0, viaModel: false, callSeq: 0, callTag: null },
   }
 }
 
@@ -453,11 +466,15 @@ export const BOOT_MIN_MS = 5_400
 export const BOOT_MAX_MS = 8_000
 
 export function isBooting(state: State, nowMs: number): boolean {
-  if (state.options.look !== 'bbs' || !state.options.boot || state.pane.bootAtMs === 0) return false
+  if (!['bbs', 'orbital'].includes(state.options.look) || !state.options.boot || state.pane.bootAtMs === 0) return false
+  // Reduced motion skips Orbital's decorative intro and cannot leave a static loader blocking the page.
+  if (state.options.look === 'orbital' && state.options.fps === 0) return false
 
   const age = nowMs - state.pane.bootAtMs
 
-  return age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
+  return state.options.look === 'orbital'
+    ? age >= 0 && age < 6_000 && (age < 1_500 || state.snapshot === null)
+    : age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
 }
 
 /**

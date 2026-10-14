@@ -2,6 +2,14 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.5 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.3.4 — 2026-10-11
+
+- Fix: candles were routed into the `ruvllm_hnsw_*` router, which the tool documents as holding about 11 patterns. Candle history is now retrieved by key from the `market-data` namespace; the router is described as a small prototype classifier; `ruflo-ruvector` is the pointer for nearest-neighbour search over history.
+- Security: ingest treats the feed as untrusted data (numeric fields only, reject non-finite rows, never act on feed text). Added a note that the plugin does analysis only and places no orders. Removed invalid `neural train --pattern-type market-data` and `--train-neural`.
+
 ## 0.3.3 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

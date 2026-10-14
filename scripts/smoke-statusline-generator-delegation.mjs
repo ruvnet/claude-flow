@@ -19,7 +19,7 @@
  */
 
 import { execSync, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, symlinkSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
 
@@ -32,7 +32,15 @@ const GENERATOR_DIST = join(REPO_ROOT, 'v3/@claude-flow/cli/dist/src/init/status
 // the generator just needs to still be reading it. This constant is the
 // source-of-truth helper used by the static-source contract below.
 const HELPER_SRC = join(REPO_ROOT, 'v3/@claude-flow/cli/.claude/helpers/statusline.cjs');
-const CJS_PATH = join(tmpdir(), 'ruflo-smoke-statusline.cjs');
+// The statusline resolves the CLI from its OWN install root (<helpers dir>/../..),
+// never from the cwd (the opened project; see helper-cli-resolution-trust). So the
+// generated helper is written into a throwaway helper root whose
+// v3/@claude-flow/cli is the repo's built CLI.
+const SMOKE_ROOT = mkdtempSync(join(tmpdir(), 'ruflo-smoke-statusline-'));
+mkdirSync(join(SMOKE_ROOT, '.claude', 'helpers'), { recursive: true });
+mkdirSync(join(SMOKE_ROOT, 'v3', '@claude-flow'), { recursive: true });
+symlinkSync(join(REPO_ROOT, 'v3/@claude-flow/cli'), join(SMOKE_ROOT, 'v3', '@claude-flow', 'cli'), 'dir');
+const CJS_PATH = join(SMOKE_ROOT, '.claude', 'helpers', 'statusline.cjs');
 
 let passed = 0;
 let failed = 0;

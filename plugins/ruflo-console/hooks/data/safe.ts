@@ -17,6 +17,9 @@ export const isoOf = (value: unknown): string => (typeof value === 'number' && N
 /** A whole, non-negative count capped at MAX_COUNT, else undefined (a negative, fractional-hostile, NaN or infinite value is not a count). */
 export const countOf = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.min(Math.floor(value), MAX_COUNT) : undefined)
 
+/** A signed measurement (a score, a lift, a latency, a percentage) that is finite and within ±MAX_COUNT, else undefined: never "Infinity" or "1e+300" on screen (#3822). */
+export const measureOf = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= MAX_COUNT ? value : undefined)
+
 /** A ratio clamped to 0..1, else undefined. */
 export const ratioOf = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : undefined)
 

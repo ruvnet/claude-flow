@@ -49,6 +49,9 @@ export type McState = {
   last: { label: string; ok: boolean; detail: string; atMs?: number; next?: string; lines?: string[] } | null
 }
 
+/** Who resumed a mission: only the person re-arms hand-outs that ran out (#3823). */
+export type ResumeBy = 'person' | 'model'
+
 export type MissionActions = {
   goal: (text: string) => void
   profile: (profile: Profile) => void
@@ -59,7 +62,8 @@ export type MissionActions = {
   /** Hands the next ready task to the primary session (asks first: it starts a model turn). */
   next: () => void
   pause: () => void
-  resume: () => void
+  /** Resume dispatching. The person's resume gives each task its hand-outs back; Claude's (`'model'`) keeps the counts (#3823). */
+  resume: (by?: ResumeBy) => void
   cancel: () => void
   /** Auto-run: when a task finishes and the session is idle, hand over the next ready one without asking. */
   auto: (on: boolean) => void

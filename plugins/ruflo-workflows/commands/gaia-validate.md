@@ -43,8 +43,7 @@ cd v3/@claude-flow/cli && npx tsc --noEmit
 All GAIA benchmark source files must be TS-error-free.
 
 ### 3. Dataset accessibility
-Perform a dry-run fetch of 1 question from the HF GAIA dataset to confirm
-the token and network path work.
+Confirm the HF token is set and the smoke fixture runs. `gaia-bench run` has no `--dry-run`, so the check is one real smoke question (a few cents, default model); the smoke fixture does not touch the HF dataset, so the HF token and network path are only proven by a real level run.
 
 ### 4. Witness manifest
 Verify the witness manifest is up to date and valid:
@@ -140,7 +139,7 @@ Ready to run /gaia run
 1. For each env var, check `process.env` first, then attempt
    `gcloud secrets versions access latest --secret=<name>` silently.
 2. Run `npx tsc --noEmit` in the CLI package directory; capture stderr.
-3. Run a 1-question dry-run fetch: `node … gaia-bench run --smoke-only --limit=1 --dry-run`.
+3. Run one smoke question (real call, a few cents; there is no `--dry-run`): `node … gaia-bench run --smoke-only --limit 1`. Skip it, and say so, if no `ANTHROPIC_API_KEY` is set.
 4. Run the witness verify script.
 5. If `--audit` is set and a results file exists, run
    `plugins/ruflo-workflows/scripts/gaia-audit.mjs` (ADR-167); treat a CRITICAL

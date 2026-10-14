@@ -85,17 +85,18 @@
     "look": {
       "type": "string",
       "title": "Look",
-      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds).",
+      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds). orbital uses black telemetry panels, square red borders, muted values and green health indicators; best with a dark terminal.",
       "default": "bbs",
       "options": [
         "bbs",
-        "plain"
+        "plain",
+        "orbital"
       ]
     },
     "boot": {
       "type": "boolean",
       "title": "Boot screen",
-      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s.",
+      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s. Orbital uses a rotating ASCII globe for 1.5 seconds, up to 6 seconds while initial data is pending; fps 0 skips it.",
       "default": true
     },
     "eventsPersist": {

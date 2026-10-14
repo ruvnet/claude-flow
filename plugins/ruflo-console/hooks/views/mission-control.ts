@@ -223,6 +223,9 @@ const flowRows = (ctx: Ctx): RenderElement[] => wrap(FLOW, Math.max(20, ctx.colu
  * mission or starts a Claude turn; ▶ auto-run is the person's opt-in to skip that confirm for the next ready task.
  */
 export function missionControlView(ctx: Ctx): RenderElement {
+  // The standalone terminal reads the mission record (ADR-406) and nothing else: planning, launching and research start a Claude turn.
+  if (ctx.state.isStandalone) return col(ctx, observationRows(ctx), 'mission-record')
+
   const mc = mcOf(ctx.state)
   const mission = activeMission(ctx.state)
   const rows: RenderElement[] = [rule(ctx, 'Mission Control', mission === null ? 'goal → SPARC plan → tasks → Claude' : `${mission.id.slice(0, 12)}…`)]

@@ -19,11 +19,10 @@ import { markPicture } from './gfx/pictures'
 import type { Host } from './host'
 import { agentLogs } from './ops'
 import { landingRefusal } from './model-tools'
-import { createRunner, type Runner } from './runner'
-import { advance, loadLedger, mcOf } from './mission-control'
+import { createRunner, EXPIRY_TIMER, type Runner } from './runner'
+import { advance, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
-import { loadAllowed } from './remember'
-import { loadAiPrefs } from './settings'
+import { loadSaved } from './startup-loads'
 import { openLoaders } from './view-open'
 import { chatLive } from './chat'
 import { listSkills } from './skills'
@@ -277,7 +276,8 @@ export function createController(state: State, host: Host): Controller {
 
     if (pulseDue(state.view, started) || (state.view === 'menu' && entryAge({ look: state.options.look, boot: state.options.boot, ...state.pane }, started, BOOT_MIN_MS) !== null)) host.invalidate()
 
-    for (const [key, grid] of picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
+    // Only a mounted Raster is blitted, so with none (a surface that draws Svg, which redraws with the pane) nothing is rebuilt here.
+    for (const [key, grid] of state.mounted.size === 0 ? [] : picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
       const mounted = state.mounted.get(key)
 
       if (mounted !== undefined && mounted.columns === grid.columns && mounted.rows === grid.rows) {
@@ -293,7 +293,7 @@ export function createController(state: State, host: Host): Controller {
     // Something in progress moves its spinner, pictured or not: a lab action in flight, or a live mission, task or guidance run on the Missions page.
     const moving = state.lab.running !== null || (state.view === 'missions' && hasLiveWork(state.snapshot?.missions?.missions ?? [], mcOf(state).guidance?.status === 'running'))
 
-    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.mounted.size > 0 || moving))) return cancel('frames')
+    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.pictured > 0 || moving))) return cancel('frames')
 
     every('frames', Math.round(1000 / state.options.fps), frame)
   }
@@ -318,9 +318,7 @@ export function createController(state: State, host: Host): Controller {
     let lastIdleMs = 0
 
     // The AI terminal's saved model and budget apply from the first turn, not only once Settings was opened.
-    void loadAiPrefs(state, host)
-    void loadAllowed(state, host)
-    void loadLedger(state, host)
+    loadSaved(state, host)
     void host.storeGet(NAV_KEY).then(saved => {
       const style = NAV_STYLES.find(candidate => candidate === saved)
 
@@ -401,8 +399,8 @@ export function createController(state: State, host: Host): Controller {
     state.pane.isShown = false
     state.pane.isClosedByPerson = true
     persist()
-    cancel('frames')
-    cancel('watch')
+    // A waiting card's expiry timer does not outlive the pane either: past its window it is cleared at the next ask or tool call instead.
+    for (const name of ['frames', 'watch', EXPIRY_TIMER]) cancel(name)
     await host.closePane(PANE_ID).catch(() => undefined)
   }
 
@@ -418,6 +416,7 @@ export function createController(state: State, host: Host): Controller {
       state.pane.viewAtMs = Date.now()
       state.select.item = 0
       state.mounted.clear()
+      state.pictured = 0
       persist()
       // A new view asks for its own height inline; the dock ignores it.
       if (state.pane.isOpen) void host.openPane({ id: PANE_ID, title: 'ruflo', rows: rowsOf(view), ...(state.dockColumns > 0 && { columns: state.dockColumns }) }).catch(() => undefined)

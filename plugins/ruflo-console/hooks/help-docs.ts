@@ -70,6 +70,7 @@ export const VIEW_TOPIC: Partial<Record<ViewId, string>> = {
   settings: 'settings',
   whatsnew: 'whatsnew',
   adrs: 'adrs',
+  themes: 'themes',
   timeline: 'watch',
   events: 'watch',
   room: 'room',

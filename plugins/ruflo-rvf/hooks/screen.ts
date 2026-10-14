@@ -31,7 +31,10 @@ export const INJECTION: Rules = [
   ['new instructions', /\b(?:new|updated|real) (?:system )?instructions?\s*:/i],
   ['fake role tags', /<\/?\s*(?:system|assistant|developer|instructions?)\s*>|^\s*(?:system|assistant)\s*:/im],
   ['concealment', /\bdo not (?:tell|inform|mention|reveal)[^.\n]{0,30}\b(?:user|human|operator)\b/i],
-  ['exfiltration', /\b(?:exfiltrate|send|post|upload)\b[^.\n]{0,50}\b(?:secrets?|credentials?|tokens?|api keys?|\.env)\b/i],
+  // `.env` has no word start before its dot, so it is matched on its own ("upload the .env file", "send ./config.env",
+  // ".envrc"); a dot inside a word does not end the phrase. A model's token counts are not credentials: --max-tokens,
+  // /oauth/token and "token usage/count/limit/budget/window" are left out (a file named token, /run/token, is not).
+  ['exfiltration', /\b(?:exfiltrate|send|post|upload|e-?mail)\b(?:[^.\n]|\.(?=\S)){0,50}(?:\b(?:secrets?|credentials?|api keys?)\b|(?:(?<!max[_-]?)\btokens\b|(?<!oauth\/)\btoken\b)(?![\s_-]*(?:usage|counts?|limits?|budgets?|window)\b)|\.env(?:rc)?\b)/i],
   ['shell pipe', /\b(?:curl|wget)\b[^|\n]{0,200}\|\s*(?:sudo\s+)?(?:ba|z)?sh\b/i],
 ]
 
@@ -58,6 +61,10 @@ const CALL = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\(|^[A-Za-z_$][\w$]*\[/
 const IDENT_PATH = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
 const NAME_LIKE = /^[a-z][a-z0-9]*(?:[-_./][a-z0-9]+){2,}$/
+/** A ./ ../ or ~/ path to a file with an extension names where a secret lives; it is not one. */
+const RELATIVE_FILE = /^(?:\.{1,2}|~)\/[A-Za-z0-9_./-]*\.[A-Za-z0-9]{1,8}$/
+/** A secret-manager reference: NAME:latest, or name-with-separators:3, optionally as NAME=ref (--set-secrets=NAME=ref:latest). A bare literal:3 is not excused. */
+const SECRET_REF = /^(?:[A-Za-z][A-Za-z0-9_-]*=)?(?:[A-Za-z][A-Za-z0-9]*(?:[_-][A-Za-z0-9]+)*:latest|[A-Za-z][A-Za-z0-9]*(?:[_-][A-Za-z0-9]+)+:\d{1,4})$/
 
 function entropy(v: string): number {
   const counts = new Map<string, number>()
@@ -69,7 +76,7 @@ function entropy(v: string): number {
 
 /** True when `v` is a name, call, path or placeholder rather than a literal credential. */
 function isReference(v: string): boolean {
-  if (PLACEHOLDER.test(v) || REFERENCE.test(v) || CALL.test(v) || IDENT_PATH.test(v) || URL_NO_CREDS.test(v)) return true
+  if (PLACEHOLDER.test(v) || REFERENCE.test(v) || CALL.test(v) || IDENT_PATH.test(v) || URL_NO_CREDS.test(v) || RELATIVE_FILE.test(v) || SECRET_REF.test(v)) return true
   return NAME_LIKE.test(v) && v.replace(/\D/g, '').length / v.length < 0.15
 }
 
@@ -94,7 +101,7 @@ function hyphenName(v: string): boolean {
 
 function keyedSecret(v: string): boolean {
   if (v.length < KEYED_MIN || v.length > 256 || /\s/.test(v)) return false
-  return !(PLACEHOLDER_WORD.test(v) || REFERENCE.test(v) || CALL.test(v) || IDENT_PATH.test(v) || URL_NO_CREDS.test(v) || (!UUID.test(v) && hyphenName(v)))
+  return !(PLACEHOLDER_WORD.test(v) || REFERENCE.test(v) || CALL.test(v) || IDENT_PATH.test(v) || URL_NO_CREDS.test(v) || RELATIVE_FILE.test(v) || SECRET_REF.test(v) || (!UUID.test(v) && hyphenName(v)))
 }
 
 const KEY_NAME = /(?:api[_-]?key|secret|token|passw(?:or)?d|passwd|pwd|credential|private[_-]?key|auth(?!or))s?[A-Za-z0-9_-]{0,40}["']?\s*[:=]\s*/gi

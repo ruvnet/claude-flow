@@ -1,0 +1,61 @@
+name: e2e-host-matrix
+
+# ADR-490: host x assertion matrix for Claude Code, Codex and OpenRouter against the real ruflo CLI and MCP server.
+# This workflow runs the KEYLESS mode only: no model call, no secret, $0. Live mode (RUFLO_E2E_LIVE=1) is run by hand.
+# Codex is pinned to 0.162.0 (0.162.1 crashes with a #GP). No Claude Code binary is needed for the keyless legs.
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/e2e/**'
+      - 'v3/@claude-flow/cli/bin/**'
+      - 'v3/@claude-flow/cli/src/mcp-server.ts'
+      - 'v3/@claude-flow/codex/src/**'
+      - 'plugins/ruflo-console/tui/**'
+      - 'plugins/ruflo-console/hooks/views/standalone-pane.ts'
+      - '.github/workflows/e2e-host-matrix.yml'
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  keyless:
+    name: e2e host matrix (keyless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v6
+        with:
+          version: '8'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install workspace
+        working-directory: v3
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build the workspace (same recipe as v3-ci; --no-bail keeps going past unrelated packages)
+        working-directory: v3
+        run: |
+          pnpm --recursive --no-bail run build || true
+          test -f @claude-flow/cli/dist/src/index.js || { echo "::error::the CLI did not build"; exit 1; }
+      - name: Build the TUI bundle (esbuild only, no root install; the tui leg skips cleanly without it)
+        run: |
+          mkdir -p "$RUNNER_TEMP/esb"
+          npm install --prefix "$RUNNER_TEMP/esb" --ignore-scripts esbuild@0.27.2
+          RUFLO_ESBUILD_DIR="$RUNNER_TEMP/esb" node plugins/ruflo-console/scripts/build-tui.mjs
+      - name: Install the pinned Codex (0.162.0)
+        run: |
+          npm install -g @openai/codex@0.162.0
+          codex --version
+          echo "RUFLO_E2E_CODEX_BIN=$(command -v codex)" >> "$GITHUB_ENV"
+      - name: Matrix (keyless)
+        run: node scripts/e2e/host-matrix.mjs --cli-path "$PWD/v3/@claude-flow/cli/bin/cli.js" --json e2e-matrix.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-matrix
+          path: e2e-matrix.json
+          retention-days: 30

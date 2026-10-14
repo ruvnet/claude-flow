@@ -5,7 +5,7 @@
 
 import type { InitOptions, HooksConfig, PlatformInfo } from './types.js';
 import { detectPlatform } from './types.js';
-import { helperHookCommand, helperScopeFor, helperStatusLineCommand, type HelperScope } from './helper-commands.js';
+import { AUTO_MEMORY_HOOK_TIMEOUT_S, helperHookCommand, helperScopeFor, helperStatusLineCommand, type HelperScope } from './helper-commands.js';
 
 /**
  * Generate the complete settings.json content
@@ -300,7 +300,7 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
           {
             type: 'command',
             command: autoMemoryCmd('import', scope),
-            timeout: 8000,
+            timeout: AUTO_MEMORY_HOOK_TIMEOUT_S,
           },
         ],
       },
@@ -330,7 +330,7 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
           {
             type: 'command',
             command: autoMemoryCmd('sync', scope),
-            timeout: 10000,
+            timeout: AUTO_MEMORY_HOOK_TIMEOUT_S,
           },
         ],
       },

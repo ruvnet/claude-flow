@@ -139,9 +139,10 @@ describe('BBS look', () => {
     expect(on.encode()).not.toBe(off.encode())
   })
 
-  it('bbs is the default look; plain is the only other value', () => {
+  it('bbs stays the default; plain and orbital are opt-in', () => {
     expect(optionsOf(undefined).look).toBe('bbs')
     expect(optionsOf({ look: 'plain' } as never).look).toBe('plain')
+    expect(optionsOf({ look: 'orbital' } as never).look).toBe('orbital')
     expect(optionsOf({ look: 'neon' } as never).look).toBe('bbs')
   })
 })
