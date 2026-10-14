@@ -1467,7 +1467,8 @@ export class WorkerDaemon extends EventEmitter {
       await intel.recordTrajectory(
         [{
           type: 'result',
-          content: `daemon worker ${result.type} ${result.success ? 'succeeded' : `failed: ${result.error ?? 'unknown error'}`}`,
+          // A worker error is free text (it can quote command output): keep only its first line, cut, so it cannot fill the learning store.
+          content: `daemon worker ${result.type} ${result.success ? 'succeeded' : `failed: ${String(result.error ?? 'unknown error').split('\n')[0].slice(0, 200)}`}`,
           metadata: {
             source: 'worker-daemon',
             worker: result.type,

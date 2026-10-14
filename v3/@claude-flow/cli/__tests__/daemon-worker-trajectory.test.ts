@@ -60,6 +60,14 @@ describe('daemon worker jobs record learning trajectories', () => {
     expect(steps[0].content).toContain('boom');
   });
 
+  it('a long worker error is cut before it is stored as learning content', async () => {
+    const daemon = new WorkerDaemon(dir, { aiWorkersEnabled: false });
+    vi.spyOn(daemon as any, 'runWorkerLogic').mockRejectedValue(new Error('x'.repeat(100_000)));
+    await daemon.triggerWorker('audit');
+    const [steps] = recordTrajectory.mock.calls[0] as unknown as [Array<Record<string, any>>];
+    expect(steps[0].content.length).toBeLessThan(400);
+  });
+
   it('a recording failure never changes the worker result', async () => {
     recordTrajectory.mockRejectedValueOnce(new Error('intelligence down'));
     const daemon = new WorkerDaemon(dir, { aiWorkersEnabled: false });
