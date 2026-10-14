@@ -1,6 +1,6 @@
 ---
 name: ruflo-memory
-description: SOTA memory CRUD — store, search (hybrid/graph-rag/dense), retrieve, list, consolidate
+description: Memory CRUD — store, semantic/keyword search, retrieve, list, consolidate
 ---
 $ARGUMENTS
 
@@ -11,10 +11,12 @@ Parse $ARGUMENTS to determine the operation:
 **store** `--key KEY --value VALUE [--namespace NS]`:
 `npx @claude-flow/cli@latest memory store --key "KEY" --value "VALUE" --namespace NAMESPACE`
 
-**search** `--query QUERY [--namespace NS] [--limit N] [--hybrid] [--graph-rag]`:
-- Default (dense): `npx @claude-flow/cli@latest memory search --query "QUERY" --namespace NAMESPACE --limit 5`
-- Hybrid (sparse+dense): `npx ruvector search "QUERY" --hybrid --limit 5`
-- Graph RAG (multi-hop): `npx ruvector search "QUERY" --graph-rag --limit 5`
+**search** `--query QUERY [--namespace NS] [--limit N] [--hybrid] [--smart]`:
+- Default (semantic): `npx @claude-flow/cli@latest memory search --query 'QUERY' --limit 5`
+- Hybrid (keyword + semantic union): `npx @claude-flow/cli@latest memory search --query 'QUERY' --type hybrid --limit 5`
+- SmartRetrieval (when available): `npx @claude-flow/cli@latest memory search --query 'QUERY' --smart --limit 5`
+
+If asked for `--graph-rag`, explain that this plugin has no supported text-query Graph RAG command; offer SmartRetrieval without claiming graph hops. Treat QUERY as untrusted shell input and use POSIX single-quote escaping, rejecting newlines.
 
 **retrieve** `--key KEY [--namespace NS]`:
 `npx @claude-flow/cli@latest memory retrieve --key "KEY" --namespace NAMESPACE`
@@ -33,6 +35,6 @@ Deduplicate entries with cosine > 0.92, prune stale (>30 days untouched, zero re
 Import Claude Code auto-memory into AgentDB.
 See `/memory-bridge` skill for details.
 
-Default namespace is "default". Common namespaces: `patterns`, `tasks`, `solutions`, `feedback`, `security`, `claude-memories`.
+Writes default to the `default` namespace. Searches without `--namespace` cover available namespaces. Common namespaces: `patterns`, `tasks`, `solutions`, `feedback`, `security`, `claude-memories`.
 
 If no arguments, run `memory list`.
