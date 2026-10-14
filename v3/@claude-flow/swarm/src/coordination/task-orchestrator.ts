@@ -576,12 +576,11 @@ export class TaskOrchestrator implements ITaskOrchestrator {
   }
 
   private getQueuePosition(taskId: TaskId): number {
-    const priorityOrder: Record<string, number> = {
-      critical: 5,
-      high: 4,
-      normal: 3,
-      low: 2,
-      background: 1,
+    const priorityOrder: Record<TaskPriority, number> = {
+      critical: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
     };
 
     const queuedTasks = Array.from(this.tasks.values())
