@@ -244,13 +244,29 @@ function loadLegacyStore(): LegacyMemoryStore | null {
 /**
  * Mark migration as complete
  */
-function markMigrationComplete(): void {
+function markMigrationComplete(counts?: { migrated: number; total: number }): void {
   const legacyDir = resolve(LEGACY_MEMORY_DIR);
   if (!existsSync(legacyDir)) mkdirSync(legacyDir, { recursive: true });
   writeFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), JSON.stringify({
     migratedAt: new Date().toISOString(),
     version: '3.0.0',
+    ...(counts ?? {}),
   }), 'utf-8');
+}
+
+/**
+ * Counts recorded by the migration that wrote the marker, or null when no
+ * marker (or an older marker without counts) is present.
+ */
+function readMigrationCounts(): { migrated: number; total: number } | null {
+  try {
+    const marker = JSON.parse(readFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), 'utf-8'));
+    return typeof marker?.migrated === 'number' && typeof marker?.total === 'number'
+      ? { migrated: marker.migrated, total: marker.total }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -446,7 +462,7 @@ async function ensureInitialized(dbPath?: string): Promise<void> {
           }
 
           console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
-          markMigrationComplete();
+          markMigrationComplete({ migrated, total: Object.keys(legacyStore.entries).length });
         }
       }
     }
@@ -1046,11 +1062,17 @@ export const memoryTools: MCPTool[] = [
     handler: async (input) => {
       const force = input.force as boolean;
 
-      // Remove migration marker if forcing
+      // Remove the migration marker if forcing. hasLegacyStore() checks the marker
+      // beside the legacy store, so that is the one force must clear (#4194);
+      // the old .swarm marker path is cleared too for compatibility.
       if (force) {
-        const markerPath = getMigrationMarkerPath();
-        if (existsSync(markerPath)) {
-          unlinkSync(markerPath);
+        for (const markerPath of [
+          resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)),
+          getMigrationMarkerPath(),
+        ]) {
+          if (existsSync(markerPath)) {
+            unlinkSync(markerPath);
+          }
         }
       }
 
@@ -1064,13 +1086,38 @@ export const memoryTools: MCPTool[] = [
         };
       }
 
+      // A marker beside the store means a migration already ran; ensureInitialized
+      // would move nothing, so say so instead of reporting the store's size.
+      if (!hasLegacyStore()) {
+        return {
+          success: true,
+          message: 'Legacy store already migrated (marker present); nothing was moved. Pass force: true to re-run.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       // Run migration via ensureInitialized
       await ensureInitialized();
 
+      // ensureInitialized swallows errors and records what it moved in the marker.
+      const counts = readMigrationCounts();
+      if (!counts) {
+        return {
+          success: false,
+          message: 'Migration did not complete; no entries were recorded as migrated. See the MCP server log.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       return {
         success: true,
-        message: 'Migration completed',
-        migrated: Object.keys(legacyStore.entries).length,
+        message: counts.migrated === counts.total
+          ? 'Migration completed'
+          : `Migration completed with failures: ${counts.migrated} of ${counts.total} entries migrated`,
+        migrated: counts.migrated,
+        total: counts.total,
         backend: await describeBackend(),
       };
     },
