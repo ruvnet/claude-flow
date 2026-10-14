@@ -181,7 +181,7 @@ export const diffClassifyTool: MCPTool = {
  */
 export const diffReviewersTool: MCPTool = {
   name: 'analyze_diff-reviewers',
-  description: 'Suggest reviewers for git diff changes Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Suggest reviewer roles from git diff paths and risk; does not identify people or read CODEOWNERS. Use when triaging expertise for a change, then consult CODEOWNERS to assign people.',
   category: 'analyze',
   tags: ['diff', 'reviewers', 'git'],
   inputSchema: {

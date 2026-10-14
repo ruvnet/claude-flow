@@ -9,5 +9,5 @@ Analyze current git changes:
 2. Call `mcp__plugin_ruflo-core_ruflo__analyze_diff` with `{ ref, includeFileRisks: true }` for comprehensive analysis
 3. Call `mcp__plugin_ruflo-core_ruflo__analyze_diff-risk` with `{ ref }` for risk score
 4. Call `mcp__plugin_ruflo-core_ruflo__analyze_diff-classify` with `{ ref }` for change type classification
-5. Call `mcp__plugin_ruflo-core_ruflo__analyze_diff-reviewers` with `{ ref, limit }` for reviewer recommendations based on code ownership
-6. Present: risk level, change type, affected files, and reviewer recommendations
+5. Call `mcp__plugin_ruflo-core_ruflo__analyze_diff-reviewers` with `{ ref, limit }` for suggested reviewer roles; check CODEOWNERS separately for actual owners
+6. Present: risk level, change type, affected files, and suggested reviewer roles
