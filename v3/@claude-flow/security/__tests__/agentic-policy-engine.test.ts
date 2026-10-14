@@ -207,6 +207,84 @@ describe('AgenticPolicyEngine', () => {
     }))).toThrow('invalid-policy-action-tokens');
   });
 
+  it('prunes receipts below the retain count, keeping full historical length (#3164)', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    for (let i = 0; i < 5; i++) engine.evaluate(request({ action: { type: 'code.read', resource: `f${i}.ts` } }));
+    expect(engine.verifyLedger()).toEqual({ valid: true, length: 5 });
+
+    const removed = engine.pruneReceipts(2);
+    expect(removed).toHaveLength(3);
+    expect(removed.map((r) => r.payload.sequence)).toEqual([0, 1, 2]);
+
+    const state = engine.exportState();
+    expect(state.receipts).toHaveLength(2);
+    expect(state.retainedFrom).toBe(3);
+    expect(state.prunedHead).toBe(removed[2]!.hash);
+    expect((state.retainedFrom ?? 0) + state.receipts.length).toBe(state.ledgerLength);
+
+    const verification = engine.verifyLedger();
+    expect(verification).toEqual({ valid: true, length: 5 });
+  });
+
+  it('is a no-op when retain is at or above the current receipt count', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    engine.evaluate(request());
+    engine.evaluate(request({ action: { type: 'code.read', resource: 'b.ts' } }));
+    expect(engine.pruneReceipts(5)).toEqual([]);
+    expect(engine.pruneReceipts(2)).toEqual([]);
+    expect(engine.exportState().receipts).toHaveLength(2);
+    expect(engine.exportState().retainedFrom).toBeUndefined();
+  });
+
+  it('rejects an invalid retain count', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    engine.evaluate(request());
+    expect(() => engine.pruneReceipts(-1)).toThrow('invalid-prune-retention');
+    expect(() => engine.pruneReceipts(1.5)).toThrow('invalid-prune-retention');
+  });
+
+  it('refuses to prune a ledger with no established anchor', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    engine.evaluate(request());
+    const unanchored = AgenticPolicyEngine.fromState({ ...engine.exportState(), ledgerLength: undefined, ledgerHead: undefined });
+    expect(() => unanchored.pruneReceipts(0)).toThrow('policy-ledger-anchor-missing');
+  });
+
+  it('continues the chain and sequence numbers correctly after pruning', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy', signingKey: 'test-secret' });
+    for (let i = 0; i < 4; i++) engine.evaluate(request({ action: { type: 'code.read', resource: `f${i}.ts` } }));
+    engine.pruneReceipts(1);
+    engine.evaluate(request({ action: { type: 'code.read', resource: 'f4.ts' } }));
+    const state = engine.exportState();
+    expect(state.receipts.map((r) => r.payload.sequence)).toEqual([3, 4]);
+    expect(state.ledgerLength).toBe(5);
+    expect(engine.verifyLedger()).toEqual({ valid: true, length: 5 });
+  });
+
+  it('still detects hash and sequence tampering in the retained tail after pruning', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    for (let i = 0; i < 5; i++) engine.evaluate(request({ action: { type: 'code.read', resource: `f${i}.ts` } }));
+    engine.pruneReceipts(2);
+    const tamperedState = engine.exportState();
+    tamperedState.receipts[0]!.payload.decision.reason = 'tampered';
+    const tampered = AgenticPolicyEngine.fromState(tamperedState);
+    const result = tampered.verifyLedger();
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('receipt-hash-mismatch');
+    // length reflects position within the FULL historical ledger, not the hot array
+    expect(result.length).toBe(3);
+  });
+
+  it('fails closed when retainedFrom is set but prunedHead is missing', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    for (let i = 0; i < 3; i++) engine.evaluate(request({ action: { type: 'code.read', resource: `f${i}.ts` } }));
+    engine.pruneReceipts(1);
+    const corrupted = engine.exportState();
+    delete corrupted.prunedHead;
+    const reloaded = AgenticPolicyEngine.fromState(corrupted);
+    expect(reloaded.verifyLedger().error).toBe('policy-ledger-prune-state-missing');
+  });
+
   it('fails closed when a constrained action omits required metering', () => {
     const engine = new AgenticPolicyEngine({
       mode: 'enforce',

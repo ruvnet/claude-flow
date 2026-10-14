@@ -184,6 +184,19 @@ export interface PolicyState {
    */
   ledgerHead?: string | null;
   ledgerLength?: number;
+  /**
+   * Sequence number of the oldest receipt still physically present in
+   * `receipts[0]` (#3164). 0 or absent means nothing has ever been pruned.
+   * Together with `receipts.length`, `(retainedFrom ?? 0) + receipts.length
+   * === ledgerLength` must always hold whenever `ledgerLength` is defined.
+   */
+  retainedFrom?: number;
+  /**
+   * Hash of the last receipt pruned out of `receipts` (#3164) — the value
+   * `receipts[0].previousReceiptHash` must equal when `retainedFrom > 0`.
+   * null when `retainedFrom` is 0/absent (chain starts at genesis).
+   */
+  prunedHead?: string | null;
 }
 
 export interface LedgerVerification {

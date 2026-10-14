@@ -1,5 +1,6 @@
 import {
   AgenticPolicyEngine,
+  canonicalizePolicy,
   createLegacyCompatibleState,
   isMcpCallerAuthEnabled,
   decodeTokenEnvelope,
@@ -10,6 +11,7 @@ import {
   type PolicyApproval,
   type PolicyDecision,
   type PolicyEvidence,
+  type PolicyReceipt,
   type PolicyRequest,
   type PolicyRule,
   type PolicyState,
@@ -21,6 +23,9 @@ import {
   constants as fsConstants,
   existsSync,
   fstatSync,
+  fsyncSync,
+  ftruncateSync,
+  writeSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -29,7 +34,6 @@ import {
   readlinkSync,
   realpathSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -41,8 +45,19 @@ import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent } from '
 const POLICY_DIR = join('.claude-flow', 'policy');
 const POLICY_FILE = 'state.json';
 const LOCK_FILE = 'state.lock';
-const LOCK_STALE_MS = 30_000;
+const RECEIPT_ARCHIVE_FILE = 'receipts.ledger.jsonl';
 const LOCK_WAIT_MS = 5_000;
+// #3164: without a bound, `state.receipts` grows forever and every
+// transaction's verify/clone/serialize cost is O(all receipts ever issued) —
+// eventually exceeding LOCK_WAIT_MS and timing out every MCP tool call.
+// Pruned receipts are archived to RECEIPT_ARCHIVE_FILE, never discarded.
+const DEFAULT_LEDGER_RETENTION = 2_000;
+function ledgerRetention(): number {
+  const raw = process.env.CLAUDE_FLOW_POLICY_LEDGER_RETENTION;
+  if (!raw) return DEFAULT_LEDGER_RETENTION;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_LEDGER_RETENTION;
+}
 // A lock is ~170 bytes plus the hostname (at most 255 bytes).
 const LOCK_MAX_BYTES = 1_024;
 // Linux PID namespace of this process, e.g. `pid:[4026531836]`; undefined on
@@ -59,10 +74,10 @@ const BOOT_ID = (() => {
   try { return readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); } catch { return undefined; }
 })();
 
-function paths(projectRoot: string): { dir: string; state: string; lock: string } {
+function paths(projectRoot: string): { dir: string; state: string; lock: string; archive: string } {
   const root = resolve(projectRoot);
   const dir = join(root, POLICY_DIR);
-  return { dir, state: join(dir, POLICY_FILE), lock: join(dir, LOCK_FILE) };
+  return { dir, state: join(dir, POLICY_FILE), lock: join(dir, LOCK_FILE), archive: join(dir, RECEIPT_ARCHIVE_FILE) };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -87,7 +102,7 @@ function isPidAlive(pid: number): boolean {
 /**
  * Reads a lock only if it is a small regular file: never follows a symlink,
  * never blocks on a FIFO or device, never reads more than LOCK_MAX_BYTES.
- * Anything else returns undefined and the caller keeps the mtime rule.
+ * Anything else returns undefined; unknown owners are preserved.
  */
 function readLockFile(lockPath: string): string | undefined {
   if (!lstatSync(lockPath).isFile()) return undefined;
@@ -114,8 +129,8 @@ function readLockFile(lockPath: string): string | undefined {
  * boot and in this PID namespace: anywhere else (a bwrap --unshare-pid
  * sandbox, a container, another machine on a shared filesystem) a live owner
  * also answers ESRCH. Locks without that identity (older ruflo, a crash
- * between create and write, anything unparsable) return false and keep the
- * mtime rule.
+ * between create and write, anything unparsable) return false and require
+ * explicit operator inspection rather than age-only takeover.
  */
 function lockOwnerIsDead(lockPath: string): boolean {
   try {
@@ -144,6 +159,26 @@ function lockOwnerIsDead(lockPath: string): boolean {
   }
 }
 
+/** Serialize dead-owner reclamation across processes. A normal acquirer can
+ * create state.lock after deletion, but the next reclaimer must re-probe that
+ * new owner under this guard. Guard orphans fail closed, requiring explicit
+ * operator recovery after validating their exact recorded owner and nonce.
+ * Unknown/foreign owners are never stolen merely because their mtime aged. */
+function reclaimDeadLock(lockPath: string): void {
+  const guard = `${lockPath}.reclaim`;
+  let fd: number;
+  try { fd = openSync(guard, 'wx', 0o600); } catch { return; }
+  const ownership = JSON.stringify({ pid: process.pid, nonce: randomUUID(), host: hostname(), platform: process.platform, pidns: PID_NAMESPACE, boot: BOOT_ID });
+  try {
+    writeFileSync(fd, ownership);
+    if (lockOwnerIsDead(lockPath)) unlinkSync(lockPath);
+  } catch { /* lock changed, unknown identity, or an inaccessible path */ }
+  finally {
+    closeSync(fd);
+    try { if (readLockFile(guard) === ownership) unlinkSync(guard); } catch { /* preserve an unknown guard */ }
+  }
+}
+
 /**
  * Exported for ADR-406 mission storage, which takes the same per-file lock
  * (pid, pid namespace and boot id identify a dead owner) rather than a copy.
@@ -153,27 +188,27 @@ export async function acquireLock(lockPath: string): Promise<() => void> {
   while (Date.now() - started < LOCK_WAIT_MS) {
     try {
       const fd = openSync(lockPath, 'wx', 0o600);
-      writeFileSync(fd, JSON.stringify({
+      const ownership = JSON.stringify({
         pid: process.pid,
         acquiredAt: Date.now(),
         host: hostname(),
         platform: process.platform,
         pidns: PID_NAMESPACE,
         boot: BOOT_ID,
-      }));
-      closeSync(fd);
+        nonce: randomUUID(),
+      });
+      try { writeFileSync(fd, ownership); } finally { closeSync(fd); }
       return () => {
-        try { unlinkSync(lockPath); } catch { /* already released */ }
+        try { if (readLockFile(lockPath) === ownership) unlinkSync(lockPath); } catch { /* already released */ }
       };
     } catch {
-      try {
-        if (lockOwnerIsDead(lockPath)
-          || Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS) unlinkSync(lockPath);
-      } catch { /* another process changed the lock */ }
+      reclaimDeadLock(lockPath);
       await sleep(10);
     }
   }
-  throw new Error('policy-state-lock-timeout');
+  throw new Error(lockOwnerIsDead(lockPath)
+    ? 'policy-state-lock-timeout: dead owner; inspect exact owner of state.lock.reclaim before explicit recovery'
+    : 'policy-state-lock-timeout');
 }
 
 // #3398: Windows rename over a file another process holds open fails with
@@ -183,23 +218,96 @@ export async function acquireLock(lockPath: string): Promise<() => void> {
 const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 150, 250, 300, 400];
 const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 
+function mkdirDurably(dir: string): void {
+  if (existsSync(dir)) return;
+  const parent = dirname(dir);
+  if (parent !== dir) mkdirDurably(parent);
+  try { mkdirSync(dir, { mode: 0o700 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+  syncDirectory(parent);
+}
+
+function syncDirectory(dir: string): void {
+  // Windows does not expose directory fsync through Node. File sync and
+  // atomic rename still apply there; POSIX failures must reach the caller.
+  if (process.platform === 'win32') return;
+  const fd = openSync(dir, fsConstants.O_RDONLY | (fsConstants.O_DIRECTORY ?? 0));
+  try { fsyncSync(fd); } finally { closeSync(fd); }
+}
+
+/** Recover only an incomplete, unacknowledged final append. All inspection,
+ * truncation, append and sync use the same nofollow regular-file descriptor. */
+function appendArchiveDurably(file: string, receipts: PolicyReceipt[], verifier: AgenticPolicyEngine): void {
+  const fd = openSync(file, fsConstants.O_RDWR | fsConstants.O_CREAT
+    | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0), 0o600);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) throw new Error('policy-ledger-archive-not-regular');
+    const limit = 64 * 1024;
+    const start = Math.max(0, stat.size - limit);
+    const buffer = Buffer.alloc(stat.size - start);
+    if (readSync(fd, buffer, 0, buffer.length, start) !== buffer.length) throw new Error('policy-ledger-archive-short-read');
+    let end = stat.size;
+    const lastNewline = buffer.lastIndexOf(10);
+    if (buffer.length && buffer[buffer.length - 1] !== 10) {
+      if (lastNewline < 0 && start > 0) throw new Error('policy-ledger-archive-tail-too-large');
+      const fragmentBytes = buffer.subarray(lastNewline + 1);
+      const fragment = fragmentBytes.toString('utf8');
+      try { JSON.parse(fragment); throw new Error('policy-ledger-archive-unterminated-record'); }
+      catch (error) { if (!(error instanceof SyntaxError)) throw error; }
+      // A parse failure alone grants no repair authority: the bytes must
+      // be an exact prefix of a receipt still available in the verified hot
+      // state and being retried by this prune.
+      if (!fragmentBytes.length || !receipts.some(receipt => {
+        const expected = Buffer.from(JSON.stringify(receipt));
+        return fragmentBytes.length < expected.length && expected.subarray(0, fragmentBytes.length).equals(fragmentBytes);
+      })) {
+        throw new Error('policy-ledger-archive-unrecoverable-tail');
+      }
+      end = start + lastNewline + 1;
+    }
+    const complete = buffer.subarray(0, end - start).toString('utf8');
+    const usable = start === 0 ? complete : complete.slice(complete.indexOf('\n') + 1);
+    for (const line of usable.split('\n')) {
+      if (!line.trim()) continue;
+      let record: unknown;
+      try { record = JSON.parse(line); } catch { throw new Error('policy-ledger-archive-parse-error'); }
+      if (verifier.verifyReceipt(record)) throw new Error('policy-ledger-archive-conflict');
+    }
+    if (end < stat.size) { ftruncateSync(fd, end); fsyncSync(fd); }
+    const bytes = Buffer.from(`${receipts.map(receipt => JSON.stringify(receipt)).join('\n')}\n`);
+    let written = 0;
+    while (written < bytes.length) {
+      const count = writeSync(fd, bytes, written, bytes.length - written, end + written);
+      if (!count) throw new Error('policy-ledger-archive-short-write');
+      written += count;
+    }
+    fsyncSync(fd);
+    syncDirectory(dirname(file));
+  } finally { closeSync(fd); }
+}
+
 async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  mkdirDurably(dirname(file));
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   let renamed = false;
   try {
-    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+    const fd = openSync(temporary, 'wx', 0o600);
+    try { writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`); fsyncSync(fd); } finally { closeSync(fd); }
     for (let attempt = 0; ; attempt++) {
       try {
         renameSync(temporary, file);
         renamed = true;
-        return;
+        break;
       } catch (error) {
         const code = (error as NodeJS.ErrnoException)?.code ?? '';
         if (!TRANSIENT_RENAME_CODES.has(code) || attempt >= RENAME_RETRY_DELAYS_MS.length) throw error;
         await sleep(RENAME_RETRY_DELAYS_MS[attempt]);
       }
     }
+    // A post-rename sync failure is a publication failure, not a rename
+    // failure. Never retry with a temporary file already consumed by rename.
+    syncDirectory(dirname(file));
   } finally {
     if (!renamed) {
       try { unlinkSync(temporary); } catch { /* never created or already gone */ }
@@ -218,8 +326,10 @@ function trustKey(projectRoot: string, create: boolean): Buffer | undefined {
   const { key } = trustPaths(projectRoot);
   if (!existsSync(key)) {
     if (!create) return undefined;
-    mkdirSync(dirname(key), { recursive: true, mode: 0o700 });
-    writeFileSync(key, randomBytes(32), { mode: 0o600, flag: 'wx' });
+    mkdirDurably(dirname(key));
+    const fd = openSync(key, 'wx', 0o600);
+    try { writeFileSync(fd, randomBytes(32)); fsyncSync(fd); } finally { closeSync(fd); }
+    syncDirectory(dirname(key));
   }
   const material = readFileSync(key);
   if (material.length !== 32) throw new Error('invalid-policy-trust-key');
@@ -355,7 +465,7 @@ export async function autoMigratePolicyStateIfNeeded(projectRoot = process.cwd()
   // acquire policy state merely because `ruflo --version` ran there.
   if (!existsSync(join(resolve(projectRoot), '.claude-flow'))
     && !existsSync(join(resolve(projectRoot), '.swarm'))) return { migrated: false };
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
   const release = await acquireLock(target.lock);
   try {
     if (!existsSync(target.state)) {
@@ -381,7 +491,7 @@ export async function withPolicyTransaction<T>(
   } = {},
 ): Promise<T> {
   const target = paths(projectRoot);
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
   const release = await acquireLock(target.lock);
   try {
     const loaded = loadPolicyState(projectRoot);
@@ -400,7 +510,27 @@ export async function withPolicyTransaction<T>(
         : gate.result.error ?? 'policy-ledger-verification-failed');
     }
     const result = await operation(engine);
-    if (!engine.verifyLedger().valid) throw new Error('policy-ledger-verification-failed');
+    const verified = engine.verifyLedger();
+    if (!verified.valid) throw new Error('policy-ledger-verification-failed');
+    // Only archive the prefix already committed in loaded state. Archiving
+    // newly generated receipts before their first state publication would
+    // leave conflicting same-sequence records when a failed operation is
+    // retried with a different timestamp/request. Retention=0 and large
+    // batches therefore retain this transaction's new receipts until a
+    // subsequent transaction can archive their exact committed bytes.
+    const newlyAppended = verified.length - ((loaded.retainedFrom ?? 0) + loaded.receipts.length);
+    const pruned = engine.pruneReceipts(Math.max(ledgerRetention(), newlyAppended));
+    // #3164: archive BEFORE writing the shrunk state. If the process crashes
+    // between the two writes, the archive append already landed but
+    // `retainedFrom` on disk still reflects the pre-prune length, so the next
+    // prune recomputes and re-appends the SAME receipts — a harmless,
+    // detectable duplicate (same sequence, identical content), deduped by
+    // `verifyPolicyLedger({ full: true })`. The reverse order (state first)
+    // would instead risk a permanent gap if the process died in between,
+    // which is strictly worse for an audit ledger — never reorder this.
+    if (pruned.length > 0) {
+      appendArchiveDurably(target.archive, pruned, engine);
+    }
     const nextState = engine.exportState();
     await writePolicyState(projectRoot, target.state, nextState, gate.event);
     return result;
@@ -491,7 +621,9 @@ function reconcileLedger(
   options: { establishAnchor?: boolean },
 ): Reconciled {
   const state = engine.exportState();
-  const length = state.receipts.length;
+  // #3164: the historical length includes anything pruned out of the hot
+  // array — `length` here must keep meaning "total receipts ever issued".
+  const length = (state.retainedFrom ?? 0) + state.receipts.length;
   const primary = typeof state.ledgerLength === 'number';
   const base = engine.verifyLedger();
   const fail = (error: string): Reconciled => ({ result: { valid: false, length, error }, persist: false });
@@ -526,6 +658,92 @@ function reconcileLedger(
 }
 
 /**
+ * Parses already-read-into-memory jsonl archive content (#3892: the caller
+ * reads the file while still holding the policy lock, so no concurrent
+ * `appendFileSync` can produce a torn read here). Fails closed with a clean
+ * error on any unparseable line rather than letting `JSON.parse` throw
+ * uncaught — a torn line (from a crash, or previously from the now-closed
+ * concurrent-read race) must report `{valid: false, error}`, not crash the
+ * caller.
+ */
+function parseArchiveReceipts(content: string): { receipts: PolicyReceipt[]; error?: string } {
+  const receipts: PolicyReceipt[] = [];
+  for (const line of content.split('\n')) {
+    if (line.trim().length === 0) continue;
+    try {
+      receipts.push(JSON.parse(line) as PolicyReceipt);
+    } catch {
+      return { receipts: [], error: 'policy-ledger-archive-parse-error' };
+    }
+  }
+  return { receipts };
+}
+
+/**
+ * Dedupes crash-duplicate archive lines (#3164); same sequence + differing
+ * hash is tampering. #3892 Blocker 2: a receipt's own stored `hash` must
+ * also match its own `payload` content before it is trusted at all — a
+ * tampered record whose hash was never recomputed would otherwise pass
+ * through untouched as long as it had no colliding duplicate. Two
+ * same-sequence candidates that individually pass that check and whose
+ * hash strings also match are additionally deep-compared by payload
+ * (defense in depth: a genuine hash collision is not something SHA-256
+ * tampering can produce, but the check is cheap and belongs here).
+ */
+function dedupeArchiveReceipts(receipts: PolicyReceipt[], verifier: AgenticPolicyEngine, requiredPrefix: number): { receipts: PolicyReceipt[]; error?: string } {
+  const bySequence = new Map<number, PolicyReceipt>();
+  for (const receipt of receipts) {
+    if (verifier.verifyReceipt(receipt)) {
+      return { receipts: [], error: 'policy-ledger-archive-conflict' };
+    }
+    const sequence = receipt.payload.sequence;
+    const existing = bySequence.get(sequence);
+    if (existing) {
+      if (existing.hash !== receipt.hash
+        || canonicalizePolicy(existing) !== canonicalizePolicy(receipt)) {
+        return { receipts: [], error: 'policy-ledger-archive-conflict' };
+      }
+      continue;
+    }
+    bySequence.set(sequence, receipt);
+  }
+  const sequences = [...bySequence.keys()].sort((a, b) => a - b);
+  for (let i = 0; i < requiredPrefix; i++) {
+    if (!bySequence.has(i)) return { receipts: [], error: 'policy-ledger-archive-gap' };
+  }
+  return { receipts: sequences.map((sequence) => bySequence.get(sequence)!) };
+}
+
+/**
+ * Opt-in O(total history) replay of the archive, for an explicit
+ * administrator/CI `--full` verify (#3164). Reconstructs the complete chain
+ * (archived prefix + hot tail) and re-verifies it with the engine's ordinary
+ * hash/signature/anchor checks — never on the hot MCP-call path.
+ */
+function verifyFullPolicyLedger(
+  archiveContent: string,
+  state: PolicyState,
+  engineOptions: { signingKey?: string; keyId?: string },
+): PolicyLedgerVerification {
+  const retainedFrom = state.retainedFrom ?? 0;
+  const totalLength = retainedFrom + state.receipts.length;
+  const { receipts: parsed, error: parseError } = parseArchiveReceipts(archiveContent);
+  if (parseError) return { valid: false, length: totalLength, error: parseError };
+  const { receipts: archived, error } = dedupeArchiveReceipts(parsed, new AgenticPolicyEngine(engineOptions), retainedFrom);
+  if (error) return { valid: false, length: totalLength, error };
+  if (archived.length < retainedFrom) return { valid: false, length: totalLength, error: 'policy-ledger-archive-gap' };
+  for (const receipt of archived.slice(retainedFrom)) {
+    const hot = state.receipts[receipt.payload.sequence - retainedFrom];
+    if (hot && canonicalizePolicy(hot) !== canonicalizePolicy(receipt)) {
+      return { valid: false, length: totalLength, error: 'policy-ledger-archive-conflict' };
+    }
+  }
+  const fullReceipts = [...archived.slice(0, retainedFrom), ...state.receipts];
+  const fullEngine = AgenticPolicyEngine.fromState({ ...state, receipts: fullReceipts, retainedFrom: 0, prunedHead: null }, engineOptions);
+  return fullEngine.verifyLedger();
+}
+
+/**
  * Verification (#3568, #3602). It must not run inside `withPolicyTransaction`,
  * whose own post-operation check throws a generic
  * `policy-ledger-verification-failed` and hides which check failed. It writes
@@ -533,25 +751,62 @@ function reconcileLedger(
  */
 export async function verifyPolicyLedger(
   projectRoot = process.cwd(),
-  options: { establishAnchor?: boolean } = {},
+  options: { establishAnchor?: boolean; full?: boolean } = {},
 ): Promise<PolicyLedgerVerification> {
   const target = paths(projectRoot);
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
+  const engineOptions = {
+    signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
+    keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
+  };
+  let outcomeResult: PolicyLedgerVerification;
+  let snapshotState: PolicyState;
+  let archiveContent = '';
+  // #3892 Blocker 3: the lock holds hot-state reconciliation and the raw
+  // O(archive bytes) snapshot read below. Only the historical replay CPU is
+  // outside the lock. Work below includes load,
+  // reconcile, persist a catch-up anchor, and — when a full replay is about
+  // to happen — reading the archive's raw bytes). It is released BEFORE the
+  // O(total-history) parse+dedupe+verify work, which otherwise blocked
+  // every other MCP call for the entire replay — exactly the lock
+  // contention #3164 fixed on the hot path, reintroduced here for the audit
+  // path. The raw read must stay inside the lock: reading it after release
+  // would race a concurrent transaction's `appendFileSync` to the same
+  // file, risking a torn read. The CPU-bound work on that already-read
+  // string happens entirely outside the lock.
   const release = await acquireLock(target.lock);
   try {
-    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), {
-      signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
-      keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
-    });
+    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), engineOptions);
     const outcome = reconcileLedger(projectRoot, engine, options);
     if (outcome.persist) {
       const by = outcome.event === 'establish-anchor' ? userInfo().username : undefined;
       await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by);
     }
-    return outcome.result;
+    outcomeResult = outcome.result;
+    snapshotState = engine.exportState();
+    if (options.full && outcomeResult.valid) {
+      let fd: number | undefined;
+      try {
+        fd = openSync(target.archive, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0));
+        if (!fstatSync(fd).isFile()) throw new Error('policy-ledger-archive-not-regular');
+        archiveContent = readFileSync(fd, 'utf8');
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          outcomeResult = { valid: false, length: outcomeResult.length, error: 'policy-ledger-archive-not-regular' };
+        }
+      } finally { if (fd !== undefined) closeSync(fd); }
+    }
   } finally {
     release();
   }
+  if (!options.full || !outcomeResult.valid) return outcomeResult;
+  // The archive is append-only: verifying history up to this snapshot's
+  // `retainedFrom` stays correct even if another transaction appends more
+  // receipts after the lock above is released — `verifyFullPolicyLedger`
+  // only ever consumes the first `retainedFrom` archived entries, and the
+  // content it works from was already read, in full, under the lock.
+  const full = verifyFullPolicyLedger(archiveContent, snapshotState, engineOptions);
+  return { ...full, secondaryAnchor: outcomeResult.secondaryAnchor };
 }
 
 /**
