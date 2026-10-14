@@ -95,5 +95,6 @@ plugins/ruflo-swarm/tests/toast.test.ts
 plugins/ruflo-mods/tests/protector.test.ts
 plugins/ruflo-mods/tests/selfcheck.test.ts
 plugins/ruflo-testgen/scripts/tdd-repair/tdd-repair.test.mjs
+plugins/ruflo-core/scripts/background-hooks.test.cjs
 plugins/ruflo-core/scripts/command-recording-switch.test.cjs
 tests/regression/oct12-coverage.test.cjs

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const state = vi.hoisted(() => ({ cwd: '', execute: vi.fn() }));
@@ -39,4 +39,46 @@ it('validates defaultAgentId and exempts control steps from needing their own ag
 it('still warns about a task with no available agent and keeps legacy agent declarations', async () => {
   expect(await validate({ steps: [{ name: 'missing', type: 'task' }] })).toMatchObject({ valid: false, warnings: [expect.objectContaining({ line: 1 })] });
   expect(await validate({ steps: [{ agent: 'legacy' }, { agentType: 'legacy' }, { agent_type: 'other' }] })).toMatchObject({ valid: true, stats: { agents: 2 } });
+});
+
+it('rejects a misspelled condition gate before saving or executing the workflow', async () => {
+  const doc = { name: 'gate', steps: [
+    { name: 'work', type: 'task', config: { agentId: 'worker' } },
+    { name: 'approval', type: 'condition', config: { condition: 'approved == true' } },
+  ] };
+  expect(await call('workflow_create', doc)).toMatchObject({ success: false, error: expect.stringContaining('config.when') });
+  expect(await validate(doc)).toMatchObject({ valid: false, errors: [expect.objectContaining({ line: 2 })] });
+  expect(state.execute).not.toHaveBeenCalled();
+});
+
+it.each(['parallel', 'loop'])('rejects an unimplemented %s step instead of recording a successful workflow', async type => {
+  const doc = { name: type, steps: [{ name: 'unsupported', type }] };
+  expect(await call('workflow_create', doc)).toMatchObject({ success: false, error: expect.stringContaining('not implemented') });
+  expect(await validate(doc)).toMatchObject({ valid: false, errors: [expect.objectContaining({ line: 1 })] });
+});
+
+it('fails a previously saved workflow with an unsupported step before dispatching a task', async () => {
+  const created = await call('workflow_create', { name: 'legacy', steps: [
+    { name: 'work', type: 'task', config: { agentId: 'worker' } },
+    { name: 'wait', type: 'wait', config: { ms: 0 } },
+  ] });
+  const storePath = join(state.cwd, '.claude-flow', 'workflows', 'store.json');
+  const store = JSON.parse(readFileSync(storePath, 'utf-8'));
+  store.workflows[created.workflowId].steps[1].type = 'loop';
+  writeFileSync(storePath, JSON.stringify(store));
+
+  expect(await call('workflow_execute', { workflowId: created.workflowId })).toMatchObject({
+    status: 'failed', failedStep: 'step-2', error: expect.stringContaining('not implemented'),
+  });
+  expect(state.execute).not.toHaveBeenCalled();
+});
+
+it('evaluates an explicit boolean condition without treating false as a successful match', async () => {
+  const created = await call('workflow_create', { name: 'approval', variables: { approved: false }, steps: [
+    { name: 'gate', type: 'condition', config: { when: 'approved == true' } },
+  ] });
+  expect(await call('workflow_execute', { workflowId: created.workflowId })).toMatchObject({ status: 'completed' });
+  const storePath = join(state.cwd, '.claude-flow', 'workflows', 'store.json');
+  const store = JSON.parse(readFileSync(storePath, 'utf-8'));
+  expect(store.workflows[created.workflowId].steps[0].result).toMatchObject({ truthy: false });
 });

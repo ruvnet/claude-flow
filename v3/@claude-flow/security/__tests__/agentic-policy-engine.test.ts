@@ -367,3 +367,17 @@ describe('CapabilityEnvelope', () => {
     expect(decision.reason).toBe('network-outside-envelope');
   });
 });
+
+
+it('creates request IDs without the optional global WebCrypto API (Node 18)', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  try {
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true });
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    engine.evaluate({ identity: { id: 'node18-agent', type: 'agent' }, action: { type: 'code.read' } });
+    expect(engine.exportState().receipts[0].payload.request.requestId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'crypto', descriptor);
+    else Reflect.deleteProperty(globalThis, 'crypto');
+  }
+});

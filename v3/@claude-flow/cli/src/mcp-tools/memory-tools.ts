@@ -278,6 +278,19 @@ async function getMemoryFunctions() {
 }
 
 /**
+ * Path of the CLI's own store (.swarm/memory.db or CLAUDE_FLOW_DB_PATH), or
+ * undefined when the memory module cannot say (#4148). Never throws.
+ */
+async function resolveCliStorePath(): Promise<string | undefined> {
+  try {
+    const mod = await import('../memory/memory-initializer.js');
+    return typeof mod.resolveDbPath === 'function' ? mod.resolveDbPath() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * #2922: every `backend:` field in this file's tool responses used to be the
  * hardcoded literal `'sql.js + HNSW'` regardless of which search path was
  * actually active — most of the time that's the bridge doing a brute-force
@@ -1567,18 +1580,47 @@ export const memoryTools: MCPTool[] = [
       // they need it).
       // A successful export must cover the whole reported store. Read all
       // pages before touching an existing snapshot, including on read failure.
-      const entries: Awaited<ReturnType<typeof listEntries>>['entries'] = [];
-      let total: number | undefined;
-      do {
-        const page = await listEntries({ limit: 10000, offset: entries.length, namespace, includeContent: true });
-        if (!page.success) return { error: page.error || 'Could not read memory for export' };
-        total ??= page.total;
-        if (page.entries.length === 0 && entries.length < total) {
-          return { error: `Incomplete memory export: read ${entries.length} of ${total} entries` };
+      type ExportEntry = Awaited<ReturnType<typeof listEntries>>['entries'][number];
+      const readStore = async (dbPath?: string): Promise<{ entries: ExportEntry[] } | { error: string }> => {
+        const out: ExportEntry[] = [];
+        let total: number | undefined;
+        do {
+          const page = await listEntries({ limit: 10000, offset: out.length, namespace, includeContent: true, ...(dbPath ? { dbPath } : {}) });
+          if (!page.success) return { error: page.error || 'Could not read memory for export' };
+          total ??= page.total;
+          if (page.entries.length === 0 && out.length < total) {
+            return { error: `Incomplete memory export: read ${out.length} of ${total} entries` };
+          }
+          out.push(...page.entries);
+        } while (out.length < total);
+        return { entries: out };
+      };
+      const primary = await readStore();
+      if ('error' in primary) return { error: primary.error };
+      // #4148: the default reader is the AgentDB bridge, but the CLI's own store
+      // (.swarm/memory.db, possibly encrypted) can hold rows the bridge never
+      // sees, so an export silently covered one store and reported success. Read
+      // the CLI store too and merge, newest copy of a (namespace, key) winning.
+      const warnings: string[] = [];
+      const stores: Array<{ store: string; entries: number }> = [{ store: 'default', entries: primary.entries.length }];
+      const merged = new Map<string, ExportEntry>();
+      const keep = (e: ExportEntry): void => {
+        const id = `${e.namespace}\u0000${e.key}`;
+        const have = merged.get(id);
+        if (!have || String(e.updatedAt) > String(have.updatedAt)) merged.set(id, e);
+      };
+      primary.entries.forEach(keep);
+      const cliStore = await resolveCliStorePath();
+      if (cliStore && existsSync(cliStore)) {
+        const secondary = await readStore(cliStore);
+        if ('error' in secondary) {
+          warnings.push(`Could not read the CLI store ${cliStore} (${secondary.error}); the export covers the AgentDB store only.`);
+        } else {
+          stores.push({ store: cliStore, entries: secondary.entries.length });
+          secondary.entries.forEach(keep);
         }
-        entries.push(...page.entries);
-      } while (entries.length < total);
-      const all = { entries };
+      }
+      const all = { entries: [...merged.values()] };
       const payload = {
         schema: 'ruflo-memory-export/v1',
         exportedAt: new Date().toISOString(),
@@ -1601,6 +1643,8 @@ export const memoryTools: MCPTool[] = [
         outputPath,
         format: (input.format as string) || 'json',
         exported: { entries: all.entries.length, vectors: vectorsWithEmb, patterns: 0 },
+        stores,
+        ...(warnings.length ? { warnings } : {}),
         fileSize: `${Buffer.byteLength(JSON.stringify(payload))}B`,
         note: input.format === 'csv' ? 'CSV not implemented yet — wrote JSON' : undefined,
       };

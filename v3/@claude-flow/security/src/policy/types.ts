@@ -1,4 +1,6 @@
-export const POLICY_STATE_VERSION = 1;
+// Version 2 is a writer fence for the archived/retained ledger protocol.
+// Version-1 binaries reject it instead of silently rewriting a pruned ledger.
+export const POLICY_STATE_VERSION = 2;
 
 export type PolicyMode = 'legacy' | 'observe' | 'enforce';
 export type PolicyEffect = 'allow' | 'deny' | 'require_approval';

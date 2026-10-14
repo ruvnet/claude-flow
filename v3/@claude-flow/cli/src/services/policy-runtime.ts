@@ -1,6 +1,6 @@
 import {
   AgenticPolicyEngine,
-  canonicalizePolicy,
+  POLICY_STATE_VERSION,
   createLegacyCompatibleState,
   isMcpCallerAuthEnabled,
   decodeTokenEnvelope,
@@ -40,7 +40,9 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { hostname, userInfo } from 'node:os';
 import { syncPolicyProjection } from '../mods/policy-projection.js';
-import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent } from './policy-ledger-anchor.js';
+import { ATOMIC_JSON_WRITER, type AtomicJsonSource } from './policy-anchor-log.js';
+import { captureArchiveSnapshot, verifyFullPolicyLedger, type ArchiveSnapshot } from './policy-ledger-audit.js';
+import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent, type AnchorEntry } from './policy-ledger-anchor.js';
 
 const POLICY_DIR = join('.claude-flow', 'policy');
 const POLICY_FILE = 'state.json';
@@ -293,7 +295,11 @@ async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
   let renamed = false;
   try {
     const fd = openSync(temporary, 'wx', 0o600);
-    try { writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`); fsyncSync(fd); } finally { closeSync(fd); }
+    try {
+      if (value && typeof (value as AtomicJsonSource)[ATOMIC_JSON_WRITER] === 'function') (value as AtomicJsonSource)[ATOMIC_JSON_WRITER](fd);
+      else writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally { closeSync(fd); }
     for (let attempt = 0; ; attempt++) {
       try {
         renameSync(temporary, file);
@@ -361,11 +367,12 @@ async function writePolicyState(
   state: PolicyState,
   anchorEvent: AnchorEvent = 'append',
   by?: string,
+  assessedTip?: AnchorEntry,
 ): Promise<void> {
   await writePolicyStateFiles(projectRoot, statePath, state);
   // #3602: the second anchor is written after the state, so a crash leaves the
   // state AHEAD of the log (caught up on the next write), never behind it.
-  await recordAnchor(projectRoot, state, writeJsonAtomic, anchorEvent, by);
+  await recordAnchor(projectRoot, state, writeJsonAtomic, anchorEvent, by, writeJsonAtomic, assessedTip);
   // ADR-404: the ruflo mod reads Claude Code tool rules from a small
   // projection, never from state.json. Written only after the state and its
   // anchor are safely down; a failure here never fails the state write. A
@@ -440,7 +447,7 @@ export function loadPolicyState(projectRoot = process.cwd()): PolicyState {
     return createLegacyCompatibleState(detectLegacyCapabilities(projectRoot));
   }
   const parsed = JSON.parse(readFileSync(target.state, 'utf8')) as PolicyState;
-  if (parsed.version !== 1 || !Array.isArray(parsed.rules) || !Array.isArray(parsed.receipts)) {
+  if ((parsed.version !== 1 && parsed.version !== POLICY_STATE_VERSION) || !Array.isArray(parsed.rules) || !Array.isArray(parsed.receipts)) {
     throw new Error(`unsupported-policy-state-version:${String(parsed.version)}`);
   }
   verifyStateAnchor(projectRoot, parsed);
@@ -532,7 +539,7 @@ export async function withPolicyTransaction<T>(
       appendArchiveDurably(target.archive, pruned, engine);
     }
     const nextState = engine.exportState();
-    await writePolicyState(projectRoot, target.state, nextState, gate.event);
+    await writePolicyState(projectRoot, target.state, nextState, gate.event, undefined, gate.anchorTip);
     return result;
   } finally {
     release();
@@ -607,6 +614,7 @@ interface Reconciled {
   result: PolicyLedgerVerification;
   persist: boolean;
   event?: AnchorEvent;
+  anchorTip?: AnchorEntry;
 }
 
 /**
@@ -636,7 +644,7 @@ function reconcileLedger(
         ? { result: { ...base, secondaryAnchor: 'established-explicitly' }, persist: true, event: 'establish-anchor' }
         : { result: { ...base, secondaryAnchor: 'recorded-from-state' }, persist: true, event: 'migrated-from-state' };
     }
-    return { result: base, persist: assessed.kind === 'ok' && assessed.behind, event: 'append' };
+    return { result: base, persist: assessed.kind === 'ok' && assessed.behind, event: 'append', anchorTip: assessed.kind === 'ok' ? assessed.last : undefined };
   }
   // No primary anchor.
   if (length === 0) return { result: { valid: true, length, state: 'empty' }, persist: false };
@@ -644,7 +652,7 @@ function reconcileLedger(
     // The second anchor is authentic and agrees with the chain: the deleted
     // primary can be restored from it. Truncation was already rejected above.
     engine.verifyLedger({ establishAnchor: true });
-    return { result: { valid: true, length, secondaryAnchor: 'restored-primary' }, persist: true, event: 'append' };
+    return { result: { valid: true, length, secondaryAnchor: 'restored-primary' }, persist: true, event: 'append', anchorTip: assessed.last };
   }
   if (options.establishAnchor) {
     const established = engine.verifyLedger({ establishAnchor: true });
@@ -655,92 +663,6 @@ function reconcileLedger(
     };
   }
   return fail('anchor-missing');
-}
-
-/**
- * Parses already-read-into-memory jsonl archive content (#3892: the caller
- * reads the file while still holding the policy lock, so no concurrent
- * `appendFileSync` can produce a torn read here). Fails closed with a clean
- * error on any unparseable line rather than letting `JSON.parse` throw
- * uncaught — a torn line (from a crash, or previously from the now-closed
- * concurrent-read race) must report `{valid: false, error}`, not crash the
- * caller.
- */
-function parseArchiveReceipts(content: string): { receipts: PolicyReceipt[]; error?: string } {
-  const receipts: PolicyReceipt[] = [];
-  for (const line of content.split('\n')) {
-    if (line.trim().length === 0) continue;
-    try {
-      receipts.push(JSON.parse(line) as PolicyReceipt);
-    } catch {
-      return { receipts: [], error: 'policy-ledger-archive-parse-error' };
-    }
-  }
-  return { receipts };
-}
-
-/**
- * Dedupes crash-duplicate archive lines (#3164); same sequence + differing
- * hash is tampering. #3892 Blocker 2: a receipt's own stored `hash` must
- * also match its own `payload` content before it is trusted at all — a
- * tampered record whose hash was never recomputed would otherwise pass
- * through untouched as long as it had no colliding duplicate. Two
- * same-sequence candidates that individually pass that check and whose
- * hash strings also match are additionally deep-compared by payload
- * (defense in depth: a genuine hash collision is not something SHA-256
- * tampering can produce, but the check is cheap and belongs here).
- */
-function dedupeArchiveReceipts(receipts: PolicyReceipt[], verifier: AgenticPolicyEngine, requiredPrefix: number): { receipts: PolicyReceipt[]; error?: string } {
-  const bySequence = new Map<number, PolicyReceipt>();
-  for (const receipt of receipts) {
-    if (verifier.verifyReceipt(receipt)) {
-      return { receipts: [], error: 'policy-ledger-archive-conflict' };
-    }
-    const sequence = receipt.payload.sequence;
-    const existing = bySequence.get(sequence);
-    if (existing) {
-      if (existing.hash !== receipt.hash
-        || canonicalizePolicy(existing) !== canonicalizePolicy(receipt)) {
-        return { receipts: [], error: 'policy-ledger-archive-conflict' };
-      }
-      continue;
-    }
-    bySequence.set(sequence, receipt);
-  }
-  const sequences = [...bySequence.keys()].sort((a, b) => a - b);
-  for (let i = 0; i < requiredPrefix; i++) {
-    if (!bySequence.has(i)) return { receipts: [], error: 'policy-ledger-archive-gap' };
-  }
-  return { receipts: sequences.map((sequence) => bySequence.get(sequence)!) };
-}
-
-/**
- * Opt-in O(total history) replay of the archive, for an explicit
- * administrator/CI `--full` verify (#3164). Reconstructs the complete chain
- * (archived prefix + hot tail) and re-verifies it with the engine's ordinary
- * hash/signature/anchor checks — never on the hot MCP-call path.
- */
-function verifyFullPolicyLedger(
-  archiveContent: string,
-  state: PolicyState,
-  engineOptions: { signingKey?: string; keyId?: string },
-): PolicyLedgerVerification {
-  const retainedFrom = state.retainedFrom ?? 0;
-  const totalLength = retainedFrom + state.receipts.length;
-  const { receipts: parsed, error: parseError } = parseArchiveReceipts(archiveContent);
-  if (parseError) return { valid: false, length: totalLength, error: parseError };
-  const { receipts: archived, error } = dedupeArchiveReceipts(parsed, new AgenticPolicyEngine(engineOptions), retainedFrom);
-  if (error) return { valid: false, length: totalLength, error };
-  if (archived.length < retainedFrom) return { valid: false, length: totalLength, error: 'policy-ledger-archive-gap' };
-  for (const receipt of archived.slice(retainedFrom)) {
-    const hot = state.receipts[receipt.payload.sequence - retainedFrom];
-    if (hot && canonicalizePolicy(hot) !== canonicalizePolicy(receipt)) {
-      return { valid: false, length: totalLength, error: 'policy-ledger-archive-conflict' };
-    }
-  }
-  const fullReceipts = [...archived.slice(0, retainedFrom), ...state.receipts];
-  const fullEngine = AgenticPolicyEngine.fromState({ ...state, receipts: fullReceipts, retainedFrom: 0, prunedHead: null }, engineOptions);
-  return fullEngine.verifyLedger();
 }
 
 /**
@@ -761,52 +683,34 @@ export async function verifyPolicyLedger(
   };
   let outcomeResult: PolicyLedgerVerification;
   let snapshotState: PolicyState;
-  let archiveContent = '';
-  // #3892 Blocker 3: the lock holds hot-state reconciliation and the raw
-  // O(archive bytes) snapshot read below. Only the historical replay CPU is
-  // outside the lock. Work below includes load,
-  // reconcile, persist a catch-up anchor, and — when a full replay is about
-  // to happen — reading the archive's raw bytes). It is released BEFORE the
-  // O(total-history) parse+dedupe+verify work, which otherwise blocked
-  // every other MCP call for the entire replay — exactly the lock
-  // contention #3164 fixed on the hot path, reintroduced here for the audit
-  // path. The raw read must stay inside the lock: reading it after release
-  // would race a concurrent transaction's `appendFileSync` to the same
-  // file, risking a torn read. The CPU-bound work on that already-read
-  // string happens entirely outside the lock.
+  let archiveSnapshot: ArchiveSnapshot | undefined;
+  // Capture the verified hot state and a checked regular archive descriptor
+  // plus immutable byte boundary under the writer lock. Historical read,
+  // authentication, deduplication and replay all happen after release, using
+  // bounded chunks and private disposable disk scratch instead of O(history)
+  // strings, receipt arrays or maps. The descriptor pins path replacements.
   const release = await acquireLock(target.lock);
   try {
     const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), engineOptions);
     const outcome = reconcileLedger(projectRoot, engine, options);
     if (outcome.persist) {
       const by = outcome.event === 'establish-anchor' ? userInfo().username : undefined;
-      await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by);
+      await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by, outcome.anchorTip);
     }
     outcomeResult = outcome.result;
     snapshotState = engine.exportState();
     if (options.full && outcomeResult.valid) {
-      let fd: number | undefined;
-      try {
-        fd = openSync(target.archive, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0));
-        if (!fstatSync(fd).isFile()) throw new Error('policy-ledger-archive-not-regular');
-        archiveContent = readFileSync(fd, 'utf8');
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          outcomeResult = { valid: false, length: outcomeResult.length, error: 'policy-ledger-archive-not-regular' };
-        }
-      } finally { if (fd !== undefined) closeSync(fd); }
+      try { archiveSnapshot = captureArchiveSnapshot(target.archive); }
+      catch (error) { outcomeResult = { valid: false, length: outcomeResult.length, error: (error as Error).message }; }
     }
   } finally {
     release();
   }
   if (!options.full || !outcomeResult.valid) return outcomeResult;
-  // The archive is append-only: verifying history up to this snapshot's
-  // `retainedFrom` stays correct even if another transaction appends more
-  // receipts after the lock above is released — `verifyFullPolicyLedger`
-  // only ever consumes the first `retainedFrom` archived entries, and the
-  // content it works from was already read, in full, under the lock.
-  const full = verifyFullPolicyLedger(archiveContent, snapshotState, engineOptions);
-  return { ...full, secondaryAnchor: outcomeResult.secondaryAnchor };
+  try {
+    const full = await verifyFullPolicyLedger(archiveSnapshot, snapshotState, engineOptions);
+    return { ...full, secondaryAnchor: outcomeResult.secondaryAnchor };
+  } finally { if (archiveSnapshot !== undefined) closeSync(archiveSnapshot.fd); }
 }
 
 /**

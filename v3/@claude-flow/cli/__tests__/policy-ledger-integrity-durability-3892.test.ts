@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { policyTrustRoot } from '../src/services/policy-ledger-anchor.js';
 import { acquireLock, autoMigratePolicyStateIfNeeded, evaluatePolicyRequest, verifyPolicyLedger, withPolicyTransaction } from '../src/services/policy-runtime.js';
 
-const io = vi.hoisted(() => ({ events: [] as string[], files: new Map<number, string>(), failSync: false, failState: false, failRenameSuffix: '', failStateDirSync: false }));
+const io = vi.hoisted(() => ({ events: [] as string[], files: new Map<number, string>(), failSync: false, failState: false, failRenameSuffix: '', failStateDirSync: false, failAnchorStream: false }));
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
@@ -19,6 +19,11 @@ vi.mock('node:fs', async (importOriginal) => {
       if (io.failStateDirSync && io.events[io.events.length - 2] === `rename:${join(file, 'state.json')}`) throw Object.assign(new Error('injected state parent sync failure'), { code: 'EACCES' });
       if (io.failSync && file.endsWith('receipts.ledger.jsonl')) throw Object.assign(new Error('injected archive sync failure'), { code: 'EIO' });
       return actual.fsyncSync(fd);
+    },
+    writeSync: (fd: number, ...args: any[]) => {
+      const file = io.files.get(fd) ?? '';
+      if (io.failAnchorStream && file.includes('ledger-anchors.json.') && file.endsWith('.tmp')) throw new Error('injected anchor stream failure');
+      return (actual.writeSync as (...args: any[]) => number)(fd, ...args);
     },
     renameSync: (from: string, to: string) => {
       io.events.push(`rename:${to}`);
@@ -46,7 +51,7 @@ async function ledger(signed = false) {
 }
 function records(project: string) { return readFileSync(archive(project), 'utf8').trim().split('\n').map(line => JSON.parse(line)); }
 afterEach(() => {
-  io.failSync = io.failState = io.failStateDirSync = false; io.failRenameSuffix = ''; io.events.length = 0;
+  io.failSync = io.failState = io.failStateDirSync = io.failAnchorStream = false; io.failRenameSuffix = ''; io.events.length = 0;
   for (const project of roots.splice(0)) {
     const id = createHash('sha256').update(realpathSync(project)).digest('hex');
     rmSync(join(policyTrustRoot(), id), { recursive: true, force: true });
@@ -191,6 +196,12 @@ describe('durable publication and retry', () => {
     io.failStateDirSync = false; io.failRenameSuffix = '';
     expect(await verifyPolicyLedger(project, { full: true })).toMatchObject({ valid: true, length: 7 });
     expect(records(project).slice(0, old.length)).toEqual(old);
+  });
+  it('an anchor serialization callback failure preserves the old log and supports state-ahead recovery', async () => {
+    const project = await ledger(); const file = join(dir(project), 'ledger-anchors.json'); const old = readFileSync(file);
+    io.failAnchorStream = true; await expect(decide(project, 6)).rejects.toThrow('injected anchor stream failure');
+    expect(readFileSync(file)).toEqual(old); io.failAnchorStream = false;
+    expect(await verifyPolicyLedger(project, { full: true })).toMatchObject({ valid: true, length: 7 });
   });
   it('a mirror failure at the first prune keeps its authentic prearchive checkpoint usable', async () => {
     process.env.CLAUDE_FLOW_POLICY_LEDGER_RETENTION = '2';

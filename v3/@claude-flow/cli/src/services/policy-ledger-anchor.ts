@@ -25,10 +25,13 @@
  * oversight — closing it fully on the default path would reintroduce the
  * unbounded per-transaction cost #3164 removed.
  */
+import { decodeLedgerRecord, policyLedgerRecordLimit } from './policy-ledger-record.js';
+import { reverseArchiveRecords } from './policy-archive-scan.js';
+import { anchorEntries, appendedAnchorLog, type AtomicJsonSource } from './policy-anchor-log.js';
 import { createHash } from 'node:crypto';
-import { closeSync, constants as fsConstants, fstatSync, existsSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs';
+import { closeSync, constants as fsConstants, fstatSync, existsSync, mkdtempSync, chmodSync, openSync, readFileSync, readSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { homedir, userInfo } from 'node:os';
+import { homedir, tmpdir, userInfo } from 'node:os';
 import { AgenticPolicyEngine, canonicalizePolicy, type PolicyState } from '@claude-flow/security';
 
 export type AnchorEvent = 'append' | 'migrated-from-state' | 'establish-anchor';
@@ -59,6 +62,7 @@ export type AnchorAssessment =
   | { kind: 'fail'; error: string };
 
 export type AnchorWriter = (file: string, value: unknown) => Promise<void>;
+export type StreamingAnchorWriter = (file: string, value: AtomicJsonSource) => Promise<void>;
 
 const LOG_FILE = 'ledger-anchors.json';
 const MIRROR_FILE = 'ledger-anchor-head.json';
@@ -113,8 +117,8 @@ const TAIL_READ_INITIAL_BYTES = 64 * 1024;
  * Whether the archive still contains a self-consistent copy of the receipt
  * at `expectedSequence` whose own stored `hash` is `expectedHash` (#3892
  * Blocker 1) — i.e. the archive's TIP, nothing more. Scans a trailing
- * window of the file, growing it by doubling until a match is found or the
- * whole file has been read — NOT just the physical last line: a harmless
+ * suffix in fixed 64KiB chunks until a match is found or the
+ * whole file has been scanned — NOT just the physical last line: a harmless
  * crash-duplicate (#3164) can legitimately land after the true tail, so
  * truncation/tampering is "the matching receipt is nowhere in the file",
  * not "it isn't the very last line". "Self-consistent" means
@@ -129,9 +133,9 @@ const TAIL_READ_INITIAL_BYTES = 64 * 1024;
  * it are left untouched, passes this check — only `--full` catches that.
  *
  * Cost: bounded on the common (untampered) path, where the match is almost
- * always inside the first 64KB window; a truncation/deletion attack (where
- * no match exists anywhere) degrades toward O(archive size) before
- * reporting tampering — an acceptable cost on that rare failure path. On
+ * always inside the first 64KB suffix; a truncation/deletion attack (where
+ * no match exists anywhere) scans O(archive size) bytes with bounded
+ * per-record memory before reporting tampering — an acceptable cost on that rare failure path. On
  * the healthy path this runs on every `withPolicyTransaction` call once
  * `retainedFrom > 0` (via `checkArchiveClaim` → `assessAnchors` →
  * `reconcileLedger`), not only on explicit verify calls.
@@ -141,68 +145,75 @@ const TAIL_READ_INITIAL_BYTES = 64 * 1024;
  * head; this rare path costs O(extension plus the trailing archive window).
  */
 function archiveHasTailReceipt(filePath: string, expectedSequence: number, expectedHash: string, from?: { sequence: number; hash: string }): boolean {
-  if (!existsSync(filePath)) return false;
+  if (!existsSync(filePath) || !Number.isSafeInteger(expectedSequence) || expectedSequence < 0) return false;
   let fd: number;
   try { fd = openSync(filePath, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0)); } catch { return false; }
+  let scratch: string | undefined;
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size === 0) return false;
-    const size = stat.size;
+    if (from && (!Number.isSafeInteger(from.sequence) || from.sequence >= expectedSequence || expectedSequence - from.sequence > stat.size)) return false;
     const verifier = new AgenticPolicyEngine({ signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY, keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID });
-    let windowSize = Math.min(TAIL_READ_INITIAL_BYTES, size);
-    for (;;) {
-      const start = size - windowSize;
-      const buffer = Buffer.alloc(windowSize);
-      if (readSync(fd, buffer, 0, windowSize, start) !== windowSize) return false;
-      const text = buffer.toString('utf8');
-      // A window that doesn't start at byte 0 may begin mid-line; drop that
-      // possibly-truncated leading fragment rather than risk parsing junk.
-      const firstNewline = text.indexOf('\n');
-      const usable = start === 0 ? text : (firstNewline === -1 ? '' : text.slice(firstNewline + 1));
-      let found: string | undefined;
-      const extension = new Map<number, any>();
-      const lines = usable.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (!line.trim()) continue;
-        let parsed: any;
-        try { parsed = JSON.parse(line); }
-        catch {
-          // An interrupted, unterminated append may follow the committed
-          // tip. A writer can recover it only against verified retry bytes.
-          if (i === lines.length - 1 && !usable.endsWith('\n')) continue;
-          continue;
-        }
-        const sequence = parsed?.payload?.sequence;
-        if (sequence === expectedSequence) {
-          if (verifier.verifyReceipt(parsed) || parsed.hash !== expectedHash) return false;
-          const canonical = canonicalizePolicy(parsed);
-          if (found !== undefined && found !== canonical) return false;
-          found = canonical;
-        }
-        if (from && Number.isSafeInteger(sequence) && sequence > from.sequence && sequence <= expectedSequence) {
-          if (verifier.verifyReceipt(parsed)) return false;
-          const previous = extension.get(sequence);
-          if (previous && canonicalizePolicy(previous) !== canonicalizePolicy(parsed)) return false;
-          extension.set(sequence, parsed);
+    if (from) { scratch = mkdtempSync(join(tmpdir(), 'ruflo-policy-extension-')); chmodSync(scratch, 0o700); }
+    let found: string | undefined; let extensionCount = 0;
+    for (const physical of reverseArchiveRecords(fd, stat.size, policyLedgerRecordLimit())) {
+      let line: string;
+      try { line = decodeLedgerRecord(physical.bytes); }
+      catch (error) {
+        // An unacknowledged final append may end inside a UTF8 code point.
+        // Preserve it here; the writer can repair only an exact state-backed
+        // byte prefix. Newline-complete records must always decode strictly.
+        if (!physical.terminated && (error as Error).message === 'policy-ledger-archive-utf8-error') continue;
+        throw error;
+      }
+      if (!line.trim()) continue;
+      let parsed: any;
+      try { parsed = JSON.parse(line); } catch { continue; }
+      const sequence = parsed?.payload?.sequence;
+      if (sequence === expectedSequence) {
+        if (verifier.verifyReceipt(parsed) || parsed.hash !== expectedHash) return false;
+        const canonical = canonicalizePolicy(parsed);
+        if (found !== undefined && found !== canonical) return false; found = canonical;
+      }
+      if (from && Number.isSafeInteger(sequence) && sequence > from.sequence && sequence <= expectedSequence) {
+        if (verifier.verifyReceipt(parsed)) return false;
+        const canonical = canonicalizePolicy(parsed); const file = join(scratch!, `receipt-${sequence}`);
+        try { writeFileSync(file, canonical, { mode: 0o600, flag: 'wx' }); extensionCount++; }
+        catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+          const other = openSync(file, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0));
+          try { if (!fstatSync(other).isFile() || readFileSync(other, 'utf8') !== canonical) return false; }
+          finally { closeSync(other); }
         }
       }
-      if (found !== undefined && !from) return true;
-      if (found !== undefined && from && extension.size === expectedSequence - from.sequence) {
-        let previous = from.hash;
-        for (let sequence = from.sequence + 1; sequence <= expectedSequence; sequence++) {
-          const receipt = extension.get(sequence);
-          if (!receipt || receipt.payload.previousReceiptHash !== previous) return false;
-          previous = receipt.hash;
-        }
-        return previous === expectedHash;
+      // Inspect at least the original healthy 64KiB suffix, including all
+      // matching duplicates there, before accepting a found tip.
+      if (found !== undefined && physical.offset <= Math.max(0, stat.size - TAIL_READ_INITIAL_BYTES)) {
+        if (!from) return true;
+        if (extensionCount === expectedSequence - from.sequence) break;
       }
-      if (windowSize >= size) return false;
-      windowSize = Math.min(windowSize * 2, size);
     }
-  } finally {
-    closeSync(fd);
+    if (found === undefined) return false;
+    if (!from) return true;
+    if (extensionCount !== expectedSequence - from.sequence) return false;
+    let previous = from.hash;
+    for (let sequence = from.sequence + 1; sequence <= expectedSequence; sequence++) {
+      const other = openSync(join(scratch!, `receipt-${sequence}`), fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0));
+      try {
+        if (!fstatSync(other).isFile()) return false;
+        const receipt = JSON.parse(readFileSync(other, 'utf8'));
+        if (verifier.verifyReceipt(receipt) || receipt.payload.previousReceiptHash !== previous) return false;
+        previous = receipt.hash;
+      } finally { closeSync(other); }
+    }
+    return previous === expectedHash;
+  } catch (error) {
+    if ((error as Error).message.startsWith('policy-ledger-archive-record-too-large:')
+      || (error as Error).message === 'policy-ledger-archive-utf8-error'
+      || (error as Error).message === 'policy-ledger-audit-invalid-record-limit') throw error;
+    return false;
   }
+  finally { closeSync(fd); if (scratch !== undefined) rmSync(scratch, { recursive: true, force: true }); }
 }
 
 /** #3164: `state.receipts` is only the hot tail once pruning is in play — the
@@ -270,21 +281,24 @@ function validEntry(value: unknown, seq: number, prev: string | null): value is 
     && e.hash === entryHash({ ...e, hash: undefined } as never);
 }
 
-function readLog(projectRoot: string): AnchorEntry[] | 'corrupt' {
+interface LogSummary { count: number; last?: AnchorEntry; mirrorIncluded: boolean }
+// Identity-only, single-use assessment metadata. Plain JSON cannot grant reuse.
+// Callers hold the policy lock across assessment and publication; the append
+// serializer independently authenticates the entire source and binds count/tip.
+const assessedLogs = new WeakMap<AnchorEntry, { file: string; summary: LogSummary }>();
+function readLog(projectRoot: string, mirrorHash?: string): LogSummary | 'corrupt' {
   const file = anchorLogPath(projectRoot);
-  if (!existsSync(file)) return [];
+  if (!existsSync(file)) return { count: 0, mirrorIncluded: false };
   try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as { version?: number; entries?: unknown[] };
-    if (parsed.version !== 1 || !Array.isArray(parsed.entries)) return 'corrupt';
     let prev: string | null = null;
-    for (let i = 0; i < parsed.entries.length; i++) {
-      if (!validEntry(parsed.entries[i], i, prev)) return 'corrupt';
-      prev = (parsed.entries[i] as AnchorEntry).hash;
+    const summary: LogSummary = { count: 0, mirrorIncluded: false };
+    for (const value of anchorEntries(file)) {
+      if (!validEntry(value, summary.count, prev)) return 'corrupt';
+      summary.count++; summary.last = value; prev = value.hash;
+      if (mirrorHash !== undefined && value.hash === mirrorHash) summary.mirrorIncluded = true;
     }
-    return parsed.entries as AnchorEntry[];
-  } catch {
-    return 'corrupt';
-  }
+    return summary;
+  } catch { return 'corrupt'; }
 }
 
 function readMirror(projectRoot: string): AnchorEntry | null | 'corrupt' {
@@ -341,19 +355,19 @@ function checkArchiveClaim(projectRoot: string, state: PolicyState, anchor: Anch
  * whatever readable anchor remains must still agree with the chain, so it can
  * never bless a truncation the anchors still remember.
  */
-export function assessAnchors(projectRoot: string, state: PolicyState, rebuild = false): AnchorAssessment {
-  let entries = readLog(projectRoot);
-  if (entries === 'corrupt') {
-    if (!rebuild) return { kind: 'fail', error: 'policy-anchor-log-corrupt' };
-    entries = [];
-  }
+function assessAnchorsChecked(projectRoot: string, state: PolicyState, rebuild = false): AnchorAssessment {
   let mirror = readMirror(projectRoot);
   if (mirror === 'corrupt') {
     if (!rebuild) return { kind: 'fail', error: 'policy-anchor-mirror-corrupt' };
     mirror = null;
   }
+  let entries = readLog(projectRoot, mirror?.hash);
+  if (entries === 'corrupt') {
+    if (!rebuild) return { kind: 'fail', error: 'policy-anchor-log-corrupt' };
+    entries = { count: 0, mirrorIncluded: false };
+  }
   const retainedFrom = state.retainedFrom ?? 0;
-  if (entries.length === 0) {
+  if (entries.count === 0) {
     if (!mirror) return { kind: 'absent' };
     if (!rebuild) return { kind: 'fail', error: 'policy-anchor-log-missing' };
     if (fullLength(state) < mirror.length) return { kind: 'fail', error: 'policy-ledger-truncated' };
@@ -364,10 +378,10 @@ export function assessAnchors(projectRoot: string, state: PolicyState, rebuild =
     if (archiveError) return { kind: 'fail', error: archiveError };
     return { kind: 'absent' };
   }
-  if (mirror && !entries.some((entry) => entry.hash === mirror.hash)) {
+  if (mirror && !entries.mirrorIncluded) {
     return { kind: 'fail', error: 'policy-anchor-log-rolled-back' };
   }
-  const last = entries[entries.length - 1]!;
+  const last = entries.last!;
   // A failed best-effort mirror write may leave a genuine earlier entry,
   // including an entry from before the first prune. Membership in the fully
   // validated log above plus the trusted-head/extension checks below grant
@@ -382,7 +396,18 @@ export function assessAnchors(projectRoot: string, state: PolicyState, rebuild =
   }
   const behind = fullLength(state) > last.length
     || (retainedFrom > 0 && last.archivedThrough === undefined);
+  Object.freeze(last);
+  assessedLogs.set(last, { file: anchorLogPath(projectRoot), summary: entries });
   return { kind: 'ok', last, behind };
+}
+
+/** Convert archive record-limit/UTF8 failures into structured gate failures. */
+export function assessAnchors(projectRoot: string, state: PolicyState, rebuild = false): AnchorAssessment {
+  try { return assessAnchorsChecked(projectRoot, state, rebuild); }
+  catch (error) {
+    const message = (error as Error).message;
+    return { kind: 'fail', error: message.startsWith('policy-ledger-') ? message : 'policy-ledger-archive-read-error' };
+  }
 }
 
 /**
@@ -396,29 +421,35 @@ export async function recordAnchor(
   write: AnchorWriter,
   event: AnchorEvent = 'append',
   by?: string,
+  writeLog?: StreamingAnchorWriter,
+  assessedTip?: AnchorEntry,
 ): Promise<void> {
   const length = fullLength(state);
   if (length === 0) return;
-  const loaded = readLog(projectRoot);
-  const entries = loaded === 'corrupt' ? [] : loaded;
+  const cached = assessedTip && assessedLogs.get(assessedTip);
+  if (assessedTip) assessedLogs.delete(assessedTip);
+  // Reuse only for an actual append through the production streaming writer.
+  // Unchanged checkpoints still read the live log before refreshing the mirror.
+  const stateHead = receiptHashAt(state, length);
+  const changed = assessedTip && (assessedTip.length !== length || assessedTip.headHash !== stateHead
+    || assessedTip.archivedThrough !== ((state.retainedFrom ?? 0) > 0 ? state.retainedFrom : undefined)
+    || (assessedTip.archiveHeadHash ?? undefined) !== ((state.retainedFrom ?? 0) > 0 ? state.prunedHead ?? null : undefined));
+  const loaded = writeLog && changed && cached?.file === anchorLogPath(projectRoot)
+    ? cached.summary : readLog(projectRoot);
+  const entries = loaded === 'corrupt' ? { count: 0, mirrorIncluded: false } : loaded;
   if (loaded === 'corrupt' && event !== 'establish-anchor') throw new Error('policy-anchor-log-corrupt');
-  const last = entries[entries.length - 1];
+  const last = entries.last;
   const headHash = receiptHashAt(state, length);
   if (headHash === undefined) throw new Error('policy-ledger-anchor-head-unresolvable');
   const retainedFrom = state.retainedFrom ?? 0;
   const archivedThrough = retainedFrom > 0 ? retainedFrom : undefined;
   const archiveHeadHash = retainedFrom > 0 ? (state.prunedHead ?? null) : undefined;
   let tip = last;
-  // #3892 Blocker 1: a pure prune with no new receipt (operation() didn't
-  // call evaluate()) cannot actually change length/headHash in practice —
-  // pruneReceipts only fires when receipts.length already exceeds
-  // retention, which every prior transaction already brought back down —
-  // but checking archivedThrough/archiveHeadHash independently here is
-  // defensive against that combination regardless.
+  // Deferred archival can advance the archive boundary without a new receipt.
   if (!last || last.length !== length || last.headHash !== headHash
     || last.archivedThrough !== archivedThrough || (last.archiveHeadHash ?? undefined) !== archiveHeadHash) {
     const base = {
-      seq: entries.length,
+      seq: entries.count,
       length,
       headHash,
       prevAnchorHash: last?.hash ?? null,
@@ -428,7 +459,14 @@ export async function recordAnchor(
       ...(archivedThrough !== undefined ? { archivedThrough, archiveHeadHash } : {}),
     };
     tip = { ...base, hash: entryHash(base) };
-    await write(anchorLogPath(projectRoot), { version: 1, entries: [...entries, tip] });
+    if (writeLog) {
+      await writeLog(anchorLogPath(projectRoot), appendedAnchorLog(loaded === 'corrupt' || entries.count === 0 ? undefined : anchorLogPath(projectRoot), tip, validEntry));
+    } else {
+      // Preserve the exported custom-writer contract: ordinary version-1 JSON.
+      // The production runtime supplies the bounded streaming writer above.
+      const history = loaded === 'corrupt' || entries.count === 0 ? [] : [...anchorEntries(anchorLogPath(projectRoot))];
+      await write(anchorLogPath(projectRoot), { version: 1, entries: [...history, tip] });
+    }
   }
   try {
     const mirror = mirrorPath(projectRoot);

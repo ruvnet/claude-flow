@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { policyHash, signPolicyHash, verifyPolicySignature } from './canonical.js';
 import { evaluatePolicy } from './evaluator.js';
 import type {
@@ -47,6 +48,9 @@ export class AgenticPolicyEngine {
   }
 
   static fromState(state: PolicyState, options: Omit<PolicyEngineOptions, 'mode' | 'rules' | 'budgets' | 'usage' | 'approvals' | 'receipts'> = {}): AgenticPolicyEngine {
+    if (state.version !== 1 && state.version !== POLICY_STATE_VERSION) {
+      throw new Error(`unsupported-policy-state-version:${String(state.version)}`);
+    }
     const engine = new AgenticPolicyEngine({
       ...options,
       mode: state.mode,
@@ -140,7 +144,7 @@ export class AgenticPolicyEngine {
   evaluate(request: PolicyRequest): PolicyDecision {
     const normalized: PolicyRequest = {
       ...request,
-      requestId: request.requestId ?? crypto.randomUUID(),
+      requestId: request.requestId ?? randomUUID(),
       // Caller time is evidence only; expiry, budgets, and receipts always use
       // the authority's clock.
       context: { ...request.context, now: this.now() },

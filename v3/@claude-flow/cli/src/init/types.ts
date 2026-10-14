@@ -387,7 +387,7 @@ export const DEFAULT_INIT_OPTIONS: InitOptions = {
     github: true,
     flowNexus: false,
     browser: true,
-    v3: true,
+    v3: false,        // ADR-128: opt-in like agents.v3; use --full or `init skills --v3`
     dualMode: false,  // Optional: enable with --dual flag
     all: false,
   },
