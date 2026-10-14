@@ -143,10 +143,10 @@ export function recallRows(ctx: Ctx): RenderElement[] {
   const scored = explainPrompt(prompt, facts.ranked.entries)
 
   if (logged) rows.push(text(ctx, ' no recorded recall has this prompt’s digest: recomputed against today’s ranked file, not what surfaced then', { dimColor: true }))
-  if (scored.length === 0) rows.push(text(ctx, ' nothing clears the hook’s 0.05 threshold: it would surface no memory for this prompt', { color: THEME.warn }))
+  if (scored.length === 0) rows.push(text(ctx, ' nothing clears the hook’s coverage threshold (0.15): it would surface no memory for this prompt', { color: THEME.warn }))
 
   scored.forEach((item, index) => {
-    rows.push(text(ctx, `   ${index + 1}. ${bar(item.score, scored[0]?.score ?? 1)} ${n3(item.score)} = 0.6·match ${n3(item.match)} + 0.4·pr ${n3(item.entry.pageRank)}  ${item.entry.summary}`))
+    rows.push(text(ctx, `   ${index + 1}. ${bar(item.score, scored[0]?.score ?? 1)} ${n3(item.score)} = 0.9·coverage ${n3(item.match)} + 0.1·pr ${n3(item.entry.pageRank)}  ${item.entry.summary}`))
   })
   rows.push(button(ctx, 'recall-clear', 'clear', () => { pickPrompt(null); ctx.act.refresh() }))
 

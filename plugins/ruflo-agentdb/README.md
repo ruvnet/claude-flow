@@ -15,7 +15,7 @@ The substrate plugin for Ruflo memory. Wraps three CLI MCP families — `agentdb
 
 - **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor. Patch bumps within v3.6 are expected to be no-op.
 - **AgentDB:** the CLI bundles `agentdb@^3.0.0-alpha.11`. The plugin does **not** pin the npm package — internals (alpha.11 → alpha.12 etc.) are not the plugin's contract.
-- **Verification:** the bundled smoke script is the source of truth (`bash plugins/ruflo-agentdb/scripts/smoke.sh`). If smoke passes against your CLI version, the plugin's contract holds.
+- **Verification:** `bash plugins/ruflo-agentdb/scripts/smoke.sh` checks the plugin's structure and documented surface offline; `--live` also exercises the real AgentDB tools. Passing the offline run does not prove the substrate works.
 
 ## Features
 
@@ -200,10 +200,10 @@ Replacement table for bridge-unavailable mode:
 
 ```bash
 bash plugins/ruflo-agentdb/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "0 failed" (offline checks); add --live to exercise the real tools
 ```
 
-The smoke script is the contract. It calls each documented MCP tool, exercises the RaBitQ workflow, and source-inspects the fallback path (no env-var gate exists to force the fallback live).
+The default smoke run is an offline structure and documentation check: it greps the plugin's docs, manifest, commands and the CLI tool source, and it does not call any MCP tool, so it passes even when the AgentDB substrate is broken. `bash plugins/ruflo-agentdb/scripts/smoke.sh --live` adds a live check in a throwaway directory: `agentdb_health` must report `available` and `durable`, and a `agentdb_hierarchical-store` then `agentdb_hierarchical-recall` round trip must return the stored entry. The RaBitQ workflow and the fallback path are only source-inspected (no env-var gate exists to force the fallback live).
 
 ## As a mod (0.4.7, ADR-445)
 

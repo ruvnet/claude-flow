@@ -58,7 +58,7 @@ claude --plugin-dir plugins/ruflo-sparc
 ## Compatibility
 
 - **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor.
-- **Verification:** `bash plugins/ruflo-sparc/scripts/smoke.sh` is the contract.
+- **Verification:** `bash plugins/ruflo-sparc/scripts/smoke.sh` is an offline structure and documentation check (manifest, commands, skills, agent and command-name references). It does not call any MCP tool or run a SPARC workflow, so a pass does not prove the workflow state machine works.
 
 ## Phase-to-plugin alignment
 

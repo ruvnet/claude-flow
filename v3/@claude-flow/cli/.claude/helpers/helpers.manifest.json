@@ -1,14 +1,14 @@
 {
   "manifest": {
-    "version": "3.56.8",
+    "version": "3.56.9",
     "files": {
       "auto-memory-hook.mjs": "631fac9d518835e2852a406888316bbbddddb49e7ed8e406d2e971f46833df9a",
       "hook-handler.cjs": "bc12b3cae92d5a7c8deef699fa00d0ef07b57625c18dbeac4387f15725b8e09f",
-      "intelligence.cjs": "f486be296eb2f0518f34b8f4453d9d0a988845e4aec6d18d8d47725aca6dd38b",
+      "intelligence.cjs": "a95ac9ee2759c340b14f9ff656765bcb05e0cefe2f018116bd26b3ba9987f3e4",
       "statusline.cjs": "d72417ecb38634011a19f095a30e07b9929e6f97663520172ece9be7491b2eaa",
       "router.cjs": "16648b3c0d73b6681ac2d8d13def6a68286c57f5a11004de5b19a0fa088c833d"
     }
   },
-  "signature": "2pANFAbJYv63f/7oTIRpQgV4m1DHN71+ynsgefygUDOs8vBuA71JB7K+o1B+tVDwEE9VVxlX9D0Pxcn90JDSCw==",
+  "signature": "RPzley7vLcJj6HpvMcrbBF9uUmHf4pKKwZ0AhwjjIa8a7CsGMx9MP7lEClzioTp3Lp7/ZcC8hFkmHflCnR0sCA==",
   "algorithm": "ed25519"
 }
