@@ -11,8 +11,15 @@ import { createRequire } from 'node:module';
 const { parse } = createRequire(import.meta.url)('yaml');
 
 const workflow = parse(readFileSync(new URL('../.github/workflows/all-plugins-smoke.yml', import.meta.url), 'utf8'));
+const ownRunnerFiles = readFileSync(new URL('../scripts/ci-test-excluded.txt', import.meta.url), 'utf8')
+  .split(/\r?\n/).filter(line => line && !line.startsWith('#'));
 const job = workflow.jobs['smoke-all'];
 const producers = job.steps.filter(step => step.run?.includes('node scripts/smoke-all-plugins.mjs'));
+
+test('node:test regression is registered with its explicit CI runner', () => {
+  assert.equal(ownRunnerFiles.filter(file => file === 'tests/all-plugins-smoke-workflow.test.mjs').length, 1);
+  assert.equal(job.steps.filter(step => step.run?.includes('node --test tests/check-guard-tool-names.test.mjs tests/all-plugins-smoke-workflow.test.mjs')).length, 1);
+});
 
 test('smoke workflow runs one suite within the unchanged deadline and always uploads its result', () => {
   const provision = job.steps.find(step => step.run?.includes('npm install --prefix'));
