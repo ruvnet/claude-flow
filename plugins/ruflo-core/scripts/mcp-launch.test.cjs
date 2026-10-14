@@ -14,7 +14,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { resolveLocalCliBin, buildLaunchSpec, MCP_ARGS } = require(
+const { resolveLocalCliBin, buildLaunchSpec, runInProcess, MCP_ARGS } = require(
   path.join(__dirname, 'mcp-launch.cjs')
 );
 const NO_GLOBAL_PATH = { PATH: '' };
@@ -243,5 +243,45 @@ test('resolveProjectDir: CLAUDE_PROJECT_DIR > CLAUDE_FLOW_CWD > cwd; home, root 
     assert.equal(resolveProjectDir({ CLAUDE_PROJECT_DIR: path.join(a, 'does-not-exist') }, cwd, home), path.resolve(cwd));
   } finally {
     for (const d of [cwd, a, b, home]) fs.rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('runInProcess loads the resolved bin in-process with the argv the child used to get', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-launch-inproc-'));
+  const bin = path.join(dir, 'cli.js');
+  fs.writeFileSync(bin, 'globalThis.__mcpLaunchArgv = process.argv.slice();\n');
+  const savedArgv = process.argv;
+  try {
+    await runInProcess(bin);
+    assert.deepEqual(globalThis.__mcpLaunchArgv, [process.execPath, bin, ...MCP_ARGS]);
+  } finally {
+    process.argv = savedArgv;
+    delete globalThis.__mcpLaunchArgv;
+  }
+});
+
+test('runInProcess runs the CLI in the project dir with CLAUDE_FLOW_CWD set before import', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-launch-inproc-proj-'));
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-launch-project-'));
+  const bin = path.join(dir, 'cli.js');
+  fs.writeFileSync(
+    bin,
+    'globalThis.__mcpLaunchSeen = { cwd: process.cwd(), flowCwd: process.env.CLAUDE_FLOW_CWD };\n',
+  );
+  const savedArgv = process.argv;
+  const savedCwd = process.cwd();
+  const hadFlowCwd = Object.prototype.hasOwnProperty.call(process.env, 'CLAUDE_FLOW_CWD');
+  const savedFlowCwd = process.env.CLAUDE_FLOW_CWD;
+  try {
+    await runInProcess(bin, project);
+    assert.ok(samePath(globalThis.__mcpLaunchSeen.cwd, project), `cwd ${globalThis.__mcpLaunchSeen.cwd} should be ${project}`);
+    assert.equal(globalThis.__mcpLaunchSeen.flowCwd, project);
+  } finally {
+    process.chdir(savedCwd);
+    process.argv = savedArgv;
+    if (hadFlowCwd) process.env.CLAUDE_FLOW_CWD = savedFlowCwd;
+    else delete process.env.CLAUDE_FLOW_CWD;
+    delete globalThis.__mcpLaunchSeen;
+    for (const d of [dir, project]) fs.rmSync(d, { recursive: true, force: true });
   }
 });

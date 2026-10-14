@@ -25,12 +25,21 @@
  * fallback. RUFLO_MCP_CLI_OVERRIDE can pin a built bin/cli.js when
  * an install lives outside the standard project or global npm layouts;
  * RUFLO_MCP_SKIP_NPX=1 rejects an unpinned fallback.
+ *
+ * A resolved local CLI is run in THIS process (argv rewritten to the exact
+ * `<node> <bin>/cli.js mcp start` the child used to receive) rather than in
+ * a spawned child. The child-process hop cost every Claude Code session a
+ * second, otherwise idle node.exe (~21 MB private / ~60 MB working set on
+ * Windows) plus a second node startup. Stdio, env, cwd and signals are the
+ * same process's, so the server sees an identical environment.
+ * RUFLO_MCP_SPAWN=1 restores the old child-process behaviour.
  */
 
 const { existsSync, statSync } = require('fs');
 const { join, dirname, resolve, isAbsolute, delimiter, parse } = require('path');
 const { spawn } = require('child_process');
 const os = require('os');
+const { pathToFileURL } = require('url');
 
 const MCP_ARGS = ['mcp', 'start'];
 
@@ -157,6 +166,20 @@ function buildLaunchSpec(localBin, env = process.env, projectDir = null) {
   };
 }
 
+function runInProcess(localBin, projectDir = null) {
+  // Same placement the spawned child got from buildLaunchSpec(): run in the
+  // project and advertise it via CLAUDE_FLOW_CWD, before the CLI is imported
+  // (it reads both at import/start time).
+  if (projectDir) {
+    process.chdir(projectDir);
+    process.env.CLAUDE_FLOW_CWD = projectDir;
+  }
+  // Same argv shape the spawned child saw: [node, <bin>/cli.js, 'mcp', 'start'].
+  // cli.js decides MCP mode from process.argv and stdin at import time.
+  process.argv = [process.execPath, localBin, ...MCP_ARGS];
+  return import(pathToFileURL(localBin).href);
+}
+
 function launch({ command, args, shell, cwd, env }) {
   const child = spawn(command, args, { stdio: 'inherit', env: env || process.env, shell, cwd });
 
@@ -193,11 +216,18 @@ if (require.main === module) {
       );
     }
     const localBin = resolveLocalCliBin(projectDir, home);
-    launch(buildLaunchSpec(localBin, process.env, projectDir));
+    if (localBin && process.env.RUFLO_MCP_SPAWN !== '1') {
+      runInProcess(localBin, projectDir).catch((error) => {
+        process.stderr.write(`[mcp-launch] failed to load ${localBin}: ${error && error.message}\n`);
+        process.exit(1);
+      });
+    } else {
+      launch(buildLaunchSpec(localBin, process.env, projectDir));
+    }
   } catch (error) {
     process.stderr.write(`[mcp-launch] ${error.message}\n`);
     process.exitCode = 1;
   }
 }
 
-module.exports = { resolveLocalCliBin, resolveProjectDir, isNonProjectDir, buildLaunchSpec, MCP_ARGS };
+module.exports = { resolveLocalCliBin, resolveProjectDir, isNonProjectDir, buildLaunchSpec, runInProcess, MCP_ARGS };
