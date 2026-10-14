@@ -1,7 +1,7 @@
 import type { RenderElement } from 'claude-code'
 
 import type { Intelligence } from '../data/cli'
-import { ago, col, count, kv, live, pct, picture, row, section, sourceLine, starts, text, THEME, type Ctx } from './common'
+import { ago, art, col, count, kv, live, pct, picture, row, section, sourceLine, starts, text, THEME, type Ctx } from './common'
 import { stagesOf } from './frames'
 import { CARD_COLUMNS, hasCards } from './card'
 import { pipeStagesOf, routeModelOf, stageNote } from '../data/pipeline'
@@ -12,9 +12,9 @@ import { resultRows } from './automate'
 import { pulseRows } from './learning-pulse'
 import { neuralActionRows } from './neural'
 
-/** A picture drawn here from the real state (the registry in frames.ts is not touched): the grid when the terminal has Raster, else its words. */
+/** A picture drawn here from the real state (the registry in frames.ts is not touched): as the surface draws it, else its words. */
 function drawn(ctx: Ctx, key: string, grid: Grid, fallback: string): RenderElement {
-  return ctx.kit.Raster === undefined ? text(ctx, fallback, { dimColor: true }) : ctx.kit.Raster(grid.toRaster(key))
+  return art(ctx, grid, key, fallback) ?? text(ctx, fallback, { dimColor: true })
 }
 
 /** The width a picture is drawn to: a page in cards is narrower by the border and padding, as in frames.ts. */

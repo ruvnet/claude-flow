@@ -60,6 +60,7 @@ export const BOOT_MODULES: readonly { name: string; note: string }[] = [
   { name: 'AI Terminal', note: 'ruflo, codex, claude' },
   { name: 'ADRs', note: 'decisions your project made' },
   { name: 'What’s new', note: 'changes in your plugins' },
+  { name: 'Themes', note: 'look, colors, motion' },
   { name: 'Settings', note: 'every option a button' },
 ]
 const NAME_WIDTH = 15

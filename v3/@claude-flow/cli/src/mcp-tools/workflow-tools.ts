@@ -943,7 +943,7 @@ export const workflowTools: MCPTool[] = [
     // `workflow_validate` tool. Structural sanity check (JSON workflow files);
     // a full schema validator is a follow-up.
     name: 'workflow_validate',
-    description: 'Structurally validate a workflow definition file (JSON) — checks it has a steps/stages/tasks array and that each step names an agent. Use when native Read is wrong because you want a parsed, structured pass/fail with error/warning lists and step/agent counts rather than eyeballing the file. For just reading the file, native Read is fine. (Basic checks today — a full workflow-schema validator is a tracked follow-up.)',
+    description: 'Structurally validate a workflow definition file (JSON) — checks it has a steps/stages/tasks array and that task steps resolve an agent. Use when native Read is wrong because you want a parsed, structured pass/fail with error/warning lists and step/agent counts rather than eyeballing the file. For just reading the file, native Read is fine. (Basic checks today — a full workflow-schema validator is a tracked follow-up.)',
     category: 'workflow',
     inputSchema: {
       type: 'object',
@@ -980,9 +980,15 @@ export const workflowTools: MCPTool[] = [
             const agentSet = new Set<string>();
             steps.forEach((s, i) => {
               const step = (s ?? {}) as Record<string, unknown>;
-              const a = (step.agent ?? step.agentType ?? step.agent_type) as string | undefined;
-              if (a) agentSet.add(String(a));
-              else warnings.push({ line: i + 1, message: `step ${i + 1} ("${step.name ?? step.id ?? i + 1}") names no agent` });
+              // Match workflow_execute: control steps do not dispatch agents,
+              // and task steps use config.agentId or the workflow default.
+              const config = step.config as Record<string, unknown> | undefined;
+              const variables = d.variables as Record<string, unknown> | undefined;
+              const a = config?.agentId || variables?.defaultAgentId
+                || step.agent || step.agentType || step.agent_type;
+              const needsAgent = !['wait', 'condition', 'parallel', 'loop'].includes(String(step.type));
+              if (needsAgent && a) agentSet.add(String(a));
+              else if (needsAgent) warnings.push({ line: i + 1, message: `step ${i + 1} ("${step.name ?? step.id ?? i + 1}") names no agent` });
             });
             agents = agentSet.size;
           }

@@ -14,7 +14,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { homedir, userInfo } from 'node:os';
 import type { PolicyState } from '@claude-flow/security';
 
 export type AnchorEvent = 'append' | 'migrated-from-state' | 'establish-anchor';
@@ -43,6 +43,20 @@ const MIRROR_FILE = 'ledger-anchor-head.json';
 export const anchorLogPath = (projectRoot: string): string => join(resolve(projectRoot), '.claude-flow', 'policy', LOG_FILE);
 
 /**
+ * The home directory trust material lives under: $HOME when it is an absolute path, else the account's home. An empty or relative
+ * $HOME (an unset variable in a wrapper script, `HOME=. cmd`) would make join() yield a path relative to the working directory and
+ * drop the HMAC key and anchor mirror into the project; that is never wanted, so it falls back to the account home or refuses.
+ */
+function trustHome(): string {
+  const home = homedir();
+  if (home && isAbsolute(home)) return home;
+  let account = '';
+  try { account = userInfo().homedir; } catch { /* no account entry for this uid */ }
+  if (account && isAbsolute(account)) return account;
+  throw new Error('policy-trust-home-unresolved: $HOME is empty or relative and this account has no home directory; set HOME to an absolute path');
+}
+
+/**
  * Directory holding per-project trust material (anchor mirror, HMAC key).
  * Resolved from the environment at call time (#3919): $XDG_CONFIG_HOME when it
  * is absolute, else $HOME/.config (os.homedir() honours $HOME), so a scratch
@@ -50,7 +64,7 @@ export const anchorLogPath = (projectRoot: string): string => join(resolve(proje
  * user who already has trust state under the legacy ~/.config keeps using it.
  */
 export function policyTrustRoot(): string {
-  const legacy = join(homedir(), '.config', 'ruflo', 'policy-trust');
+  const legacy = join(trustHome(), '.config', 'ruflo', 'policy-trust');
   const xdg = process.env.XDG_CONFIG_HOME;
   if (!xdg || !isAbsolute(xdg)) return legacy;
   const preferred = join(xdg, 'ruflo', 'policy-trust');

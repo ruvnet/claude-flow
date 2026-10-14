@@ -1543,6 +1543,8 @@ export async function bridgeListEntries(options: {
   provenanceFilter?: string[];
   /** ADR-472: include each entry's embedding as int8+scale (`embeddingQ8`); at most MAX_LIST_EMBEDDINGS rows. */
   includeEmbedding?: boolean;
+  /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only. */
+  includeExpired?: boolean;
 }): Promise<{
   success: boolean;
   entries: {
@@ -1553,6 +1555,8 @@ export async function bridgeListEntries(options: {
     accessCount: number;
     createdAt: string;
     updatedAt: string;
+    /** #4056: epoch ms the row expires at; null when it never does. */
+    expiresAt?: number | null;
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
@@ -1593,7 +1597,7 @@ export async function bridgeListEntries(options: {
     // the `status = 'active'` filter matched zero. Treat NULL as
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
-    const statusFilter = liveMemoryRowSql();
+    const statusFilter = liveMemoryRowSql({ includeExpired: options.includeExpired });
 
     // Count
     let total = 0;
@@ -1611,7 +1615,7 @@ export async function bridgeListEntries(options: {
     const entries: any[] = [];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
         FROM memory_entries
         WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
@@ -1629,6 +1633,7 @@ export async function bridgeListEntries(options: {
           accessCount: row.access_count ?? 0,
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
+          expiresAt: row.expires_at ?? null,
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
           provenanceType: row.provenance_type || 'unknown',
         };

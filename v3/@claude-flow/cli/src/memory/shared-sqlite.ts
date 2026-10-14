@@ -10,25 +10,51 @@
  * like "last connection" to that copy and deletes the -wal/-shm sidecars out
  * from under AgentDB's still-open handle.
  *
- * Resolve the constructor from the same place AgentDB resolves it, so both
- * share one SQLite instance (and its connection bookkeeping). Falls back to the
- * CLI's own copy when agentdb cannot be resolved.
+ * Resolve the constructor from the same place AgentDB's handle is opened with,
+ * so both share one SQLite instance (and its connection bookkeeping):
+ *  - @claude-flow/memory >= 3.0.4 opens AgentDB with its own better-sqlite3
+ *    (agentdb-native-driver.js, getHostSqliteDriver) to keep agentdb's nested
+ *    11.x — compiled from source on Node 24, which aborts in Statement GC —
+ *    out of the process. Resolve from memory's location then.
+ *  - Older memory lets AgentDB load its own copy: resolve from agentdb.
+ * Falls back to the CLI's own copy when neither can be resolved.
  */
 import { createRequire } from 'node:module';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 type DbCtor = new (path: string, opts?: Record<string, unknown>) => any;
 
 let cached: DbCtor | null | undefined;
+
+/**
+ * Entry file whose better-sqlite3 AgentDB's handle uses: @claude-flow/memory
+ * when it routes AgentDB through its own driver, else agentdb.
+ * Test seam: `memoryEntry` stands in for the resolved @claude-flow/memory entry.
+ */
+export function resolveSqliteOwnerEntry(memoryEntry?: string): string | null {
+  const own = createRequire(import.meta.url);
+  try {
+    const entry = memoryEntry ?? own.resolve('@claude-flow/memory');
+    if (existsSync(join(dirname(entry), 'agentdb-native-driver.js'))) return entry;
+  } catch { /* memory not installed */ }
+  try {
+    return own.resolve('agentdb');
+  } catch {
+    return null;
+  }
+}
 
 /** Test seam: pass `from` to resolve relative to another entry file. */
 export function resolveAgentdbBetterSqlite3(from?: string): DbCtor | null {
   if (!from && cached !== undefined) return cached;
   let found: DbCtor | null = null;
   try {
-    const own = createRequire(import.meta.url);
-    const agentdbEntry = from ?? own.resolve('agentdb');
-    const mod = createRequire(agentdbEntry)('better-sqlite3');
-    found = (mod?.default ?? mod) as DbCtor;
+    const ownerEntry = from ?? resolveSqliteOwnerEntry();
+    if (ownerEntry) {
+      const mod = createRequire(ownerEntry)('better-sqlite3');
+      found = (mod?.default ?? mod) as DbCtor;
+    }
   } catch {
     found = null;
   }

@@ -1,5 +1,7 @@
 # Quality Engineering Integration Points
 
+> **Retired (2026-10-09):** the in-repo `v3/plugins/agentic-qe` implementation described here was removed; it never wrapped the real `agentic-qe` package. This document is kept for history. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) npm package or its Claude Code plugin `agentic-qe-fleet` ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
+
 ## Overview
 
 This document describes how the Quality Engineering (agentic-qe) plugin integrates with Claude Flow V3's existing domains: Security, Core, Memory, Integration, and Coordination.

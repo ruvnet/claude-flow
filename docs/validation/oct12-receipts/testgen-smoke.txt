@@ -1,0 +1,16 @@
+→ 1. plugin.json declares 0.3.2 with new keywords ... PASS
+→ 2. all skills + agent + command present with valid frontmatter ... PASS
+→ 3. hooks_worker-dispatch + testgaps trigger documented ... PASS
+→ 4. all 3 coverage CLI commands referenced ... PASS
+→ 5. README pins @claude-flow/cli to v3.6 ... PASS
+→ 6. README defers to ruflo-agentdb namespace convention ... PASS
+→ 7. test-gaps namespace claimed ... PASS
+→ 8. SPARC Refinement-phase ownership cross-reference ... PASS
+→ 9. ADR-0001 exists with status Accepted ... PASS
+→ 10. no wildcard tool grants in skills ... PASS
+→ M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines ... PASS
+→ M2. mod: userConfig defaults are safe (none to configure: observe-only) ... PASS
+→ M3. mod: hooks never touch the network or spawn a process ... PASS
+→ R. TDD outcome reporting ... PASS
+
+14 passed, 0 failed

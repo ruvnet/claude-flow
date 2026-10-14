@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Structural + functional smoke test for ruflo-business-pods v0.2.3
+# Structural + functional smoke test for ruflo-business-pods v0.2.4
 # (ADR-164 Phase 2). Verifies:
 #
-#   1. plugin.json declares 0.2.3 with the expected adr-164/phase-2 keywords
+#   1. plugin.json declares 0.2.4 with the expected adr-164/phase-2 keywords
 #   2. templates/sales.json exists and validates against the pod-schema
 #   3. scripts/pod-tick.mjs exists, parses, and is executable
 #   4. Vitest suite passes (cli/__tests__/business-pod-tools.test.ts)
@@ -23,10 +23,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.3 with adr-164 + phase-2 keywords"
+step "1. plugin.json declares 0.2.4 with adr-164 + phase-2 keywords"
 v=$(grep -E '"version"' "$PLUGIN/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.3" ]]; then
-  bad "expected 0.2.3, got '$v'"
+if [[ "$v" != "0.2.4" ]]; then
+  bad "expected 0.2.4, got '$v'"
 else
   miss=""
   for k in ruflo pods business sales adr-164 adr-164.1 phase-2 pod-template pod-tick budget-reservation dry-run-default agent-registry-resolution; do

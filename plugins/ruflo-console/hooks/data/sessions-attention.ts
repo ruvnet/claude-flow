@@ -6,6 +6,7 @@
  * An unassigned row raises nothing: its identity is in doubt.
  */
 import { ATTENTION_KINDS, type AttentionKind, type SessionRow } from './harness'
+import { FUTURE_SLACK_MS } from './harness-text'
 
 export type Viewed = { baselineMs: number; seen: Record<string, number> }
 export const SEEN_MAX = 500
@@ -25,10 +26,26 @@ export function viewedOf(raw: unknown, nowMs: number): Viewed {
   const seen: Record<string, number> = {}
 
   if (typeof value.seen === 'object' && value.seen !== null) {
-    for (const [key, stamp] of Object.entries(value.seen).slice(0, SEEN_MAX)) if (typeof stamp === 'number' && Number.isFinite(stamp)) seen[key.slice(0, 300)] = stamp
+    // A stamp in the future (stored from a skewed timestamp before times were held to the clock) would silence its session forever: dropped.
+    for (const [key, stamp] of Object.entries(value.seen).slice(0, SEEN_MAX)) if (typeof stamp === 'number' && Number.isFinite(stamp) && stamp <= nowMs + FUTURE_SLACK_MS) seen[key.slice(0, 300)] = stamp
   }
 
-  return { baselineMs: typeof value.baselineMs === 'number' && Number.isFinite(value.baselineMs) ? value.baselineMs : nowMs, seen }
+  // A baseline in the future would make every completion until then "history": it is held to now.
+  return { baselineMs: typeof value.baselineMs === 'number' && Number.isFinite(value.baselineMs) ? Math.min(value.baselineMs, nowMs) : nowMs, seen }
+}
+
+/** Whether the stored value differs from what `viewedOf` made of it (not a Viewed, or a stamp dropped or held): the store needs the repaired one. */
+export function needsRewrite(raw: unknown, viewed: Viewed): boolean {
+  if (typeof raw !== 'object' || raw === null) return true
+
+  const value = raw as { baselineMs?: unknown; seen?: unknown }
+  const seen = typeof value.seen === 'object' && value.seen !== null ? (value.seen as Record<string, unknown>) : null
+
+  if (value.baselineMs !== viewed.baselineMs || seen === null) return true
+
+  const keys = Object.keys(viewed.seen)
+
+  return Object.keys(seen).length !== keys.length || keys.some(key => seen[key] !== viewed.seen[key])
 }
 
 const seenKey = (rowKey: string, kind: AttentionKind) => `${rowKey}|${kind}`
@@ -45,9 +62,19 @@ export function attentionOf(rows: readonly SessionRow[], viewed: Viewed, pending
 
     if (row.signals.approval) add('needs-approval', row.updatedMs)
     if (row.signals.question) add('question', row.updatedMs)
-    if (row.signals.failed && Math.max(1, row.updatedMs) > (viewed.seen[seenKey(row.key, 'failed')] ?? 0)) add('failed', Math.max(1, row.updatedMs))
+    // A time is never believed past the row's own last write (the adapters also hold it to the clock: harness-text.ts believedAt), so nothing
+    // stored as seen can sit in the future and silence the session.
+    const held = (ms: number): number => Math.max(1, Math.min(ms, row.updatedMs > 0 ? row.updatedMs : Number.POSITIVE_INFINITY))
 
-    const ended = row.signals.turnEndedAtMs
+    // Failed is the adapter's verdict (status), which waits out the quiet period, not the raw signal; it is keyed on when the failure was
+    // recorded, so a title or cost line appended later does not bring a seen failure back.
+    if (row.signals.failed && row.status === 'failed') {
+      const at = held(row.signals.failedAtMs ?? row.updatedMs)
+
+      if (at > (viewed.seen[seenKey(row.key, 'failed')] ?? 0)) add('failed', at)
+    }
+
+    const ended = row.signals.turnEndedAtMs === null ? null : held(row.signals.turnEndedAtMs)
 
     if (ended !== null && ended >= viewed.baselineMs && ended > (viewed.seen[seenKey(row.key, 'completed-unread')] ?? 0) && !row.signals.question) add('completed-unread', ended)
   }

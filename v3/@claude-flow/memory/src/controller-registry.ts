@@ -27,6 +27,7 @@ import type { MemoryGraphConfig } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type { CacheConfig } from './types.js';
 import { TieredMemoryStore } from './tiered-memory.js';
+import { useHostSqliteDriver } from './agentdb-native-driver.js';
 
 // ===== Types =====
 
@@ -579,6 +580,8 @@ export class ControllerRegistry extends EventEmitter {
         // stale) and init retried once with a fresh instance.
         await withAgentdbLockRecovery(dbPath, async () => {
           this.agentdb = new AgentDBClass({ dbPath });
+          // Keep agentdb's nested better-sqlite3 11.x out of the process (Node 24 abort).
+          useHostSqliteDriver(this.agentdb);
           await this.agentdb.initialize();
         });
       } finally {

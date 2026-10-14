@@ -14,12 +14,13 @@ Steps:
    If not found, list available: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "strategy", namespace: "trading-strategies", limit: 10 })`
 3. Run backtest via neural-trader CLI:
    ```bash
-   npx neural-trader --backtest --strategy <name> --symbol <TICKER> --period <range> --walk-forward
+   npx neural-trader --backtest --strategy <name> --symbol <TICKER> --period <range> --walk-forward --live
    ```
    For multi-indicator strategies:
    ```bash
    npx neural-trader --backtest --strategy multi-indicator --position-sizing kelly --symbol SPY --period 2020-2024
    ```
+3b. **Check the data source.** Without `--live` the backtest runs on synthetic bars, and when the live fetch fails it silently falls back to them. Read `dataSource` for every symbol in the result. Only `yahoo-finance` is real data. If any symbol is `synthetic` or `mixed`, store the result with `synthetic: true` in the body, do NOT sign it for paper→live promotion, and tell the user why.
 4. Capture performance metrics from output: total return, annualized return, Sharpe ratio, Sortino ratio, max drawdown, win rate, profit factor, number of trades.
 5. Dedup prior backtests for the same `(strategyId, paramsHash)` before storing the fresh one (ADR-125 lifecycle / ADR-126 Phase 2 — `keep-newest` semantics):
    - Search: `mcp__plugin_ruflo-core_ruflo__memory_search({ query: "backtest STRATEGY paramsHash:PARAMS_HASH", namespace: "trading-backtests", limit: 10 })`
@@ -36,9 +37,9 @@ Steps:
    `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "backtest-STRATEGY-TIMESTAMP", value: JSON.stringify(signedArtifact), namespace: "trading-backtests" })`
    The stored value contains `witnessSignature` + `witnessPublicKey` when signed; downstream consumers (`trader-cloud-backtest`) MUST call `verifyBacktestArtifact(artifact, trustedPublicKey)` before promoting any artifact to live.
 8. If Sharpe > 1.5, store as successful pattern:
-   `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store({ pattern: "profitable-STRATEGY_TYPE", data: "PARAMS_AND_RESULTS" })`
-9. Train SONA on the outcome:
-   `mcp__plugin_ruflo-core_ruflo__neural_train({ patternType: "trading-strategy", epochs: 10 })`
+   `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store({ pattern: "profitable-STRATEGY_TYPE: PARAMS_AND_RESULTS", type: "trading-strategy", confidence: 0.8 })` (the tool takes `pattern`, `type`, `confidence`; a `data` field is ignored)
+9. Train SONA on the outcome (skip for synthetic runs):
+   `mcp__plugin_ruflo-core_ruflo__neural_train({ modelType: "moe", epochs: 10 })` (`modelType` is required; there is no `patternType`)
 
 ### Key sourcing & key rotation (ADR-103)
 

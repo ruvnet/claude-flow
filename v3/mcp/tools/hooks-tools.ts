@@ -321,7 +321,7 @@ interface ListHooksResult {
 
 /**
  * Generate hash-based embedding from text.
- * For ML embeddings, use: import('agentic-flow').computeEmbedding
+ * For ML embeddings, use: import('agentic-flow/reasoningbank').computeEmbedding
  */
 function generateSimpleEmbedding(text: string, dim: number = 768): Float32Array {
   const embedding = new Float32Array(dim);

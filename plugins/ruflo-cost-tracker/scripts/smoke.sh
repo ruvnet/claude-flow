@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-cost-tracker v0.28.0.
+# Structural smoke test for ruflo-cost-tracker v0.28.2.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,10 +8,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.28.0 with new keywords"
+step "1. plugin.json declares 0.28.2 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.28.0" ]]; then
-  bad "expected 0.28.0, got '$v'"
+if [[ "$v" != "0.28.2" ]]; then
+  bad "expected 0.28.2, got '$v'"
 else
   miss=""
   for k in namespace-routing mcp agentic-flow agent-booster tier1-routing model-routing benchmarking verified telemetry budget projection forecast counterfactual drift-detection trend-alert anomaly-detection outlier-detection health-check composite-gate auto-track stop-hook snapshot-diff pr-regression git-context traceability drill-down per-message; do
@@ -657,6 +657,7 @@ node -e "JSON.parse(require('fs').readFileSync('$ROOT/.claude-plugin/plugin.json
 step "45. multi-provider ledger: runtime counting-rule tests + price book + new skills"
 miss=""
 node "$ROOT/scripts/test-ledger.mjs" >/dev/null 2>&1 || miss="$miss test-ledger-failed"
+node --test "$ROOT/scripts/test-codex-ledger.mjs" >/dev/null 2>&1 || miss="$miss test-codex-ledger-failed"
 node -e "const b=JSON.parse(require('fs').readFileSync('$ROOT/data/prices.json'));if(!b.asOf||!b.models.length||b.models.some(m=>!m.source||!m.unit))process.exit(1)" 2>/dev/null || miss="$miss price-book-invalid"
 for s in cost-ledger cost-advise cost-openrouter cost-local; do
   f="$ROOT/skills/$s/SKILL.md"
@@ -665,6 +666,10 @@ for s in cost-ledger cost-advise cost-openrouter cost-local; do
 done
 grep -q -- '--yes' "$ROOT/scripts/openrouter.mjs" || miss="$miss openrouter-no-consent-gate"
 [[ -z "$miss" ]] && ok || bad "$miss"
+
+step "46. #3227 diagnostic log: track.mjs / ruflo-hook.cjs failure logging"
+node "$ROOT/scripts/test-cost-tracker-diagnostic-log-3227.mjs" >/dev/null 2>&1 \
+  && ok || bad "test-cost-tracker-diagnostic-log-3227-failed"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

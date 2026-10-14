@@ -7,8 +7,18 @@ $ARGUMENTS
 
 Run *competitions between programs* and *evolve* winning strategies, following Stephen
 Wolfram's "Games Between Programs: The Ruliology of Competition". Parse `$ARGUMENTS` to pick
-a subcommand. Each subcommand maps to an MCP tool exported by this plugin
-(`arena/run`, `tournament/run`, `evolve/run`, `coevolve/run`, `run/get`, `run/list`).
+a subcommand.
+
+**How it runs.** The plugin's MCP tools (`arena/run`, `tournament/run`, `evolve/run`,
+`coevolve/run`, `run/get`, `run/list`) are library exports (`ruflo-arena/mcp-tools`); the plugin does
+not register an MCP server, so in a plain Claude Code install they are **not callable**. Use the CLI
+instead, from the plugin directory (a marketplace install has no `dist/`, so build once with
+`npm install && npm run build` in `plugins/ruflo-arena`; if that is not possible, say so and stop
+instead of inventing results):
+`node dist/cli.js arena|tournament|evolve|coevolve|demo [--game pd] [--rounds N] [--generations N] [--seed N]`.
+If your session does expose the MCP tools (a host that registered `ruflo-arena/mcp-tools`), call those
+instead and use the `runs`/`get` subcommands below. The CLI has no `runs`/`get` subcommand and writes
+no run records.
 
 ### Subcommands
 

@@ -85,7 +85,10 @@ describe('policy runtime compatibility and transactions', () => {
     expect(loadPolicyState(root).rules).toHaveLength(0);
   });
 
-  it('enforces a spawned worker capability envelope at MCP dispatch', async () => {
+  it.each([
+    { ceiling: {}, reason: 'network-outside-envelope' },
+    { ceiling: { maxConcurrency: 1 }, reason: 'concurrency-outside-envelope' },
+  ])('enforces a spawned worker envelope at MCP dispatch: $reason', async ({ ceiling, reason }) => {
     const root = project();
     await autoMigratePolicyStateIfNeeded(root);
     await upsertPolicyRule({ id: 'allow-tools', effect: 'allow', actions: ['mcp.tool.call'] }, root);
@@ -96,11 +99,11 @@ describe('policy runtime compatibility and transactions', () => {
       tools: ['*'],
       network: false,
       destructive: false,
-      maxConcurrency: 1,
+      ...ceiling,
     });
     await expect(callMCPTool('terminal_execute', {
       command: 'echo should-not-run',
-    }, { projectRoot: root })).rejects.toThrow('network-outside-envelope');
+    }, { projectRoot: root })).rejects.toThrow(reason);
   });
 
   it('uses parent policy from an isolated git worktree', async () => {

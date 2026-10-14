@@ -11,6 +11,7 @@ import { exec, type ActionSpec } from './actions'
 import { jsonAfter } from './data/cli'
 import { countsWith, rowsWith, type Findings } from './data/failure'
 import { plain, recordOf } from './data/parse'
+import { countOf as wholeCount, measureOf, ratioOf } from './data/safe'
 import { labLines } from './mh-lab'
 import type { State } from './state'
 
@@ -44,7 +45,33 @@ export type SecText = { id: string; name: string; about: string; label: string; 
 export type Check = { status: 'pass' | 'warn' | 'fail'; name: string; message: string }
 
 /** What the view draws beyond the result lines: the last findings by severity, the last doctor checks, the field's text. */
-export type SecMemo = { findings: { source: string; counts: Record<Severity, number>; atMs: number } | null; doctor: { label: string; checks: Check[]; atMs: number } | null; draft: string }
+export type SecMemo = { findings: SecFindings | null; doctor: { label: string; checks: Check[]; atMs: number } | null; draft: string }
+
+/**
+ * Counts by severity. `unreadable` names the levels whose count the tool printed but no reader can trust, and `isTotalUnknown` says the same of
+ * the total (#3822): unknown, never a measured 0. An unknown level's `counts` entry is only a lower bound (the findings listed at that level).
+ */
+export type SecFindings = { source: string; counts: Record<Severity, number>; unreadable?: readonly Severity[]; isTotalUnknown?: boolean; atMs: number }
+
+/** One level's count as text: `?` when it was unreadable, `≥n ?` when n findings of that level were listed. */
+export const countText = (findings: SecFindings, level: Severity): string => {
+  if (!(findings.unreadable ?? []).includes(level)) return String(findings.counts[level])
+
+  return findings.counts[level] > 0 ? `≥${findings.counts[level]} ?` : '?'
+}
+
+/** What the band says about the last findings: high or critical ones, or that the counts could not be read. Null when there is nothing to warn of. */
+export function securityBand(findings: SecFindings | null): { text: string; compact: string; isAttention: boolean } | null {
+  if (findings === null) return null
+
+  const serious = findings.counts.critical + findings.counts.high
+  const isUnknown = (findings.unreadable ?? []).length > 0 || findings.isTotalUnknown === true
+  const more = isUnknown ? '+' : ''
+
+  if (serious > 0) return { text: `🔒 ${serious}${more} high or critical`, compact: `🔒 ${serious}${more}`, isAttention: findings.counts.critical > 0 || isUnknown }
+
+  return isUnknown ? { text: '🔒 security counts unreadable', compact: '🔒 ?', isAttention: true } : null
+}
 
 const memos = new WeakMap<State, SecMemo>()
 
@@ -99,20 +126,48 @@ export const scanReader: Reader = (stdout, stderr, state) => {
 
   if (record === null || summary === null) return textLines(stdout, stderr)
 
-  const counts = zero()
-
-  for (const level of SEVERITIES) counts[level] = typeof summary[level] === 'number' ? summary[level] : 0
-  secMemo(state).findings = { source: `scan ${plain(String(record.type ?? ''), 8)} ${plain(String(record.depth ?? ''), 10)}`.trim(), counts, atMs: Date.now() }
-
   const findings = (Array.isArray(record.findings) ? record.findings : []).map(recordOf).filter(row => row !== null)
-  const total = typeof summary.total === 'number' ? summary.total : findings.length
+  const listed = zero()
+  const counts = zero()
+  const unreadable: Severity[] = []
+
+  for (const row of findings) listed[levelOf(row.severity) ?? 'low'] += 1
+
+  // A count is whole, non-negative and capped where it is read (#3822): `1e999` parses as Infinity. Every count, and the total, is at least what
+  // was listed, so a summary that under-reports cannot hide a finding or read CLEAN beside one. A count the tool printed but no reader can trust
+  // stays UNKNOWN (the listed findings are only its lower bound), and the result, the page and the band all say so.
+  for (const level of SEVERITIES) {
+    const raw = summary[level]
+    const count = wholeCount(raw)
+
+    counts[level] = Math.max(count ?? 0, listed[level])
+    if (count === undefined && raw !== undefined) unreadable.push(level)
+  }
+
+  const readTotal = wholeCount(summary.total)
+  const isTotalUnknown = readTotal === undefined && summary.total !== undefined
+  const total = Math.max(readTotal ?? 0, findings.length)
+  const memo: SecFindings = { source: `scan ${plain(String(record.type ?? ''), 8)} ${plain(String(record.depth ?? ''), 10)}`.trim(), counts, ...(unreadable.length > 0 && { unreadable }), ...(isTotalUnknown && { isTotalUnknown }), atMs: Date.now() }
+
+  secMemo(state).findings = memo
+
+  const isUnknown = unreadable.length > 0 || isTotalUnknown
+  const head = counts.critical + counts.high > 0 ? 'ATTENTION' : isUnknown ? 'COUNTS UNREADABLE' : total === 0 ? 'CLEAN' : 'REVIEW'
+  const totalText = isTotalUnknown ? `${total > 0 ? `≥${total} ` : ''}? findings (total unreadable)` : `${total} finding${total === 1 ? '' : 's'}`
 
   return [
-    `${counts.critical + counts.high > 0 ? 'ATTENTION' : total === 0 ? 'CLEAN' : 'REVIEW'} · ${total} finding${total === 1 ? '' : 's'} · depth ${plain(String(record.depth ?? 'n/a'), 10)} · type ${plain(String(record.type ?? 'n/a'), 8)}`,
-    `by severity: ${SEVERITIES.map(level => `${level} ${counts[level]}`).join(' · ')}`,
+    `${head} · ${totalText} · depth ${plain(String(record.depth ?? 'n/a'), 10)} · type ${plain(String(record.type ?? 'n/a'), 8)}`,
+    `by severity: ${SEVERITIES.map(level => `${level} ${countText(memo, level)}`).join(' · ')}${unreadable.length > 0 ? ` (counts unreadable: ${unreadable.join(', ')}; a listed finding is a lower bound)` : ''}`,
     ...findings.slice(0, 30).map(row => `[${levelOf(row.severity) ?? 'low'}] ${plain(String(row.type ?? ''), 40)} · ${plain(String(row.location ?? ''), 60)} · ${plain(String(row.description ?? ''), 80)}`),
     ...(findings.length > 30 ? [`… ${findings.length - 30} more`] : []),
   ]
+}
+
+/** A confidence as ` 87%`, clamped to 0..100; empty when it is not a finite number (`1e999` would draw "Infinity%") (#3822). */
+const percent = (value: unknown): string => {
+  const ratio = ratioOf(value)
+
+  return ratio === undefined ? '' : ` ${Math.round(ratio * 100)}%`
 }
 
 /** One verdict object (defend, aidefence_scan, channel-scan, scan-plan): the verdict first, so an exit 1 reads right. */
@@ -138,7 +193,7 @@ function verdictLines(record: Record<string, unknown>, source: string, state: St
 
   return [
     head.join(' · '),
-    ...(threats ?? []).slice(0, 20).map(row => `[${levelOf(row.severity) ?? 'low'}] ${plain(String(row.type ?? row.kind ?? ''), 32)}${typeof row.confidence === 'number' ? ` ${Math.round(row.confidence * 100)}%` : ''} · ${plain(String(row.description ?? row.reason ?? ''), 110)}`),
+    ...(threats ?? []).slice(0, 20).map(row => `[${levelOf(row.severity) ?? 'low'}] ${plain(String(row.type ?? row.kind ?? ''), 32)}${percent(row.confidence)} · ${plain(String(row.description ?? row.reason ?? ''), 110)}`),
   ]
 }
 
@@ -178,7 +233,7 @@ export const compositionReader: Reader = (stdout, stderr) => {
 
   if (suspects === undefined) return textLines(stdout, stderr)
 
-  return [`${suspects.length} suspect${suspects.length === 1 ? '' : 's'} in the CLI's registered MCP tool descriptions`, ...suspects.slice(0, 25).map(row => `${plain(String(row.tool ?? ''), 32)} · ${typeof row.score === 'number' ? row.score.toFixed(2) : 'n/a'} · ${plain(String(row.reason ?? ''), 100)}`)]
+  return [`${suspects.length} suspect${suspects.length === 1 ? '' : 's'} in the CLI's registered MCP tool descriptions`, ...suspects.slice(0, 25).map(row => `${plain(String(row.tool ?? ''), 32)} · ${measureOf(row.score)?.toFixed(2) ?? 'n/a'} · ${plain(String(row.reason ?? ''), 100)}`)]
 }
 
 /** Doctor's `✓|⚠|✗ Name: message` rows (colours stripped), its summary, and anything after them (suggested fixes). */

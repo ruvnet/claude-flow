@@ -20,18 +20,18 @@ const GOOD = ['---', 'name: my-skill', 'description: Does one thing well. Use wh
 
 describe('argv for the new actions', () => {
   it('add names only known agents, after the scope and before -y; use, --list, update-all, restore and sync are fixed', () => {
-    expect(addArgv('o/r@s', 'project', ['codex', 'claude-code'])).toEqual(['npx', '-y', 'skills', 'add', 'o/r@s', '--agent', 'claude-code', 'codex', '-y'])
-    expect(addArgv('o/r@s', 'global', ['cursor', '-y', '*', 'evil;rm'])).toEqual(['npx', '-y', 'skills', 'add', 'o/r@s', '-g', '--agent', 'cursor', '-y'])
-    expect(addArgv('o/r@s', 'global', [])).toEqual(['npx', '-y', 'skills', 'add', 'o/r@s', '-g', '-y'])
+    expect(addArgv('o/r@s', 'project', ['codex', 'claude-code'])).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'o/r@s', '--agent', 'claude-code', 'codex', '-y'])
+    expect(addArgv('o/r@s', 'global', ['cursor', '-y', '*', 'evil;rm'])).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'o/r@s', '-g', '--agent', 'cursor', '-y'])
+    expect(addArgv('o/r@s', 'global', [])).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'o/r@s', '-g', '-y'])
     expect(agentsOf(['codex', 'codex', 'nope'])).toEqual(['codex'])
-    expect(useArgv('o/r@s')).toEqual(['npx', '-y', 'skills', 'use', 'o/r@s'])
-    expect(listRepoArgv('o/r@s')).toEqual(['npx', '-y', 'skills', 'add', 'o/r@s', '--list'])
+    expect(useArgv('o/r@s')).toEqual(['npx', '-y', 'skills@1.7.2', 'use', 'o/r@s'])
+    expect(listRepoArgv('o/r@s')).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'o/r@s', '--list'])
     expect(listRepoArgv('o/r@s')).not.toContain('--json')
-    expect(updateAllArgv('project')).toEqual(['npx', '-y', 'skills', 'update', '-p', '-y'])
-    expect(updateAllArgv('global')).toEqual(['npx', '-y', 'skills', 'update', '-g', '-y'])
-    expect(restoreArgv()).toEqual(['npx', '-y', 'skills', 'experimental_install'])
-    expect(syncArgv()).toEqual(['npx', '-y', 'skills', 'experimental_sync', '-y'])
-    expect(syncArgv(['claude-code'])).toEqual(['npx', '-y', 'skills', 'experimental_sync', '--agent', 'claude-code', '-y'])
+    expect(updateAllArgv('project')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', '-p', '-y'])
+    expect(updateAllArgv('global')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', '-g', '-y'])
+    expect(restoreArgv()).toEqual(['npx', '-y', 'skills@1.7.2', 'experimental_install'])
+    expect(syncArgv()).toEqual(['npx', '-y', 'skills@1.7.2', 'experimental_sync', '-y'])
+    expect(syncArgv(['claude-code'])).toEqual(['npx', '-y', 'skills@1.7.2', 'experimental_sync', '--agent', 'claude-code', '-y'])
   })
 })
 
@@ -194,7 +194,7 @@ describe('the new skills actions', () => {
     act.use({ id: 'vercel-labs/agent-skills@vercel-react-best-practices' })
     await until(() => loaded.length > 0)
 
-    expect(runs).toEqual([['npx', '-y', 'skills', 'use', 'vercel-labs/agent-skills@vercel-react-best-practices']])
+    expect(runs).toEqual([['npx', '-y', 'skills@1.7.2', 'use', 'vercel-labs/agent-skills@vercel-react-best-practices']])
     expect(state.pending).toBeNull()
     expect(loaded[0]).toContain('<SKILL.md>')
     expect(state.outcome).toMatchObject({ ok: true })
@@ -209,7 +209,7 @@ describe('the new skills actions', () => {
 
     act.previewFound({ id: 'vercel-labs/agent-skills@vercel-react-best-practices' })
     await until(() => state.skills.preview !== null)
-    expect(runs).toEqual([['npx', '-y', 'skills', 'add', 'vercel-labs/agent-skills@vercel-react-best-practices', '--list']])
+    expect(runs).toEqual([['npx', '-y', 'skills@1.7.2', 'add', 'vercel-labs/agent-skills@vercel-react-best-practices', '--list']])
     expect(state.skills.preview?.lines[0]).toBe('▸ vercel-react-best-practices')
 
     act.previewInstalled({ name: 'my-skill', path: '/home/dev/.agents/skills/my-skill', scope: 'global', agents: [] })
@@ -227,24 +227,24 @@ describe('the new skills actions', () => {
     const { state, runner, runs, act } = fake(argv => ({ exitCode: 0, stdout: argv[3] === 'ls' ? '[]' : 'ok', stderr: '' }))
 
     act.updateAll()
-    expect(state.pending).toMatchObject({ shows: 'npx -y skills update -p -y', note: expect.stringMatching(/network/) })
+    expect(state.pending).toMatchObject({ shows: 'npx -y skills@1.7.2 update -p -y', note: expect.stringMatching(/network/) })
     expect(runs).toEqual([])
     await runner.confirm()
     await until(() => state.skills.busy === null && runs.length >= 3)
-    expect(runs[0]).toEqual(['npx', '-y', 'skills', 'update', '-p', '-y'])
+    expect(runs[0]).toEqual(['npx', '-y', 'skills@1.7.2', 'update', '-p', '-y'])
 
     act.restore()
-    expect(state.pending).toMatchObject({ shows: 'npx -y skills experimental_install', note: expect.stringMatching(/experimental · network/) })
+    expect(state.pending).toMatchObject({ shows: 'npx -y skills@1.7.2 experimental_install', note: expect.stringMatching(/experimental · network/) })
     runner.cancel()
 
     act.scope('global')
     act.toggleAgent('claude-code')
     act.toggleAgent('not-an-agent')
     act.sync()
-    expect(state.pending?.shows).toBe('npx -y skills experimental_sync --agent claude-code -y')
+    expect(state.pending?.shows).toBe('npx -y skills@1.7.2 experimental_sync --agent claude-code -y')
     runner.cancel()
     act.updateAll()
-    expect(state.pending?.shows).toBe('npx -y skills update -g -y')
+    expect(state.pending?.shows).toBe('npx -y skills@1.7.2 update -g -y')
     runner.cancel()
     expect(runs).toHaveLength(3)
   })
@@ -262,7 +262,7 @@ describe('the new skills actions', () => {
     expect(sortedFound(state.skills.found, state.skills.sort).map(skill => skill.id)).toEqual(['a/b@high', 'a/b@low'])
     act.sortBy()
     expect(sortedFound(state.skills.found, state.skills.sort).map(skill => skill.id)).toEqual(['a/b@low', 'a/b@high'])
-    expect(addSpec(state, host, { id: 'o/r@s' }, 'global')?.shows).toBe('npx -y skills add o/r@s -g --agent claude-code -y')
+    expect(addSpec(state, host, { id: 'o/r@s' }, 'global')?.shows).toBe('npx -y skills@1.7.2 add o/r@s -g --agent claude-code -y')
     expect(addSpec(state, host, { id: 'o/r@s' }, 'global')?.label).toBe('add skill o/r@s globally for claude-code')
   })
 
@@ -324,11 +324,11 @@ describe('the new skills actions', () => {
 
     expect(runner.runById('skills-find', 'react')).toBe(true)
     await runner.settled()
-    expect(runs).toEqual([['npx', '-y', 'skills', 'find', 'react']])
+    expect(runs).toEqual([['npx', '-y', 'skills@1.7.2', 'find', 'react']])
     expect(skillsAnswer(state, 'skills-find', askedAtMs)).toMatch(/^skills find "react": 4 found\n {2}mattpocock\/skills@tdd · 1M installs/)
 
     expect(runner.runById('skills-update', '')).toBe(true)
-    expect(state.pending?.shows).toBe('npx -y skills update -p -y')
+    expect(state.pending?.shows).toBe('npx -y skills@1.7.2 update -p -y')
     runner.cancel()
     expect(runner.runById('skills-find', '-rf')).toBe(true)
     expect(runs).toHaveLength(1)
@@ -338,6 +338,6 @@ describe('the new skills actions', () => {
     const state = newState({})
     const update = skillPaletteEntries(state).find(entry => entry.id === 'skills-update')
 
-    expect(update?.run).toEqual({ kind: 'spec', spec: null, why: 'the skills view is not wired yet' })
+    expect(update?.run).toEqual({ kind: 'spec', spec: null, why: 'the console is not running in this session: open it first (console_open skills)' })
   })
 })

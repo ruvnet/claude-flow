@@ -54,7 +54,7 @@ const NOISE = /\[object Object\]|\bundefined\b|\bNaN\b/
 afterAll(() => setLook('plain'))
 
 describe('every page draws', () => {
-  for (const look of ['bbs', 'plain'] as const) {
+  for (const look of ['bbs', 'plain', 'orbital'] as const) {
     for (const columns of [44, 60, 100, 160]) {
       it(`in the ${look} look at ${columns} columns, empty and busy`, async () => {
         setLook(look)

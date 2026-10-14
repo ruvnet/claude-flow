@@ -1098,7 +1098,8 @@ describe('Rate Limiter', () => {
     limiter.check('op');
     const status = limiter.getStatus('op');
     expect(status.current).toBe(1);
-    expect(status.limit).toBe(10);
+    // status reports the same capacity admission uses: maxRequests 10 x default burstMultiplier 1.5 (#4006)
+    expect(status.limit).toBe(15);
   });
 
   it('reset clears specific key', () => {

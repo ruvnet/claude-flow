@@ -12,7 +12,7 @@ Wraps the `cogmusic` MCP bridge as a Ruflo plugin with 2 agents, 7 skills, and o
 - A `cogmcp_...` personal access token, minted at `music.cognitum.one/mcp` (sign in → "Generate connection token"). Shown exactly once — copy it immediately. This plugin cannot mint or rotate this token for you.
 - `cogmusic@0.1.1` or later registered as an MCP server:
   ```bash
-  claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+  claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
   ```
   `0.1.0` has no fetch timeout override and fails any `create_production` call that runs past Node's ~5-minute default — real generations routinely take longer. See the `music-connect` skill for the full setup flow.
 
@@ -27,7 +27,7 @@ claude --plugin-dir plugins/ruflo-music
 `cogmusic` exposes 6 tools once registered:
 
 ```bash
-claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
 claude mcp get cogmusic   # expect: ✔ Connected
 ```
 

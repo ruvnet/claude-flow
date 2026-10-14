@@ -578,6 +578,61 @@ Install Ruflo as a native Claude Code plugin -- adds skills, commands, agents, a
 
 After installing, new `/slash-commands` and agent types are available immediately. Run `/reload-plugins` if needed.
 
+### Terminal UI (optional)
+
+The Claude Code console (`/ruflo`) stays the main way to use Ruflo. If you are not in Claude Code, `ruflo tui` shows the same pages in any terminal. It is optional: nothing else depends on it.
+
+<p align="center"><img src="assets/ruflo-tui-walkthrough.svg" width="100%" alt="Looping recording of ruflo tui: Overview, Cost, Swarm, Events and Missions, then the Swarm page in a small 80 by 24 window. Sample project and sample agents only."></p>
+
+*The recording is a real run in a throwaway sample project, so some pages say `n/a` or "none yet".*
+
+**Requirements:** Node.js 20 or later and `ruflo` 3.56.7 or later (`npx ruflo@latest tui`). Use `ruflo` or `@claude-flow/cli`: `npx claude-flow tui` does not ship the bundle and says so.
+
+```bash
+npx ruflo tui                       # open it in this terminal
+npx ruflo tui --view swarm          # start on a page: overview | cost | swarm | events | missions | ai
+npx ruflo tui --plain | head -40    # print one plain frame and exit 0 (scripts, CI)
+```
+
+Without a terminal and without `--plain`, `tui` prints a one-line hint and exits 2.
+
+| Key | Does |
+|---|---|
+| `1`–`6`, or `o` `c` `s` `e` `m` `a` | Go to a page (Overview, Cost, Swarm, Events, Missions, AI) |
+| `Tab` / `Shift-Tab` | Next / previous page |
+| `j` `k` or the arrow keys | Scroll |
+| `r` | Read the files again |
+| `q` or `Ctrl-C` | Quit |
+
+**What each page shows.** It reads Ruflo's own files and the CLI's output in the current project, and says `n/a` for anything it cannot measure.
+
+- **Overview:** setup steps, health findings and the subsystems.
+- **Cost:** budget and spend across Claude Code and Codex. Missing cost reports are not counted as zero.
+- **Swarm:** topology, agents and the hive-mind.
+- **Events:** swarm, claim, memory and mod events. History is kept only when the `eventsPersist` option is on.
+- **Missions:** the mission record, read-only. Missions are made from a goal in the Claude Code console.
+- **AI (optional):** ask Codex or OpenRouter a question. This is the only page that can send anything, and it always asks first.
+
+**The AI page asks first.** Pressing Enter does not send. It shows a card with exactly what would go out, and only a `y` typed while the card is on screen sends it. `n` cancels, and an unanswered card expires after 60 seconds. This is a real card:
+
+```text
+Ask first, #1: this goes to OpenRouter
+POST https://openrouter.ai/api/v1/chat/completions  Authorization: Bearer ‹from
+$OPENROUTER_API_KEY› {"model":"openrouter/auto","messages":[{"role":"user","content":"Summarize
+what my agents did today"}],"usage":{"include":true}}
+The key is read from the named variable, sent in one header and never shown or stored. Metered by the provider.
+y sends it · n cancels · it expires in 59 s
+```
+
+- **Keys on this page:** typing is text, so `Esc` hands the keys back to the page keys. `Ctrl-T` switches between Codex and OpenRouter, `Ctrl-S` stops a running answer, and `Ctrl-C` quits.
+- **Codex** runs only as the pinned `0.162.0` release found under `~/.codex/packages/standalone/releases`, read-only. It never uses the `current` link or `PATH` (0.162.1 crashes). If that release is not installed the page says so.
+- **OpenRouter** needs `OPENROUTER_API_KEY` in your environment. The key is named by its variable and never shown. Requests go only to `https://openrouter.ai` and to the HTTPS hosts you name with `--convo-targets` (or `RUFLO_TUI_CONVO_TARGETS`, syntax `endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;...`), with no redirects. `--model` picks the model (default `openrouter/auto`), and `--max-spend-usd` stops sending once the provider-reported spend reaches the cap (default `0.5`).
+- `--no-ai` turns the AI page off.
+
+**Limits.** Read-only except the AI page. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
+
+**In Claude Code**, the same console has an optional Orbital look and a Theme Studio: run `/ruflo themes`. See the [console README](../plugins/ruflo-console/README.md#orbital-theme).
+
 <details>
 <summary>🤖 <strong>OpenAI Codex CLI Support</strong> — Full Codex integration with self-learning</summary>
 
@@ -1860,7 +1915,6 @@ Install these optional plugins to extend Ruflo capabilities:
 
 | Plugin | Version | Description | Install Command |
 |--------|---------|-------------|-----------------|
-| **@claude-flow/plugin-agentic-qe** | 3.0.0-alpha.2 | Quality Engineering with 58 AI agents across 12 DDD contexts. TDD, coverage analysis, security scanning, chaos engineering, accessibility testing. | `npm install @claude-flow/plugin-agentic-qe` |
 | **@claude-flow/plugin-prime-radiant** | 0.1.4 | Mathematical AI interpretability with 6 engines: sheaf cohomology, spectral analysis, causal inference, quantum topology, category theory, HoTT proofs. | `npm install @claude-flow/plugin-prime-radiant` |
 | **@claude-flow/plugin-gastown-bridge** | 0.1.0 | Gas Town orchestrator integration with WASM-accelerated formula parsing (instant (regex-based, no LLM call)), Beads sync, convoy management, and graph analysis. 20 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/plugin-gastown-bridge` |
 | **@claude-flow/teammate-plugin** | 1.0.0-alpha.1 | Native TeammateTool integration for Claude Code v2.1.19+. BMSSP WASM acceleration, rate limiting, circuit breaker, semantic routing. 21 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/teammate-plugin` |
@@ -1890,12 +1944,7 @@ Install these optional plugins to extend Ruflo capabilities:
 | **@claude-flow/plugin-quantum-optimizer** | 0.1.0 | Quantum-inspired optimization (QAOA, VQE, quantum annealing). Combinatorial optimization, Grover search, tensor networks. | `npm install @claude-flow/plugin-quantum-optimizer` |
 | **@claude-flow/plugin-hyperbolic-reasoning** | 0.1.0 | Hyperbolic geometry for hierarchical reasoning. Poincaré embeddings, tree-like structure analysis, taxonomic inference. | `npm install @claude-flow/plugin-hyperbolic-reasoning` |
 
-**Agentic-QE Plugin Features:**
-- 58 specialized QE agents across 13 bounded contexts
-- 16 MCP tools: `aqe/generate-tests`, `aqe/tdd-cycle`, `aqe/analyze-coverage`, `aqe/security-scan`, `aqe/chaos-inject`, etc.
-- London-style TDD with red-green-refactor cycles
-- O(log n) coverage gap detection with Johnson-Lindenstrauss
-- OWASP/SANS compliance auditing
+**Quality Engineering (Agentic QE):** the in-repo `@claude-flow/plugin-agentic-qe` shim has been retired. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) package (`npx agentic-qe init`), or install its Claude Code plugin `agentic-qe-fleet` from the `agentic-qe` marketplace ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
 
 **Prime-Radiant Plugin Features:**
 - 6 mathematical engines for AI interpretability
@@ -1926,9 +1975,6 @@ Install these optional plugins to extend Ruflo capabilities:
 - **Hyperbolic Reasoning**: 5 tools for Poincaré embeddings, tree inference, taxonomic analysis
 
 ```bash
-# Install Quality Engineering plugin
-npm install @claude-flow/plugin-agentic-qe
-
 # Install AI Interpretability plugin
 npm install @claude-flow/plugin-prime-radiant
 
@@ -2855,6 +2901,7 @@ Run `npx ruflo@latest doctor` to diagnose and fix common issues.
 | **MCP servers** | Responsive | ✅ Restarts unresponsive servers |
 | **Disk space** | >100MB free | ❌ Manual cleanup required |
 | **TypeScript** | Installed | ✅ Installs if missing |
+| **Native addon headers** | No `better-sqlite3` built against Node 24.19+ headers while running Node 24.19–24.21 | ❌ See below |
 
 **Commands:**
 
@@ -2871,6 +2918,14 @@ npx ruflo@latest doctor --component memory
 # Verbose output
 npx ruflo@latest doctor --verbose
 ```
+
+**Node 24.19–24.21 abort (#4055).** A native addon compiled against Node 24.19+ headers can abort the process with `Assertion failed: (env) != nullptr` in `node::RemoveEnvironmentCleanupHook` (nodejs/node#65446; the fix, PR #65943, is in no release through 24.21.0). Prebuilt binaries are not affected, only copies compiled locally, which carry a `build/config.gypi` naming the headers they used. `doctor --component native-addon` reads those files (it never loads an addon) and lists each affected copy. Workarounds, any one of:
+
+- run Node 22, or Node 24.18.1, or a Node release that contains the fix;
+- rebuild the listed copy against older headers: `cd <copy> && npx node-gyp rebuild --release --nodedir=<node 24.18.1 headers>`;
+- install the 12.x prebuilt in the project: `npm install better-sqlite3@12`.
+
+ruflo opens AgentDB through its own prebuilt 12.x copy (since 3.56.4), so a flagged nested copy under `agentdb` or `agentic-flow` matters only to code that loads it directly. npm ignores `overrides` in a dependency's package.json, so the nested 11.x copies cannot be removed from inside the published package.
 
 **Output Example:**
 

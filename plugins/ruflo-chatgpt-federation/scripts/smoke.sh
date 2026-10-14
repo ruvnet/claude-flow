@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-chatgpt-federation v0.2.3: the plugin manifest and the mod (ADR-445 pattern).
+# Structural smoke test for ruflo-chatgpt-federation v0.2.4: the plugin manifest and the mod (ADR-445 pattern).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,10 +8,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares version 0.2.3 and the mod keywords"
+step "1. plugin.json declares version 0.2.4 and the mod keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.3" ]]; then
-  bad "expected 0.2.3, got '$v'"
+if [[ "$v" != "0.2.4" ]]; then
+  bad "expected 0.2.4, got '$v'"
 else
   miss=""
   for k in mod function-hooks guard; do grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"; done

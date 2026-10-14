@@ -162,7 +162,7 @@ Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadow
 
 ```bash
 bash plugins/ruflo-cost-tracker/scripts/smoke.sh
-# Expected: "44 passed, 0 failed"
+# Expected: "63 passed, 0 failed"
 
 CI: see [`.github/workflows/cost-tracker-smoke.yml`](../../.github/workflows/cost-tracker-smoke.yml).
 On every PR touching this plugin, GitHub Actions runs smoke + booster-only bench

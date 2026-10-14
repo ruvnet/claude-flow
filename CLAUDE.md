@@ -1465,7 +1465,6 @@ npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| `@claude-flow/plugin-agentic-qe` | 3.0.0-alpha.4 | Agentic quality engineering integration |
 | `@claude-flow/plugin-prime-radiant` | 0.1.5 | Prime Radiant intelligence integration |
 | `@claude-flow/plugin-gastown-bridge` | 3.0.0-alpha.1 | Gastown bridge protocol integration |
 | `@claude-flow/teammate-plugin` | 1.0.0-alpha.1 | Multi-agent teammate coordination |

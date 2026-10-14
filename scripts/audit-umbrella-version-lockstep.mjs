@@ -52,6 +52,10 @@ for (const { label, path } of TARGETS) {
     violations.push(`${label} (${path}) not found`);
     continue;
   }
+  if (typeof pkg.version !== 'string' || pkg.version.trim().length === 0) {
+    violations.push(`${label} (${path}) must declare a nonempty version string`);
+    continue;
+  }
   versions[label] = pkg.version;
 }
 
@@ -76,7 +80,9 @@ const rufloPkg = readPkg('ruflo/package.json');
 const cliVersion = versions['@claude-flow/cli'];
 if (rufloPkg && cliVersion) {
   const range = rufloPkg.dependencies?.['@claude-flow/cli'];
-  if (range) {
+  if (typeof range !== 'string' || range.length === 0) {
+    violations.push('ruflo must declare its exact @claude-flow/cli dependency');
+  } else {
     if (range !== cliVersion) {
       violations.push(
         `ruflo "@claude-flow/cli": "${range}" must pin cli's actual version ${cliVersion}.\n` +

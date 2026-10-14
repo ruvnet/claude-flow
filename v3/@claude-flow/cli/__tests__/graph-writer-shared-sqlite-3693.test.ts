@@ -141,6 +141,38 @@ describe('#3693 graph writer idle close vs live AgentDB handle', () => {
     expect(resolveAgentdbBetterSqlite3(agentdbEntry)).toBe(HolderCtor);
   });
 
+  // @claude-flow/memory >= 3.0.4 opens AgentDB's handle with ITS better-sqlite3
+  // (agentdb-native-driver.js), so that copy is the holder the CLI must share.
+  it('owner is @claude-flow/memory when it routes AgentDB through its own driver', async (ctx) => {
+    if (!native) ctx.skip(); // reported as skipped, never a silent pass
+    const memDist = join(root, 'node_modules', '@claude-flow', 'memory', 'dist');
+    const memNm = join(root, 'node_modules', '@claude-flow', 'memory', 'node_modules');
+    mkdirSync(memDist, { recursive: true });
+    mkdirSync(memNm, { recursive: true });
+    writeFileSync(join(memDist, 'index.js'), '');
+    writeFileSync(join(memDist, 'agentdb-native-driver.js'), '');
+    cpSync(dirname(req.resolve('better-sqlite3/package.json')), join(memNm, 'better-sqlite3'), { recursive: true });
+    for (const dep of ['bindings', 'file-uri-to-path']) {
+      try { symlinkSync(dirname(req.resolve(`${dep}/package.json`)), join(memNm, dep)); } catch { /* optional */ }
+    }
+    const memEntry = join(memDist, 'index.js');
+    const MemoryCtor = createRequire(memEntry)('better-sqlite3');
+    const { resolveSqliteOwnerEntry, resolveAgentdbBetterSqlite3 } = await import('../src/memory/shared-sqlite.js');
+
+    expect(resolveSqliteOwnerEntry(memEntry)).toBe(memEntry);
+    expect(resolveAgentdbBetterSqlite3(memEntry)).toBe(MemoryCtor);
+    expect(MemoryCtor).not.toBe(HolderCtor);
+  });
+
+  it('owner falls back to agentdb when @claude-flow/memory has no driver (memory <= 3.0.3)', async () => {
+    const oldMemDist = join(root, 'old-memory', 'dist');
+    mkdirSync(oldMemDist, { recursive: true });
+    writeFileSync(join(oldMemDist, 'index.js'), '');
+    const { resolveSqliteOwnerEntry } = await import('../src/memory/shared-sqlite.js');
+
+    expect(resolveSqliteOwnerEntry(join(oldMemDist, 'index.js'))).toBe(req.resolve('agentdb'));
+  });
+
   it("control: a different native copy DOES strip the live holder's sidecars (the hazard)", async () => {
     if (!native) return;
     const r = await scenario(false);

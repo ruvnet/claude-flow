@@ -77,8 +77,8 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_table_column;
 
 After successful migration creation or validation, train patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
-npx @claude-flow/cli@latest neural train --pattern-type migrations --epochs 10
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent migration-engineer
+npx @claude-flow/cli@latest neural train --pattern coordination --epochs 10
 ```
 
 ### Memory Learning
