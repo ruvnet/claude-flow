@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.7 — 2026-10-14
+- fix: Mission Control's prose wraps on word breaks instead of ending in "…" at 80 columns (tmux): the kind description, the empty-goal hint, the lifecycle line and each planned task line (#3899, the rest of what 0.40.2 did for Approvals and a mission's objective).
+
 ## 0.43.6 — 2026-10-14
 - fix: the analyze page describes REVIEWERS as reviewer roles suggested from file paths and risk, not people from the history (#4163, thanks @rudycelekli)
 
