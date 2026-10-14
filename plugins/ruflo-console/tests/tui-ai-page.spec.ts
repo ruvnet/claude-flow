@@ -39,7 +39,7 @@ const reply = (content: string, cost = 0.004) => ({ choices: [{ message: { conte
 
 function open(extra: { maxSpendUsd?: number; model?: string; body?: unknown; status?: number } = {}) {
   const fetchSpy = vi.fn(async (_url: unknown, _init?: unknown) => new Response(JSON.stringify(extra.body ?? reply('hello from the stub')), { status: extra.status ?? 200 }))
-  const session = openSession({ cwd: project, home: root, aiPage: { codexBin: FAKE, fetch: fetchSpy as never, ...(extra.maxSpendUsd !== undefined && { maxSpendUsd: extra.maxSpendUsd }), ...(extra.model !== undefined && { model: extra.model }) } })
+  const session = openSession({ look: 'plain', fps: 0, cwd: project, home: root, aiPage: { codexBin: FAKE, fetch: fetchSpy as never, ...(extra.maxSpendUsd !== undefined && { maxSpendUsd: extra.maxSpendUsd }), ...(extra.model !== undefined && { model: extra.model }) } })
 
   session.show('ai')
 
@@ -251,7 +251,7 @@ describe('Codex', () => {
   })
 
   it('without the pinned release the answer says so and nothing falls back to PATH or current', async () => {
-    const session = openSession({ cwd: project, home: join(root, 'no-codex-here'), aiPage: { fetch: vi.fn() as never } })
+    const session = openSession({ look: 'plain', fps: 0, cwd: project, home: join(root, 'no-codex-here'), aiPage: { fetch: vi.fn() as never } })
 
     session.show('ai')
 
@@ -304,12 +304,12 @@ describe('the page', () => {
     const out: string[] = []
     const io = (): TuiIO => ({ stdin: { on: () => undefined, off: () => undefined, resume: () => undefined, pause: () => undefined }, stdout: { columns: 100, rows: 30, write: text => void out.push(text) }, stderr: { write: () => undefined }, env: {} })
 
-    expect(await runTui({ cwd: project, home: root, plain: true, view: 'ai', aiPage: { codexBin: FAKE } }, io())).toBe(0)
+    expect(await runTui({ look: 'plain', fps: 0, cwd: project, home: root, plain: true, view: 'ai', aiPage: { codexBin: FAKE } }, io())).toBe(0)
     expect(out.join('')).toMatch(/codex .*ready|codex .*pinned/)
     expect(out.join('')).toContain('openrouter')
     expect(out.join('')).not.toContain(KEY)
     out.length = 0
-    expect(await runTui({ cwd: project, home: root, plain: true, view: 'ai' }, io())).toBe(0)
+    expect(await runTui({ look: 'plain', fps: 0, cwd: project, home: root, plain: true, view: 'ai' }, io())).toBe(0)
     expect(out.join('')).toContain('The AI page is off')
   })
 })

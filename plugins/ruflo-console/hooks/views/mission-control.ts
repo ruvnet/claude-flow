@@ -5,7 +5,7 @@ import { guidanceStatus } from '../mission-guidance'
 import { activeMission, derive, mcOf, nextTask, progressOf, rufloTaskOf, type Derived, type LedgerTask, type McTab, type MissionRecord } from '../mission-control'
 import { ACCENT, chip as inverseChip, TONE } from '../menu-colors'
 import { barCells, percentOf, stripStatus } from '../mission-strip'
-import { ago, button, clip, col, confirmHere, isBbs, row, rule, section, text, THEME, wrap, type Ctx } from './common'
+import { ago, button, clip, col, confirmHere, isBbs, paragraph, row, rule, section, text, THEME, wrap, type Ctx } from './common'
 import { GOALS_PLUGIN, isAvailable, MISSION_SKILLS, slashOf } from '../mission-skills'
 import { observationRows } from './missions'
 import { loopTabRows } from './mission-claude'
@@ -75,12 +75,13 @@ function planRows(ctx: Ctx): RenderElement[] {
   )
   const rows: RenderElement[] = [
     ...options,
-    text(ctx, ` ${PROFILES.find(profile => profile.id === mc.profile)?.about ?? ''}`, { dimColor: true }),
+    // #3899: prose a person reads wraps on word breaks (paragraph) instead of ending in "…" at 80 columns.
+    ...paragraph(ctx, ` ${PROFILES.find(profile => profile.id === mc.profile)?.about ?? ''}`, { dimColor: true }, '  '),
   ]
   const planned = mc.planned
 
   if (planned === null) {
-    rows.push(text(ctx, ' type a goal above: the planner finds the cheapest SPARC action sequence that reaches it', { color: THEME.warn }))
+    rows.push(...paragraph(ctx, ' type a goal above: the planner finds the cheapest SPARC action sequence that reaches it', { color: THEME.warn }, '  '))
 
     return rows
   }
@@ -88,7 +89,7 @@ function planRows(ctx: Ctx): RenderElement[] {
   rows.push(...guidanceRows(ctx))
   rows.push(rule(ctx, 'SPARC plan', `${planned.steps.length} tasks · cost ${planned.totalCost} · critical path ${planned.criticalCost} · ${planned.waves.length} waves`))
 
-  rows.push(text(ctx, ` ${lifecycleOf(planned).map(entry => `${entry.stage}${entry.steps > 1 ? ` ×${entry.steps}` : ''}`).join(' → ')}`, { color: THEME.ok, bold: true }))
+  rows.push(...paragraph(ctx, ` ${lifecycleOf(planned).map(entry => `${entry.stage}${entry.steps > 1 ? ` ×${entry.steps}` : ''}`).join(' → ')}`, { color: THEME.ok, bold: true }, '  '))
 
   for (const [i, wave] of planned.waves.entries()) {
     rows.push(text(ctx, ` wave ${i + 1}${wave.length > 1 ? ` · ${wave.length} in parallel` : ''}`, { bold: true, color: THEME.head }))
@@ -96,7 +97,7 @@ function planRows(ctx: Ctx): RenderElement[] {
     for (const id of wave) {
       const step = planned.steps.find(candidate => candidate.id === id)
 
-      if (step !== undefined) rows.push(text(ctx, `   ${step.id} [${stageOf(step.action)}] ${step.action.title}${step.dependsOn.length > 0 ? `  · after ${step.dependsOn.join(', ')}` : ''}  · ${step.action.agent}`))
+      if (step !== undefined) rows.push(...paragraph(ctx, `   ${step.id} [${stageOf(step.action)}] ${step.action.title}${step.dependsOn.length > 0 ? `  · after ${step.dependsOn.join(', ')}` : ''}  · ${step.action.agent}`, {}, '     '))
     }
   }
 

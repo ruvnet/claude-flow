@@ -15,7 +15,7 @@ When you need a prompt string in a local model's chat template (for llama.cpp, O
 
 ## Steps
 
-1. **Format chat** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_chat_format` with `messages` (`[{role, content}]`) and `template`: one of `llama3`, `mistral`, `chatml`, `phi`, `gemma`, or a model id to auto-detect. Both fields are required. It returns the formatted string.
+1. **Format chat** — call `mcp__plugin_ruflo-core_ruflo__ruvllm_chat_format` with `messages` (`[{role, content}]`) and `template`: one of `llama3`, `mistral`, `chatml`, `phi`, `gemma`, or a model id to auto-detect. Both fields are required. It returns the formatted string. It needs `@ruvector/ruvllm-wasm` (`npm i -g @ruvector/ruvllm-wasm`); without it the call fails with an install hint.
 2. **Create a router** (optional) — `ruvllm_hnsw_create` with `dimensions` (for example 384), `maxPatterns`, `efSearch`. The WASM router holds about 11 patterns at most (ruvllm-wasm v2.0.1), so use it for routing between a few named intents, not for document retrieval. For real document search use `memory_search` or the `ruflo-rag-memory` plugin.
 3. **Add patterns** — `ruvllm_hnsw_add` with `routerId`, a `name`, and an `embedding` whose length equals the router's dimensions (you produce the embedding, for example with `embeddings_generate`).
 4. **Route a query** — `ruvllm_hnsw_route` with `routerId`, the query `embedding`, and `k` (default 3).
