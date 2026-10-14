@@ -145,6 +145,30 @@ describe('scanSettingsForRisk', () => {
       expect(findings).toEqual([]);
     });
   });
+
+  describe('generated Bash allow rules use valid Claude Code prefix-match syntax (#773)', () => {
+    // Claude Code's settings.json validator rejects `Bash(prefix*)` — a bare
+    // "*" with no preceding colon — as invalid: it requires `Bash(prefix:*)`
+    // for prefix matching (see the exact error text quoted in issue #773).
+    // Every Bash() allow rule ruflo generates that ends in a wildcard must
+    // use the colon form, or `claude doctor` reports "Invalid Settings" for
+    // every project `ruflo init` touches.
+    it.each([
+      ['DEFAULT_INIT_OPTIONS', DEFAULT_INIT_OPTIONS],
+      ['MINIMAL_INIT_OPTIONS', MINIMAL_INIT_OPTIONS],
+      ['FULL_INIT_OPTIONS', FULL_INIT_OPTIONS],
+    ])('%s only emits ":*" (never bare "*") wildcard Bash() rules', (_name, options) => {
+      const generated = generateSettings(options) as Record<string, unknown>;
+      const perms = (generated.permissions ?? {}) as { allow?: string[] };
+      const bashRules = (perms.allow ?? []).filter((rule) => rule.startsWith('Bash('));
+      expect(bashRules.length).toBeGreaterThan(0);
+      for (const rule of bashRules) {
+        if (rule.endsWith('*)')) {
+          expect(rule.endsWith(':*)')).toBe(true);
+        }
+      }
+    });
+  });
 });
 
 describe('mergeSettingsForUpgrade surfaces risk warnings without blocking the merge', () => {

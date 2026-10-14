@@ -29,11 +29,16 @@ export function generateSettings(options: InitOptions): object {
   }
 
   // Add permissions
+  // #773 — Claude Code's settings.json validator requires the colon-wildcard
+  // form (`Bash(prefix:*)`) for prefix matching; a bare trailing "*" with no
+  // colon (`Bash(prefix*)`) is rejected as invalid syntax ("Use ':*' for
+  // prefix matching, not just '*'"), which made `claude doctor` report
+  // "Invalid Settings" for every project `ruflo init` touched.
   settings.permissions = {
     allow: [
-      'Bash(npx @claude-flow*)',
-      'Bash(npx claude-flow*)',
-      'Bash(node .claude/*)',
+      'Bash(npx @claude-flow:*)',
+      'Bash(npx claude-flow:*)',
+      'Bash(node .claude/:*)',
       'mcp__claude-flow__*',
     ],
     deny: [
