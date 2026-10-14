@@ -1,6 +1,6 @@
 # ADR 489: `ruflo tui`: the console in a terminal of its own, over the same views
 
-Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phase 2 (Swarm, Events and Missions, page bar and keys, resize, host capability flag) is implemented in PR #4075; phase 3 (the AI page: Codex and OpenRouter, each question after a card) is implemented in PR 2 of the continuation; phase 4 (pictures, looks and motion) is implemented in console 0.44.0; phase 5 (every console view through this host) and phase 6 (actions) are the roadmap and must follow those decisions.
+Status: Accepted. The owner accepted decisions A to E on 2026-10-11 (section 8). Phase 1 (read-only Overview and Cost, `--plain`, publish wiring) is implemented in PR #4059; phase 2 (Swarm, Events and Missions, page bar and keys, resize, host capability flag) is implemented in PR #4075; phase 3 (the AI page: Codex and OpenRouter, each question after a card) is implemented in PR 2 of the continuation; phase 4 (pictures, looks and motion) is implemented in console 0.44.0; phase 5 (every console view through this host, the menu, the go prompt, Back and the mouse) is implemented in the next change; phase 6 (actions) is the roadmap and must follow those decisions.
 
 Date: 2026-10-11
 
@@ -159,7 +159,7 @@ not a replacement and not a second implementation.
    - **Spend.** `--max-spend-usd` (default 0.5) stops the next OpenRouter question once the provider-reported total reaches it. Codex reports no dollars: its turns are counted and its cost reads n/a. The multi-provider ledger (ADR-437) reads Codex's own rollouts and OpenRouter's key usage; this page adds no writer to it.
    - **Not in this PR:** the per-session **workspace-write opt-in**. The host accepts `workspace-write` when built with `allowWrite` and the guard pins it (tests), but the page offers no toggle and the console's Codex argv is read-only, so no write path exists yet; it needs a card that names the files Codex may change, which is phase 4.
 4. **Pictures, looks and motion (done, console 0.44.0).** The kit gains `Raster` (`tui/ansi.ts`): the Grid's cells drawn as coloured glyphs, 24-bit when `COLORTERM` says so and the nearest of the 256 otherwise. A cell is data: a control, escape, invisible, surrogate or wide code point becomes a space, `cells` that are not exactly `columns*rows` u32 triplets (or exceed 200*90) draw nothing, and the secret-line filter still applies. The standalone pane now leads each page with the same `art()` the console uses (title or masthead, the swarm graph and the other pictures), in the console's three looks (Classic BBS default, Orbital, plain; `--look`, `t`), with `--boot` for the start-up screen. Pictures move at `--fps` (default 8, max 30, `--no-anim` or 0 for still): key presses and resizes write a whole frame as before, animation ticks write only the rows that changed with absolute positioning; ticks are skipped while a frame is being written, and stop while the terminal reports focus lost (`ESC[?1004h`). No colour (`NO_COLOR`, `TERM=dumb`), `--no-pictures`, or under 44 columns: the words of each picture, as before. No new network and no new write path. Measured on Linux/tmux: bundle +1.2 KB gzip; about 2-3% of one core and 14-80 KB/s at 8 fps, about 9% and 230 KB/s at 30 fps (Orbital, 200x50 is the worst case). Unverified: Windows, macOS, terminals other than tmux/xterm-256color.
-5. **Every console view through this host (roadmap).** Each view in the console's `VIEWS` list gets a recorded decision in the parity table below (identical, "Claude Code only" with a one-line reason, or needs a host capability), a main menu with grouped navigation, `go <view>` by name and optional mouse reporting with key fallback.
+5. **Every console view through this host (done).** The six pages stay the page bar. Every other console view opens with the console's own body: `0` is the main menu (its keys open entries, `p` is the go prompt), `:` or `/` is the go prompt (name, id, key or prefix, via the console's own `viewOf`), `Esc` or Backspace is Back (a 30-deep history), `--view` takes any page. Each view has a decision in `tui/parity.ts` (`same`, `partial`, `equivalent`, `claude-only`) and a row in the table below; `tests/tui-parity.spec.ts` fails when a view in the console's `VIEWS` has no decision or no row. The terminal renderer now honours a Box's `width` (the board's two groups sit side by side, as on the console) and draws the board's entry labels (they were blank). **Mouse** is opt-in (`--mouse`, SGR reports): a click on a page chip opens it and the wheel scrolls; reports are switched on only with the flag and off on exit, and report bytes are ignored without it. Buttons inside a page are not clickable here, because they act and acting waits for phase 6.
 6. **Actions.** Pressable buttons and fields (an optional lazily loaded input dependency, or hand-rolled), the confirm card, the palette; each write goes through `Runner` as in the mod.
 
 ### Parity with the console (decisions recorded per item; the table is completed in phase 5)
@@ -169,7 +169,46 @@ not a replacement and not a second implementation.
 | Title art, masthead, pictures, looks, boot, animation | Same drawings (phase 4) | `art()` and `picturesOf()` are shared; only the Raster surface differs |
 | Overview, Cost, Swarm, Events, Missions, AI | Shipped | phases 1 to 3 |
 | Ask Claude buttons, Claude control card, prompt-box band, toasts, session-tool server, live session transcript (Room) | Claude Code only | they act on, or read from, a running Claude Code session that this host does not have |
-| Remaining views, main menu, command palette, mouse, settings pages | Roadmap (phase 5/6) | not yet decided per view |
+
+**Per view (checked by `tests/tui-parity.spec.ts`, which fails when a console view has no row here):**
+
+| View | Name | In `ruflo tui` | Why |
+|---|---|---|---|
+| `menu` | Main Menu | same | entries open by their key, as on the console board |
+| `missions` | Missions | partial | the mission record only: entering a goal, planning and research start a Claude turn |
+| `overview` | Overview | same | the Claude-only controls are not drawn |
+| `swarm` | Swarm | same | topology, agents and votes as ruflo wrote them |
+| `hive` | Hive-Mind | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `claims` | Claims | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `workflows` | Workflows | partial | the ruflo swarm side; Claude Code workflow runs are not visible outside a session |
+| `federation` | Federation | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `plugins` | Plugins | partial | what is installed and loaded; "loaded as a mod" is a Claude Code fact and reads n/a |
+| `learning` | Learning | same | router picks, outcomes and the pipeline as on disk |
+| `metaharness` | MetaHarness | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `memory` | Memory | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `cost` | Cost | partial | provider ledger and router counts; Claude Code spend, context and the budget ladder read n/a |
+| `timeline` | Timeline | partial | agent lanes from status reports; Claude Code tool-call lanes need a session |
+| `approvals` | Approvals | partial | shows what waits; answering is a write and waits for the confirm gate of phase 6 |
+| `events` | Events | same | the event stream as it is on disk; Ask Claude is not drawn |
+| `room` | Room | claude-only | it is what people said to Claude in a session, plus a message box; this terminal has neither |
+| `xruv` | x.ruv.io | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `terminal` | Terminal | equivalent | the standalone AI page (Codex or OpenRouter, each question after a card) |
+| `skills` | Skills | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `secure` | Security & Doctor | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `perf` | Performance | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `automate` | Automation | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `neural` | Learning Lab | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `vector` | Vector Lab | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `evolve` | Self-Evolution | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `devtools` | Dev Tools | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `sandbox` | Sandbox | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `market` | Plugin Catalog | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `adrs` | ADRs | partial | read-only here: its action buttons are not drawn until the confirm gate of phase 6 |
+| `whatsnew` | What’s new | same | changelogs of the installed plugins |
+| `themes` | Theme Studio | partial | the look is chosen with t or --look; the colour picker and generated themes are not here yet |
+| `settings` | Settings | partial | shown read-only; changing a setting waits for the confirm gate of phase 6 |
+| `agent` | Agent drill-down | partial | the drill-down from a Swarm selection; selecting needs the host keys, so it says so |
+
 
 ## 5. Risks
 

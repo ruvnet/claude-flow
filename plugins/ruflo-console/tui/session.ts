@@ -8,6 +8,8 @@ import type { Host } from '../hooks/host'
 import { newState, type State } from '../hooks/state'
 import { picturesOf } from '../hooks/views/frames'
 import { BODIES, NARROW } from '../hooks/views/pane'
+import { VIEWS, type ViewId } from '../hooks/state'
+import { PARITY } from './parity'
 import { standalonePane } from '../hooks/views/standalone-pane'
 import { render, terminalKit, type Depth } from './ansi'
 import { aiConfigOf, openAi, type Ai, type AiOptions as AiPageOptions } from './ai'
@@ -23,6 +25,8 @@ export const TUI_VIEWS = ['overview', 'cost', 'swarm', 'events', 'missions', 'ai
 export type TuiView = (typeof TUI_VIEWS)[number]
 /** The pages that are the console's own views. `ai` is the terminal's own page (ADR-489 phase 3): ask Codex or OpenRouter. */
 export type ConsoleView = Exclude<TuiView, 'ai'>
+/** Any page the shell can show: every console view (ADR-489 phase 5, `parity.ts` says what each does here) and the AI page. */
+export type Page = ViewId | 'ai'
 
 /** What the AI page may do. Absent: the page says it is off and the host refuses every spawn, send and key read (phase 2). */
 export type Look = 'bbs' | 'orbital' | 'plain'
@@ -57,10 +61,10 @@ export type Session = {
   /** True when this frame has anything that moves (a picture drawn at fps above 0): the shell redraws on its clock only then. */
   moving: () => boolean
   /** The page now showing. */
-  page: TuiView
+  page: Page
   /** Reads the disk again and runs the page's read-only probes, then returns. Never throws. */
   refresh: () => Promise<void>
-  show: (view: TuiView) => void
+  show: (view: Page) => void
   /** The page as terminal lines, `columns` wide. `rows` is how many the terminal has for it (the AI page fits its conversation to them). */
   frame: (columns: number, depth: Depth, rows?: number) => string[]
   /** Something changed that the screen should show (streamed output): the shell redraws. */
@@ -101,7 +105,7 @@ export function openSession(options: SessionOptions, host?: Host): Session {
   const controller = createController(state, node)
   const ai = page === undefined ? null : openAi(state, node, page)
   const aiStatus: AiStatus = { codex: ai === null ? 'off' : 'checking…', openrouter: ai === null ? 'off' : 'checking…' }
-  let current: TuiView = 'overview'
+  let current: Page = 'overview'
   let cardFits = false
   let isMoving = false
 
@@ -148,11 +152,12 @@ export function openSession(options: SessionOptions, host?: Host): Session {
       }
     },
     show: view => {
-      current = view
+      // A page whose job another page does (the console's AI terminal is this shell's AI page) opens that page.
+      current = view === 'ai' ? 'ai' : (PARITY[view]?.opens ?? view)
 
-      if (view !== 'ai') {
-        state.view = view
-        state.back = view
+      if (current !== 'ai') {
+        state.view = current
+        state.back = current
       }
     },
     frame: (columns, depth, rows = 30) => {
@@ -166,6 +171,13 @@ export function openSession(options: SessionOptions, host?: Host): Session {
         cardFits = drawn.fits
 
         return drawn.lines
+      }
+
+      // A page about a Claude Code session says so in one screen, not as a page of empty cards.
+      if (PARITY[current as ViewId]?.status === 'claude-only') {
+        const entry = VIEWS.find(view => view.id === current)
+
+        return [`${entry?.label ?? current}: Claude Code only`, '', PARITY[current as ViewId].why, '', 'Open it in the ruflo console inside Claude Code. Press 0 for the main menu, Esc to go back.']
       }
 
       // Pictures need colour and room: without either the views say in words what the picture shows (the same fallback the console has below NARROW columns).

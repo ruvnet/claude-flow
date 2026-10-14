@@ -298,12 +298,18 @@ export function render(node: unknown, width: number, depth: Depth): string[] {
 
     if (label.includes('✦')) return []
 
+    // A main-menu entry is a label next to its key chip, and the key is what opens it here (the shell reads it): the words stay, as text.
+    if (typeof props.key === 'string' && props.key.startsWith('menu-go-')) return [cut(` ${label} `, width)]
+
     if (typeof props.key === 'string' && props.key.startsWith('sec-')) return [cut(`${sgr({ bold: true }, depth)}${label.replace(/^[▾▸]\s*/, '')}${depth === 'none' ? '' : RESET}`, width)]
 
     return /^[●○]/.test(label) ? [cut(`${sgr({ dimColor: true }, depth)}${label}  ${depth === 'none' ? '' : RESET}`, width)] : []
   }
 
   if (type !== 'Box') return []
+
+  // A box that asks for a width (the main menu's two groups side by side) is no wider than that, as on the console.
+  if (typeof props.width === 'number' && Number.isFinite(props.width) && props.width >= 3) width = Math.min(width, Math.floor(props.width))
 
   const frame = props.borderStyle === 'round' || props.borderStyle === 'single' ? BORDER[props.borderStyle] : null
   const padX = typeof props.paddingX === 'number' && props.paddingX > 0 ? Math.min(4, Math.floor(props.paddingX)) : 0
