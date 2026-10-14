@@ -1026,7 +1026,7 @@ Already in DB
         {
           id: 'old-1',
           key: 'auto-memory:test.md:Old',
-          metadata: { sourceFile: 'test.md', heading: 'Old', contentHash: 'stale-hash' },
+          metadata: { sourceFile: 'test.md', heading: 'Old', memoryDir: testDir, contentHash: 'stale-hash' },
         },
       ]);
       (backend.bulkDelete as any).mockImplementation(async (ids: string[]) => ids.length);
@@ -1044,7 +1044,7 @@ Already in DB
         {
           id: 'x-1',
           key: 'auto-memory:same.md:Keep',
-          metadata: { sourceFile: 'same.md', heading: 'Keep', contentHash: hashContent('Keep me') },
+          metadata: { sourceFile: 'same.md', heading: 'Keep', memoryDir: testDir, contentHash: hashContent('Keep me') },
         },
       ]);
 
@@ -1061,12 +1061,12 @@ Already in DB
         {
           id: 'a-1',
           key: 'auto-memory:a.md:Shared',
-          metadata: { sourceFile: 'a.md', heading: 'Shared', contentHash: hashContent('Content A') },
+          metadata: { sourceFile: 'a.md', heading: 'Shared', memoryDir: testDir, contentHash: hashContent('Content A') },
         },
         {
           id: 'b-1',
           key: 'auto-memory:b.md:Shared',
-          metadata: { sourceFile: 'b.md', heading: 'Shared', contentHash: 'stale-b-hash' },
+          metadata: { sourceFile: 'b.md', heading: 'Shared', memoryDir: testDir, contentHash: 'stale-b-hash' },
         },
       ]);
       (backend.bulkDelete as any).mockImplementation(async (ids: string[]) => ids.length);
@@ -1086,7 +1086,7 @@ Already in DB
         {
           id: 'ghost-1',
           key: 'auto-memory:ghost.md:Something',
-          metadata: { sourceFile: 'ghost.md', heading: 'Something', contentHash: 'h' },
+          metadata: { sourceFile: 'ghost.md', heading: 'Something', memoryDir: testDir, contentHash: 'h' },
         },
       ]);
 
@@ -1117,7 +1117,7 @@ Already in DB
         {
           id: 'broken-1',
           key: 'auto-memory:broken.md:Stale',
-          metadata: { sourceFile: 'broken.md', heading: 'Stale', contentHash: 'h' },
+          metadata: { sourceFile: 'broken.md', heading: 'Stale', memoryDir: testDir, contentHash: 'h' },
         },
       ]);
       fsSync.mkdirSync(path.join(testDir, 'broken.md'));
@@ -1142,17 +1142,17 @@ Already in DB
         {
           id: 'gone-1',
           key: 'auto-memory:vanished.md:A',
-          metadata: { sourceFile: 'vanished.md', heading: 'A', contentHash: 'h1' },
+          metadata: { sourceFile: 'vanished.md', heading: 'A', memoryDir: testDir, contentHash: 'h1' },
         },
         {
           id: 'gone-2',
           key: 'auto-memory:vanished.md:B',
-          metadata: { sourceFile: 'vanished.md', heading: 'B', contentHash: 'h2' },
+          metadata: { sourceFile: 'vanished.md', heading: 'B', memoryDir: testDir, contentHash: 'h2' },
         },
         {
           id: 'kept-1',
           key: 'auto-memory:present.md:C',
-          metadata: { sourceFile: 'present.md', heading: 'C', contentHash: hashContent('still here') },
+          metadata: { sourceFile: 'present.md', heading: 'C', memoryDir: testDir, contentHash: hashContent('still here') },
         },
       ]);
       (backend.bulkDelete as any).mockImplementation(async (ids: string[]) => ids.length);
@@ -1172,7 +1172,7 @@ Already in DB
         {
           id: 'x-1',
           key: 'auto-memory:a.md:Heading',
-          metadata: { sourceFile: 'a.md', heading: 'Heading', contentHash: 'h' },
+          metadata: { sourceFile: 'a.md', heading: 'Heading', memoryDir: testDir, contentHash: 'h' },
         },
       ]);
 
@@ -1185,6 +1185,54 @@ Already in DB
       expect(backend.bulkDelete).not.toHaveBeenCalled();
       expect(result.deleted).toBe(0);
       expect(skipEvent).toEqual({ file: '*', reason: 'suspicious-empty-directory' });
+    });
+
+    it('scopes delete-sync to this memoryDir — an entry written by a different memoryDir sharing the same backend is untouched (review finding)', async () => {
+      // The same backend can be shared across multiple memory dirs — e.g. the
+      // SessionStart hook's main dir vs. a worktree dir from
+      // worktreeMemoryDir(). Importing one dir must never treat the other
+      // dir's same-named file/heading as "gone" and delete it.
+      (backend.query as any).mockResolvedValue([
+        {
+          id: 'other-dir-1',
+          key: 'auto-memory:shared.md:Heading',
+          metadata: {
+            sourceFile: 'shared.md',
+            heading: 'Heading',
+            memoryDir: '/some/other/worktree/memory/dir',
+            contentHash: 'h',
+          },
+        },
+      ]);
+
+      // testDir has no 'shared.md' at all — if the other dir's entry were
+      // eligible, both the per-file diff and the whole-file-removed pass
+      // would delete it.
+      fsSync.writeFileSync(path.join(testDir, 'present.md'), '## Still Here\nContent\n', 'utf-8');
+
+      const result = await bridge.importFromAutoMemory();
+
+      expect(backend.bulkDelete).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
+    });
+
+    it('a legacy entry with no recorded memoryDir is never delete-sync eligible', async () => {
+      (backend.query as any).mockResolvedValue([
+        {
+          id: 'legacy-1',
+          key: 'auto-memory:legacy.md:Old',
+          metadata: { sourceFile: 'legacy.md', heading: 'Old', contentHash: 'h' }, // no memoryDir field
+        },
+      ]);
+
+      // legacy.md is absent from disk — it would read as "removed from disk"
+      // if the legacy entry were eligible for delete-sync.
+      fsSync.writeFileSync(path.join(testDir, 'present.md'), '## Still Here\nContent\n', 'utf-8');
+
+      const result = await bridge.importFromAutoMemory();
+
+      expect(backend.bulkDelete).not.toHaveBeenCalled();
+      expect(result.deleted).toBe(0);
     });
   });
 

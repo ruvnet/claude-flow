@@ -446,6 +446,7 @@ export class AutoMemoryBridge extends EventEmitter {
           metadata: {
             sourceFile: file,
             heading: entry.heading,
+            memoryDir: this.config.memoryDir,
             importedAt: new Date().toISOString(),
             contentHash,
           },
@@ -846,8 +847,16 @@ export class AutoMemoryBridge extends EventEmitter {
         const hash = entry.metadata?.contentHash as string | undefined;
         if (hash) hashes.add(hash);
 
+        // Delete-sync eligibility is scoped to entries written by THIS
+        // memoryDir. The same backend can be shared across multiple memory
+        // dirs (e.g. the SessionStart hook's main dir vs. a worktree dir
+        // from worktreeMemoryDir()) — without this check, importing one dir
+        // would see the other dir's same-named file/heading as "gone" and
+        // delete it. Legacy entries written before this field existed have
+        // no `memoryDir` and are therefore never delete-sync eligible.
         const sourceFile = entry.metadata?.sourceFile as string | undefined;
-        if (sourceFile && entry.key && entry.id) {
+        const entryMemoryDir = entry.metadata?.memoryDir as string | undefined;
+        if (sourceFile && entry.key && entry.id && entryMemoryDir === this.config.memoryDir) {
           let fileIndex = byFile.get(sourceFile);
           if (!fileIndex) {
             fileIndex = new Map<string, string>();
