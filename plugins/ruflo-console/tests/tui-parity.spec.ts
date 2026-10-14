@@ -150,7 +150,7 @@ describe('getting to every view from the keys', () => {
     for (const ch of 'nonsense') t.press(ch)
     t.press('\r')
     await settle()
-    expect(t.screen()).toContain('no page called "nonsense"')
+    expect(t.screen()).toContain('no page or action called "nonsense"')
     t.press(':')
     for (const ch of 'term') t.press(ch)
     t.press('\r')

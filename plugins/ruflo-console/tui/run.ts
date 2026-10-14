@@ -91,7 +91,7 @@ export function navHit(x: number, columns: number): TuiView | null {
 export function keyLine(columns: number, place = '', own?: readonly string[]): string {
   const pages = `1-${TUI_VIEWS.length}`
   const menu = '0 menu · : go to any page · Esc back'
-  const tiers = own ?? [`${pages} or o c s e m a page · ${menu} · tab next · r refresh · t look · j/k scroll · q quit · read-only`, `${pages} or o c s e m a page · 0 menu · : go · tab next · r refresh · j/k scroll · q quit · read-only`, `${pages} page · 0 menu · : go · Esc back · tab next · r refresh · j/k scroll · q quit`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
+  const tiers = own ?? [`${pages} or o c s e m a page · ${menu} · tab next · r refresh · t look · j/k scroll · q quit · ask first`, `${pages} or o c s e m a page · 0 menu · : go · tab next · r refresh · j/k scroll · q quit · ask first`, `${pages} page · 0 menu · : go · Esc back · tab next · r refresh · j/k scroll · q quit`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
   const fits = tiers.find(line => cells(line + place) <= columns) ?? tiers[tiers.length - 1] as string
 
   return `${fits}${place}`.slice(0, columns)
@@ -214,13 +214,16 @@ function paint(session: Session, io: TuiIO, depth: Depth, scroll: number, memory
   }
 
   // The AI page fits its own conversation to the room and follows the tail; the others scroll.
-  const top = session.page === 'ai' ? 0 : Math.max(0, Math.min(scroll, Math.max(0, lines.length - room)))
-  const place = lines.length > room ? ` · ${top + 1}-${Math.min(lines.length, top + room)}/${lines.length}` : ''
+  // A confirm card (or the last action's result) is pinned under the bar, so scrolling never hides what a y would run.
+  const pinned = session.page === 'ai' ? [] : session.pinned(columns, depth, room)
+  const space = Math.max(1, room - pinned.length)
+  const top = session.page === 'ai' ? 0 : Math.max(0, Math.min(scroll, Math.max(0, lines.length - space)))
+  const place = lines.length > space ? ` · ${top + 1}-${Math.min(lines.length, top + space)}/${lines.length}` : ''
   const footer = `${depth === 'none' ? '' : `${ESC}[2m`}${line !== '' ? clean(line).slice(0, columns) : clean(keyLine(columns, place, session.page === 'ai' && session.ai !== null ? aiKeyTiers(session.ai.mode, session.ai.card !== null) : undefined))}${depth === 'none' ? '' : `${ESC}[0m`}`
 
-  const body = [...lines.slice(top, top + room), ...Array.from({ length: Math.max(0, room - (lines.length - top)) }, () => '')]
+  const body = [...lines.slice(top, top + space), ...Array.from({ length: Math.max(0, space - (lines.length - top)) }, () => '')]
 
-  const screen = [navLine(session.page, columns, depth), ...body, footer]
+  const screen = [navLine(session.page, columns, depth), ...pinned, ...body, footer]
 
   if (tick && !clear) writeTick(io, screen, memory, columns, rows)
   else writeFrame(io, screen, memory, columns, rows, clear)
@@ -271,7 +274,7 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     let prompt: string | null = null
     let notice = ''
     const history: Page[] = []
-    const line = () => (prompt !== null ? `go> ${prompt}▌  (a page name · Enter opens · Esc cancels)` : notice)
+    const line = () => (prompt !== null ? `go> ${prompt}▌  (a page, or an action to ask for · Enter · Esc cancels)` : notice !== '' ? notice : session.page !== 'ai' && session.pending() !== null ? 'y runs the command in the card · n or Esc cancels · the other keys still work' : '')
     const draw = (tick = false) => void (scroll = paint(session, io, depth, scroll, memory, false, tick, line()))
     const reread = async () => {
       await session.refresh()
@@ -293,7 +296,9 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       const name = word.trim().replace(/^(go|open)\s+/i, '')
       const found = name.toLowerCase() === 'ai' ? 'ai' : viewOf(name)
 
-      if (found === null || found === 'agent') notice = `no page called "${clean(name).slice(0, 30)}": try 0 for the menu`
+      // A name that is not a page is an action, asked the console's way: a read runs at once, a change shows a card and waits for a y.
+      if (name.startsWith('>')) notice = session.palette(name.slice(1))
+      else if (found === null || found === 'agent') notice = session.palette(name)
       else open(found)
     }
     const onMouse = (chunk: string): boolean => {
@@ -343,6 +348,12 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
         else if (text.length > 1 && !text.includes(ESC) && prompt.length + text.length <= 40) prompt += clean(text).replace(/[\r\n]/g, '')
 
         return draw()
+      }
+
+      // A waiting card: only a lone y, while the whole card is on screen, runs it; n or Esc drops it (a paste is text, never an answer).
+      if (session.page !== 'ai' && session.pending() !== null) {
+        if (text === 'y' || text === 'Y') return void (session.answer(true), draw())
+        if (text === 'n' || text === 'N' || text === ESC) return void (session.answer(false), draw())
       }
 
       // The main menu's keys are the console's own: an entry opens by its key chip (q still quits, and p is the palette, here the go prompt).

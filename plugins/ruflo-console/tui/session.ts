@@ -5,13 +5,14 @@
  */
 import { createController, type Controller } from '../hooks/controller'
 import type { Host } from '../hooks/host'
-import { newState, type State } from '../hooks/state'
+import { newState, VIEWS, type Pending, type State, type ViewId } from '../hooks/state'
 import { picturesOf } from '../hooks/views/frames'
 import { BODIES, NARROW } from '../hooks/views/pane'
-import { VIEWS, type ViewId } from '../hooks/state'
+import { filterPalette, isUnavailable, paletteEntries } from '../hooks/palette'
 import { PARITY } from './parity'
 import { standalonePane } from '../hooks/views/standalone-pane'
-import { render, terminalKit, type Depth } from './ansi'
+import { clean, render, terminalKit, type Depth } from './ansi'
+import { pinnedLines } from './pinned'
 import { aiConfigOf, openAi, type Ai, type AiOptions as AiPageOptions } from './ai'
 import { aiFrame } from './ai-page'
 import { allowedHostsOf } from './ai-guard'
@@ -62,6 +63,16 @@ export type Session = {
   moving: () => boolean
   /** The page now showing. */
   page: Page
+  /** The waiting confirm card, if any (the console's own `state.pending`). */
+  pending: () => Pending | null
+  /** Lines pinned under the page bar: the confirm card, or the last action's result for 20 s. `room` is the rows the terminal has for them and the page. The card counts as shown only when it is drawn whole. */
+  pinned: (columns: number, depth: Depth, room: number) => string[]
+  /** True when the whole card was on screen in the last frame: only then may a y answer it (#3983). */
+  cardShown: () => boolean
+  /** The best palette match for `word`, started the console's way: a read runs now, a change raises a card and waits. Returns one line saying what happened. */
+  palette: (word: string) => string
+  /** y or n on the waiting card. A yes names the card it answers, as on the console. */
+  answer: (yes: boolean) => void
   /** Reads the disk again and runs the page's read-only probes, then returns. Never throws. */
   refresh: () => Promise<void>
   show: (view: Page) => void
@@ -134,6 +145,34 @@ export function openSession(options: SessionOptions, host?: Host): Session {
       return next
     },
     moving: () => isMoving,
+    pending: () => state.pending,
+    cardShown: () => state.pending !== null && state.shownCard === (state.pending.id ?? null),
+    pinned: (columns, depth, room) => pinnedLines(state, columns, depth, room),
+    palette: word => {
+      const query = word.trim()
+      const lower = query.toLowerCase()
+      // Not the console's loose letters-in-order match: here a typed word must be IN the entry's name (or its id, or start a text command), so a typo never starts an action.
+      const all = paletteEntries(state, Date.now())
+      const best = all.find(entry => entry.id.toLowerCase() === lower) ?? filterPalette(all, query, 'all').find(entry => entry.label.toLowerCase().includes(lower) || (entry.run.kind === 'text' && lower.startsWith(`${entry.run.keyword.toLowerCase()} `)))
+
+      if (query === '' || best === undefined) return `no page or action called "${clean(query).slice(0, 30)}"`
+      if (best.run.kind !== 'spec' && best.run.kind !== 'text') return `"${clean(best.label).slice(0, 50)}" is a page or a Claude Code command: use its name as a page`
+      if (isUnavailable(best)) return `"${clean(best.label).slice(0, 50)}" is not available here`
+
+      state.shownCard = null
+      controller.actions.paletteQuery(query)
+      controller.actions.paletteRun(best.id)
+
+      return state.pending !== null ? `ask: ${clean(best.label).slice(0, 60)} (read the card, then y or n)` : `ran: ${clean(best.label).slice(0, 60)}`
+    },
+    answer: yes => {
+      const card = state.pending
+
+      if (card === null) return
+      if (!yes) return void controller.actions.cancel()
+      // A yes runs the card that was drawn whole and read, never one that was not.
+      if (state.shownCard === (card.id ?? null) && card.id !== undefined) controller.actions.confirm(card.id)
+    },
     refresh: async () => {
       try {
         await ready
@@ -164,6 +203,8 @@ export function openSession(options: SessionOptions, host?: Host): Session {
       state.pane.columns = columns
       state.pane.rows = Math.max(0, rows)
       isMoving = false
+      // The card was not on screen unless this frame (and the shell's pinned rows) draws it whole.
+      if (state.pending === null) state.shownCard = null
 
       if (current === 'ai') {
         const drawn = aiFrame(state, ai, aiStatus, columns, depth, rows)

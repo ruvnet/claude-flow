@@ -11,7 +11,7 @@ import { VIEWS, type ViewId } from '../hooks/state'
 
 export type Parity = { status: 'same' | 'partial' | 'equivalent' | 'claude-only'; why: string; opens?: 'ai' }
 
-const READ_ONLY = 'read-only here: its action buttons are not drawn until the confirm gate of phase 6'
+const READ_ONLY = 'its buttons are not drawn; its actions are asked for by name at the go prompt (:), each after the console card'
 
 export const PARITY: Record<ViewId | 'agent', Parity> = {
   menu: { status: 'same', why: 'entries open by their key, as on the console board' },
@@ -28,7 +28,7 @@ export const PARITY: Record<ViewId | 'agent', Parity> = {
   memory: { status: 'partial', why: READ_ONLY },
   cost: { status: 'partial', why: 'provider ledger and router counts; Claude Code spend, context and the budget ladder read n/a' },
   timeline: { status: 'partial', why: 'agent lanes from status reports; Claude Code tool-call lanes need a session' },
-  approvals: { status: 'partial', why: 'shows what waits; answering is a write and waits for the confirm gate of phase 6' },
+  approvals: { status: 'partial', why: 'shows what waits; answering a vote or a claim is asked for by name at the go prompt, after the card' },
   events: { status: 'same', why: 'the event stream as it is on disk; Ask Claude is not drawn' },
   room: { status: 'claude-only', why: 'it is what people said to Claude in a session, plus a message box; this terminal has neither' },
   xruv: { status: 'partial', why: READ_ONLY },
@@ -46,7 +46,7 @@ export const PARITY: Record<ViewId | 'agent', Parity> = {
   adrs: { status: 'partial', why: READ_ONLY },
   whatsnew: { status: 'same', why: 'changelogs of the installed plugins' },
   themes: { status: 'partial', why: 'the look is chosen with t or --look; the colour picker and generated themes are not here yet' },
-  settings: { status: 'partial', why: 'shown read-only; changing a setting waits for the confirm gate of phase 6' },
+  settings: { status: 'partial', why: 'shown as the standalone defaults; plugin options live in the Claude Code settings and the standalone has no store for them yet (the look is --look/t, the speed --fps)' },
   agent: { status: 'partial', why: 'the drill-down from a Swarm selection; selecting needs the host keys, so it says so' },
 }
 
