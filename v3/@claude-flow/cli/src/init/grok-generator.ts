@@ -12,8 +12,8 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import * as TOML from '@iarna/toml';
+import { grokPackageRoot, grokTemplatesRoot } from './grok-templates.js';
 
 export interface GrokInitOptions {
   targetDir: string;
@@ -64,24 +64,7 @@ export interface GrokInitResult {
   userConfig: GrokUserConfigResult;
 }
 
-function packageRoot(): string {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.resolve(here, '../../..'), // dist/src/init → package root
-    path.resolve(here, '../..'), // src/init → package root
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(path.join(c, 'templates', 'grok', 'config.toml'))) {
-      return c;
-    }
-  }
-  return candidates[0];
-}
-
-/** templates/grok inside the installed @claude-flow/cli package. */
-export function grokTemplatesRoot(): string {
-  return path.join(packageRoot(), 'templates', 'grok');
-}
+export { grokTemplatesRoot };
 
 function packageVersion(root: string): string {
   try {
@@ -100,7 +83,7 @@ function packageVersion(root: string): string {
  * node_modules) points at that checkout's CLI, since its version may not be
  * published yet.
  */
-export function rufloMcpLaunch(root: string = packageRoot()): GrokMcpLaunch {
+export function rufloMcpLaunch(root: string = grokPackageRoot()): GrokMcpLaunch {
   const version = packageVersion(root);
   const published = root.split(path.sep).includes('node_modules');
   if (!published) {

@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateText } from './validate-input.js';
-import { grokTemplatesRoot } from '../init/grok-generator.js';
+import { grokTemplatesRoot } from '../init/grok-templates.js';
 
 type BusResult = Record<string, unknown>;
 type BusOp = (projectRoot: string, opts: Record<string, unknown>) => BusResult | Promise<BusResult>;
