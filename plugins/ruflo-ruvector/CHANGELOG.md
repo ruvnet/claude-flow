@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ruvector`.
 
+## 0.3.6 — 2026-10-14
+- fix: pin ruvector@0.3.3, which bundles the ONNX wasm that 0.2.25 lacks, so `embed text` works with no add-on; drop the `ruvector-onnx-embeddings-wasm` remedy that never fixed it, and refresh the limitation tables against 0.3.3 (`optimize`, `force-learn`, `midstream` now run; 97 MCP tools) (#4158)
+
 ## 0.3.5 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 
