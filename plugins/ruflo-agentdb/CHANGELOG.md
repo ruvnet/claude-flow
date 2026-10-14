@@ -2,6 +2,14 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-agentdb`.
 
+## 0.4.9 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.4.8 — 2026-10-11
+- fix: vector-search no longer cites the retired 12,500x headline as current and no longer claims millions-of-vectors capacity that was never measured (measured at N=5k and N=20k)
+- fix: agentdb tool count corrected from 15 to 20; documented the graph-query, graph-pathfinder and the three destructive delete tools (with a confirm-first rule)
+- chore: ruvector pin 0.2.25 -> 0.2.27 in the agent doc, matching the CLI's own dependency
+
 ## 0.4.7 — 2026-10-05
 - fix: NFKC-fold recalled memories and judge key/value pairs before attaching (ADR-450 T5), 0.4.7
 

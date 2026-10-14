@@ -33,6 +33,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import { execFileSync } from 'child_process';
 import { getMemoryRoot } from './memory-initializer.js';
 import { encodeEmbedding } from './embedding-quantization.js';
 import { loadBetterSqlite3 } from './shared-sqlite.js';
@@ -57,19 +58,42 @@ import { isEncryptedBlob } from '../encryption/vault.js';
 // dbPath (not once per process — a process can legitimately touch more
 // than one encrypted store via a custom `dbPath` argument).
 
+/** Child-process body: print the first `argv[2]` bytes of `argv[1]` as hex. */
+const HEADER_READER =
+  "const fs=require('fs');const fd=fs.openSync(process.argv[1],'r');const b=Buffer.alloc(Number(process.argv[2]));" +
+  "const n=fs.readSync(fd,b,0,b.length,0);process.stdout.write(b.subarray(0,n).toString('hex'))";
+const HEADER_READ_TIMEOUT_MS = 5000;
+
 /** Read just the first `len` bytes of a file without loading the whole file
- * into memory. Mirrors the pattern in commands/doctor.ts's readHeaderBytes
- * (not imported from there — this is a memory-layer module and must not
- * depend on the command layer). */
+ * into memory.
+ *
+ * #4040: on POSIX this never opens the file in THIS process. close(2) on any
+ * descriptor for an inode drops every advisory lock the process holds on it
+ * (https://www.sqlite.org/howtocorrupt.html), including the ones SQLite's own
+ * live handle holds - a second process then believes it is the only
+ * connection and checkpoints/deletes the WAL under us. This module (and the
+ * shared AgentDB handle) can own such a handle, so the header is read by a
+ * short-lived child: empty environment, one bounded read, 5 s timeout. Windows
+ * byte-range locks are per handle, not per process, so it reads in-process. */
 function readHeaderBytes(filePath: string, len: number): Buffer {
-  const fd = fs.openSync(filePath, 'r');
-  try {
-    const buf = Buffer.alloc(len);
-    const bytesRead = fs.readSync(fd, buf, 0, len, 0);
-    return buf.subarray(0, bytesRead);
-  } finally {
-    fs.closeSync(fd);
+  if (process.platform === 'win32') {
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(len);
+      const bytesRead = fs.readSync(fd, buf, 0, len, 0);
+      return buf.subarray(0, bytesRead);
+    } finally {
+      fs.closeSync(fd);
+    }
   }
+  const hex = execFileSync(process.execPath, ['-e', HEADER_READER, filePath, String(len)], {
+    env: {},
+    timeout: HEADER_READ_TIMEOUT_MS,
+    maxBuffer: len * 2 + 64,
+    stdio: ['ignore', 'pipe', 'ignore'],
+    encoding: 'utf8',
+  });
+  return Buffer.from(hex, 'hex');
 }
 
 // RFE1 wire format is magic(4) + iv(12) + ciphertext(N) + tag(16); the

@@ -1,6 +1,6 @@
 import type { RenderElement } from 'claude-code'
 
-import { DOCTOR_COMPONENTS, isSecureResult, SECURE, SECURE_TEXT, secMemo, SEVERITIES, type SecCost, type Severity } from '../secure'
+import { countText, DOCTOR_COMPONENTS, isSecureResult, SECURE, SECURE_TEXT, secMemo, SEVERITIES, type SecCost, type Severity } from '../secure'
 import { slot } from './attention'
 import { spinAt } from '../spinner'
 import { sentryRows } from './sentries'
@@ -143,7 +143,7 @@ export function meterRows(ctx: Ctx): RenderElement[] {
       row(ctx, [
         ctx.kit.Text({ bold: n > 0, color: n > 0 ? SEVERITY_COLOR[level]() : THEME.info, dimColor: n === 0, children: ` ${level.padEnd(9)}` }),
         ctx.kit.Text({ color: SEVERITY_COLOR[level](), children: '█'.repeat(filled) }),
-        ctx.kit.Text({ dimColor: true, children: `${'░'.repeat(width - filled)} ${n}` }),
+        ctx.kit.Text({ dimColor: true, children: `${'░'.repeat(width - filled)} ${countText(findings, level)}` }),
       ], `meter-${level}`),
     )
   }
@@ -261,7 +261,7 @@ export function secureView(ctx: Ctx): RenderElement {
       ctx,
       'sec-findings',
       'Findings',
-      findings === null ? 'none measured yet' : `${SEVERITIES.map(level => `${findings.counts[level]} ${level}`).join(' · ')} · ${ago(findings.atMs, nowMs)}`,
+      findings === null ? 'none measured yet' : `${SEVERITIES.map(level => `${countText(findings, level)} ${level}`).join(' · ')}${(findings.unreadable ?? []).length > 0 ? ' · counts unreadable' : ''} · ${ago(findings.atMs, nowMs)}`,
       [...meterRows(ctx), ...anatoleMeterRows(ctx), ...(findings === null ? [] : [sendFindingsRow(ctx)])],
       true,
     ),

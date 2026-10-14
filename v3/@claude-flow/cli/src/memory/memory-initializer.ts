@@ -18,7 +18,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createRequire } from 'node:module';
-import { readFileMaybeEncrypted, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
+import { readFileMaybeEncrypted, writeDbImagePreservingFormat, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
 import { validateIdentifier } from '../mcp-tools/validate-input.js';
 
@@ -1425,7 +1425,7 @@ export async function ensureSchemaColumns(dbPath: string, options: { encryptWrit
       if (modified) {
         // Save updated database
         const data = db.export();
-        writeFileRestricted(dbPath, Buffer.from(data), { encrypt: options.encryptWrites ?? true });
+        writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
       }
 
       db.close();
@@ -2212,7 +2212,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs();
 
-      const fileBuffer = fs.readFileSync(path_);
+      const fileBuffer = readFileMaybeEncrypted(path_, null);
       const db = new SQL.Database(fileBuffer);
 
       // Apply decay: confidence *= exp(-decay_rate * days_since_last_use)
@@ -2233,7 +2233,7 @@ export async function applyTemporalDecay(dbPath?: string): Promise<{
 
       // Save (atomic — issue #2584: a torn full-image flush corrupts the store)
       const data = db.export();
-      writeFileAtomic(path_, Buffer.from(data));
+      writeDbImagePreservingFormat(path_, data);
       db.close();
 
       return {
@@ -2460,28 +2460,8 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
       }
     }
 
-    // Legacy fallback: Check for agentic-flow core embeddings
-    const agenticFlow = await import('agentic-flow').catch(() => null);
-
-    if (agenticFlow && (agenticFlow as any).embeddings) {
-      if (verbose) {
-        console.log('Loading agentic-flow embedding model...');
-      }
-
-      embeddingModelState = {
-        loaded: true,
-        model: (agenticFlow as any).embeddings,
-        tokenizer: null,
-        dimensions: 768
-      };
-
-      return {
-        success: true,
-        dimensions: 768,
-        modelName: 'agentic-flow',
-        loadTime: Date.now() - startTime
-      };
-    }
+    // No agentic-flow root-entry fallback: no published root exports
+    // `embeddings`, and importing it runs its CLI main() in 3.0.0-alpha.x.
 
     // No ONNX model available - use fallback
     embeddingModelState = {
@@ -3120,7 +3100,7 @@ export async function storeEntry(options: {
 
       // Save
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data);
       db.close();
     });
 
@@ -3477,6 +3457,8 @@ export async function listEntries(options: {
   provenanceFilter?: string[];
   /** ADR-472: include each entry's embedding as int8+scale (`embeddingQ8`); at most MAX_LIST_EMBEDDINGS rows. Read-only. */
   includeEmbedding?: boolean;
+  /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only; normal reads hide them. */
+  includeExpired?: boolean;
 }): Promise<{
   success: boolean;
   entries: {
@@ -3487,6 +3469,8 @@ export async function listEntries(options: {
     accessCount: number;
     createdAt: string;
     updatedAt: string;
+    /** #4056: epoch ms the row expires at; null when it never does. */
+    expiresAt?: number | null;
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
@@ -3553,7 +3537,7 @@ export async function listEntries(options: {
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
     // Get total count
-    const whereClauses = [liveMemoryRowSql()];
+    const whereClauses = [liveMemoryRowSql({ includeExpired: options.includeExpired })];
     const whereParams: string[] = [];
     if (namespace) {
       whereClauses.push('namespace = ?');
@@ -3579,7 +3563,7 @@ export async function listEntries(options: {
     const safeOffset = parseInt(String(offset), 10) || 0;
     // #2120 — same NULL-as-active acceptance as the count above.
     const listStmt = db.prepare(
-      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
        FROM memory_entries WHERE ${whereSql}
        ORDER BY updated_at DESC LIMIT ? OFFSET ?`
     );
@@ -3598,6 +3582,7 @@ export async function listEntries(options: {
       accessCount: number;
       createdAt: string;
       updatedAt: string;
+      expiresAt?: number | null;
       hasEmbedding: boolean;
       content?: string;
       provenanceType?: string;
@@ -3606,8 +3591,8 @@ export async function listEntries(options: {
 
     if (result[0]?.values) {
       for (const row of result[0].values) {
-        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal] = row as [
-          string, string, string, string, string | null, number, string, string, string | null
+        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal] = row as [
+          string, string, string, string, string | null, number, string, string, string | null, number | null
         ];
         const entry: {
           id: string;
@@ -3617,6 +3602,7 @@ export async function listEntries(options: {
           accessCount: number;
           createdAt: string;
           updatedAt: string;
+          expiresAt?: number | null;
           hasEmbedding: boolean;
           content?: string;
           provenanceType?: string;
@@ -3631,6 +3617,7 @@ export async function listEntries(options: {
           accessCount: accessCount || 0,
           createdAt: createdAt || new Date().toISOString(),
           updatedAt: updatedAt || new Date().toISOString(),
+          expiresAt: expiresAtVal ?? null,
           hasEmbedding: !!embedding && embedding.length > 10,
           provenanceType: provenanceTypeVal || 'unknown'
         };
@@ -3766,7 +3753,7 @@ export async function getEntry(options: {
 
       // Save updated database
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: true });
+      writeDbImagePreservingFormat(dbPath, data);
 
       db.close();
 
@@ -3933,7 +3920,7 @@ export async function deleteEntry(options: {
 
       // Save updated database
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: options.encryptWrites ?? true });
+      writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
 
       db.close();
 
@@ -4126,7 +4113,7 @@ export async function purgeNamespace(options: {
       const remainingEntries = (countResult[0]?.values?.[0]?.[0] as number) || 0;
 
       const data = db.export();
-      writeFileRestricted(dbPath, Buffer.from(data), { encrypt: options.encryptWrites ?? true });
+      writeDbImagePreservingFormat(dbPath, data, { encrypt: options.encryptWrites ?? true });
       db.close();
 
       if (deletedCount > 0 && hnswIndex?.entries) {

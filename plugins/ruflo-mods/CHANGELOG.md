@@ -2,6 +2,18 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-mods`.
 
+## 0.6.1 — 2026-10-12
+- fix: root-delete guard expands brace lists (`rm -rf {/*,}`), judges deep nesting by tokens instead of a literal phrase, catches fork-bomb definitions in any spacing or name, and keeps its option checks linear (#4093, thanks @proffesor-for-testing)
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+- docs: `refuse-risky` refuses nearly every ruflo mod unless `modTrustAllow` names it; the README now says so and how to build the list from `observe` (#4095)
+
+## 0.6.0 — 2026-10-11
+- feat: option `selfCheck` (default on): once per session, a toast when an enabled ruflo plugin (ruflo-console, ruflo-swarm) is missing from the ruflo marketplace clone and has no cached install, which makes Claude Code skip it without a word. The line is fixed text with the repair (`claude plugin marketplace update ruflo`); read-only, fail-open, nothing for the model.
+- chore: smoke checks that `/ruflo-mods` stays an alias of `/ruflo mods` (ADR-406) and that the self-check cannot write or echo repository text.
+
+## 0.5.1 — 2026-10-10
+- fix: the attention row says STALE when the console's summary is older than 15 minutes (three missed 5-minute heartbeats) or carries no believable time, so a closed console or a turned-off session workspace no longer shows its last counts as current (#3981)
+
 ## 0.5.0 — 2026-10-09
 - feat: option `grounding` (default off): `/ruflo-mods` shows whether the optional third-party ruvnet-brain plugin is on, not installed, installed but disabled, or unknown; detect-only, no event hooked, nothing blocked or written (ADR-487)
 
@@ -10,7 +22,6 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 
 ## 0.3.16 — 2026-10-07
 - feat: shared toast system with levels, dedupe, persistence and Settings (ADR-477)
-- feat: shared toast policy and its call sites (ADR-477), work in progress
 - fix: a toast needs no engine.create (bind at session.start too), a throwing clock falls back to the wall clock; update the cost ladder expectati…
 
 ## 0.3.15 — 2026-10-07

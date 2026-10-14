@@ -8,7 +8,7 @@
  * nothing a view clips to its width overflows the frame.
  */
 import type { Ctx } from './common'
-import { THEME } from './common'
+import { isOrbital, THEME } from './common'
 import { HEADS, SPACERS } from './marks'
 
 /** Columns a card takes from the page width: border and padding, both sides. */
@@ -42,7 +42,7 @@ export function withCards(kit: Ctx['kit'], accent?: string): Ctx['kit'] {
     const out: unknown[] = []
     let card: unknown[] | null = null
     const close = () => {
-      if (card !== null) out.push(kit.Box({ key: `card-${made++}`, flexDirection: 'column', borderStyle: 'round', borderColor: accent ?? THEME.info, paddingX: 1, children: card as never }))
+      if (card !== null) out.push(kit.Box({ key: `card-${made++}`, flexDirection: 'column', borderStyle: isOrbital() ? 'single' : 'round', borderColor: isOrbital() ? THEME.head : accent ?? THEME.info, paddingX: 1, children: card as never }))
       card = null
     }
 

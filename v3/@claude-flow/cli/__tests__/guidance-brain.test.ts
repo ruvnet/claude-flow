@@ -50,7 +50,7 @@ describe('Ruflo capability brain', () => {
     expect(auth.riskFlags).toEqual(
       expect.arrayContaining(['network', 'credential-pii', 'approval']),
     );
-    expect(brain.cliCommands).toHaveLength(52);
+    expect(brain.cliCommands).toHaveLength(53);
   });
 
   it('does not confuse registration with runtime health or authorization', () => {

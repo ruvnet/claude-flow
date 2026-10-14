@@ -266,19 +266,22 @@ describe('CapabilityEnvelope', () => {
       resource: 'src/app.ts',
       tool: 'apply_patch',
       concurrency: 2,
+      costUsd: 0,
     }, parent, 1_000).allowed).toBe(true);
     expect(checkCapabilityEnvelope({
       type: 'code.write',
       resource: 'src/app.ts',
       tool: 'apply_patch',
       network: true,
+      costUsd: 0,
+      concurrency: 1,
     }, parent, 1_000)).toEqual({ allowed: false, reason: 'network-outside-envelope' });
   });
 
   it('enforces delegated envelope boundaries even in legacy mode', () => {
     const engine = new AgenticPolicyEngine({ mode: 'legacy', now: () => 1_000 });
     const decision = engine.evaluate(request({
-      action: { type: 'code.write', resource: 'src/app.ts', tool: 'apply_patch', network: true },
+      action: { type: 'code.write', resource: 'src/app.ts', tool: 'apply_patch', network: true, costUsd: 0, concurrency: 1 },
       context: { envelope: parent },
     }));
     expect(decision.outcome).toBe('denied');

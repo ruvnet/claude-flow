@@ -217,3 +217,25 @@ the update toasts are in `plugins/ruflo-console/hooks/update-flow.ts` (see ADR-4
 ### What's new
 
 The What's new page (ADR-478) raises one console-source info toast per new version.
+
+## Addendum 2026-10-11: what the engine does with a toast's text (measured)
+
+Colour and animation in a toast were asked for. A spike on Claude Code 2.1.289 (interactive, in tmux; a throwaway mod calling `$.ui.toast` once per case, five seconds apart, `capture-pane -e`) shows what the engine draws:
+
+| text in the toast | what the engine drew |
+|---|---|
+| plain text | drawn, in a one-slot box in the header |
+| `✓ ⚠ ✗ › ⏳ 🔥 ▶` | drawn as written |
+| SGR colour (`ESC[38;5;208m`, bold, red) | the ESC byte becomes U+FFFD and the rest (`[38;5;208m`) is drawn as literal text: **no colour** |
+| OSC 8 link | swallowed with the link text; no hyperlink |
+| OSC 0 (window title) | not run; ESC and BEL become U+FFFD, the rest is drawn |
+| bidi override (U+202E) | becomes U+FFFD |
+| carriage return, `ESC[2K`, `ESC[1G` | become U+FFFD; nothing is cleared or overwritten |
+
+Four calls made in the same instant leave one visible toast: the slot shows the newest, so a toast is not a stack. Decisions:
+
+- **Icons only.** The level prefixes (`› ✓ ⚠ ✗`) of section 2.2 are the supported styling. Colour cannot be carried by the text, and the washing in section 2.2 (escapes removed first) is therefore not a loss.
+- **No animation through toasts.** A static line in a one-slot box. Animation and colour belong to a surface the console draws itself (a band or a pane), not to `$.ui.toast`. That is not built here.
+- The engine's own neutralising (U+FFFD for controls) is a second layer under ours, not a reason to relax ours: a plugin's text is washed before it reaches the engine.
+
+Not measured: Windows terminals, other terminals than tmux, the desktop and VS Code surfaces.

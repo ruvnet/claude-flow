@@ -48,6 +48,8 @@ observe correlate <agent-id>         # Correlate all telemetry for an agent
 | `swarm_span_duration_ms` | Histogram | Span durations for tracing |
 | `memory_operations_total` | Counter | AgentDB read/write counts |
 
+**What produces this data.** The plugin reads and analyses records in the `observability` namespace; ruflo itself does not write spans or metric records there automatically (checked in `v3/@claude-flow/cli/src` and the helpers). Something has to store them, for example your own hooks or agents calling `memory_store` with `namespace: "observability"` and a `spanId` / `parentSpanId` / `taskId` / `startTime` / `endTime` shape, or the metric names above. With no records, `observe-trace` and `observe-metrics` report "nothing recorded" and stop; they do not reconstruct a trace from guesses. The metric names are the convention this plugin looks for, not a built-in exporter.
+
 ## Trace Hierarchy
 
 ```

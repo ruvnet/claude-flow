@@ -1,0 +1,449 @@
+TAP version 13
+# Subtest: \#4086 status enumerates all keys and retrieves exact current values
+ok 1 - \#4086 status enumerates all keys and retrieves exact current values
+  ---
+  duration_ms: 1.917661
+  ...
+# Subtest: \#4087 every explicit phase agent resolves to a shipped plugin agent
+ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
+  ---
+  duration_ms: 1.79896
+  ...
+# Subtest: \#4088 SPARC command references resolve to the shipped command filename
+ok 3 - \#4088 SPARC command references resolve to the shipped command filename
+  ---
+  duration_ms: 3.720211
+  ...
+# Subtest: \#4086 initialize active state and timestamp every phase/gate state write
+not ok 4 - \#4086 initialize active state and timestamp every phase/gate state write
+  ---
+  duration_ms: 2.341811
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:41:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /"status": "active"/. Input:
+
+    ' <feature>`\n' +
+      'Initialize a new SPARC workflow for the given feature:\n' +
+      '1. Create a feature slug from the feature name (lowercase, hyphenated)\n' +
+      '2. Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, key `current-phase-{slug}`, value `{ "phase": 1, "phaseName": "Specification", "feature": "<feature>", "startedAt": "<ISO timestamp>", "gateAttempts": 0, "artifacts": [] }`\n' +
+      '3. Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `spec-{slug}`, value `{ "status": "pending", "requirements": [], "acceptanceCriteria": [], "constraints": [], "edgeCases": [] }`\n' +
+      '4. Display: "SPARC workflow initialized for **<feature>**. Current phase: **1 - Specification**. Run `/ruflo-sparc:ruflo-sparc status` to view progress or begin the specification phase with `/ruflo-sparc:sparc-spec <feature-description>`."\n'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+     <feature>`
+    Initialize a new SPARC workflow for the given feature:
+    1. Create a feature slug from the feature name (lowercase, hyphenated)
+    2. Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, key `current-phase-{slug}`, value `{ "phase": 1, "phaseName": "Specification", "feature": "<feature>", "startedAt": "<ISO timestamp>", "gateAttempts": 0, "artifacts": [] }`
+    3. Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `spec-{slug}`, value `{ "status": "pending", "requirements": [], "acceptanceCriteria": [], "constraints": [], "edgeCases": [] }`
+    4. Display: "SPARC workflow initialized for **<feature>**. Current phase: **1 - Specification**. Run `/ruflo-sparc:ruflo-sparc status` to view progress or begin the specification phase with `/ruflo-sparc:sparc-spec <feature-description>`."
+
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:42:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4086 active status filters explicit completion and orders legacy timestamps
+not ok 5 - \#4086 active status filters explicit completion and orders legacy timestamps
+  ---
+  duration_ms: 0.4607
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:51:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /Exclude.*status === "complete"/. Input:
+
+    '`\n' +
+      'Show current SPARC phase and gate check results using exact reads:\n' +
+      '1. Call `mcp__plugin_ruflo-core_ruflo__memory_list` with namespace `sparc-state`, `limit: 50`, `offset: 0`. Continue with `offset += entries.length` until offset reaches `total`. A listing error or an empty page before `total` means incomplete status; report it, never claim no workflows.\n' +
+      '2. Keep keys starting with `current-phase-`. For each key call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with that exact key and namespace `sparc-state`. Listing metadata is not phase state. Decode the returned value if JSON-encoded and display the feature, slug, current phase, start time, gate attempts, and completion status. A missing/malformed value is unavailable, not a pending workflow. Do not infer the current phase from a gate or artifact.\n' +
+      '3. Enumerate namespace `sparc-gates` with the same `limit`, `offset`, and `total` pagination. For each feature keep only keys matching `gate-{phase}-{exact-slug}-{timestamp}` (phase 1–5, complete slug match, timestamp suffix). Retrieve each matching key exactly from `sparc-gates`; sort chronologically. Do not mix a slug with its prefix neighbors.\n' +
+      "4. Show each gate's phase, passed/failed status, criteria and blockers. Gate history describes past checks; only `current-phase-{slug}` defines current state. Report retrieval failures and concurrent changes as incomplete; a multi-call read is not an atomic snapshot.\n" +
+      '5. Display a progress bar based on the retrieved current phase: `[=====>    ] Phase 3/5 — Architecture`.\n'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    `
+    Show current SPARC phase and gate check results using exact reads:
+    1. Call `mcp__plugin_ruflo-core_ruflo__memory_list` with namespace `sparc-state`, `limit: 50`, `offset: 0`. Continue with `offset += entries.length` until offset reaches `total`. A listing error or an empty page before `total` means incomplete status; report it, never claim no workflows.
+    2. Keep keys starting with `current-phase-`. For each key call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with that exact key and namespace `sparc-state`. Listing metadata is not phase state. Decode the returned value if JSON-encoded and display the feature, slug, current phase, start time, gate attempts, and completion status. A missing/malformed value is unavailable, not a pending workflow. Do not infer the current phase from a gate or artifact.
+    3. Enumerate namespace `sparc-gates` with the same `limit`, `offset`, and `total` pagination. For each feature keep only keys matching `gate-{phase}-{exact-slug}-{timestamp}` (phase 1–5, complete slug match, timestamp suffix). Retrieve each matching key exactly from `sparc-gates`; sort chronologically. Do not mix a slug with its prefix neighbors.
+    4. Show each gate's phase, passed/failed status, criteria and blockers. Gate history describes past checks; only `current-phase-{slug}` defines current state. Report retrieval failures and concurrent changes as incomplete; a multi-call read is not an atomic snapshot.
+    5. Display a progress bar based on the retrieved current phase: `[=====>    ] Phase 3/5 — Architecture`.
+
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:53:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4086 advance closes phase five only after its gate and refuses completed records
+not ok 6 - \#4086 advance closes phase five only after its gate and refuses completed records
+  ---
+  duration_ms: 0.41762
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:59:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /status === "complete".*refuse/. Input:
+
+    '`\n' +
+      'Attempt to pass the current gate and advance to the next phase:\n' +
+      '1. Call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` in `sparc-state` with exact key `current-phase-{slug}`\n' +
+      '2. Retrieve phase artifacts from `sparc-phases` namespace\n' +
+      '3. Run the gate check for the current phase:\n' +
+      '   - **Phase 1 gate**: Verify spec has >= 3 acceptance criteria, explicit constraints, and edge cases identified\n' +
+      '   - **Phase 2 gate**: Verify pseudocode covers all acceptance criteria, error paths are explicit, complexity annotated\n' +
+      '   - **Phase 3 gate**: Verify architecture addresses all constraints, API contracts are typed, no circular dependencies\n' +
+      '   - **Phase 4 gate**: Verify all acceptance criteria have passing tests, code review approved, coverage >= 80%\n' +
+      '   - **Phase 5 gate**: Verify all tests green, docs complete, deployment checklist verified, traceability matrix complete\n' +
+      '4. Store gate result in `sparc-gates` namespace with key `gate-{phase}-{slug}-{timestamp}`\n' +
+      '5. If gate passes:\n' +
+      '   - Increment phase in `sparc-state`\n' +
+      '   - Display: "Gate **passed**. Advancing to Phase {N} — {PhaseName}."\n' +
+      '   - If advancing past Phase 5: "SPARC workflow **complete** for {feature}. All gates passed."\n' +
+      '6. If gate fails:\n' +
+      '   - Increment `gateAttempts` in state\n' +
+      '   - Display: "Gate **failed**. Blockers:" followed by the list of failing criteria\n' +
+      '   - Suggest specific actions to address each blocker\n'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    `
+    Attempt to pass the current gate and advance to the next phase:
+    1. Call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` in `sparc-state` with exact key `current-phase-{slug}`
+    2. Retrieve phase artifacts from `sparc-phases` namespace
+    3. Run the gate check for the current phase:
+       - **Phase 1 gate**: Verify spec has >= 3 acceptance criteria, explicit constraints, and edge cases identified
+       - **Phase 2 gate**: Verify pseudocode covers all acceptance criteria, error paths are explicit, complexity annotated
+       - **Phase 3 gate**: Verify architecture addresses all constraints, API contracts are typed, no circular dependencies
+       - **Phase 4 gate**: Verify all acceptance criteria have passing tests, code review approved, coverage >= 80%
+       - **Phase 5 gate**: Verify all tests green, docs complete, deployment checklist verified, traceability matrix complete
+    4. Store gate result in `sparc-gates` namespace with key `gate-{phase}-{slug}-{timestamp}`
+    5. If gate passes:
+       - Increment phase in `sparc-state`
+       - Display: "Gate **passed**. Advancing to Phase {N} — {PhaseName}."
+       - If advancing past Phase 5: "SPARC workflow **complete** for {feature}. All gates passed."
+    6. If gate fails:
+       - Increment `gateAttempts` in state
+       - Display: "Gate **failed**. Blockers:" followed by the list of failing criteria
+       - Suggest specific actions to address each blocker
+
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:61:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4086 refine closes exact state once only after final gate evidence passes
+not ok 7 - \#4086 refine closes exact state once only after final gate evidence passes
+  ---
+  duration_ms: 0.80853
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:69:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /final gate evidence.*passes/. Input:
+
+    '---\n' +
+      'name: sparc-refine\n' +
+      'description: Run the SPARC Refinement and Completion phases — review code, improve test coverage, validate against specification, and generate documentation\n' +
+      'argument-hint: ""\n' +
+      'allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end mcp__plugin_ruflo-core_ruflo__neural_train mcp__plugin_ruflo-core_ruflo__neural_predict Bash Read Write Edit\n' +
+      '---\n' +
+      '\n' +
+      '# SPARC Refinement + Completion\n' +
+      '\n' +
+      'Run Phases 4 and 5 of the SPARC methodology: iteratively improve through code review and testing, then finalize with validation, documentation, and deployment readiness.\n' +
+      '\n' +
+      '## When to use\n' +
+      '\n' +
+      'After the Architecture phase is complete and its gate has been passed. This skill covers the final two phases that bring a feature from implemented to production-ready.\n' +
+      '\n' +
+      '## Steps\n' +
+      '\n' +
+      '### Phase 4 — Refinement\n' +
+      '\n' +
+      '1. **Retrieve all prior artifacts** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-phases` and query for the feature slug. Load spec (acceptance criteria), pseudocode, and architecture.\n' +
+      '\n' +
+      '2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with namespace `sparc-state` and exact key `current-phase-{feature-slug}` to confirm we are in Phase 4.\n' +
+      '\n' +
+      '3. **Code review** — review the implementation against:\n' +
+      '   a. **Specification compliance**: does every acceptance criterion have a corresponding code path?\n' +
+      '   b. **Architecture adherence**: do modules follow the defined boundaries and dependency rules?\n' +
+      '   c. **Pseudocode fidelity**: does the implementation match the designed algorithms?\n' +
+      '   d. **Code quality**: naming conventions, single responsibility, error handling, no dead code\n' +
+      '   e. Document findings as review comments\n' +
+      '\n' +
+      '4. **Test coverage analysis**:\n' +
+      '   a. Run existing tests and measure coverage\n' +
+      '   b. Identify uncovered acceptance criteria\n' +
+      '   c. Write missing tests:\n' +
+      '      - Unit tests for each public function\n' +
+      '      - Integration tests for cross-module interactions\n' +
+      '      - Edge case tests for each identified edge case from the spec\n' +
+      '   d. Target coverage >= 80% on new code\n' +
+      '\n' +
+      '5. **Performance validation** — if the spec includes performance constraints:\n' +
+      '   a. Profile critical paths identified in the pseudocode\n' +
+      '   b. Compare measured performance against constraint thresholds\n' +
+      '   c. Optimize if thresholds are not met\n' +
+      '\n' +
+      '6. **Iterate** — repeat steps 3-5 until:\n' +
+      '   - All acceptance criteria have passing tests\n' +
+      '   - Code review has no critical or high-severity issues\n' +
+      '   - Coverage meets the threshold\n' +
+      '   - Performance constraints are satisfied\n' +
+      '\n' +
+      '7. **Store refinement artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `refine-{feature-slug}`, value: `{ status: "complete", reviewFindings: [...], coveragePercent: N, performanceResults: {...}, iterations: N }`\n' +
+      '\n' +
+      '8. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with refinement summary\n' +
+      '\n' +
+      '### Phase 5 — Completion\n' +
+      '\n' +
+      '9. **Full regression** — run the complete test suite to verify no regressions from refinement changes\n' +
+      '\n' +
+      '10. **Traceability matrix** — build a matrix mapping every acceptance criterion to:\n' +
+      '    - The test(s) that verify it\n' +
+      '    - The code file(s) that implement it\n' +
+      '    - The current pass/fail status\n' +
+      '\n' +
+      '11. **Documentation**:\n' +
+      '    a. Generate API documentation from code comments and type definitions\n' +
+      '    b. Write usage examples for key public interfaces\n' +
+      '    c. Update any existing documentation affected by the changes\n' +
+      '\n' +
+      '12. **Deployment readiness checklist**:\n' +
+      '    - [ ] All tests passing\n' +
+      '    - [ ] Documentation complete\n' +
+      '    - [ ] Database migrations prepared (if applicable)\n' +
+      '    - [ ] Configuration changes documented\n' +
+      '    - [ ] Feature flags configured (if applicable)\n' +
+      '    - [ ] Rollback plan defined\n' +
+      '    - [ ] Security review complete (no secrets, inputs validated)\n' +
+      '\n' +
+      '13. **Store completion artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `complete-{feature-slug}`, value: `{ status: "complete", traceabilityMatrix: [...], documentationFiles: [...], deploymentChecklist: {...}, regressionResult: "pass" }`\n' +
+      '\n' +
+      '14. **End trajectory** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end` with the full SPARC cycle summary\n' +
+      '\n' +
+      '15. **Train neural patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_train` with the successful SPARC cycle data to improve future predictions\n' +
+      '\n' +
+      '16. **Store learned pattern** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`, value summarizing what worked, phase durations, and common blockers encountered\n' +
+      '\n' +
+      '17. **Present completion report** — display the traceability matrix, deployment checklist, and final status. Suggest running `/ruflo-sparc:ruflo-sparc advance` to pass the final gate, or `/ruflo-sparc:ruflo-sparc report` for the full methodology report.\n' +
+      '\n' +
+      '## Output format\n' +
+      '\n' +
+      '```\n' +
+      '# Refinement: {Feature Name}\n' +
+      '\n' +
+      '## Code Review Summary\n' +
+      '- Critical issues: {N} (must be 0 to pass gate)\n' +
+      '- High issues: {N}\n' +
+      '- Medium issues: {N}\n' +
+      '- Resolved: {N}/{total}\n' +
+      '\n' +
+      '## Test Coverage\n' +
+      '- Overall: {N}%\n' +
+      '- New code: {N}%\n' +
+      '- Acceptance criteria covered: {N}/{total}\n' +
+      '\n' +
+      '## Performance\n' +
+      '| Constraint | Target | Measured | Status |\n' +
+      '|-----------|--------|----------|--------|\n' +
+      '| Response time | <200ms | 145ms | Pass |\n' +
+      '\n' +
+      '---\n' +
+      '\n' +
+      '# Completion: {Feature Name}\n' +
+      '\n' +
+      '## Traceability Matrix\n' +
+      '| AC | Test | Code | Status |\n' +
+      '|----|------|------|--------|\n' +
+      '| AC-1 | test_xxx | service.ts:42 | Pass |\n' +
+      '| AC-2 | test_yyy | controller.ts:18 | Pass |\n' +
+      '| AC-3 | test_zzz | repository.ts:31 | Pass |\n' +
+      '\n' +
+      '## Deployment Checklist\n' +
+      '- [x] All tests passing\n' +
+      '- [x] Documentation complete\n' +
+      '- [x] Migrations prepared\n' +
+      '- [x] Config documented\n' +
+      '- [x] Rollback plan defined\n' +
+      '- [x] Security reviewed\n' +
+      '\n' +
+      '---\n' +
+      'SPARC workflow complete. Run `/ruflo-sparc:ruflo-sparc report` for the full methodology report.\n' +
+      '```\n'
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    ---
+    name: sparc-refine
+    description: Run the SPARC Refinement and Completion phases — review code, improve test coverage, validate against specification, and generate documentation
+    argument-hint: ""
+    allowed-tools: mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_retrieve mcp__plugin_ruflo-core_ruflo__task_create mcp__plugin_ruflo-core_ruflo__task_update mcp__plugin_ruflo-core_ruflo__task_complete mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end mcp__plugin_ruflo-core_ruflo__neural_train mcp__plugin_ruflo-core_ruflo__neural_predict Bash Read Write Edit
+    ---
+
+    # SPARC Refinement + Completion
+
+    Run Phases 4 and 5 of the SPARC methodology: iteratively improve through code review and testing, then finalize with validation, documentation, and deployment readiness.
+
+    ## When to use
+
+    After the Architecture phase is complete and its gate has been passed. This skill covers the final two phases that bring a feature from implemented to production-ready.
+
+    ## Steps
+
+    ### Phase 4 — Refinement
+
+    1. **Retrieve all prior artifacts** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-phases` and query for the feature slug. Load spec (acceptance criteria), pseudocode, and architecture.
+
+    2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with namespace `sparc-state` and exact key `current-phase-{feature-slug}` to confirm we are in Phase 4.
+
+    3. **Code review** — review the implementation against:
+       a. **Specification compliance**: does every acceptance criterion have a corresponding code path?
+       b. **Architecture adherence**: do modules follow the defined boundaries and dependency rules?
+       c. **Pseudocode fidelity**: does the implementation match the designed algorithms?
+       d. **Code quality**: naming conventions, single responsibility, error handling, no dead code
+       e. Document findings as review comments
+
+    4. **Test coverage analysis**:
+       a. Run existing tests and measure coverage
+       b. Identify uncovered acceptance criteria
+       c. Write missing tests:
+          - Unit tests for each public function
+          - Integration tests for cross-module interactions
+          - Edge case tests for each identified edge case from the spec
+       d. Target coverage >= 80% on new code
+
+    5. **Performance validation** — if the spec includes performance constraints:
+       a. Profile critical paths identified in the pseudocode
+       b. Compare measured performance against constraint thresholds
+       c. Optimize if thresholds are not met
+
+    6. **Iterate** — repeat steps 3-5 until:
+       - All acceptance criteria have passing tests
+       - Code review has no critical or high-severity issues
+       - Coverage meets the threshold
+       - Performance constraints are satisfied
+
+    7. **Store refinement artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `refine-{feature-slug}`, value: `{ status: "complete", reviewFindings: [...], coveragePercent: N, performanceResults: {...}, iterations: N }`
+
+    8. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with refinement summary
+
+    ### Phase 5 — Completion
+
+    9. **Full regression** — run the complete test suite to verify no regressions from refinement changes
+
+    10. **Traceability matrix** — build a matrix mapping every acceptance criterion to:
+        - The test(s) that verify it
+        - The code file(s) that implement it
+        - The current pass/fail status
+
+    11. **Documentation**:
+        a. Generate API documentation from code comments and type definitions
+        b. Write usage examples for key public interfaces
+        c. Update any existing documentation affected by the changes
+
+    12. **Deployment readiness checklist**:
+        - [ ] All tests passing
+        - [ ] Documentation complete
+        - [ ] Database migrations prepared (if applicable)
+        - [ ] Configuration changes documented
+        - [ ] Feature flags configured (if applicable)
+        - [ ] Rollback plan defined
+        - [ ] Security review complete (no secrets, inputs validated)
+
+    13. **Store completion artifact** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `complete-{feature-slug}`, value: `{ status: "complete", traceabilityMatrix: [...], documentationFiles: [...], deploymentChecklist: {...}, regressionResult: "pass" }`
+
+    14. **End trajectory** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-end` with the full SPARC cycle summary
+
+    15. **Train neural patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_train` with the successful SPARC cycle data to improve future predictions
+
+    16. **Store learned pattern** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `patterns`, key `sparc-{feature-slug}`, value summarizing what worked, phase durations, and common blockers encountered
+
+    17. **Present completion report** — display the traceability matrix, deployment checklist, and final status. Suggest running `/ruflo-sparc:ruflo-sparc advance` to pass the final gate, or `/ruflo-sparc:ruflo-sparc report` for the full methodology report.
+
+    ## Output format
+
+    ```
+    # Refinement: {Feature Name}
+
+    ## Code Review Summary
+    - Critical issues: {N} (must be 0 to pass gate)
+    - High issues: {N}
+    - Medium issues: {N}
+    - Resolved: {N}/{total}
+
+    ## Test Coverage
+    - Overall: {N}%
+    - New code: {N}%
+    - Acceptance criteria covered: {N}/{total}
+
+    ## Performance
+    | Constraint | Target | Measured | Status |
+    |-----------|--------|----------|--------|
+    | Response time | <200ms | 145ms | Pass |
+
+    ---
+
+    # Completion: {Feature Name}
+
+    ## Traceability Matrix
+    | AC | Test | Code | Status |
+    |----|------|------|--------|
+    | AC-1 | test_xxx | service.ts:42 | Pass |
+    | AC-2 | test_yyy | controller.ts:18 | Pass |
+    | AC-3 | test_zzz | repository.ts:31 | Pass |
+
+    ## Deployment Checklist
+    - [x] All tests passing
+    - [x] Documentation complete
+    - [x] Migrations prepared
+    - [x] Config documented
+    - [x] Rollback plan defined
+    - [x] Security reviewed
+
+    ---
+    SPARC workflow complete. Run `/ruflo-sparc:ruflo-sparc report` for the full methodology report.
+    ```
+
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:71:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 3
+# fail 4
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26.771173
