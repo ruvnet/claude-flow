@@ -12,7 +12,7 @@ import type { MCPTool } from './types.js';
 import { validateText } from './validate-input.js';
 import {
   loadState, saveState, appendLog, loadLog, discoverTasks,
-  isTerminal, tryLoadLearning,
+  isTerminal, tryLoadLearning, getLearningLoadError,
   validateNumber, validateConfiguredTaskSources,
   VALID_TASK_SOURCES,
 } from '../autopilot-state.js';
@@ -193,7 +193,7 @@ const autopilotLearn: MCPTool = {
       ]);
       return ok({ metrics, patterns });
     }
-    return ok({ available: false, reason: 'AgentDB/AutopilotLearning not initialized', patterns: [] });
+    return ok({ available: false, reason: getLearningLoadError() ?? 'AgentDB/AutopilotLearning not initialized', patterns: [] });
   },
 };
 

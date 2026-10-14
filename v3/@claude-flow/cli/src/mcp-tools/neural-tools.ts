@@ -503,8 +503,25 @@ export const neuralTools: MCPTool[] = [
         }
       }
 
+      // #4156: nothing stored means nothing was trained. Reporting success and "ready" made
+      // callers (the neural-train skill) believe the pattern store had been filled.
+      if (patternsStored === 0) {
+        model.status = 'untrained';
+        model.accuracy = 0;
+        saveNeuralStore(store);
+        return {
+          success: false,
+          status: 'empty',
+          modelId,
+          type: modelType,
+          patternsStored: 0,
+          totalPatterns: Object.keys(store.patterns).length,
+          error: 'neural_train stored nothing: pass `data` (an array of strings or {text, label} entries). It does not read trajectories, SONA or the ReasoningBank: those (hooks_intelligence_*) are a separate store that neural_predict and neural_patterns do not see.',
+        };
+      }
+
       model.status = 'ready';
-      model.accuracy = patternsStored > 0 ? 1.0 : 0; // accuracy = data stored, not simulated
+      model.accuracy = 1.0; // accuracy = data stored, not simulated
       model.trainedAt = new Date().toISOString();
       saveNeuralStore(store);
 
@@ -536,6 +553,7 @@ export const neuralTools: MCPTool[] = [
         modelId: { type: 'string', description: 'Model ID to use' },
         input: { type: 'string', description: 'Input text or data' },
         topK: { type: 'number', description: 'Number of top predictions' },
+        minSimilarity: { type: 'number', description: 'Minimum cosine similarity for a stored pattern to count as a match (default 0.5). A softmax over a single candidate is always 1.0, so without a floor any input matched the only stored pattern with confidence 1' },
       },
       required: ['input'],
     },
@@ -547,6 +565,7 @@ export const neuralTools: MCPTool[] = [
       const modelId = input.modelId as string;
       const inputText = input.input as string;
       const topK = (input.topK as number) || 3;
+      const minSimilarity = typeof input.minSimilarity === 'number' ? input.minSimilarity : 0.5;
 
       // Find model or use default
       const model = modelId ? store.models[modelId] : Object.values(store.models).find(m => m.status === 'ready');
@@ -568,10 +587,11 @@ export const neuralTools: MCPTool[] = [
       // to 1, and we surface enough metadata to trust the result.
       const storedPatterns = Object.values(store.patterns);
       let predictions: Array<{ label: string; confidence: number; patternId: string; cosineSimilarity: number }>;
+      let bestSimilarity: number | null = null;
 
       if (storedPatterns.length > 0) {
         // Step 1: k-NN with cosine
-        const scored = storedPatterns
+        let scored = storedPatterns
           .map(p => {
             const sim = cosineSimilarity(embedding, p.embedding);
             return {
@@ -580,8 +600,10 @@ export const neuralTools: MCPTool[] = [
               cosineSimilarity: sim,
             };
           })
-          .sort((a, b) => b.cosineSimilarity - a.cosineSimilarity)
-          .slice(0, topK);
+          .sort((a, b) => b.cosineSimilarity - a.cosineSimilarity);
+        bestSimilarity = scored[0]?.cosineSimilarity ?? null;
+        // #4156: only patterns that reach the similarity floor are candidates.
+        scored = scored.filter((c) => c.cosineSimilarity >= minSimilarity).slice(0, topK);
 
         // Step 2: temperature-softmax over the top-K so confidence sums to 1.
         // Temperature 0.1 sharpens differences between similar candidates.
@@ -621,8 +643,11 @@ export const neuralTools: MCPTool[] = [
         embedding: embedding.slice(0, 8), // Preview of embedding
         embeddingDims: embedding.length,
         latency,
+        ...(bestSimilarity !== null ? { bestSimilarity: Number(bestSimilarity.toFixed(4)), minSimilarity } : {}),
         ...(storedPatterns.length === 0 ? {
           _note: 'No patterns stored. Train with neural_train(modelType, trainingData) before predicting.',
+        } : predictions.length === 0 ? {
+          _note: `No stored pattern reached the similarity floor (best ${bestSimilarity === null ? 'n/a' : bestSimilarity.toFixed(3)}, floor ${minSimilarity}); pass minSimilarity to lower it.`,
         } : {}),
       };
     },

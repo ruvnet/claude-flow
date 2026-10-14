@@ -89,7 +89,14 @@ describe('#3374 memory tools reject a missing required parameter at the boundary
 
     it('a well-formed query still reaches the search layer', async () => {
       const r = (await tool('memory_search').handler({ query: 'cross-agent proof bridge', limit: 5 })) as Res;
-      expect(layer.searchEntries).toHaveBeenCalledTimes(1);
+      // The real search runs first with the caller's query. Since #4129 an EMPTY default-threshold search
+      // may be followed by exactly one near-miss probe (threshold 0) for the hint; nothing else.
+      expect(layer.searchEntries.mock.calls[0]?.[0]).toMatchObject({ query: 'cross-agent proof bridge' });
+      expect(layer.searchEntries.mock.calls[0]?.[0]).not.toHaveProperty('threshold', 0);
+      expect(layer.searchEntries.mock.calls.length).toBeLessThanOrEqual(2);
+      if (layer.searchEntries.mock.calls.length === 2) {
+        expect(layer.searchEntries.mock.calls[1]?.[0]).toMatchObject({ query: 'cross-agent proof bridge', threshold: 0 });
+      }
       expect(r.code).toBeUndefined();
       expect(r.error).toBeUndefined();
     });

@@ -40,20 +40,22 @@ You are a knowledge graph navigator agent. Your responsibilities:
 The pathfinder traversal algorithm finds relevant subgraphs:
 
 1. **Seed** -- start from the target entity node
-2. **Expand** -- follow causal edges outward (configurable depth, default 3)
+2. **Expand** -- follow edges outward with `agentdb_graph-query` mode `k-hop` (configurable depth, default 3)
 3. **Score** -- compute relevance = edge_weight * semantic_similarity(query, node)
 4. **Prune** -- remove paths with cumulative score below threshold (default 0.3)
 5. **Rank** -- return top-K paths sorted by cumulative relevance score
 
 ### Tools
 
-- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` -- create/query causal edges between entities
+- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` -- record a causal edge between entities (write only: it never reads edges back; a `readable: false` result means encryption at rest (RFE1) is on and graph reads cannot open the store)
+- `mcp__plugin_ruflo-core_ruflo__agentdb_graph-query` -- read edges: `{ nodeId: "entity:NAME", mode: "k-hop", depth }` (also `pagerank`, `semantic`)
+- `mcp__plugin_ruflo-core_ruflo__agentdb_graph-pathfinder` -- scored path search `{ seedNodeId, query, depth, threshold, topK }`
 - `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` -- store entity metadata in hierarchical structure
 - `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` -- recall entities by path or query
 - `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` -- semantic similarity routing for graph search (note: `semanticRouter` controller is `enabled: false` in current AgentDB builds — fall back to `agentdb_pattern-search` or `embeddings_generate` + manual cosine; see ruvnet/ruflo#2049)
 - `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store` -- store discovered graph patterns
 - `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` -- search for similar graph structures
-- `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize` -- synthesize context from multiple graph nodes
+- `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize` -- summarizes validated task episodes only; it answers `no-eligible-episodes` for entity records, so summarize traversal paths yourself
 - `mcp__plugin_ruflo-core_ruflo__embeddings_generate` -- generate embeddings for entity descriptions
 
 ### Neural Learning

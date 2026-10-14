@@ -46,6 +46,37 @@ interface WorkflowStore {
   version: string;
 }
 
+type Condition = { constant: boolean } | { variable: string; expected: string | number | boolean };
+
+function parseCondition(when: unknown): Condition | Error {
+  if (typeof when !== 'string' || !when.trim()) {
+    return new Error('condition step requires a non-empty config.when');
+  }
+  const expression = when.trim();
+  if (expression === 'true' || expression === 'false') {
+    return { constant: expression === 'true' };
+  }
+  const match = expression.match(/^([a-zA-Z_]\w*)\s*===?\s*(?:'([^']*)'|"([^"]*)"|(-?\d+(?:\.\d+)?)|(true|false))$/);
+  if (!match) {
+    return new Error('condition config.when must compare a variable to a quoted string, number, or boolean using == or ===');
+  }
+  const expected = match[2] ?? match[3] ?? (match[4] !== undefined ? Number(match[4]) : match[5] === 'true');
+  return { variable: match[1], expected };
+}
+
+function validateExecutableStep(step: Pick<WorkflowStep, 'type' | 'config'>): string | undefined {
+  if (step.type === 'parallel' || step.type === 'loop') {
+    return `step type '${step.type}' is not implemented by the workflow runtime`;
+  }
+  if (step.type === 'condition') {
+    const parsed = parseCondition(step.config?.when);
+    if (parsed instanceof Error) return parsed.message;
+  } else if (step.type !== 'task' && step.type !== 'wait') {
+    return `unsupported workflow step type '${step.type}'`;
+  }
+  return undefined;
+}
+
 function getWorkflowDir(): string {
   return join(getProjectCwd(), STORAGE_DIR, WORKFLOW_DIR);
 }
@@ -226,8 +257,8 @@ export const workflowTools: MCPTool[] = [
             type: 'object',
             properties: {
               name: { type: 'string' },
-              type: { type: 'string', enum: ['task', 'condition', 'parallel', 'loop', 'wait'] },
-              config: { type: 'object' },
+              type: { type: 'string', enum: ['task', 'condition', 'wait'] },
+              config: { type: 'object', description: 'Condition steps require config.when; parallel and loop steps are not yet supported' },
             },
           },
         },
@@ -254,6 +285,11 @@ export const workflowTools: MCPTool[] = [
         config: s.config || {} as Record<string, unknown>,
         status: 'pending' as const,
       }));
+
+      for (const step of steps) {
+        const error = validateExecutableStep(step);
+        if (error) return { success: false, error: `${step.stepId} (${step.name}): ${error}` };
+      }
 
       const workflow: WorkflowRecord = {
         workflowId,
@@ -305,6 +341,21 @@ export const workflowTools: MCPTool[] = [
       }
       if (workflow.status === 'running') {
         return { workflowId, error: 'Workflow already running' };
+      }
+
+      // Older stored workflows may predate creation-time validation. Reject
+      // unsupported steps before dispatching any task with side effects.
+      for (const step of workflow.steps) {
+        const error = validateExecutableStep(step);
+        if (error) {
+          workflow.status = 'failed';
+          workflow.error = `${step.stepId} (${step.name}): ${error}`;
+          step.status = 'failed';
+          step.result = { error: workflow.error };
+          workflow.completedAt = new Date().toISOString();
+          saveWorkflowStore(store);
+          return { workflowId, status: 'failed', failedStep: step.stepId, error: workflow.error };
+        }
       }
 
       // Indices may name a step or the end boundary (used when resuming
@@ -434,26 +485,20 @@ export const workflowTools: MCPTool[] = [
             step.result = { waitedMs: ms };
             stepEntry = { stepId: step.stepId, type: 'wait', status: 'completed', durationMs: ms };
           } else if (step.type === 'condition') {
-            // Simple condition: config.when is a JS expression evaluated against workflow.variables.
-            // For safety, we only support `var === 'value'` or `var === number`.
             const cfg = step.config as Record<string, unknown>;
-            const expr = String(cfg.when || 'true').trim();
-            const m = expr.match(/^([a-zA-Z_][\w]*)\s*===?\s*(['\"])?([^'\"]*)\2?$/);
-            let truthy = false;
-            if (m) {
-              const v = workflow.variables[m[1]];
-              const expected = m[2] ? m[3] : Number(m[3]);
-              truthy = v === expected;
-            } else if (expr === 'true') truthy = true;
+            const parsed = parseCondition(cfg.when);
+            if (parsed instanceof Error) throw parsed;
+            const truthy = 'constant' in parsed
+              ? parsed.constant
+              : workflow.variables[parsed.variable] === parsed.expected;
+            const expr = String(cfg.when).trim();
             step.result = { conditionExpr: expr, truthy };
             // condition can declare a target step index to jump to via cfg.thenStep / cfg.elseStep
             if (typeof cfg.thenStep === 'number' && truthy) i = (cfg.thenStep as number) - 1;
             if (typeof cfg.elseStep === 'number' && !truthy) i = (cfg.elseStep as number) - 1;
             stepEntry = { stepId: step.stepId, type: 'condition', status: 'completed' };
           } else {
-            // parallel/loop are deferred — mark skipped honestly rather than mock-completing.
-            step.result = { _note: `step type '${step.type}' not yet implemented in runtime` };
-            stepEntry = { stepId: step.stepId, type: step.type, status: 'skipped' };
+            throw new Error(`step type '${step.type}' is not implemented by the workflow runtime`);
           }
           step.status = stepEntry.status === 'skipped' ? 'skipped' : 'completed';
           step.completedAt = new Date().toISOString();
@@ -980,6 +1025,13 @@ export const workflowTools: MCPTool[] = [
             const agentSet = new Set<string>();
             steps.forEach((s, i) => {
               const step = (s ?? {}) as Record<string, unknown>;
+              if (typeof step.type === 'string') {
+                const error = validateExecutableStep({
+                  type: step.type as WorkflowStep['type'],
+                  config: (step.config ?? {}) as Record<string, unknown>,
+                });
+                if (error) errors.push({ line: i + 1, message: `step ${i + 1}: ${error}`, severity: 'error' });
+              }
               // Match workflow_execute: control steps do not dispatch agents,
               // and task steps use config.agentId or the workflow default.
               const config = step.config as Record<string, unknown> | undefined;

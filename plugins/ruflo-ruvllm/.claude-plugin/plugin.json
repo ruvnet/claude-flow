@@ -1,7 +1,7 @@
 {
   "name": "ruflo-ruvllm",
   "description": "RuVLLM local inference with chat formatting (Claude/GPT/Gemini/Ollama/Cohere), model configuration, MicroLoRA fine-tuning, and SONA real-time adaptation. As a mod (ADR-445): a guard that keeps secrets out of adapters and the pattern router, /ruvllm-mod, and a status file the console shows",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
