@@ -2,6 +2,29 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.43.5 — 2026-10-12
+- fix: the Skills page runs a pinned skills CLI (`skills@1.7.2`, like the AI page's pinned Codex) instead of whatever npm `latest` is: `npx -y skills` fetched and ran the newest release on every visit to the page (it lists on open) and on every add, remove, update, init and use, with the person's permissions. The hints name the pin from one constant. The pin fixes the top-level package only: its own dependencies (tar, yaml) are npm ranges resolved on the first fetch, and the first run needs the network. 1.7.2 is published by vercel-labs/skills with no install-time scripts (#4113, thanks @martinvlad)
+
+## 0.43.4 — 2026-10-12
+- fix: the console's pictures show on Claude Code Desktop, the editor and the mobile app. The banner, title art, topology, maps, gauges and charts were all missing there, and so were the text lines meant to stand in for them: the host completes every element table with every name, and on those surfaces its `Raster` draws an empty fragment, so the console believed it could draw pictures and drew empty boxes. The surface now decides (not the table): the terminal keeps its `Raster` and gets no `Svg`; Desktop, VS Code and mobile get each picture as one `Svg` of the same cells (Block Elements and braille glyphs as rectangles, other glyphs placed cell by cell, colours kept, background transparent). A picture that would pass the host's 131,072-character `Svg` limit falls back to its text line, so one large picture cannot invalidate the whole tree; nothing is blitted where nothing is mounted; and a host that does not name its surface is treated as the terminal. The model-facing text is unchanged (#4111, thanks @proffesor-for-testing, #4112)
+
+## 0.43.3 — 2026-10-12
+- fix: `console_state` tells Claude that a confirm card expired: `lastResult` carries `expired: true` after a card nobody answered was cleared unrun at 30 s (the runner already set the flag; the tool left it out), so Claude can tell "you did not answer" from a run that failed without reading the detail text. An ordinary result has no `expired` field (#3985 follow-up, thanks @proffesor-for-testing, #4067)
+
+## 0.43.2 — 2026-10-12
+- fix: removing a worktree no longer runs the repository's own programs, and no longer deletes unsaved files: `git worktree remove` runs its own status, which ran `core.fsmonitor` and the `post-index-change` hook, and with `status.showUntrackedFiles=no` it read a worktree holding new files as clean and deleted them. The removal, the worktree status probe, the changed-files read and `describe --dirty` now switch the fsmonitor (and for removal and describe, hooks) off, and list untracked files whatever the setting says (#4090, thanks @proffesor-for-testing, #4092)
+- fix: a `filter.<name>.clean`, `.smudge` or `.process` command in a repository's config no longer runs when the console compares a worktree with HEAD: before the removal, the worktree status and the diff drill-down, it lists the configured drivers (a config read) and blanks each one on the command line; a driver name it cannot blank exactly refuses the probe instead of running it
+
+## 0.43.1 — 2026-10-12
+- fix: `ruflo tui` marks the page on screen in the page bar: on the AI page it kept the previous page lit (`5 Missions`, or `1 Overview` after a number key) because the bar was painted from the console view the session last showed and the AI page is not one; it is now drawn from the page itself, through Tab, Shift-Tab, letters, digits and resize
+- fix: `ruflo tui --help` and the console README list the page keys as `1-6` and `o c s e m a` (they said `1-5`); a test holds the help text
+- fix: the CLI no longer builds its trust-store path (`~/.config/ruflo/policy-trust`) from an empty or relative `$HOME`, which put the anchor mirror and key under the working directory; it uses the account home, or says `$HOME` must be absolute
+
+## 0.43.0 — 2026-10-12
+- feat: an optional Orbital look (black telemetry panels, square borders, a rotating globe, a scan sweep and a shaded Ruflo header that stays visible after boot) and Theme Studio: pick Classic BBS, plain or Orbital, six bundled color presets, up to twelve named custom themes, a color picker with a 3:1 minimum contrast, motion layers and speed, and a generate-console-theme skill whose JSON is imported through a strict, size-bounded schema. Classic BBS stays the default; open it from Main Menu → Tools, Settings or /ruflo themes
+- fix: Theme Studio has its own boot-log line and help guide, and is reached by name (every hotkey letter is taken)
+- chore: the Orbital globe reads a one-degree land mask built once, not nine polygon tests per cell per frame (about a third less time per frame); `scripts/bench-theme.mjs` measures the per-tick cost of every animated picture; 45 adversarial specs pin the theme import (closed schema, control and bidi characters, prototype keys, size bounds, hostile saved stores)
+
 ## 0.42.7 — 2026-10-11
 - feat: `ruflo tui` has five pages: Overview, Cost, Swarm, Events and Missions (keys 1 to 5, or o c s e m; Tab and Shift-Tab cycle). A page bar shows where you are, a key line says what the keys are, and the terminal redraws on a resize (a short bar under 60 columns, a one-line notice under 40). Room is left out on purpose: it is a message box and Claude sessions this host does not have (ADR-489)
 - fix: on the standalone terminal the shared chrome no longer draws what only Claude Code can do: no tab bar, footer buttons, Launch section, Ask Claude buttons or Claude control card, and buttons that nobody can press are not drawn (a state chip such as `● all 0` and a section title are). Under Claude Code nothing changes: every new branch is behind `state.isStandalone`

@@ -1,6 +1,6 @@
 import type { RenderElement } from 'claude-code'
 
-import { sortedFound, type FoundSkill, type InstalledSkill } from '../data/skills'
+import { PINNED_SKILLS, sortedFound, type FoundSkill, type InstalledSkill } from '../data/skills'
 import { ago, clip, col, row, rule, text, THEME, type Ctx } from './common'
 import { authorRows, maintainRows, previewRows, projectRows, targetRows } from './skills-more'
 
@@ -32,7 +32,7 @@ function installedRows(ctx: Ctx): RenderElement[] {
   for (const [scope, error] of Object.entries(skills.listErrors)) rows.push(text(ctx, ` ${scope} list unreadable: ${error}`, { color: THEME.warn }))
 
   if (skills.installed === null) {
-    rows.push(text(ctx, skills.isListing ? ' asking npx -y skills ls --json (project) and ls -g --json (global)… the first run downloads the CLI' : ' not listed yet: r lists them (npx -y skills ls --json)', { dimColor: true }))
+    rows.push(text(ctx, skills.isListing ? ` asking npx -y skills@${PINNED_SKILLS} ls --json (project) and ls -g --json (global)… the first run downloads the CLI` : ` not listed yet: r lists them (npx -y skills@${PINNED_SKILLS} ls --json)`, { dimColor: true }))
   } else if (installed.length === 0 && Object.keys(skills.listErrors).length === 0) {
     rows.push(text(ctx, ' no skills in this project or globally: search below and ▸ add one', { dimColor: true }))
   }

@@ -3,6 +3,7 @@
  * and the pictures computed for this frame. They call nothing on the engine; buttons call the closures in `ctx.act`.
  * Text colours are theme names only, so nothing fades on a light background.
  */
+import type { ThemeActions, ConsoleTheme } from '../themes'
 import type { AskActions } from '../ask-claude'
 import type { OptimizerActions } from '../optimizer'
 import { askedBy } from '../data/room'
@@ -25,6 +26,7 @@ import type { CatalogActions } from '../plugin-catalog'
 import type { SettingsActions } from '../settings'
 import type { DevtoolsActions } from '../devtools'
 import type { Grid } from '../gfx/raster'
+import { CELL_W, gridToSvg } from '../gfx/svg'
 import type { MemoryActions } from '../memory-lab'
 import type { NavActions } from '../nav-state'
 import type { SkillActions } from '../skills'
@@ -40,7 +42,20 @@ import { accentOfView } from '../nav-state'
 import type { VectorActions } from '../vector'
 import type { WorkflowsActions } from '../wf-actions'
 
-export type Kit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & { Raster?: Elements['terminal']['Raster']; Input?: Elements['terminal']['Input'] }
+export type Kit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & { Raster?: Elements['terminal']['Raster']; Svg?: Elements['desktop']['Svg']; Input?: Elements['terminal']['Input'] }
+
+/**
+ * The kit a surface really draws pictures with. The host completes every table it resolves with every element name, an omitted one
+ * drawing a fragment, so `Raster` is defined on the desktop too and draws nothing there: whether a picture can be drawn is the surface's
+ * to say, never the table's. The terminal gets its `Raster` and no `Svg`; every other surface gets `Svg` and no `Raster`.
+ */
+export function kitForSurface<K extends Kit>(table: K, surface: string | null | undefined): K {
+  const { Raster, Svg, ...rest } = table
+  // A host that does not name its surface predates the desktop pictures: it is the terminal, and keeps its Raster.
+  const isTerminal = surface === 'terminal' || surface === undefined || surface === null || surface === ''
+
+  return (isTerminal ? { ...rest, ...(Raster !== undefined && { Raster }) } : { ...rest, ...(Svg !== undefined && { Svg }) }) as K
+}
 
 /** What a button can ask for: every one a closure over the controller. */
 export type Actions = {
@@ -143,6 +158,7 @@ export type Actions = {
   /** The Workflows page: cursor keys, the inspector's tab, the confirm-gated ruflo agent verbs, and naming a transcript's path. */
   workflows: WorkflowsActions
   /** Settings: the level, a plugin, an option or ruflo config change (each asks first), AI preferences, and ▸ ask claude/codex. */
+  themes: ThemeActions
   settings: SettingsActions
 }
 
@@ -162,23 +178,25 @@ export type Ctx = {
   text?: boolean
 }
 
-export type Look = 'bbs' | 'plain'
+export type Look = 'bbs' | 'plain' | 'orbital'
 
 /** The terminal theme's own colours: readable on light and dark backgrounds alike. */
 const PLAIN = { head: 'claude', ok: 'success', bad: 'error', warn: 'warning', info: 'suggestion' }
 /** The BBS look: neon magenta headings, cyan values, matrix-green labels; amber stays for attention. */
 const NEON = { head: '#ff2a6d', ok: '#39ff14', bad: '#ff3355', warn: '#ffd319', info: '#05d9e8' }
+const ORBITAL = { head: '#f06449', ok: '#72c79b', bad: '#ff6868', warn: '#e3ba74', info: '#c6cbc8' }
 const NEON_LABEL = '#2fbf71'
 
 /** The palette every view reads; `setLook` swaps it in place before a render, so callers keep using THEME.x. */
 export const THEME: { head: string; ok: string; bad: string; warn: string; info: string } = { ...PLAIN }
 let look: Look = 'plain'
 
-export function setLook(next: Look): void {
-  if (next === look) return
+export function setLook(next: Look, palette?: ConsoleTheme['palette']): void {
   look = next
-  Object.assign(THEME, next === 'bbs' ? NEON : PLAIN)
+  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? (palette ?? ORBITAL) : PLAIN)
 }
+
+export const isOrbital = (): boolean => look === 'orbital'
 
 export const isBbs = (): boolean => look === 'bbs'
 
@@ -333,15 +351,25 @@ export function kv(ctx: Ctx, label: string, value: string, color?: string): Rend
   ])
 }
 
-/** A Raster for a picture of this frame, or a dim note where the surface has no Raster. */
+/**
+ * A picture as the surface draws it: a Raster on the terminal, an Svg of the same cells where the surface draws vectors, or null where it
+ * draws neither or the drawing would pass the host's size limit (the caller then says it in words). `alt` is what the picture says.
+ */
+export function art(ctx: Ctx, grid: Grid | undefined, key: string, alt: string): RenderElement | null {
+  if (grid === undefined) return null
+  if (ctx.kit.Raster !== undefined) return ctx.kit.Raster(grid.toRaster(key))
+  if (ctx.kit.Svg === undefined) return null
+
+  // The words a picture falls back to say what it shows, but "needs a terminal" is not true of a surface that draws it.
+  const label = alt.replace(/\s+needs? a terminal(?: that draws pictures)?/g, '').trim() || key
+  const source = gridToSvg(grid, label)
+
+  return source === null ? null : ctx.kit.Box({ key: `svg-${key}`, children: [ctx.kit.Svg({ source, alt: label, width: grid.columns * CELL_W })] })
+}
+
+/** A picture of this frame as the surface draws it, or a dim note where it cannot be drawn. */
 export function picture(ctx: Ctx, key: string, fallback: string): RenderElement {
-  const grid = ctx.pictures.get(key)
-
-  if (grid === undefined || ctx.kit.Raster === undefined) {
-    return text(ctx, fallback, { dimColor: true })
-  }
-
-  return ctx.kit.Raster(grid.toRaster(key))
+  return art(ctx, ctx.pictures.get(key), key, fallback) ?? text(ctx, fallback, { dimColor: true })
 }
 
 export function button(ctx: Ctx, key: string, label: string, onPress: () => void, options: { hotkey?: string; primary?: boolean } = {}): RenderElement {

@@ -1,3 +1,4 @@
+import { activeTheme, themesOf, themeLayout } from '../themes'
 /**
  * The pictures of the view in front, by Raster key, for one instant. The render mounts them and the animation loop
  * blits them, both through `picturesOf`, so a frame is always the mounted size. Each picture's model is read from the
@@ -7,6 +8,7 @@ import type { AuditTrend, HarnessScore, Intelligence } from '../data/cli'
 import { recentByAgent } from '../data/events'
 import { agentLabels } from '../data/parse'
 import { presentAgents, swarmStatusOf } from '../data/swarm-status'
+import { orbitalBoot, orbitalHeader, orbitalGlobe, orbitalMasthead } from '../gfx/orbital'
 import { getBootChecks } from '../boot-checks'
 import { bootFacts } from '../boot-facts'
 import { getBuild } from '../build'
@@ -175,29 +177,36 @@ function titleThatFits(paneColumns: number, names: readonly string[], build: (na
   return build(names.at(-1) as string, room)
 }
 
-export function picturesOf(state: State, columns: number, nowMs: number, t: number): Map<string, Grid> {
+export function picturesOf(state: State, columns: number, nowMs: number, t: number, still = false): Map<string, Grid> {
   const pictures = new Map<string, Grid>()
+  const theme = activeTheme(state)
+  // Still, for a surface that draws Svg and so cannot animate a picture: nothing strikes in and the motion stops, as with fps 0, and the
+  // decorative light (the header's sweep, the title's shimmer) is off rather than caught mid-way. The boot keeps its real time, so its
+  // progress shows (fps 0 has no Orbital boot at all), and a picture of data is drawn as of this render.
+  const moving = state.options.fps > 0 && !still
+  const motionTime = moving ? t * theme.motion.speed : 0
+  const light = still ? 0 : t
   // A page in cards (views/card.ts) is narrower by the border and padding: its pictures are drawn to that width, by the render and by the frame loop alike.
   const width = Math.max(20, Math.min(200, hasCards(columns, isCompactPane(state)) ? columns - CARD_COLUMNS : columns))
   const snapshot = state.snapshot
 
-  // The BBS boot screen owns the pane for its first seconds; nothing else is drawn under it.
+  // The selected boot screen owns the pane for its first seconds; nothing else is drawn under it.
   if (isBooting(state, nowMs)) {
-    pictures.set('boot', bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
+    pictures.set('boot', state.options.look === 'orbital' ? orbitalBoot(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.max(1, Math.min(columns, width, 90)), state.options.fps > 0 ? (nowMs - state.pane.bootAtMs) * theme.motion.speed : 0, getBootChecks(), state.pane.rows > 0 ? state.pane.rows : 30, theme) : bootPicture(state.cwd.split('/').filter(Boolean).at(-1) ?? '', Math.min(width, 90), nowMs - state.pane.bootAtMs, state.probes.size, PROBES.length, state.pane.rows, getBootChecks(), bootFacts(state, CONSOLE_VERSION, getBuild())))
 
     return pictures
   }
 
   // The headers strike in when a page is switched to and when the menu enters (never with fps 0, which draws the still header).
   const sinceSwitch = state.pane.viewAtMs > 0 ? nowMs - state.pane.viewAtMs : Infinity
-  const headerAge = state.options.fps > 0 ? Math.min(sinceSwitch, entryAge({ look: state.options.look, boot: state.options.boot, ...state.pane }, nowMs, BOOT_MIN_MS) ?? Infinity) : Infinity
+  const headerAge = moving ? Math.min(sinceSwitch, entryAge({ look: state.options.look, boot: state.options.boot, ...state.pane }, nowMs, BOOT_MIN_MS) ?? Infinity) : Infinity
 
   if (state.view === 'menu') {
     const project = state.cwd.split('/').filter(Boolean).at(-1) ?? ''
 
-    pictures.set('header', state.options.look === 'bbs' ? fitHeader(columns, size => bannerPicture(project, size, t, headerAge), 72) : headerPicture(`◆ ruflo v${CONSOLE_VERSION}${getBuild() === '' ? '' : ` · ${getBuild()}`} · ${project}`, Math.min(width, 64), t))
+    pictures.set('header', state.options.look === 'bbs' ? fitHeader(columns, size => bannerPicture(project, size, light, headerAge), 72) : headerPicture(`◆ ruflo v${CONSOLE_VERSION}${getBuild() === '' ? '' : ` · ${getBuild()}`} · ${project}`, Math.min(width, 64), light))
     // The palette strip above the menu's groups moves while the frame loop runs; with fps 0 it is the still strip (the light is off it).
-    if (state.options.look === 'bbs') pictures.set('palette', palettePicture(Math.max(8, width - 2), state.options.fps > 0 ? t : 0, PALETTE.map(rgb)))
+    if (state.options.look === 'bbs') pictures.set('palette', palettePicture(Math.max(8, width - 2), moving ? t : 0, PALETTE.map(rgb)))
   }
 
   // BBS: every view's name as ANSI-style block art under the tabs, compact or not (the neon sign is the boot's alone).
@@ -210,7 +219,22 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     const shortName = VIEWS.find(view => view.id === state.view)?.short ?? page
     const names = state.view === 'menu' && !state.isHelp && !state.palette.isOpen ? [name] : [name, page, shortName]
 
-    pictures.set('title', titleThatFits(columns, names, (candidate, size) => titlePicture(candidate, size, t, headerAge)))
+    pictures.set('title', titleThatFits(columns, names, (candidate, size) => titlePicture(candidate, size, light, headerAge)))
+  }
+
+  if (state.options.look === 'orbital') {
+    const page = state.isHelp ? 'help' : state.palette.isOpen ? 'commands' : (VIEWS.find(view => view.id === state.view)?.label ?? state.view)
+    const room = Math.max(1, Math.min(120, columns < 40 ? columns : columns - iconCells(false) - ICON_SLACK))
+    const rows = state.pane.rows > 0 ? Math.max(1, Math.min(state.pane.rows < 24 ? 2 : 8, state.pane.rows - 12)) : 8
+    pictures.set(state.view === 'menu' ? 'header' : 'title', orbitalMasthead(page, room, motionTime, rows, theme, headerAge))
+  }
+
+  if (state.view === 'themes') {
+    const draft = themesOf(state).draft
+    const layout = themeLayout(Math.min(columns, width))
+    const previewWidth = Math.max(1, layout.preview - 2)
+    if (draft.motion.globe) pictures.set('theme-globe', orbitalGlobe(previewWidth, layout.wide ? 14 : 9, moving ? t * draft.motion.speed : 0, draft))
+    pictures.set('theme-preview', orbitalHeader('swarm preview', previewWidth, moving ? t * draft.motion.speed : 0, layout.wide ? 16 : 4, draft))
   }
 
   switch (state.view) {
@@ -220,7 +244,7 @@ export function picturesOf(state: State, columns: number, nowMs: number, t: numb
     case 'swarm': {
       const model = topoModelOf(snapshot, recentByAgent(state.events, nowMs, PULSE_MS + 600), nowMs)
 
-      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t))
+      if (model !== null) pictures.set('topology', topologyPicture(model, width, topologyRows(width, model.nodes.length), t, state.options.look === 'orbital' && theme.motion.topology, motionTime, state.options.look === 'orbital' ? theme.palette : undefined))
       break
     }
     case 'hive':

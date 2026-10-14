@@ -17,12 +17,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `@claude-flow/shared` 3.0.4: RVF event log no longer loses appends after a damaged tail (#4031, @rudycelekli). A partial length prefix, a partial payload or a record cut short is truncated on open, so later appends are readable; an unwritable log (EACCES/EROFS/EPERM) keeps its readable history and rejects appends explicitly. A tail whose length prefix is over the 100 MB limit is no longer accepted silently (found by @martinvlad): the bytes are kept and `append()` rejects until repaired, or set `repairOversizedTail: true` to truncate it. `append()` also refuses a record the replay limit would never read back. A fresh install can now import the package root and its tarball ships no test files: `zod`, `express`, `cors`, `helmet`, `ws` and `@types/ws` are declared dependencies, Express 5 bodiless POST and malformed-JSON requests get JSON-RPC 400s (#4091/#4089, @proffesor-for-testing).
+
 Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, #4033, #4035, #4037; #4027 and #4034 landed earlier):
 
 - `@claude-flow/cli-core` 3.7.1: JSON memory backend owns its snapshots, rejects invalid entry containers, measures size in UTF-8 bytes, omits non-matching substring results and lets expired keys be reused; output formatter honours progress controls, empty totals, table padding, coloured header widths, and suppresses progress in quiet or redirected output.
 - `@claude-flow/shared` 3.0.3: RVF event log honours zero limits, rebuilds indexes on retried initialization and isolates persisted records from caller mutation; circuit breaker returns independent date snapshots and expires rolling requests on completion.
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
+
+## [3.56.9] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.9, with the bundled leaves `@claude-flow/security` 3.0.5 and `@claude-flow/codex` 3.0.5 published standalone and pinned exactly, and `@claude-flow/shared` 3.0.5 / `@claude-flow/cli-core` 3.7.2 (published earlier) pinned. Signed helpers changed (`hook-handler.cjs`, re-signed in #4096).
+
+### Fixed
+
+- **Policy envelope** (`security` 3.0.5): explicit envelope ceilings require metering, and unmetered worker ceilings stay opt-in (#3503, @rudycelekli).
+- **Codex MCP backend** (`codex` 3.0.5, ruflo wrapper bridge): the opt-in `codex` backend no longer launches `@openai/codex mcp-server`, which current Codex CLI dropped, so it is retired without a startup stall (#3522, @rudycelekli; reported in #3509 by @pacphi).
+- **CLI parser, retry, rate-limit, monitoring and config fixes**: a batch of review findings (#4107; #4000-#4003, #4006-#4011, #4013, #4016, #4017, @rudycelekli and others).
+- `analyze diff` renders the `analyze_diff` result shape (#4102, #4101, @z4forzubair).
+- `shared` 3.0.5 and `cli-core` 3.7.2: narrow-column truncation, rate-window retry times, structured network error codes (#4014, #4015, #4018, @rudycelekli).
+- **ruflo-mods guards** (#4096, @proffesor-for-testing): the root-delete guard no longer misses brace, nesting and fork-bomb forms, the screen `.env` check is fixed, and `init`-generated hooks carry the changes.
+- **Console** (marketplace plugin; its `tui.mjs` is bundled into the CLI): worktree removal runs no fsmonitor or hooks and keeps untracked files (#4092), expired confirm cards are reported by `console_state` (#4067), pictures draw as SVG on Claude Code Desktop (#4112), all by @proffesor-for-testing; the Skills page pins its skills CLI (#4113, @martinvlad).
+- CI: the v3 root suite runs every test file and a crashed run is no longer accepted as a pass (#4099, @proffesor-for-testing); this does not ship in the package.
+
+## [3.56.8] - 2026-10-12
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.8. `@claude-flow/shared` 3.0.4 was published earlier and is now pinned exactly (3.56.7 still pinned 3.0.3). No other published package changed since 3.56.7; signed helpers did not change.
+
+### Fixed
+
+- `@claude-flow/shared` 3.0.4: the RVF event log repairs an incomplete or damaged tail before appending (#4031 by @rudycelekli); a clean install can import `.`, `./core` and `./mcp` because zod and express are now declared, and the tarball no longer ships compiled tests (#4089, #4091 by @proffesor-for-testing; the fresh-consumer finding came from @martinvlad, with `scripts/smoke-shared-fresh-consumer.mjs`).
+- `hooks coverage-gaps`: files with no executable lines are no longer reported as 0%, overall coverage is line-weighted, the command reads `coverage-final.json`, and the report size is capped (#4082-#4084, reported by @ronmikailov; #4097). Plugin workflow contracts for `ruflo-testgen` and `ruflo-sparc` were corrected in the same change (#4085-#4088; marketplace plugins, not npm).
 
 ## [3.56.7] - 2026-10-11
 

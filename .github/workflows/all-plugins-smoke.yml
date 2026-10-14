@@ -18,6 +18,9 @@ on:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-skill-mcp-tools.mjs'
+      - 'verification/skill-mcp-tool-baseline.json'
+      - 'v3/@claude-flow/cli/.claude/skills/**'
       - 'scripts/check-plugin-manifests.mjs'
       - 'scripts/sync-mod-screen.mjs'
       - 'scripts/check-guard-tool-names.mjs'
@@ -32,6 +35,9 @@ on:
       - 'plugins/**'
       - 'scripts/smoke-all-plugins.mjs'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-skill-mcp-tools.mjs'
+      - 'verification/skill-mcp-tool-baseline.json'
+      - 'v3/@claude-flow/cli/.claude/skills/**'
       - 'scripts/check-plugin-manifests.mjs'
       - 'scripts/sync-mod-screen.mjs'
       - 'scripts/check-guard-tool-names.mjs'
@@ -132,6 +138,14 @@ jobs:
         # Claude marketplace plugins expose the ruflo MCP server under the
         # plugin-qualified namespace. Reject standalone namespace references
         # that silently disable tools in plugin skills and agents.
+
+      - name: Skill MCP tool reference audit
+        run: node scripts/audit-skill-mcp-tools.mjs
+        # Every ruflo MCP tool a shipped SKILL.md names (init bundle and
+        # marketplace plugins, prose and allowed-tools) must be registered by
+        # mcp-client.ts. Known dangling references are carried in
+        # verification/skill-mcp-tool-baseline.json; a new one fails. After
+        # fixing some, run with --update-baseline to lower the floor.
 
       - name: Upload machine-readable report
         if: always()

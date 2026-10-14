@@ -9,8 +9,8 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares version 0.2.4"
-grep -q '"version": "0.2.4"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "version is not 0.2.4"
+step "1. plugin.json declares version 0.2.5"
+grep -q '"version": "0.2.5"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "version is not 0.2.5"
 
 step "2. scripts, both skills, the command and the agent are present"
 miss=""

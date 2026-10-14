@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-adr`.
 
+## 0.5.7 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.5.6 — 2026-10-11
 - fix: adr-review, `adr graph` and the adr-architect agent called `agentdb_causal-query` and `agentdb_hierarchical-query`, which are not tools; relationships are now read from the `adr-edges` memory namespace (`memory_list`) and the hierarchical lookup uses `agentdb_hierarchical-recall`
 

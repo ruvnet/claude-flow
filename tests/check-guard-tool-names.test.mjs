@@ -1,7 +1,7 @@
 // node --test tests/check-guard-tool-names.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -69,12 +69,15 @@ test('gather skips test files, reads plugin server names, and merges the allowli
   }
 });
 
-function runIn(files) {
+function runIn(files, useSymlink = false) {
   const root = fixture(files);
   mkdirSync(join(root, 'scripts'), { recursive: true });
   cpSync(SCRIPT, join(root, 'scripts/check-guard-tool-names.mjs'));
   try {
-    return spawnSync(process.execPath, [join(root, 'scripts/check-guard-tool-names.mjs')], { encoding: 'utf8' });
+    const entry = join(root, 'scripts/check-guard-tool-names.mjs');
+    const alias = join(root, 'scripts/check-guard-alias.mjs');
+    if (useSymlink) symlinkSync(entry, alias);
+    return spawnSync(process.execPath, [useSymlink ? alias : entry], { encoding: 'utf8' });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -103,4 +106,10 @@ test('CLI exits 1 naming the plugin for a renamed tool, 0 once it matches', () =
 test('the real repo passes', () => {
   const r = spawnSync(process.execPath, [SCRIPT], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
+});
+
+test("symlinked CLI entry still rejects renamed tools", () => {
+  const result = runIn({ "plugins/p/hooks/guard.ts": "['memory_missing']", "v3/@claude-flow/cli/src/mcp-tools/a.ts": "{name: 'memory_store'}" }, true);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /UNMATCHED memory_missing/);
 });

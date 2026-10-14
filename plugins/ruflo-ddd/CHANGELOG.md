@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.6 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
 ## 0.3.5 — 2026-10-11
 - fix: ddd-context, ddd-aggregate and REFERENCE.md store the domain graph with real tool parameters (agentdb_hierarchical-store key/value/tier plus agentdb_causal-edge sourceId/targetId/relation); the old `--parent/--child/--relation` form did not exist and failed on the required key/value
 - fix: drop the invalid `--train-neural` post-task flag; smoke expectation corrected to 13

@@ -87,6 +87,7 @@ plugins/ruflo-console/tests/toasts.test.ts
 plugins/ruflo-console/tests/full-text.test.ts
 plugins/ruflo-console/tests/whatsnew.test.ts
 plugins/ruflo-console/tests/adrs.test.ts
+plugins/ruflo-console/tests/surface-pictures.test.ts
 plugins/ruflo-protector/tests/corpus.test.ts
 plugins/ruflo-protector/tests/mod.test.ts
 plugins/ruflo-protector/tests/rules.test.ts
@@ -95,3 +96,4 @@ plugins/ruflo-mods/tests/protector.test.ts
 plugins/ruflo-mods/tests/selfcheck.test.ts
 plugins/ruflo-testgen/scripts/tdd-repair/tdd-repair.test.mjs
 plugins/ruflo-core/scripts/command-recording-switch.test.cjs
+tests/regression/oct12-coverage.test.cjs
