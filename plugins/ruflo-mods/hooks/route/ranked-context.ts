@@ -1,6 +1,7 @@
 /**
  * Ranked-memory context for a prompt: the scoring of intelligence.cjs
- * `getContext` (trigram Jaccard blended with PageRank, top 5 over 0.05),
+ * `getContext` (query-coverage scoring over inflection variants with IDF
+ * weights and a small PageRank blend, top 5 at coverage >= 0.15; #4136),
  * read-only.
  *
  * Copied because a hooks module cannot import intelligence.cjs; the parity
@@ -29,8 +30,7 @@ const plainText = (s: string): string =>
     .replace(/\s+/g, ' ')
     .trim()
 
-const ALPHA = 0.6
-const MIN_THRESHOLD = 0.05
+const MIN_COVERAGE = 0.15
 const TOP_K = 5
 
 export type RankedEntry = {
@@ -59,15 +59,27 @@ export function trigrams(words: readonly string[]): Set<string> {
   return t
 }
 
-function jaccard(a: ReadonlySet<string>, b: ReadonlySet<string>): number {
-  if (a.size === 0 && b.size === 0) return 0
-  let shared = 0
-  for (const item of a) if (b.has(item)) shared++
-  return shared / (a.size + b.size - shared)
-}
+/** An entry with its term set worked out once, when the file is read. */
+export type PreparedEntry = RankedEntry & { readonly tri: ReadonlySet<string>; readonly terms: ReadonlySet<string> }
 
-/** An entry with its trigrams worked out once, when the file is read. */
-export type PreparedEntry = RankedEntry & { readonly tri: ReadonlySet<string> }
+/**
+ * Inflection variants of a prompt term (plural, -ed, -ing, -ion and their
+ * stems), as in intelligence.cjs: "migrations" finds "migration", "deploying"
+ * finds "deploy". The stem keeps at least 4 characters so short words stay exact.
+ */
+export function termVariants(word: string): string[] {
+  const out = new Set<string>([word])
+  for (const suffix of ['s', 'es', 'ed', 'ing', 'ion', 'ions']) out.add(word + suffix)
+  for (const suffix of ['ions', 'ion', 'ing', 'ed', 'es', 's']) {
+    if (word.length - suffix.length >= 4 && word.endsWith(suffix)) {
+      const stem = word.slice(0, -suffix.length)
+      out.add(stem)
+      out.add(stem + 'e')
+      out.add(stem + 's')
+    }
+  }
+  return [...out]
+}
 
 /**
  * Parses ranked-context.json text into its entries, each with its trigrams
@@ -81,7 +93,10 @@ export function parseRanked(text: string): readonly PreparedEntry[] {
     if (!Array.isArray(entries)) return []
     return entries
       .filter((e): e is RankedEntry => e !== null && typeof e === 'object')
-      .map(e => ({ ...e, tri: trigrams(Array.isArray(e.words) ? e.words.filter(w => typeof w === 'string') : []) }))
+      .map(e => {
+        const words = Array.isArray(e.words) ? e.words.filter((w): w is string => typeof w === 'string') : []
+        return { ...e, tri: trigrams(words), terms: new Set(words) }
+      })
   } catch {
     return []
   }
@@ -95,15 +110,38 @@ export function parseRanked(text: string): readonly PreparedEntry[] {
  */
 export function rankedContext(prompt: string, entries: readonly PreparedEntry[]): string | null {
   if (!prompt || entries.length === 0) return null
-  const words = tokenize(prompt)
-  if (words.length === 0) return null
-  const promptTrigrams = trigrams(words)
+  const promptWords = [...new Set(tokenize(prompt))]
+  if (promptWords.length === 0) return null
+
+  // Query coverage is independent of entry length; IDF downweights terms shared
+  // by many entries; terms absent from every entry still count against coverage.
+  const variants = promptWords.map(termVariants)
+  const hasTerm = (terms: ReadonlySet<string>, i: number): boolean => variants[i].some(v => terms.has(v))
+  const weights = promptWords.map((_word, i) => {
+    let frequency = 0
+    for (const entry of entries) if (hasTerm(entry.terms, i)) frequency++
+    return Math.log1p((entries.length - frequency + 0.5) / (frequency + 0.5))
+  })
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+  if (totalWeight === 0) return null
 
   const scored: Array<RankedEntry & { score: number }> = []
   for (const entry of entries) {
-    const pageRank = typeof entry.pageRank === 'number' ? entry.pageRank : 0
-    const score = ALPHA * jaccard(promptTrigrams, entry.tri) + (1 - ALPHA) * pageRank
-    if (score >= MIN_THRESHOLD) scored.push({ ...entry, score })
+    let matchedWeight = 0
+    let matchedTerms = 0
+    for (let i = 0; i < promptWords.length; i++) {
+      if (weights[i] > 0 && hasTerm(entry.terms, i)) {
+        matchedWeight += weights[i]
+        matchedTerms++
+      }
+    }
+    // A single common word in a long prompt is not evidence of relevance.
+    if (matchedTerms < Math.min(2, promptWords.length)) continue
+    const coverage = matchedWeight / totalWeight
+    if (coverage >= MIN_COVERAGE) {
+      const pageRank = Math.max(0, Math.min(1, Number(entry.pageRank) || 0))
+      scored.push({ ...entry, score: 0.9 * coverage + 0.1 * pageRank })
+    }
   }
   if (scored.length === 0) return null
 
