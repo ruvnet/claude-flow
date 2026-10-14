@@ -790,7 +790,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_health',
-    description: 'Report measured agent_execute provider-call outcomes over the last 20 calls: API success-ratio health (0-1), error rate, and response-latency p50/p95. This does not measure task correctness. Agents with no observed calls have unknown health; registration is not proof of a running process. Native Task and hooks_post-task outcomes are not recorded here.',
+    description: 'Report measured agent_execute provider-call outcomes over the last 20 calls: API success-ratio health (0-1), error rate, and response-latency p50/p95. This does not measure task correctness. Agents with no observed calls have unknown health; registration is not proof of a running process. Native Task and hooks_post-task outcomes are not recorded here. Use when you need measured reliability for agents driven through agent_execute; native Task results are invisible to this tool, so inspect those directly.',
     category: 'agent',
     inputSchema: {
       type: 'object',
