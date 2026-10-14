@@ -16,6 +16,7 @@ import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
+import { getProjectCwd } from '../mcp-tools/types.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -27,12 +28,11 @@ import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
  * falling back to home directory
  */
 function getDataDir(): string {
-  // Same project-root rule as cli-core's getProjectCwd(): every MCP tool
-  // resolves `.claude-flow/` against CLAUDE_FLOW_CWD when set, so the neural
-  // stats/patterns must too — otherwise an MCP server whose process cwd
-  // differs from the project writes learning state where nothing reads it.
-  const envCwd = process.env.CLAUDE_FLOW_CWD;
-  const cwd = envCwd && envCwd !== '/' && envCwd !== process.env.HOME ? envCwd : process.cwd();
+  // Every MCP tool resolves `.claude-flow/` against the project root
+  // (CLAUDE_FLOW_CWD when set), so the neural stats/patterns must too —
+  // otherwise an MCP server whose process cwd differs from the project
+  // writes learning state where nothing reads it.
+  const cwd = getProjectCwd();
   const localDir = join(cwd, '.claude-flow', 'neural');
   const homeDir = join(homedir(), '.claude-flow', 'neural');
 
