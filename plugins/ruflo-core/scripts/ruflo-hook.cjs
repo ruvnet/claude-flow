@@ -618,7 +618,11 @@ function main() {
   if (subcommand === 'post-edit') {
     const file = event?.tool_input?.file_path ?? event?.tool_input?.path;
     if (!file) done(); // bash version: `[ -z "$FILE" ] && exit 0`
-    invokeCli('post-edit', ['-f', String(file), '-s', String(event?.hook_event_name !== 'PostToolUseFailure')], stdinData);
+    // Documented flags: -f <file> -s <success>. A failed edit (PostToolUseFailure) records success=false.
+    const editArgs = event?.hook_event_name === 'PostToolUseFailure'
+      ? ['-f', String(file), '-s', 'false']
+      : ['-f', String(file), '-s', 'true'];
+    invokeCli('post-edit', editArgs, stdinData);
     done();
   }
 
