@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ruvector`.
 
+## 0.3.7 — 2026-10-14
+- fix: `vector-hyperbolic` no longer claims a normalised text embedding encodes depth (every unit-norm vector lands at the same radius); it now says to set radius from depth and measure on your own tree (#4159, thanks @ronmikailov)
+
 ## 0.3.6 — 2026-10-14
 - fix: pin ruvector@0.3.3, which bundles the ONNX wasm that 0.2.25 lacks, so `embed text` works with no add-on; drop the `ruvector-onnx-embeddings-wasm` remedy that never fixed it, and refresh the limitation tables against 0.3.3 (`optimize`, `force-learn`, `midstream` now run; 97 MCP tools) (#4158)
 
