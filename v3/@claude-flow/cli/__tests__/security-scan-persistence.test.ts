@@ -28,6 +28,13 @@ beforeEach(() => {
     join(scanTarget, 'package.json'),
     JSON.stringify({ name: 'security-scan-persist-fixture', version: '1.0.0' }),
   );
+  // #4124: without a lockfile `npm audit` fails (ENOLOCK), which is now
+  // reported as "could not scan" instead of clean. An empty v3 lockfile lets
+  // npm audit produce a real (empty) report offline.
+  writeFileSync(
+    join(scanTarget, 'package-lock.json'),
+    JSON.stringify({ name: 'security-scan-persist-fixture', version: '1.0.0', lockfileVersion: 3, requires: true, packages: { '': { name: 'security-scan-persist-fixture', version: '1.0.0' } } }),
+  );
 });
 
 afterEach(() => {
