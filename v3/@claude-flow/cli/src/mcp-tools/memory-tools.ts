@@ -1161,6 +1161,7 @@ export const memoryTools: MCPTool[] = [
 
       let imported = 0;
       let skipped = 0;
+      const importErrors: string[] = [];
       // #1791.8 — Claude Code's `~/.claude/projects/` accumulates historical
       // project_id directories (truncated forms, sandbox cwds, renamed
       // workspaces) that all contain copies of the same memory files. The
@@ -1205,7 +1206,7 @@ export const memoryTools: MCPTool[] = [
             // #1884 — sanitize key so memory_delete can later remove it. Without
             // this, dangerous chars from frontmatter `name` strand the key.
             const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}`);
-            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true });
+            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true, upsert: true });
             if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
             imported++;
           } else {
@@ -1217,13 +1218,17 @@ export const memoryTools: MCPTool[] = [
               // #1884 — sanitize so any dangerous chars in the heading don't
               // produce keys memory_delete will reject.
               const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}:${sectionTitle.slice(0, 50)}`);
-              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true });
+              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true, upsert: true });
               if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
               imported++;
             }
           }
-        } catch {
+        } catch (err) {
           skipped++;
+          // Say why a file was skipped instead of returning a bare failure (#4197).
+          if (importErrors.length < 5) {
+            importErrors.push(`${memFile.path}: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
 
@@ -1243,6 +1248,7 @@ export const memoryTools: MCPTool[] = [
         skipped,
         duplicatesSkipped,
         excludedByPattern,
+        ...(importErrors.length > 0 ? { errors: importErrors } : {}),
         files: memoryFiles.length,
         projects: projects.size,
         namespace: ns,
