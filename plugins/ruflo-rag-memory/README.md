@@ -177,13 +177,9 @@ Measured numbers from [`docs/reviews/intelligence-system-audit-2026-05-29.md`](.
 
 The previously published "150x–12,500x" figures were brute-force fallback artifacts and are not reproduced under the audit harness.
 
-## Integration with ruvector
+## Supported memory search
 
-When `ruflo-ruvector` is also loaded, rag-memory delegates to ruvector's backend for advanced features:
-- FlashAttention-3 for O(N) memory attention
-- Graph RAG for multi-hop knowledge retrieval
-- Hybrid search (sparse + dense) with RRF fusion
-- DiskANN for large-scale persistent indexes
+The supported text-query interface for this plugin is Ruflo `memory search` or the registered `memory_search` MCP tool. `memory search --type hybrid` unions keyword and semantic hits; `--smart` requests query expansion, RRF across variants, recency weighting, and MMR when the installed memory package supports it. The `ruvector search` CLI requires a database and query vector and does not accept a text query with `--hybrid` or `--graph-rag`. Installing `ruflo-ruvector` alone does not turn these into memory-search commands.
 
 ## Compatibility
 

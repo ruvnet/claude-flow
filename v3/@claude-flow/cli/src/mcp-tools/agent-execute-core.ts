@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
+import { appendAgentExecution, summarizeAgentExecutions, type AgentExecutionSample } from './agent-health-metrics.js';
 import { configManager } from '../services/config-file-manager.js';
 
 const STORAGE_DIR = '.claude-flow';
@@ -43,6 +44,7 @@ export interface AgentRecord {
   /** ADR-148 phase 2 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
+  executionHistory?: AgentExecutionSample[];
 }
 
 interface AgentStore {
@@ -797,6 +799,20 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
       current.modelId = agent.modelId;
     }
     if (out) current.lastResult = out as unknown as Record<string, unknown>;
+    const previousMeasuredHealth = summarizeAgentExecutions(current.executionHistory).health;
+    const mayUpdateStoredHealth = previousMeasuredHealth === null
+      ? current.health === agent.health
+      : current.health === previousMeasuredHealth;
+    current.executionHistory = appendAgentExecution(current.executionHistory, {
+      at: new Date().toISOString(),
+      success: result.success,
+      durationMs: result.durationMs ?? Date.now() - startedAt,
+    });
+    // An explicit agent_update during the provider call still wins. The
+    // measured value remains available from executionHistory in agent_health.
+    if (mayUpdateStoredHealth) {
+      current.health = summarizeAgentExecutions(current.executionHistory).health ?? current.health;
+    }
     saveAgentStore(latest);
   };
 
