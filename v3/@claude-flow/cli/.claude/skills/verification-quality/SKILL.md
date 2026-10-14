@@ -1,7 +1,7 @@
 ---
 name: "Verification & Quality Assurance"
 description: |
-  Comprehensive truth scoring, code quality verification, and automatic rollback system with 0.95 accuracy threshold for ensuring high-quality agent outputs and codebase reliability.
+  Check code quality and change risk with ruflo's shipped analysis commands (analyze diff, analyze complexity, analyze code), and run or extend ruflo's own CI regression guards. Use when assessing a change's risk, finding complexity hot spots, or adding a regression guard to ruflo. The truth-scoring and auto-rollback commands described later in this file are design notes, not shipped CLI commands.
 ---
 
 # Verification & Quality Assurance Skill
@@ -62,30 +62,33 @@ node plugins/ruflo-core/scripts/witness/history.mjs --history verification/macos
 
 ## Prerequisites
 
-- Ruflo installed (`npx ruflo@alpha`)
+- Ruflo installed (`npx ruflo@latest`)
 - Git repository (for rollback features)
 - Node.js 18+ (for dashboard features)
 - `@noble/ed25519` (for the witness verifier — a single runtime dep, `npm i @noble/ed25519`)
 
 ## Quick Start
 
+These commands ship in the current CLI:
+
 ```bash
-# View current truth scores
-npx ruflo@alpha truth
+# Change risk since HEAD~1 (without --risk it also shows classification and reviewers)
+npx ruflo@latest analyze diff HEAD~1 --risk
 
-# Run verification check
-npx ruflo@alpha verify check
+# Complexity hot spots in a directory
+npx ruflo@latest analyze complexity src/ --threshold 15
 
-# Verify specific file with custom threshold
-npx ruflo@alpha verify check --file src/app.js --threshold 0.98
-
-# Rollback last failed verification
-npx ruflo@alpha verify rollback --last-good
+# Size, functions and TODOs per file
+npx ruflo@latest analyze code -p ./src
 ```
+
+There is no truth-scoring, `verify check` or `verify rollback` command (`ruflo verify` only checks an installed ruflo package against its signed witness manifest). To verify agent output, run the project's own tests, linters and type checks, and roll back with git (`git restore <file>`, `git revert <commit>`). Inside the ruflo repo, run the guards in [Run the guards locally](#run-the-guards-locally).
 
 ---
 
 ## Complete Guide
+
+> **Design notes, not shipped.** Everything below describes a planned truth-scoring, verification and rollback surface. `ruflo truth`, `ruflo verify check` and `ruflo verify rollback` are not commands in the current CLI, so do not run the examples below; use the commands in [Quick Start](#quick-start) instead.
 
 ### Truth Scoring System
 

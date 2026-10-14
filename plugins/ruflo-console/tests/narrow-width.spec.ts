@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseMissions } from '../hooks/data/missions'
-import { mcOf } from '../hooks/mission-control'
+import { mcOf, setGoal } from '../hooks/mission-control'
 import { newState } from '../hooks/state'
 import { viewText } from '../hooks/views/pane'
 
@@ -63,4 +63,38 @@ describe('the Approvals pane at narrow widths (#3899)', () => {
 
     expect(screen.replace(/\s+/g, ' ')).toContain(objective)
   })
+})
+
+describe('Mission Control at narrow widths (#3899)', () => {
+  for (const columns of [80, 60]) {
+    it(`${columns} columns: the kind description and the empty-goal hint wrap instead of ending in "…"`, () => {
+      const state = newState({})
+
+      state.view = 'missions'
+      mcOf(state).tab = 'plan'
+      const screen = viewText({ state, nowMs: Date.now(), columns, act }, 'missions')
+      const flat = screen.replace(/\s+/g, ' ')
+
+      expect(flat).toContain('research, specify, design + ADRs, tests first, build, validate, secure, benchmark, learn')
+      expect(flat).toContain('type a goal above: the planner finds the cheapest SPARC action sequence that reaches it')
+      // Prose rows fit the pane; the section rules ('─' fills) are drawn by their own helper and are not what #3899 is about.
+      expect(Math.max(...screen.split('\n').filter(line => !line.includes('─')).map(line => [...line].length))).toBeLessThanOrEqual(columns)
+    })
+
+    it(`${columns} columns: every planned task title is shown whole`, () => {
+      const state = newState({})
+
+      state.view = 'missions'
+      mcOf(state).tab = 'plan'
+      setGoal(state, 'fix the crash when the password is empty')
+      const planned = mcOf(state).planned
+      const screen = viewText({ state, nowMs: Date.now(), columns, act }, 'missions')
+      const flat = screen.replace(/\s+/g, ' ')
+
+      expect(planned).not.toBeNull()
+      for (const step of planned!.steps) expect(flat).toContain(step.action.title)
+      // No task line ends in an ellipsis. (The skill button rows below are drawn by their own helper, one column over at 80: not part of #3899.)
+      expect(screen.split('\n').filter(line => /^\s+t\d+ \[/.test(line) && line.includes('…'))).toEqual([])
+    })
+  }
 })

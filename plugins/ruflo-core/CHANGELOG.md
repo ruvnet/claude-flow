@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.9 — 2026-10-14
+- fix: failed Bash commands and failed edits are recorded as failures: PostToolUseFailure is registered and forwarded to post-command / post-edit with `-s false` and the real exit code, so the learning layer no longer sees a 100% success rate (#4127, thanks @rudycelekli for #4170)
+- fix: the hook shim starts the CLI from CLAUDE_PROJECT_DIR, so a session that `cd`ed into a subdirectory no longer gets .claude-flow/ and proven-config files written there (#4176)
+- perf: telemetry hooks no longer block the tool: the CLI is started detached and the shim returns in about 25 ms instead of 0.2 to 4 s per call; at most 4 run at once per project (RUFLO_HOOK_MAX_PARALLEL), Stop is never dropped, RUFLO_HOOK_SYNC=1 restores the synchronous path (#4128)
+
 ## 0.2.8 — 2026-10-11
 - fix: the PostToolUse Bash shim stands down when command recording is switched off (`CLAUDE_FLOW_HOOKS_RECORD_COMMANDS=0` or `CLAUDE_FLOW_HOOKS_ENABLED=false`), so no CLI process is started per Bash call (#4056)
 

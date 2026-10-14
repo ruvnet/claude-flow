@@ -19,7 +19,7 @@ npx @claude-flow/cli@latest memory search --query 'QUERY' --type hybrid --limit 
 ```
 (`npx ruvector search` takes a database path and a `--vector` JSON array, not a text query.)
 
-This searches across patterns, tasks, solutions, feedback, security, and claude-memories namespaces. Results are ranked by composite score: cosine similarity * MMR diversity * recency decay.
+Omitting `--namespace` searches available namespaces. Check the result for a SmartRetrieval fallback note before saying MMR or recency ranking was applied; the returned score is not a probability of truth.
 
 If no arguments provided, show recent memory entries:
 ```bash

@@ -10,8 +10,8 @@
  *
  * Since ADR-472 the hook also appends `.claude-flow/data/recall-log.jsonl` (a digest of the prompt, the ids/scores/ranks it surfaced,
  * the router's pick). When a record exists it is shown as recorded. Older projects have no log, so a "past prompt" is re-scored against today's ranked file
- * with the hook's own formula (copied from .claude/helpers/intelligence.cjs getContext: tokenize, trigrams, jaccard,
- * 0.6 * match + 0.4 * pageRank, threshold 0.05, top 5) and is labelled a recomputation. `.claude-flow/neural/patterns.json`
+ * with the hook's own formula (copied from .claude/helpers/intelligence.cjs getContext: tokenize, inflection variants, IDF-weighted
+ * query coverage, 0.9 * coverage + 0.1 * pageRank, coverage >= 0.15, top 5; #4136) and is labelled a recomputation. `.claude-flow/neural/patterns.json`
  * (the ReasoningBank) is usually over READ_MAX and is not read; `reads.bank` says so.
  */
 import { looksSecret } from './automate'
@@ -32,7 +32,9 @@ export const LOGGED_SHOWN = 6
 
 /** The hook's constants (intelligence.cjs getContext). */
 export const ALPHA = 0.6
-export const MIN_SCORE = 0.05
+/** Query-coverage scoring (#4136): the score is COVERAGE_WEIGHT * coverage + (1 - COVERAGE_WEIGHT) * pageRank, and an entry needs coverage >= MIN_COVERAGE. */
+export const COVERAGE_WEIGHT = 0.9
+export const MIN_COVERAGE = 0.15
 export const TOP_K = 5
 /** How many session files are read, newest first. */
 export const SESSIONS_READ = 8
@@ -104,15 +106,30 @@ export function parseRanked(text: string | null): Ranked | null {
 
 export type Scored = { entry: RankedEntry; match: number; score: number }
 
-/** An entry's trigram set, built once per entry object: the render re-explains the picked prompt on every refresh (profiled: trigrams() was 70% of the time). */
-const gramsOf = new WeakMap<RankedEntry, Set<string>>()
+/**
+ * Inflection variants of a prompt term (plural, -ed, -ing, -ion and their stems), as in intelligence.cjs: "migrations"
+ * finds "migration", "deploying" finds "deploy". The stem keeps at least 4 characters so short words stay exact.
+ */
+export function termVariants(word: string): string[] {
+  const out = new Set<string>([word])
+  for (const suffix of ['s', 'es', 'ed', 'ing', 'ion', 'ions']) out.add(word + suffix)
+  for (const suffix of ['ions', 'ion', 'ing', 'ed', 'es', 's']) {
+    if (word.length - suffix.length >= 4 && word.endsWith(suffix)) {
+      const stem = word.slice(0, -suffix.length)
+      out.add(stem)
+      out.add(stem + 'e')
+      out.add(stem + 's')
+    }
+  }
+  return [...out]
+}
 
-const entryGrams = (entry: RankedEntry): Set<string> => {
-  let grams = gramsOf.get(entry)
-
-  if (grams === undefined) gramsOf.set(entry, (grams = trigrams(entry.words)))
-
-  return grams
+/** An entry's term set, built once per entry object: the render re-explains the picked prompt on every refresh. */
+const termsOf = new WeakMap<RankedEntry, Set<string>>()
+const entryTerms = (entry: RankedEntry): Set<string> => {
+  let terms = termsOf.get(entry)
+  if (terms === undefined) termsOf.set(entry, (terms = new Set(entry.words)))
+  return terms
 }
 
 let lastExplain: { prompt: string; entries: readonly RankedEntry[]; out: Scored[] } | null = null
@@ -121,19 +138,49 @@ let lastExplain: { prompt: string; entries: readonly RankedEntry[]; out: Scored[
 export function explainPrompt(prompt: string, entries: readonly RankedEntry[]): Scored[] {
   if (lastExplain !== null && lastExplain.prompt === prompt && lastExplain.entries === entries) return lastExplain.out
 
-  const words = tokenize(prompt)
+  const words = [...new Set(tokenize(prompt))]
 
   if (words.length === 0) return []
 
-  const grams = trigrams(words)
+  // Query coverage is independent of entry length; IDF downweights terms shared by many entries; terms absent from every entry still count against coverage.
+  const variants = words.map(termVariants)
+  const terms = entries.map(entryTerms)
+  const hasTerm = (set: ReadonlySet<string>, i: number): boolean => variants[i]!.some(variant => set.has(variant))
+  const weights = words.map((_word, i) => {
+    let frequency = 0
+
+    for (const set of terms) if (hasTerm(set, i)) frequency++
+
+    return Math.log1p((entries.length - frequency + 0.5) / (frequency + 0.5))
+  })
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
+
+  if (totalWeight === 0) return []
+
   const out: Scored[] = []
 
-  for (const entry of entries) {
-    const match = jaccard(grams, entryGrams(entry))
-    const score = ALPHA * match + (1 - ALPHA) * entry.pageRank
+  entries.forEach((entry, index) => {
+    let matchedWeight = 0
+    let matchedTerms = 0
 
-    if (score >= MIN_SCORE) out.push({ entry, match, score })
-  }
+    for (let i = 0; i < words.length; i++) {
+      if (weights[i]! > 0 && hasTerm(terms[index]!, i)) {
+        matchedWeight += weights[i]!
+        matchedTerms++
+      }
+    }
+
+    // A single common word in a long prompt is not evidence of relevance.
+    if (matchedTerms < Math.min(2, words.length)) return
+
+    const coverage = matchedWeight / totalWeight
+
+    if (coverage >= MIN_COVERAGE) {
+      const pageRank = Math.max(0, Math.min(1, Number(entry.pageRank) || 0))
+
+      out.push({ entry, match: coverage, score: COVERAGE_WEIGHT * coverage + (1 - COVERAGE_WEIGHT) * pageRank })
+    }
+  })
 
   const best = out.sort((a, b) => b.score - a.score).slice(0, TOP_K)
 

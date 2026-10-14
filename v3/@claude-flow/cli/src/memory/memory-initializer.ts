@@ -12,6 +12,7 @@ import type { AppendCondition } from './append-conditions.js';
 
 import { loadBetterSqlite3 } from './shared-sqlite.js';
 import { resolveMemoryRoot } from './memory-root.js';
+import { DEFAULT_SEARCH_THRESHOLD } from './search-defaults.js';
 import { liveMemoryRowSql } from './live-memory-row.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS, type EmbeddingQ8 } from './embedding-q8.js';
 import * as fs from 'fs';
@@ -3186,7 +3187,7 @@ export async function searchEntries(options: {
     query,
     namespace,
     limit = 10,
-    threshold = 0.3,
+    threshold = DEFAULT_SEARCH_THRESHOLD,
     dbPath: customPath,
     provenanceFilter
   } = options;
