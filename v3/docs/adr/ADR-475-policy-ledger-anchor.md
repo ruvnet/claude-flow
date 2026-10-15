@@ -141,7 +141,12 @@ The default audit record limit is 16 MiB. Set
 `CLAUDE_FLOW_POLICY_AUDIT_MAX_RECORD_BYTES` to an integer from 1024 through 67108864
 to change the bound; invalid configuration and larger records fail with an explicit
 error, without skipping or truncating ledger bytes. This is a new full-audit
-compatibility limit and also bounds the archive-tip preflight. Complete records
+compatibility limit and also bounds the archive-tip preflight. The audit byte
+limit and `CLAUDE_FLOW_POLICY_LEDGER_RETENTION` are operator process-level settings
+shared by CLI and long-lived MCP writers, not per-request flags. The retention
+window defaults to 2,000 receipts; pruning preserves the authenticated archive.
+Neither setting changes policy rules, budgets, approvals or receipt verification.
+Complete records
 use strict UTF-8. An incomplete EOF fragment is preserved by preflight so the
 writer can recover only its exact verified-state byte prefix; full audit rejects
 that incomplete snapshot. Legacy anchor JSON is streamed without changing its
