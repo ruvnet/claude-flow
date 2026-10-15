@@ -316,9 +316,12 @@ export class PatternDiscovery {
    * Get built-in genesis registry (always available offline)
    */
   private getGenesisRegistry(cid: string): PatternRegistry {
+    // #4157: this is an offline placeholder, so it claims nothing it cannot back: no
+    // verification, no signature, no popularity numbers, and fixed (not "now") dates.
     return {
+      source: 'builtin-fallback',
       version: '1.0.0',
-      updatedAt: new Date().toISOString(),
+      updatedAt: '2026-01-08T18:42:31.126Z',
       ipnsName: 'k51qzi5uqu5dj0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8t9u0v',
       previousCid: undefined,
 
@@ -335,25 +338,24 @@ export class PatternDiscovery {
           author: {
             id: 'claude-flow-team',
             displayName: 'Claude Flow Team',
-            verified: true,
+            verified: false,
             patterns: 1,
-            totalDownloads: 1000,
+            totalDownloads: 0,
           },
           license: 'MIT',
           categories: ['routing', 'coordination'],
           tags: ['genesis', 'foundational', 'routing', 'swarm', 'coordination', 'multi-agent', 'hello-world'],
           language: 'typescript',
           framework: 'claude-flow',
-          downloads: 1000,
-          rating: 5.0,
-          ratingCount: 42,
-          lastUpdated: new Date().toISOString(),
+          downloads: 0,
+          rating: 0,
+          ratingCount: 0,
+          lastUpdated: '2026-01-08T18:42:31.126Z',
           createdAt: '2026-01-08T18:42:31.126Z',
           minClaudeFlowVersion: '3.0.0',
-          verified: true,
-          trustLevel: 'verified',
-          signature: 'ed25519:genesis-pattern-signature',
-          publicKey: 'ed25519:claude-flow-team-key',
+          verified: false,
+          trustLevel: 'unverified',
+          source: 'builtin-fallback',
         },
       ],
 
@@ -369,23 +371,20 @@ export class PatternDiscovery {
         {
           id: 'claude-flow-team',
           displayName: 'Claude Flow Team',
-          publicKey: 'ed25519:claude-flow-team-key',
-          verified: true,
+          verified: false,
           patterns: 1,
-          totalDownloads: 1000,
+          totalDownloads: 0,
         },
       ],
 
       totalPatterns: 1,
-      totalDownloads: 1000,
+      totalDownloads: 0,
       totalAuthors: 1,
 
       featured: ['seraphine-genesis-v1'],
       trending: ['seraphine-genesis-v1'],
       newest: ['seraphine-genesis-v1'],
 
-      registrySignature: crypto.randomBytes(32).toString('hex'),
-      registryPublicKey: 'ed25519:claude-flow-registry-key',
     };
   }
 

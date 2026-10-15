@@ -2,7 +2,7 @@
  * Only bytes below its locked snapshot boundary are read; normal later appends
  * do not join the audit. Disk scratch is private, disposable, never ledger state.
  */
-import { AgenticPolicyEngine, canonicalizePolicy, type LedgerVerification, type PolicyReceipt, type PolicyState } from '@claude-flow/security';
+import { AgenticPolicyEngine, canonicalizePolicy, type LedgerVerification, type PolicyReceipt, type PolicyState } from '@claude-flow/security/policy/index';
 import { createHash } from 'node:crypto';
 import { closeSync, chmodSync, constants, fstatSync, mkdtempSync, openSync, read, readSync, rmSync, writeSync } from 'node:fs';
 import { tmpdir } from 'node:os';

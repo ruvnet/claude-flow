@@ -173,8 +173,8 @@ writes compact JSON (70,895,073 bytes). All prior entries remain authenticated.
 | First write, process peak RSS | 636.5 MiB | 124.1 MiB |
 | Subsequent single write, elapsed | 1.795 s | 1.812 s |
 | Subsequent write, process peak RSS | 637.9 MiB | 141.2 MiB |
-| First-write simultaneous clients 1 / 4 / 16, successful returns | 1 / 2 / 2 | 1 / 3 / 2 |
-| Primed simultaneous clients 1 / 4 / 16, successful returns | 1 / 2 / 2 | 1 / 3 / 3 |
+| First-write simultaneous clients 1 / 4 / 16, successful returns | 1 / 3 / 2 | 1 / 3 / 2 |
+| Primed simultaneous clients 1 / 4 / 16, successful returns | 1 / 3 / 2 | 1 / 3 / 3 |
 
 The remaining clients failed with the existing policy-state lock timeout.
 Anchor validation CPU and complete atomic anchor-log rewrites remain

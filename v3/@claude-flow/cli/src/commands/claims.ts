@@ -6,7 +6,8 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
+import { homedir } from 'node:os';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 
@@ -25,7 +26,9 @@ function getClaimsConfigPaths(): string[] {
   return [
     resolve(CLAIMS_CONFIG_PATHS[0]),
     resolve(CLAIMS_CONFIG_PATHS[1]),
-    resolve(process.env.HOME || '~', '.config/claude-flow/claims.json'),
+    // os.homedir(), not $HOME: HOME is normally unset on Windows, and the old
+    // `process.env.HOME || '~'` fallback resolved to a literal <cwd>/~ folder.
+    join(homedir(), '.config', 'claude-flow', 'claims.json'),
   ];
 }
 
@@ -178,7 +181,6 @@ const checkCommand: Command = {
     spinner.start();
 
     const fs = await import('fs');
-    const path = await import('path');
 
     // Real claims evaluation from config file
     let isGranted = false;
@@ -187,11 +189,7 @@ const checkCommand: Command = {
 
     try {
       // Check for claims config file
-      const claimsConfigPaths = [
-        path.resolve('.claude-flow/claims.json'),
-        path.resolve('claude-flow.claims.json'),
-        path.resolve(process.env.HOME || '~', '.config/claude-flow/claims.json'),
-      ];
+      const claimsConfigPaths = getClaimsConfigPaths();
 
       let claimsConfig: {
         roles?: Record<string, string[]>;

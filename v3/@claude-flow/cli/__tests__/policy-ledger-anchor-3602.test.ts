@@ -1,3 +1,5 @@
+import './helpers/isolated-policy-trust.js';
+import { policyTrustRoot } from '../src/services/policy-ledger-anchor.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,7 +21,7 @@ function project(): string {
   const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-3602-'));
   mkdirSync(join(root, '.claude-flow'), { recursive: true });
   const id = createHash('sha256').update(realpathSync(root)).digest('hex');
-  roots.push({ root, trust: join(userInfo().homedir, '.config', 'ruflo', 'policy-trust', id) });
+  roots.push({ root, trust: join(policyTrustRoot(), id) });
   return root;
 }
 afterEach(() => {
@@ -35,7 +37,7 @@ const statePath = (root: string) => join(root, '.claude-flow', 'policy', 'state.
 const logPath = (root: string) => join(root, '.claude-flow', 'policy', 'ledger-anchors.json');
 const mirrorPath = (root: string) => {
   const id = createHash('sha256').update(realpathSync(root)).digest('hex');
-  return join(userInfo().homedir, '.config', 'ruflo', 'policy-trust', id, 'ledger-anchor-head.json');
+  return join(policyTrustRoot(), id, 'ledger-anchor-head.json');
 };
 const readState = (root: string) => JSON.parse(readFileSync(statePath(root), 'utf8'));
 const writeState = (root: string, state: unknown) => writeFileSync(statePath(root), JSON.stringify(state, null, 2));

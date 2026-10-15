@@ -26,6 +26,31 @@ Batch of reviewed fixes from @rudycelekli (PRs #4020-#4026, #4028-#4030, #4032, 
 - `ruflo-adr` 0.5.5 (see its changelog).
 - Not included: #4031 (RVF truncated-tail recovery) is waiting on the author for a read-only-log fallback.
 
+## [3.56.10] - 2026-10-14
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.10. `@claude-flow/memory` 3.0.5 (#4183) was published earlier and is pinned exactly. `@claude-flow/cli-core` 3.7.3 (#3987) was also published earlier and is pinned exactly.
+
+### Added
+
+- `ruflo tui` draws the console's pictures, looks and motion (console 0.44.0, #4182). The bundled `tui.mjs` is rebuilt. The TUI draws at the default size when the terminal reports 0 columns (#4160, @martinvlad).
+
+### Changed
+
+- `ruflo init`: the v3 implementation skills are opt-in, like `agents.v3` (#4140, #4139, @z4forzubair).
+
+### Fixed
+
+- The MCP server starts in the session project, `CLAUDE_FLOW_CWD` naming the home directory or a filesystem root is ignored (`cli-core` 3.7.3), user-level claims resolve through `os.homedir()` on Windows, and duplicate or zombie daemons per workspace are stopped (#3987, @socrates6969). Trajectory counts persist across processes and daemon jobs feed learning (#3988, @socrates6969). One node process per MCP session: the launcher runs the resolved local CLI in-process and keeps `node:http` and the security barrel off the startup path (#3989, @socrates6969; ruflo-core plugin 0.2.10).
+- The console reads the project on Windows: a drive path is absolute, so the cwd is not prefixed twice (#4177, #4175). The neural data directory resolves through the project cwd, and stored worker error text is capped.
+- Hooks and core: failed tool outcomes are recorded, hooks run from the project root, and telemetry stays off the tool path (#4178).
+- Memory: calibrated default search threshold with near-miss hints (#4184, #4129); `memory_export` reads the CLI store as well as the AgentDB store (#4186, #4148); the AgentDB directory is created before the bridge opens it (#4155, #4132, @martinvlad); `TieredMemoryStore` recalls multi-word and natural-language queries (`memory` 3.0.5, #4183, #4152).
+- Intelligence: long memories are recalled for short route prompts (#4172, @rudycelekli); SONA reinforces the nearest pattern for near-identical tasks (#4185, #4134); AIDefence learns missed threats and autopilot learning loads (#4187, #4147, #4146).
+- Workflow: invalid gates and unsupported steps fail closed (#4164, @rudycelekli). Agent health derives from observed execution outcomes (#4167, @rudycelekli).
+- Analyze: diff content and commit subjects drive classification, safe Git revision ranges are accepted, encryption paths are flagged security-sensitive, and the reviewer-role docs are accurate (#4165, #4162, #4169, #4163, @rudycelekli).
+- Security scan: interpolated `exec` calls after imports are detected (#4166, @rudycelekli); a failed `npm audit` reports "could not scan" instead of a clean tree (#4154, #4124, @martinvlad).
+- A clear "not installed" message for `@ruvector/rvagent-wasm`, and only new patterns are counted (#4179, #3979).
+- Skills, plugin contracts and ruvector/neural/kg surfaces (#4181; #4126, #4133, #4135, #4149, #4156-#4159, #4161).
+
 ## [3.56.9] - 2026-10-12
 
 Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.56.9, with the bundled leaves `@claude-flow/security` 3.0.5 and `@claude-flow/codex` 3.0.5 published standalone and pinned exactly, and `@claude-flow/shared` 3.0.5 / `@claude-flow/cli-core` 3.7.2 (published earlier) pinned. Signed helpers changed (`hook-handler.cjs`, re-signed in #4096).

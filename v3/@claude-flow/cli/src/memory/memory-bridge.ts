@@ -20,6 +20,7 @@ import { AppendConditionFailed, assertAppendConditions, validateAppendConditions
 
 import { liveMemoryRowSql } from './live-memory-row.js';
 import { resolveAgentdbBetterSqlite3 } from './shared-sqlite.js';
+import { DEFAULT_SEARCH_THRESHOLD } from './search-defaults.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS } from './embedding-q8.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -1403,7 +1404,7 @@ export async function bridgeSearchEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { query: queryStr, namespace, limit = 10, threshold = 0.3, provenanceFilter } = options;
+    const { query: queryStr, namespace, limit = 10, threshold = DEFAULT_SEARCH_THRESHOLD, provenanceFilter } = options;
     const effectiveNamespace = namespace || 'all';
     const startTime = Date.now();
 
@@ -2100,7 +2101,7 @@ export async function bridgeSearchBruteForceCosine(
 
   try {
     const k = options?.k ?? 10;
-    const threshold = options?.threshold ?? 0.3;
+    const threshold = options?.threshold ?? DEFAULT_SEARCH_THRESHOLD;
     const nsFilter = options?.namespace && options.namespace !== 'all'
       ? `AND namespace = ?`
       : '';

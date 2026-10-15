@@ -1,3 +1,4 @@
+import './helpers/isolated-policy-trust.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { appendFileSync, closeSync, ftruncateSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -148,6 +149,7 @@ describe('legacy anchor JSON streaming contract', () => {
   });
   it('binds reused assessments to exact source count and tip before publishing', async () => {
     const f = fixture({ retain: 8 }); process.env.XDG_CONFIG_HOME = join(f.dir, 'scratch-home');
+    mkdirSync(join(process.env.XDG_CONFIG_HOME, 'ruflo', 'policy-trust'), { recursive: true });
     const write = async (file: string, value: unknown) => { mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(file, JSON.stringify(value)); };
     await recordAnchor(f.dir, f.state, write);
     const assessed = assessAnchors(f.dir, f.state); expect(assessed.kind).toBe('ok');
@@ -166,6 +168,7 @@ describe('legacy anchor JSON streaming contract', () => {
   });
   it('does not grant private assessment reuse to plain JSON or another project', async () => {
     const f = fixture({ retain: 8 }); const other = fixture({ retain: 8 }); process.env.XDG_CONFIG_HOME = join(f.dir, 'scratch-home');
+    mkdirSync(join(process.env.XDG_CONFIG_HOME, 'ruflo', 'policy-trust'), { recursive: true });
     const write = async (file: string, value: unknown) => { mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(file, JSON.stringify(value)); };
     await recordAnchor(f.dir, f.state, write); await recordAnchor(other.dir, other.state, write);
     const assessed = assessAnchors(f.dir, f.state); if (assessed.kind !== 'ok') throw new Error('assessment required');
@@ -187,6 +190,7 @@ describe('legacy anchor JSON streaming contract', () => {
 describe('public full-audit preflight is bounded and fails closed', () => {
   async function project() {
     const f = fixture(); process.env.XDG_CONFIG_HOME = join(f.dir, 'private-config');
+    mkdirSync(join(process.env.XDG_CONFIG_HOME, 'ruflo', 'policy-trust'), { recursive: true });
     mkdirSync(join(f.dir, '.claude-flow')); process.env.CLAUDE_FLOW_POLICY_LEDGER_RETENTION = '2';
     await autoMigratePolicyStateIfNeeded(f.dir);
     for (let i = 0; i < 4; i++) await evaluatePolicyRequest({ identity: { id: `public:${i}`, type: 'agent' }, action: { type: 'code.read' } }, f.dir);

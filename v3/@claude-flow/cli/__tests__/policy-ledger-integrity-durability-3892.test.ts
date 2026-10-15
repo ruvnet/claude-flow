@@ -1,3 +1,4 @@
+import './helpers/isolated-policy-trust.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { appendFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';

@@ -32,7 +32,7 @@ import { createHash } from 'node:crypto';
 import { closeSync, constants as fsConstants, fstatSync, existsSync, mkdtempSync, chmodSync, openSync, readFileSync, readSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { homedir, tmpdir, userInfo } from 'node:os';
-import { AgenticPolicyEngine, canonicalizePolicy, type PolicyState } from '@claude-flow/security';
+import { AgenticPolicyEngine, canonicalizePolicy, type PolicyState } from '@claude-flow/security/policy/index';
 
 export type AnchorEvent = 'append' | 'migrated-from-state' | 'establish-anchor';
 
