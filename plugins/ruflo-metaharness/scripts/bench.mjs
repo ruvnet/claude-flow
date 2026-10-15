@@ -18,9 +18,19 @@
 //   1  --op verify and any task malformed
 //   2  config error or upstream invocation failure
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runDarwin, emitDarwinDegradedJsonAndExit } from './_darwin.mjs';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+
+guardCliArgs(import.meta.url, {
+  '--op': 'value',
+  '--repo': 'value',
+  '--suite': 'value',
+  '--out': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { op: null, repo: '.', suite: null, out: null, format: 'json' };

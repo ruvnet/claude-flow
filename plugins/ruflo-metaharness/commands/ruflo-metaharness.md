@@ -4,7 +4,7 @@ description: MetaHarness integration — score, genome, mint, mcp-scan, threat-m
 ---
 
 MetaHarness integration commands. All shell out to the PINNED
-`metaharness`/`harness` binaries (`metaharness@~0.3.0` — resolved from a local
+`metaharness`/`harness` binaries (`metaharness@~0.4.1` — resolved from a local
 install or a one-time `~/.ruflo/metaharness-cache-<pin>` install, never
 `@latest`) via the `_harness.mjs` shared helper; no library imports on
 ruflo's boot path.

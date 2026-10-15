@@ -20,7 +20,15 @@
 // can use the same parser without duplicating logic.
 // iter 63 — SEVERITY_RANK also moves to _harness.mjs (single source of
 // truth; previously this file had a literal that diverged from oia-audit's).
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runHarness, emitDegradedJsonAndExit, parseMcpScanText, SEVERITY_RANK, rankSeverity } from './_harness.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--fail-on': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', failOn: 'high' };

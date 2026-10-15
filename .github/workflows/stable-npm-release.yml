@@ -55,13 +55,24 @@ jobs:
       - name: Setup Node.js and npm authentication
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
           cache: pnpm
           cache-dependency-path: v3/pnpm-lock.yaml
 
       - name: Install root release-audit dependencies
-        run: npm ci --ignore-scripts --omit=dev --omit=optional --no-audit --no-fund
+        # --workspaces=false is load-bearing, not tidying. v3/@claude-flow/security
+        # is BOTH a root workspace and a root dependency, and carries
+        # "prepare": "npm run build" -> `tsc && verify-oauth-exports.mjs`. It does
+        # not declare @types/node itself, relying on a hoist from the root, so with
+        # --omit=dev (no @types/node) and --omit=optional (no @napi-rs/keyring) that
+        # prepare compiles Node-heavy OAuth code with no Node types and dies on
+        # TS2591 "Cannot find name 'crypto'/'Buffer'/'process'" + TS2307. That sank
+        # the first v3.42.5 attempt (run 35641592705) at this step, 9 steps before
+        # anything was published. This step exists ONLY to provide `semver` to
+        # audit-umbrella-version-lockstep.mjs below, so it has no reason to link or
+        # build workspaces at all.
+        run: npm ci --ignore-scripts --omit=dev --omit=optional --no-audit --no-fund --workspaces=false
 
       - name: Validate version train
         shell: bash
@@ -101,11 +112,19 @@ jobs:
         run: |
           pnpm --dir @claude-flow/cli exec vitest run \
             __tests__/guidance-brain.test.ts \
-            __tests__/mcp-client-guardrail.test.ts
+            __tests__/mcp-client-guardrail.test.ts \
+            __tests__/x-federation-join.test.ts
           pnpm --dir @claude-flow/codex exec vitest run
           pnpm --dir @claude-flow/security exec vitest run
           pnpm --dir @claude-flow/plugin-agent-federation exec vitest run
           node ../scripts/__tests__/stage-internal-runtime-bundles.test.mjs
+
+      - name: Validate public registration gateway
+        working-directory: plugins/ruflo-x-gateway
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund --workspaces=false
+          npm test
+          npm audit --omit=dev
 
       - name: Verify signed helper manifest
         working-directory: v3/@claude-flow/cli
@@ -340,7 +359,16 @@ jobs:
             echo "CLI_INTEGRITY=$(node -p "require('$release_dir/cli-pack.json')[0].integrity")"
             echo "ROOT_INTEGRITY=$(node -p "require('$release_dir/root-pack.json')[0].integrity")"
             echo "RUFLO_INTEGRITY=$(node -p "require('$release_dir/ruflo-pack.json')[0].integrity")"
+            echo "RELEASE_DIR=$release_dir"
           } >>"$GITHUB_ENV"
+
+      - name: Preserve verified archives and integrity receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-${{ inputs.tag }}
+          path: ${{ env.RELEASE_DIR }}
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Publish the three verified archives
         shell: bash
@@ -371,17 +399,23 @@ jobs:
             package="${packages[$index]}"
             expected_integrity="${integrities[$index]}"
             found=false
-            for attempt in {1..10}; do
+            # npm can acknowledge an upload before its asynchronous processing
+            # makes the version readable. Do not republish or promote it early.
+            for attempt in {1..120}; do
               registry_version="$(npm view "${package}@${version}" version 2>/dev/null || true)"
               registry_integrity="$(npm view "${package}@${version}" dist.integrity 2>/dev/null || true)"
               if [[ "$registry_version" == "$version" && "$registry_integrity" == "$expected_integrity" ]]; then
                 found=true
                 break
               fi
-              sleep 3
+              if [[ -n "$registry_integrity" && "$registry_integrity" != "$expected_integrity" ]]; then
+                echo "::error::${package}@${version} has a different archive integrity"
+                exit 1
+              fi
+              sleep 5
             done
             if [[ "$found" != true ]]; then
-              echo "::error::${package}@${version} does not match the verified archive integrity"
+              echo "::error::${package}@${version} was not available with the verified integrity within 10 minutes; inspect registry processing before retrying publication"
             fi
             test "$found" = true
           done

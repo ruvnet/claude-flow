@@ -507,7 +507,49 @@ export class AutoMemoryBridge extends EventEmitter {
       sectionOrder,
     );
 
-    await fs.writeFile(this.getIndexPath(), lines.join('\n'), 'utf-8');
+    // #3224: never let a curate shrink somebody's index.
+    //
+    // The #1556 guard above only fires when NOTHING matched. Once the bridge has
+    // written its own first topic file, that guard stops applying, and this write
+    // replaces a hand-maintained MEMORY.md with a generated stub — 75 curated
+    // lines and 49 links down to 6 in the reported case. The bridge only knows
+    // about its own topic files, so "everything else" looks like nothing to it.
+    //
+    // Rule: a curate may grow or reorder the index, never shrink it. When the
+    // generated view is smaller than what is on disk, keep the file, write the
+    // generated view beside it, and say so.
+    const indexPath = this.getIndexPath();
+    const generated = lines.join('\n');
+    let existing = '';
+    try { existing = await fs.readFile(indexPath, 'utf-8'); } catch { /* first run */ }
+
+    const linksIn = (text: string) => (text.match(/\]\(/g) ?? []).length;
+    // Counts alone do not prove preservation: replacing one user note with
+    // several generated notes grows the file while still deleting that note.
+    // Require every existing nonblank line to survive, allowing reordering and
+    // additional generated content without taking ownership of unknown text.
+    const generatedLines = new Set(lines);
+    const losesContent = existing.split('\n').some(line =>
+      line.trim().length > 0 && !generatedLines.has(line));
+    const wouldLose = existing.trim().length > 0
+      && (losesContent || linksIn(existing) > linksIn(generated) || existing.split('\n').length > lines.length);
+
+    if (wouldLose) {
+      const sidecar = indexPath.replace(/\.md$/, '') + '.generated.md';
+      await fs.writeFile(sidecar, generated, 'utf-8');
+      this.emit('index:preserved', {
+        reason: losesContent ? 'would-lose-index-content' : 'would-shrink-user-index',
+        indexPath,
+        sidecar,
+        existingLines: existing.split('\n').length,
+        generatedLines: lines.length,
+        existingLinks: linksIn(existing),
+        generatedLinks: linksIn(generated),
+      });
+      return;
+    }
+
+    await fs.writeFile(indexPath, generated, 'utf-8');
     this.emit('index:curated', { lines: lines.length });
   }
 
@@ -762,11 +804,15 @@ export function resolveAutoMemoryDir(workingDir: string): string {
   const gitRoot = findGitRoot(workingDir);
   const basePath = gitRoot || workingDir;
 
-  // Claude Code normalizes to forward slashes then replaces both `/` and `_`
+  // Claude Code normalizes to forward slashes then replaces `/`, `_` and `:`
   // with dashes (e.g. /workspaces/RX_ERP -> -workspaces-RX-ERP). The leading
-  // dash IS preserved.
+  // dash IS preserved. The colon matters on Windows: a drive letter survived as
+  // `D:-projects-...`, which is not a legal path segment there, so
+  // ensureMemoryDir() failed with ENOENT and doSync() swallowed it as
+  // "Sync failed (non-critical)" — the sync had never run on Windows. Claude
+  // Code writes `D--projects-...`, both characters replaced (#3303).
   const normalized = basePath.split(path.sep).join('/');
-  const projectKey = normalized.replace(/[\/_]/g, '-');
+  const projectKey = normalized.replace(/[\/_:]/g, '-');
 
   return path.join(
     process.env.HOME || process.env.USERPROFILE || '~',

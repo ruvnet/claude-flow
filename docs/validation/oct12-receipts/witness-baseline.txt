@@ -1,0 +1,7 @@
+smoke-witness-marker-drift: scanning 117 markers via verification/macos/manifest.md.json
+
+  pass:      18
+  drifted:   0
+  file-missing (skipped — see #1880): 99
+
+smoke-witness-marker-drift: all markers present in cited files

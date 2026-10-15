@@ -51,3 +51,13 @@ This plugin's runtime half is paired with metaharness repo ADR-240 (build-time h
 - SLIM architecture — https://github.com/agntcy/slim
 - Cisco CASA overview — https://outshift.cisco.com/blog/ai-ml/continuous-agentic-semantic-authorization-for-mas
 - IOC protocol repository — https://github.com/outshift-open/ioc-protocols-models
+
+## As a mod
+
+AGNTCY also ships as a function-hook mod (ADR-445 pattern; hooks in `hooks/`, loaded with the plugin). No network, no process, no model call.
+
+- **No guard**: this plugin owns no tool a guard could usefully screen, so the mod only reports status.
+- **`/agntcy-mod`**: answered locally. `/agntcy-mod status`, `/agntcy-mod config`.
+- **Status file**: `.claude-flow/agntcy-mod/status.json` (`version`, `updatedMs`, counters), written at session start; the console reads it.
+
+Test: `claude plugin validate plugins/ruflo-agntcy`, `claude plugin test plugins/ruflo-agntcy` (its vitest suites are `*.spec.ts`, so the kit collects only `tests/mod.test.ts`), and `bash plugins/ruflo-agntcy/scripts/smoke.sh`.

@@ -11,10 +11,12 @@
  * - testgaps: Test coverage analysis (20 min interval)
  */
 
+import { ConfigFileManager } from './config-file-manager.js';
 import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync, renameSync } from 'fs';
 import { cpus } from 'os';
 import { join } from 'path';
+import { createRequire } from 'node:module';
 import { writeFileAtomic } from '../fs-secure.js';
 import {
   HeadlessWorkerExecutor,
@@ -30,10 +32,14 @@ import {
 // incremental (rowid cursor), non-destructive, transactional, and
 // quick_check-gated, so it's safe to call unconditionally on every tick.
 import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
-import { backupMemoryDb } from './memory-backup.js';
+import { backupProjectMemoryDbs } from './memory-backup.js';
 import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
 import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
 import { getRepoSupervisorRegistry, type SupervisorRecord } from './repo-supervisor.js';
+
+// Daemon config is read synchronously from the constructor. In an ESM build,
+// bare `require` is undefined, so use a module-relative require for YAML.
+const requireYaml = createRequire(import.meta.url);
 
 // Worker types matching hooks-tools.ts
 export type WorkerType =
@@ -128,6 +134,12 @@ export interface DaemonConfig {
   // .claude-flow/config.json, or RUFLO_DAEMON_AI_WORKERS=1.
   aiWorkersEnabled: boolean;
   workers: WorkerConfig[];
+  // #3547 (#1968 follow-up): explicit `daemon start --workers <list>`
+  // selection. When set, only these worker types are enabled — applied
+  // after daemon-state.json restore (initializeWorkerStates) so a stale
+  // saved state can never re-enable a worker the operator just deselected.
+  // Undefined means "no explicit selection": DEFAULT_WORKERS/state decide.
+  enabledWorkers?: string[];
 }
 
 // Worker configuration with staggered offsets to prevent overlap
@@ -147,6 +159,15 @@ const DEFAULT_WORKERS: WorkerConfigInternal[] = [
   { type: 'predict', intervalMs: 10 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Predictive preloading', enabled: false },
   { type: 'document', intervalMs: 60 * 60 * 1000, offsetMs: 0, priority: 'low', description: 'Auto-documentation', enabled: false },
 ];
+
+/** Parse only worker types the daemon can actually schedule. */
+export function parseEnabledWorkers(value: string): WorkerType[] {
+  const names = value.split(',');
+  if (!names.length || names.some(name => !DEFAULT_WORKERS.some(worker => worker.type === name))) {
+    throw new Error(`--workers must be a comma-separated list of: ${DEFAULT_WORKERS.map(worker => worker.type).join(',')}`);
+  }
+  return [...new Set(names)] as WorkerType[];
+}
 
 // Worker timeout — must exceed the longest per-worker headless timeout (15 min for audit/refactor).
 // Previously 5 min, which caused orphan processes when daemon timeout fired before executor timeout (#1117).
@@ -174,6 +195,10 @@ const CONSOLIDATE_DEDUP_DISTANCE = 0.2;
 // `--no-distill` flag on `daemon start` (see commands/daemon.ts), which sets
 // this env var on the forked/foreground daemon process.
 const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
+
+// Opt-out for recording each finished worker job as a learning trajectory
+// (see WorkerDaemon.recordWorkerTrajectory).
+const NO_LEARN_ENV = 'RUFLO_DAEMON_NO_LEARN';
 
 // #2356 — Self-terminating lifecycle defaults. A background daemon with no
 // upper bound on its lifetime runs until the box reboots; in the field this
@@ -311,7 +336,8 @@ export class WorkerDaemon extends EventEmitter {
       aiWorkersEnabled: config?.aiWorkersEnabled
         ?? fileConfig.aiWorkersEnabled
         ?? (process.env.RUFLO_DAEMON_AI_WORKERS === '1'),
-      workers: config?.workers ?? DEFAULT_WORKERS,
+      workers: (config?.workers ?? DEFAULT_WORKERS).map(worker => ({ ...worker })),
+      enabledWorkers: config?.enabledWorkers,
     };
 
     // #2935 — deferred from readDaemonConfigFromFile(): this.config (and
@@ -473,8 +499,8 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
-   * Read daemon-specific config from .claude-flow/config.{json,yaml,yml}.
-   * Supports dot-notation keys like 'daemon.resourceThresholds.maxCpuLoad'.
+   * Read daemon-specific config from CLI JSON paths or .claude-flow/config.{yaml,yml}.
+   * Supports dotted and nested keys like 'daemon.resourceThresholds.maxCpuLoad'.
    * #1844: prefer JSON when both exist (existing behavior) but fall back
    * to YAML so operators using the v3 canonical YAML format aren't silently
    * ignored. The chosen path (or a parse warning) is returned rather than
@@ -497,7 +523,8 @@ export class WorkerDaemon extends EventEmitter {
     configSourcePath?: string;
     yamlParseWarning?: string;
   } {
-    const jsonPath = join(claudeFlowDir, 'config.json');
+    // Share the CLI's JSON search order, including root and explicit config files.
+    const jsonPath = new ConfigFileManager().findConfig(join(claudeFlowDir, '..'));
     const yamlPath = join(claudeFlowDir, 'config.yaml');
     const ymlPath = join(claudeFlowDir, 'config.yml');
 
@@ -505,7 +532,7 @@ export class WorkerDaemon extends EventEmitter {
     let raw: Record<string, any> | undefined;
     let chosenPath: string | undefined;
 
-    if (existsSync(jsonPath)) {
+    if (jsonPath) {
       try {
         raw = JSON.parse(readFileSync(jsonPath, 'utf-8'));
         chosenPath = jsonPath;
@@ -517,8 +544,7 @@ export class WorkerDaemon extends EventEmitter {
       try {
         // Lazy-load yaml so the daemon doesn't hard-require it; if the
         // dep isn't installed, fall back to the previous warn-only path.
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const yamlMod = require('yaml') as { parse(s: string): unknown };
+        const yamlMod = requireYaml('yaml') as { parse(s: string): unknown };
         const parsed = yamlMod.parse(readFileSync(yPath, 'utf-8'));
         if (parsed && typeof parsed === 'object') {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -537,21 +563,28 @@ export class WorkerDaemon extends EventEmitter {
     }
 
     try {
-      // Support both flat keys at root and nested under scopes.project
-      const cfg = raw?.scopes?.project ?? raw;
-      const rawCpuLoad = cfg['daemon.resourceThresholds.maxCpuLoad'] ?? raw['daemon.resourceThresholds.maxCpuLoad'];
-      const rawMinMem = cfg['daemon.resourceThresholds.minFreeMemoryPercent'] ?? raw['daemon.resourceThresholds.minFreeMemoryPercent'];
-      const rawMaxConcurrent = cfg['daemon.maxConcurrent'] ?? raw['daemon.maxConcurrent'];
-      const rawTimeout = cfg['daemon.workerTimeoutMs'] ?? raw['daemon.workerTimeoutMs'];
+      // The CLI writes nested objects; legacy files use dotted keys. Scoped
+      // values retain precedence, including explicit false and zero.
+      const read = (obj: Record<string, any> | undefined, key: string): unknown => {
+        if (!obj) return undefined;
+        return obj[key] ?? key.split('.').reduce((value, part) =>
+          value && typeof value === 'object' && Object.hasOwn(value, part) ? value[part] : undefined, obj as any);
+      };
+      const get = (key: string) => read(raw?.scopes?.project, key) ?? read(raw, key);
+      const rawAutoStart = get('daemon.autoStart');
+      const rawCpuLoad = get('daemon.resourceThresholds.maxCpuLoad');
+      const rawMinMem = get('daemon.resourceThresholds.minFreeMemoryPercent');
+      const rawMaxConcurrent = get('daemon.maxConcurrent');
+      const rawTimeout = get('daemon.workerTimeoutMs');
       // #2356 — lifecycle limits are configured in SECONDS in config.json
       // (`daemon.ttlSecs` / `daemon.idleSecs`) for parity with the CLI flag
       // and env var; stored internally as ms. An explicit 0 disables.
-      const rawTtl = cfg['daemon.ttlSecs'] ?? raw['daemon.ttlSecs'];
-      const rawIdle = cfg['daemon.idleSecs'] ?? raw['daemon.idleSecs'];
+      const rawTtl = get('daemon.ttlSecs');
+      const rawIdle = get('daemon.idleSecs');
       // #2661 — explicit opt-in for scheduled AI workers.
-      const rawAiEnabled = cfg['daemon.aiWorkers.enabled'] ?? raw['daemon.aiWorkers.enabled'];
+      const rawAiEnabled = get('daemon.aiWorkers.enabled');
       return {
-        autoStart: typeof raw['daemon.autoStart'] === 'boolean' ? raw['daemon.autoStart'] : undefined,
+        autoStart: typeof rawAutoStart === 'boolean' ? rawAutoStart : undefined,
         maxConcurrent: (typeof rawMaxConcurrent === 'number' && rawMaxConcurrent > 0) ? rawMaxConcurrent : undefined,
         workerTimeoutMs: (typeof rawTimeout === 'number' && rawTimeout > 0) ? rawTimeout : undefined,
         maxCpuLoad: (typeof rawCpuLoad === 'number' && rawCpuLoad > 0 && rawCpuLoad < 1000) ? rawCpuLoad : undefined,
@@ -839,6 +872,18 @@ export class WorkerDaemon extends EventEmitter {
         }
       } catch {
         // Ignore parse errors, start fresh
+      }
+    }
+
+    // #3547 (#1968 follow-up): an explicit `--workers` selection wins over
+    // both DEFAULT_WORKERS and whatever daemon-state.json just restored
+    // above — otherwise `daemon start --workers map,audit` always ran the
+    // full default set (or a stale saved selection) because nothing ever
+    // applied the requested list to `enabled`.
+    if (this.config.enabledWorkers) {
+      const selected = new Set(this.config.enabledWorkers);
+      for (const workerConfig of this.config.workers) {
+        workerConfig.enabled = selected.has(workerConfig.type);
       }
     }
 
@@ -1162,7 +1207,9 @@ export class WorkerDaemon extends EventEmitter {
       return `max age ${Math.round(ttlMs / 1000)}s reached`;
     }
     if (idleMs > 0) {
-      const lastActivity = this.lastWorkerActivityMs() ?? startedMs;
+      // Worker timestamps survive restarts; they cannot make this process
+      // idle before it has been alive for a full idle window (#3194).
+      const lastActivity = Math.max(this.lastWorkerActivityMs() ?? startedMs, startedMs);
       if (now - lastActivity >= idleMs) {
         return `idle for ${Math.round(idleMs / 1000)}s (no worker activity)`;
       }
@@ -1370,6 +1417,7 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:complete', result);
       this.log('info', `Worker ${workerConfig.type} completed in ${durationMs}ms`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } catch (error) {
@@ -1392,12 +1440,47 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:error', result);
       this.log('error', `Worker ${workerConfig.type} failed: ${result.error}`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } finally {
       // Remove from running set and process queue
       this.runningWorkers.delete(workerConfig.type);
       this.processPendingWorkers();
+    }
+  }
+
+  /**
+   * Feed a finished worker job into the self-learning pipeline as a one-step
+   * trajectory (SONA + ReasoningBank + @ruvector/ruvllm forwarding, persisted
+   * to `.claude-flow/neural/stats.json`). Before this, the daemon could run
+   * hundreds of jobs at "100% success" while `trajectoriesRecorded` stayed 0:
+   * no daemon code path ever called the intelligence module.
+   *
+   * Best-effort and bounded: never throws, never changes the WorkerResult.
+   * Opt-out: RUFLO_DAEMON_NO_LEARN=1.
+   */
+  private async recordWorkerTrajectory(result: WorkerResult): Promise<void> {
+    if (process.env[NO_LEARN_ENV] === '1') return;
+    try {
+      const intel = await import('../memory/intelligence.js');
+      await intel.recordTrajectory(
+        [{
+          type: 'result',
+          // A worker error is free text (it can quote command output): keep only its first line, cut, so it cannot fill the learning store.
+          content: `daemon worker ${result.type} ${result.success ? 'succeeded' : `failed: ${String(result.error ?? 'unknown error').split('\n')[0].slice(0, 200)}`}`,
+          metadata: {
+            source: 'worker-daemon',
+            worker: result.type,
+            success: result.success,
+            durationMs: result.durationMs,
+          },
+          timestamp: Date.now(),
+        }],
+        result.success ? 'success' : 'failure',
+      );
+    } catch (error) {
+      this.log('warn', `Worker ${result.type}: trajectory recording skipped: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1803,8 +1886,8 @@ export class WorkerDaemon extends EventEmitter {
   }
 
   /**
-   * Nightly memory-DB backup worker (24h interval). Takes a WAL-safe, consistent
-   * snapshot of .swarm/memory.db with rotation (keep last N). Never throws — a
+   * Nightly memory-DB backup worker (24h interval). Takes WAL-safe, consistent
+   * snapshots of the active CLI and AgentDB stores with rotation (keep last N). Never throws — a
    * worker must not crash the daemon; a skip/error is written to the metrics
    * file. Opt-out by omitting `backup` from `-w`; offsite GCS is opt-in via
    * RUFLO_BACKUP_GCS (a gs:// prefix), retention via RUFLO_BACKUP_KEEP.
@@ -1817,14 +1900,14 @@ export class WorkerDaemon extends EventEmitter {
     let result: Record<string, unknown>;
     try {
       const keepEnv = Number(process.env.RUFLO_BACKUP_KEEP);
-      const r = await backupMemoryDb({
-        dbPath: defaultMemoryDbPath(this.projectRoot),
+      const r = await backupProjectMemoryDbs(this.projectRoot, {
         keep: Number.isFinite(keepEnv) && keepEnv > 0 ? keepEnv : 7,
         gcs: process.env.RUFLO_BACKUP_GCS || undefined,
       });
       result = {
         timestamp: new Date().toISOString(),
         backedUp: r.backedUp,
+        backups: r.backups,
         path: r.path,
         sizeBytes: r.sizeBytes ?? 0,
         rotatedAway: r.rotatedAway?.length ?? 0,

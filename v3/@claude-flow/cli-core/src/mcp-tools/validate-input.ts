@@ -138,6 +138,14 @@ export function validateText(value: unknown, label: string, maxLen = 10_000): Va
  * session. Setting LD_PRELOAD or NODE_OPTIONS via that path is functionally
  * equivalent to remote code execution, so the env input needs an allowlist
  * shape and a denylist on these specific names.
+ *
+ * dream-cycle 2026-09-21 (CWE-427, Uncontrolled Search Path Element): the
+ * original list covered loader/runtime hijack but not command-resolution
+ * hijack via PATH itself, or the equivalent interpreter/VCS search-path
+ * vars. This rejects a caller-supplied *override* of these names — the
+ * real process's own PATH etc. still flows through untouched for callers
+ * who don't set them (see terminal-tools.ts's `{ ...process.env,
+ * ...session.env }` merge order).
  */
 const DENYLISTED_ENV_NAMES = new Set([
   'LD_PRELOAD',
@@ -149,6 +157,14 @@ const DENYLISTED_ENV_NAMES = new Set([
   'DYLD_FORCE_FLAT_NAMESPACE',
   'NODE_OPTIONS',
   'NODE_PATH',
+  'PATH',
+  'PYTHONPATH',
+  'PERL5LIB',
+  'RUBYLIB',
+  'GIT_EXTERNAL_DIFF',
+  'GIT_SSH_COMMAND',
+  'BASH_ENV',
+  'IFS',
 ]);
 const ENV_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 
@@ -176,7 +192,13 @@ export function validateEnv(value: unknown, label = 'env'): EnvValidationResult 
     if (!ENV_NAME_RE.test(name)) {
       return { valid: false, sanitized: {}, error: `${label} key "${name}" is not a valid POSIX env name` };
     }
-    if (DENYLISTED_ENV_NAMES.has(name)) {
+    // Case-fold the lookup: Windows env vars are case-insensitive at the OS
+    // level, so `path`/`Path`/`PATH` are the same variable to a child
+    // process even though they're distinct object keys here. Every entry in
+    // DENYLISTED_ENV_NAMES is uppercase, so this also catches the existing
+    // loader-hijack names, not just the search-path family (adversarial
+    // critique, dream-cycle 2026-09-21).
+    if (DENYLISTED_ENV_NAMES.has(name.toUpperCase())) {
       return { valid: false, sanitized: {}, error: `${label} key "${name}" is denylisted (loader/runtime hijack)` };
     }
     if (typeof rawVal !== 'string') {

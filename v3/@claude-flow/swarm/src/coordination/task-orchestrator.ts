@@ -18,7 +18,7 @@ import {
   AgentDomain,
   PhaseId,
   SwarmEvent
-} from '../shared/types';
+} from '../shared/types.js';
 import {
   IEventBus,
   taskCreatedEvent,
@@ -28,8 +28,8 @@ import {
   taskCompletedEvent,
   taskFailedEvent,
   taskBlockedEvent
-} from '../shared/events';
-import { IAgentRegistry } from './agent-registry';
+} from '../shared/events.js';
+import { IAgentRegistry } from './agent-registry.js';
 
 // =============================================================================
 // Task Orchestrator Interface

@@ -18,19 +18,32 @@
 //
 // ADR-150 ARCHITECTURAL CONSTRAINTS PRESERVED
 //   - Pure-TS function (`_similarity.mjs`), no `@metaharness/*` import
-//   - No new dep; uses node:fs + node:child_process only for memory lookup
+//   - No new dep; uses node:fs + _invoke.runRufloCli only for memory lookup
 //   - Graceful degradation: missing keys / malformed JSON → exit 2 with
 //     a structured `{ degraded: true, reason: ... }` payload on stdout
 //   - CI-gate ready: smoke step 17y locks this contract
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { readFileSync, existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { runRufloCli } from './_invoke.mjs';
 import { similarity } from './_similarity.mjs';
 
 const NS = process.env.HARNESS_SIMILARITY_NAMESPACE || 'metaharness-audit';
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// #3366 — memory calls go through runRufloCli() (_invoke.mjs): the ruflo CLI
+// that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
+// resolution per call, possible version skew, fails without registry access).
+// CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--a': 'value',
+  '--b': 'value',
+  '--a-key': 'value',
+  '--b-key': 'value',
+  '--per-dimension': null,
+  '--format': 'value',
+  '--alert-below': 'value',
+});
 
 const ARGS = (() => {
   const a = {
@@ -66,10 +79,10 @@ function emitDegradedAndExit(reason, code = 2) {
 }
 
 function memRetrieve(key) {
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'retrieve',
+  const r = runRufloCli([
+    'memory', 'retrieve',
     '--namespace', NS, '--key', key,
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ]);
   if (r.status !== 0) return null;
   const m = /\{[\s\S]*\}/.exec(r.stdout || '');
   if (!m) return null;

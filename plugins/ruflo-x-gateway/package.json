@@ -1,0 +1,24 @@
+{
+  "name": "@ruflo/x-gateway",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "description": "x.ruv.io gateway — MCP server for ruflo swarm federation + claims over a signed, membership-gated Nostr relay. Exposes /mcp tools and ruv:// resources.",
+  "main": "src/server.mjs",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "jose": "^6.2.12",
+    "nostr-tools": "^2.7.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.0",
+    "@google-cloud/firestore": "^9.2.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/claims",
-  "version": "3.0.0-alpha.8",
+  "version": "3.0.0",
   "description": "Issue claiming and work coordination module for Claude Flow V3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -67,7 +67,7 @@
     "vitest": "^4.1.0"
   },
   "peerDependencies": {
-    "@claude-flow/shared": "^3.0.0-alpha.1"
+    "@claude-flow/shared": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "@claude-flow/shared": {
@@ -78,7 +78,6 @@
     "node": ">=18.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

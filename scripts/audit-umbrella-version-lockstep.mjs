@@ -16,20 +16,17 @@
  * version. This audit enforces that locally so a drift can't reach a
  * release. Wired into v3-ci.yml as `umbrella-version-lockstep-audit`.
  *
- * Also asserts ruflo's @claude-flow/cli dep range INCLUDES the cli's
- * actual version (overlap with audit-wrapper-dep-ranges.mjs is intentional;
- * this audit is about identity, that one is about inclusion).
+ * Also asserts ruflo pins the exact CLI version (#3306). A range that merely
+ * includes it can retain an older cached implementation behind a new wrapper.
  *
  * Exit codes:
- *   0 — versions identical and dep range covers cli
+ *   0 — versions identical and ruflo pins that CLI version
  *   1 — drift detected; remediation hints printed
  */
 
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
-import semver from 'semver';
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
 
@@ -55,6 +52,10 @@ for (const { label, path } of TARGETS) {
     violations.push(`${label} (${path}) not found`);
     continue;
   }
+  if (typeof pkg.version !== 'string' || pkg.version.trim().length === 0) {
+    violations.push(`${label} (${path}) must declare a nonempty version string`);
+    continue;
+  }
   versions[label] = pkg.version;
 }
 
@@ -74,25 +75,27 @@ if (unique.size > 1) {
   );
 }
 
-// Cross-check: ruflo's dep range must include cli's actual version.
+// Cross-check: ruflo must resolve exactly the CLI version it advertises.
 const rufloPkg = readPkg('ruflo/package.json');
 const cliVersion = versions['@claude-flow/cli'];
 if (rufloPkg && cliVersion) {
   const range = rufloPkg.dependencies?.['@claude-flow/cli'];
-  if (range) {
-    if (!semver.satisfies(cliVersion, range, { includePrerelease: true })) {
+  if (typeof range !== 'string' || range.length === 0) {
+    violations.push('ruflo must declare its exact @claude-flow/cli dependency');
+  } else {
+    if (range !== cliVersion) {
       violations.push(
-        `ruflo "@claude-flow/cli": "${range}" does NOT include cli's actual version ${cliVersion}.\n` +
-        `    Update ruflo/package.json dependencies to "^${cliVersion}".`
+        `ruflo "@claude-flow/cli": "${range}" must pin cli's actual version ${cliVersion}.\n` +
+        `    Update ruflo/package.json dependencies to "${cliVersion}".`
       );
     } else {
-      console.log(`  ruflo dep "@claude-flow/cli": "${range}" covers ${cliVersion} ✓`);
+      console.log(`  ruflo dep "@claude-flow/cli": "${range}" matches ${cliVersion} ✓`);
     }
   }
 }
 
 if (violations.length === 0) {
-  console.log('\n  ok: all three umbrella packages at identical version, ruflo dep covers cli');
+  console.log('\n  ok: all three umbrella packages at identical version, ruflo pins cli');
   process.exit(0);
 }
 

@@ -1,0 +1,4 @@
+{
+  "description": "AgentBBS federation as a mod (ADR-445 pattern): a tighten-only guard on federation_bbs_* (no secrets in published payloads, no credential-bearing peer URLs, no wildcard serve bind by default), /bbs-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

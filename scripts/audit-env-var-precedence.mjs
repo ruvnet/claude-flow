@@ -53,9 +53,20 @@ const REPO_ROOT = resolve(__dirname, '..');
 const KNOWN_ESCAPE_HATCHES = new Set([
   // ── CI / test escape hatches ────────────────────────────────────────────────
   'CLAUDE_FLOW_DISABLE_BRIDGE',   // CI/test: force raw sql.js path — intentionally no CLI flag
+  'CLAUDE_FLOW_GRAPH_EDGE_IDLE_MS', // CI/test tuning: idle-close window (ms) for graph-edge-writer's native WAL handle (#3397). Internal lifecycle knob with a safe default (1000); no user-facing command owns it, so no CLI flag.
+  'RUFLO_ADMIN_TOKEN',            // credential: the x.ruv.io gateway's OWN admin token, read by plugins/ruflo-x-gateway. Env-only by design — a secret must never be a CLI flag (shell history / process lists), and the gateway is a service with no typed command surface at all.
+  'RUFLO_SERAPHINA_DAILY_CAP',    // gateway spend guard (#3275): shared daily Seraphina budget. Read by a long-running service, not a typed command — there is no invocation to attach a flag to.
+  'RUFLO_SERAPHINA_IP_HOURLY_CAP',// gateway spend guard (#3275): per-client hourly Seraphina budget. Same service-only reasoning.
+  'RUFLO_X_GATEWAY_URL',          // Trust boundary: gateway reads/admin writes pin destinations to server config; MCP/CLI arguments cannot select another host.
+  'SERAPHINA_METALLM_URL',        // Trust boundary: credential-bearing Meta-LLM requests pin destinations to server config.
+  'RUFLO_X_ADMIN_TOKEN',          // credential: gateway admin token for x.ruv.io gateway-identity writes (x_federation_publish/invite_mint/admit). Env-only by design — a secret must never be a CLI flag (shell history / process lists). Gateway destination is trusted server config; --gateway/tool arguments must match it.
+  'SERAPHINA_METALLM_KEY',        // credential: cognitum meta-llm API key for seraphina_guidance. Env-only by design (same reasoning). Meta-LLM destination is trusted server config; metaLlmUrl must match it.
+  'RUFLO_HIVE_BOOTSTRAP_SECRET',  // credential (ADR-476): operator secret gating remote hive-mind_* MCP calls, read server-side in hive-mind-tools.ts's readBootstrapSecret(). Env-only by design — a secret must never be a CLI flag (shell history / process lists); it configures the server, not one invocation, and the caller-supplied `bootstrapSecret` tool argument (not this env var) is how a remote caller presents its credential per call.
   'RUFLO_HOOK_SKIP_NPX',          // CI: suppress cold-install latency in smoke tests
   'RUFLO_HOOK_CLI_OVERRIDE',      // #2721 test-only: point plugins/ruflo-core/scripts/ruflo-hook.cjs at a local CLI build instead of the ruflo/claude-flow/npx PATH probe. Hook scripts have no CLI-flag surface (invoked by hooks.json, never a user-typed command)
   'RUFLO_HOOK_DEBUG_STDOUT',      // #2721 test-only: surface the invoked CLI's stdout/stderr from ruflo-hook.cjs instead of swallowing it, so test-hooks.mjs can assert on recorded values. Same no-CLI-surface reasoning as RUFLO_HOOK_CLI_OVERRIDE above — production never sets this
+  'RUFLO_MODS_OWNS',              // ADR-404 handshake, not configuration: the ruflo mod sets it on the Claude Code process with $.env.set, and hook-handler.cjs / ruflo-hook.cjs read it to stand down for route/post-edit. Hook scripts have no CLI-flag surface (invoked by settings/hooks.json), and a flag would defeat its purpose: only the running mod may set it
+  'RUFLO_HOOK_UNIT_TEST',         // test-only: skip main() when ruflo-hook.cjs is require()'d by escape-cmd-arg.test.cjs, so the unit test can reach escapeCmdArg() without triggering the real hook flow / process.exit(0). Same no-CLI-surface reasoning — hooks.json always require()s this file directly, there is no invocation to attach a flag to
   'RUFLO_SUBLINEAR_NATIVE',       // Manual override for native vs WASM sublinear — CI/perf knob
   'RUFLO_METAHARNESS_CACHE_BASE', // CI/test seam: relocates the ~/.ruflo pinned-cache root in metaharness smoke tests — intentionally env-only, plugin scripts have no CLI-flag surface
   'RUFLO_FUNNEL',                 // Read inside the generated hook-handler.cjs (ADR-312/313 rate-limit nudge), not a typed CLI invocation — no command surface to attach a flag to
@@ -73,8 +84,11 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_AI_BUDGET_DIR',            // #2663 — repo-supervisor state directory relocation (services/global-ai-budget.ts, services/repo-supervisor.ts, services/workspace-lease.ts). Test/CI isolation seam analogous to RUFLO_STATE_DIR above; the supervisor is a background service, not a user-invoked CLI command with a `--budget-dir` flag surface
   'RUFLO_AI_BUDGET_DISABLE',        // #2663 — hard kill switch for the repository-supervisor AI-cost fuse (services/global-ai-budget.ts). Ops-level "disable this whole subsystem" toggle, same pattern as RUFLO_AI_DEDUP_DISABLE above
   'RUFLO_METAHARNESS_SKIP_LOCAL',   // plugins/ruflo-metaharness/scripts/_invoke.mjs — CI seam that forces the invoke shim off the local vendored metaharness and onto the pinned-cache resolver. Plugin script has no CLI-flag surface (invoked internally by MCP tools)
+  'RUFLO_PLUGIN_SKIP_LOCAL_CLI',    // #3558 test-only seam: makes the plugin CLI resolvers (ruflo-adr/ruflo-goals scripts/lib/ruflo-cli.mjs, ruflo-cost-tracker _ruflo-cli.mjs, ruflo-metaharness _invoke.mjs) skip the repo-local CLI build so tests can exercise the PATH and npx fallbacks. Plugin scripts have no CLI-flag surface (invoked by hooks/MCP tools); production never sets it
+  'RUFLO_PLUGIN_SKIP_PATH_CLI',     // #3558 test-only seam: same resolvers, skips the `ruflo` PATH lookup so tests can force the `npx @claude-flow/cli@latest` fallback. Same no-CLI-surface reasoning as RUFLO_PLUGIN_SKIP_LOCAL_CLI above
   'RUFLO_HELPERS_LOCKED',           // v3.30.0 — env-level opt-out for the .claude/helpers/ auto-refresh (init/helper-refresh.ts). Sibling to the `.LOCKED` marker file; helper-refresh runs from a hook, not a user-typed CLI command — no per-invocation flag surface. See CLAUDE.md "Concurrent-session helper corruption" for rationale
   'CLAUDE_FLOW_DISABLE_NATIVE_ROUTER', // Test/lock-constrained MCP escape hatch: forces hooks routing onto the deterministic pure-JS backend. The router is process-lifetime state, not owned by one CLI invocation.
+  'CLAUDE_FLOW_ROUTER_EMBEDDER',    // ADR-390/391: selects the hooks_route semantic-index embedder (minilm|hash; default hash). Same process-lifetime MCP router state as CLAUDE_FLOW_DISABLE_NATIVE_ROUTER — the index is built once per process, not per CLI invocation; the ADR-391 bench passes the embedder explicitly instead.
   'RUFLO_FLYWHEEL_ALLOW_BUILTIN_ANCHOR', // Explicit compatibility escape hatch for pre-ADR-331 downstream behavior. Intentionally env-only and visibly unsafe-by-choice; normal CLI/MCP use supplies a project anchor path + hash.
 
   // ── Embedding substrate toggles (3.25.x — opt-in tier + fail-closed ops flag) ─
@@ -93,6 +107,13 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_MCP_COMPOSITION_BLOCK', // Opt-in strict mode for the Composition Inspector (evaluateToolComposition) — default warn+log, '1'/'true' switches a flagged tool chain to blocked. Deploy/CI ops posture toggle read fresh per scan, not a per-invocation CLI flag; no interactive CLI command owns a single MCP tool-composition scan's lifetime.
   'CLAUDE_FLOW_SECURITY_CHANNEL_GATE', // Kill switch for the ChannelGuard inter-agent message sanitization gate (guardChannelMessage, wired into SwarmCommunication.sendMessage) — default enabled, '0' disables for trusted internal environments. Same escape-hatch shape as CLAUDE_FLOW_DISABLE_BRIDGE above; the gate runs inside the swarm-communication hot path, not behind a user-typed command.
 
+  // ── SONA fleet-wide learning-mode default (feat/sona-mode-from-env) ─────────
+  // Read inside @claude-flow/integration/src/sona-adapter.ts (sonaModeFromEnv,
+  // exported) and @claude-flow/memory/src/learning-bridge.ts (sonaModeFromEnv,
+  // module-private) — both outside this audit's SCAN_ROOTS today, registered
+  // anyway per the same requirement as CLAUDE_FLOW_MCP_COMPOSITION_BLOCK above.
+  'RUFLO_INTELLIGENCE_MODE', // Fleet-wide default SONA learning mode ('real-time'|'balanced'|'research'|'edge'|'batch') for a managed deployment that wants every session to learn in a given profile without threading `mode`/`sonaMode` through every call site. Read fresh per SONAAdapter construction / mergeConfig() call and per LearningBridge construction — never cached at module load. An explicit per-call mode/sonaMode always wins; an unset or unrecognised value falls through to the caller's own default ('balanced'), never silently selecting a profile. Deploy/ops config, not a per-invocation CLI flag.
+
   // ── Feature flags (set by init into settings.json, not user-typed CLI) ──────
   'CLAUDE_FLOW_V3_ENABLED',
   'CLAUDE_FLOW_HOOKS_ENABLED',
@@ -102,6 +123,7 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_HEADLESS',         // Set/read within same process invocation lifecycle
   'CLAUDE_FLOW_FORCE_UPDATE',     // Set by --force flag internally, then cleared — not external
   'CLAUDE_FLOW_AUTO_UPDATE',      // Auto-update cadence — env-only documented design
+  'RUFLO_DAEMON_LOCK_WAIT_MS',    // How long `daemon start` waits on another start's spawn lock; operator tuning knob, env-only by design (no `daemon start` flag)
 
   // ── Logging / diagnostics ───────────────────────────────────────────────────
   'CLAUDE_FLOW_LOG_LEVEL',
@@ -150,6 +172,14 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // single CLI invocation owns the router's lifetime.
   'CLAUDE_FLOW_MAX_UNCERTAINTY',
 
+  // Added 2026-09-17 (Dream Cycle #3349/#3350): same operator-knob shape as
+  // CLAUDE_FLOW_MAX_UNCERTAINTY directly above — model-router's discounted-
+  // Thompson-sampling decay factor, tuned by ops across the router's whole
+  // persisted lifetime (.swarm/model-router-state.json), not selected per
+  // CLI invocation. envPriorDecay() in model-router.ts mirrors
+  // envMaxUncertainty() exactly, including this escape-hatch registration.
+  'CLAUDE_FLOW_PRIOR_DECAY',
+
   // ── MCP-tool-shaped tunables (param wins over env; env is documented fallback) ─
   // Added 2026-06-02 (ADR-089 #2246): memory_search_unified resolves namespaces
   // in this priority: `namespace` param → `namespaces[]` param → env var →
@@ -165,6 +195,16 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   // issuance still requires an authenticated identity adapter and never trusts
   // this label as issuer proof.
   'CLAUDE_FLOW_PRINCIPAL_ID',
+
+  // ── ADR-377 Phase 3: per-worker Ed25519 caller-identity credential ─────────
+  // DualModeOrchestrator mints these into a spawned worker's OWN environment
+  // (workerEnvironment()) — a credential pair for authorizeMcpTool's
+  // resolveMcpCallerIdentity() to verify, not a value any caller should be
+  // able to select via a CLI flag (that would let a process simply assert a
+  // signature instead of proving one). Same no-CLI-surface reasoning as
+  // CLAUDE_FLOW_PRINCIPAL_ID above.
+  'CLAUDE_FLOW_MCP_CALLER_PUBKEY',
+  'CLAUDE_FLOW_MCP_INVOCATION_TOKEN',
 
   // ── OS / runtime standard env ────────────────────────────────────────────────
   'HOME',
@@ -245,7 +285,7 @@ const SCAN_ROOTS = [
 ];
 
 // ── Skip patterns ─────────────────────────────────────────────────────────────
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '__tests__', 'tests']);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '__tests__', 'tests', 'test']);
 const SCAN_EXTS = new Set(['.ts', '.mjs', '.cjs', '.js']);
 
 // ── Regex to find process.env.CLAUDE_FLOW_* reads ────────────────────────────

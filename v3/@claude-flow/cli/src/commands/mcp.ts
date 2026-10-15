@@ -18,6 +18,8 @@ import {
   stopMCPServer,
   getMCPServerStatus,
   type MCPServerOptions,
+  resolveMcpHttpAuthToken,
+  isLoopbackHost,
   type MCPServerStatus,
   filterAdvertisedMcpTools,
   parseMcpToolSelection,
@@ -83,6 +85,21 @@ const startCommand: Command = {
       type: 'string'
     },
     {
+      name: 'request-timeout-ms',
+      description: 'HTTP request timeout in milliseconds (default 30000; env RUFLO_MCP_REQUEST_TIMEOUT_MS)',
+      type: 'number'
+    },
+    {
+      name: 'auth-token-file',
+      description: 'Read the HTTP bearer token from this file (http transport). Preferred over --auth-token; env RUFLO_MCP_HTTP_TOKEN also works',
+      type: 'string'
+    },
+    {
+      name: 'auth-token',
+      description: 'HTTP bearer token (16+ printable ASCII chars). Visible in argv/ps - prefer RUFLO_MCP_HTTP_TOKEN or --auth-token-file',
+      type: 'string'
+    },
+    {
       name: 'daemon',
       short: 'd',
       description: 'Run as background daemon',
@@ -100,6 +117,9 @@ const startCommand: Command = {
   examples: [
     { command: 'claude-flow mcp start', description: 'Start with defaults (stdio)' },
     { command: 'claude-flow mcp start -p 8080 -t http', description: 'Start HTTP server' },
+    { command: 'claude-flow mcp start -t http --request-timeout-ms 120000', description: 'Allow slower cold-start HTTP tools' },
+    { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http', description: 'HTTP server requiring "Authorization: Bearer <token>" on every request (except GET /health)' },
+    { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http --host 0.0.0.0', description: 'Non-loopback bind: allowed only with a token (or RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1)' },
     { command: 'claude-flow mcp start -d', description: 'Start as daemon' },
     { command: 'claude-flow mcp start -f', description: 'Force restart (kill existing)' }
   ],
@@ -110,6 +130,25 @@ const startCommand: Command = {
     const tools = (ctx.flags.tools as string | undefined)
       || process.env.CLAUDE_FLOW_MCP_TOOLS
       || 'all';
+    const timeoutInput = ctx.flags.requestTimeoutMs
+      ?? ctx.flags['request-timeout-ms']
+      ?? process.env.RUFLO_MCP_REQUEST_TIMEOUT_MS;
+    const requestTimeoutMs = timeoutInput === undefined ? undefined : Number(timeoutInput);
+    if (requestTimeoutMs !== undefined &&
+        (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs > 3_600_000)) {
+      output.printError('Request timeout must be an integer from 1 to 3600000 milliseconds');
+      return { success: false, exitCode: 1 };
+    }
+    let authToken: string | undefined;
+    try {
+      authToken = resolveMcpHttpAuthToken({
+        token: (ctx.flags.authToken ?? ctx.flags['auth-token']) as string | undefined,
+        tokenFile: (ctx.flags.authTokenFile ?? ctx.flags['auth-token-file']) as string | undefined,
+      });
+    } catch (error) {
+      output.printError((error as Error).message);
+      return { success: false, exitCode: 1 };
+    }
     const daemon = (ctx.flags.daemon as boolean) ?? false;
     const force = (ctx.flags.force as boolean) ?? false;
 
@@ -122,10 +161,17 @@ const startCommand: Command = {
     // PID file exists, which would cause us to SIGKILL ourselves)
     const existingStatus = await getMCPServerStatus();
     const isSelfDetected = existingStatus.pid === process.pid;
-    if (existingStatus.running && !isSelfDetected) {
-      // For stdio transport, always force restart since we can't health check it
-      // For other transports, check health unless --force is specified
-      const shouldForceRestart = force || transport === 'stdio';
+    // #3364: only a port-bound transport (http/websocket) is single-instance.
+    // A stdio server belongs to the client that spawned it, over that client's
+    // own pipes, and any number run side by side. The PID file is a single
+    // slot per os.tmpdir(), so for stdio "already running" only ever meant
+    // "some other server is recorded" — and force-restarting SIGKILLed it
+    // (another terminal's stdio server, or a live http server). Stdio now
+    // kills a recorded server only when explicitly asked with --force.
+    const isSingleInstance = transport !== 'stdio';
+    if (existingStatus.running && !isSelfDetected && (isSingleInstance || force)) {
+      // --force always restarts; otherwise check health (http/websocket)
+      const shouldForceRestart = force;
 
       if (!shouldForceRestart) {
         // Verify the server is actually healthy/responsive
@@ -163,6 +209,8 @@ const startCommand: Command = {
       host,
       port,
       tools: !tools || tools === 'all' ? 'all' : tools.split(','),
+      ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+      ...(authToken ? { authToken } : {}),
       daemonize: daemon,
     };
 
@@ -222,6 +270,13 @@ const startCommand: Command = {
       if (transport === 'http') {
         output.writeln(output.dim(`  Health: http://${host}:${port}/health`));
         output.writeln(output.dim(`  RPC: http://${host}:${port}/rpc`));
+        if (authToken) {
+          output.writeln(output.dim('  Auth: bearer token required (Authorization: Bearer <token>); /health is public'));
+        } else if (isLoopbackHost(host)) {
+          output.printWarning('No auth token set: any local process (and DNS-rebinding web pages) can call tools. Set RUFLO_MCP_HTTP_TOKEN to require a bearer token.');
+        } else {
+          output.printWarning('Running UNAUTHENTICATED on a non-loopback host (RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP is set).');
+        }
       } else if (transport === 'websocket') {
         output.writeln(output.dim(`  WebSocket: ws://${host}:${port}/ws`));
       }
@@ -647,6 +702,7 @@ const execCommand: Command = {
       const startTime = performance.now();
       const result = await callMCPTool(tool, params, {
         sessionId: `cli-${Date.now().toString(36)}`,
+        transport: 'cli',
         requestId: `exec-${Date.now()}`,
       });
       const duration = performance.now() - startTime;

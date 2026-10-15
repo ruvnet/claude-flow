@@ -1,0 +1,40 @@
+{
+  "name": "ruflo-music",
+  "description": "AI music generation via Cognitum Music (cogmusic MCP) — compose lyrics/prompts, generate tracks, separate stems, extract MIDI, and master through your own music.cognitum.one account. As a mod (ADR-445): a tighten-only guard on its tools, /music-mod, and a status file the console shows",
+  "version": "0.2.5",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/cognitum-one/minimax-music",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "music",
+    "cogmusic",
+    "cognitum",
+    "mcp",
+    "audio",
+    "generation",
+    "minimax-music3",
+    "stems",
+    "midi",
+    "mastering",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse calls and memory writes that hold a secret. On by default.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

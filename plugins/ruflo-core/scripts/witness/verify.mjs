@@ -5,11 +5,12 @@
  * Project-agnostic — works without ruflo CLI being installed.
  *
  * Usage:
- *   node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json]
+ *   node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict]
  *
  * Exit codes:
- *   0  — signature valid + all fixes pass or drift (marker present)
- *   1  — signature invalid OR any fix regressed/missing (real failure)
+ *   0  — signature valid + all fixes pass or drift (marker present);
+ *        with --strict, all fixes must pass without drift
+ *   1  — signature invalid OR any fix regressed/missing, or drift with --strict
  *   2  — bad arguments / file not found OR precondition not met
  *        (e.g. dist files not built during full-tree verification).
  *        Issue #1880: scheduled runners use this to distinguish a
@@ -28,6 +29,10 @@ import {
 import { fileSha256, fileContains } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
+if (args.help) {
+  console.log('Usage: node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict]');
+  process.exit(0);
+}
 if (!args.manifest) { console.error('--manifest <path> required'); process.exit(2); }
 
 const manifestPath = resolve(args.manifest);
@@ -36,6 +41,7 @@ if (!existsSync(manifestPath)) { console.error(`not found: ${manifestPath}`); pr
 const repoRoot = resolve(args.root ?? process.cwd());
 const asJson = !!args.json;
 const sourceOnly = !!args['source-only'];
+const strict = !!args.strict;
 
 const witness = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
@@ -114,7 +120,8 @@ if (!sourceOnly && ((allMissing && referencesDist) || (missingOnlyDist && summar
 }
 
 const ok = sig.signatureValid && sig.manifestHashOk && sig.publicKeyReproducible
-        && summary.regressed === 0 && summary.missing === 0;
+        && summary.regressed === 0 && summary.missing === 0
+        && (!strict || summary.drift === 0);
 
 if (asJson) {
   console.log(JSON.stringify(
@@ -207,7 +214,7 @@ function parseArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--json' || a === '--help') { out[a.slice(2)] = true; continue; }
+    if (a === '--json' || a === '--help' || a === '--strict') { out[a.slice(2)] = true; continue; }
     if (a.startsWith('--')) {
       const key = a.slice(2);
       const next = argv[i + 1];

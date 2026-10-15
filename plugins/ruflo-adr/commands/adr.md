@@ -37,7 +37,7 @@ Manage Architecture Decision Records. Parse $ARGUMENTS to determine the subcomma
 5. Flag violations: code referencing deprecated/superseded ADRs, or code that contradicts accepted ADRs
 
 **`adr graph`** -- Show ADR dependency graph.
-1. Query `mcp__plugin_ruflo-core_ruflo__agentdb_causal-query` for all ADR relationships
+1. Call `mcp__plugin_ruflo-core_ruflo__memory_list` with namespace `adr-edges` for all ADR relationships (populated by `adr-index`; run it first if empty)
 2. Present the graph as an ASCII tree or indented list showing supersedes/amends/depends-on chains
 
 **`adr search <query>`** -- Semantic search across ADRs.

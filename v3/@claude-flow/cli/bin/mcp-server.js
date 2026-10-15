@@ -28,6 +28,11 @@ console.log = (...args) => {
 };
 
 import { listMCPTools, callMCPTool, hasTool } from '../dist/src/mcp-client.js';
+import {
+  isPolicyEnforcementEnabled,
+  loadMcpPolicy,
+  evaluateToolCall,
+} from '../dist/src/mcp-tools/policy-enforcer.js';
 
 const VERSION = '3.0.0';
 const sessionId = `mcp-${Date.now()}-${randomUUID().slice(0, 8)}`;
@@ -141,7 +146,7 @@ async function handleMessage(message) {
             serverInfo: { name: 'ruflo', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              resources: {},
             },
           },
         };
@@ -173,8 +178,19 @@ async function handleMessage(message) {
           };
         }
 
+        if (isPolicyEnforcementEnabled()) {
+          const check = evaluateToolCall(loadMcpPolicy(), sessionId, toolName);
+          if (!check.allowed) {
+            return {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: { code: -32001, message: `Policy denied: ${check.reason}` },
+            };
+          }
+        }
+
         try {
-          const result = await callMCPTool(toolName, toolParams, { sessionId });
+          const result = await callMCPTool(toolName, toolParams, { sessionId, transport: 'stdio' });
           return {
             jsonrpc: '2.0',
             id: message.id,
@@ -191,6 +207,16 @@ async function handleMessage(message) {
           };
         }
       }
+
+      // A declared capability must be served (ADR-490): no resources are exposed, so list answers are empty and a read is "not found".
+      case 'resources/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resources: [] } };
+
+      case 'resources/templates/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resourceTemplates: [] } };
+
+      case 'resources/read':
+        return { jsonrpc: '2.0', id: message.id, error: { code: -32002, message: 'Resource not found' } };
 
       case 'notifications/initialized':
         console.error(`[${new Date().toISOString()}] INFO [claude-flow-mcp] Client initialized`);

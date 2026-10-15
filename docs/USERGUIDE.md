@@ -578,6 +578,75 @@ Install Ruflo as a native Claude Code plugin -- adds skills, commands, agents, a
 
 After installing, new `/slash-commands` and agent types are available immediately. Run `/reload-plugins` if needed.
 
+### Terminal UI (optional)
+
+The Claude Code console (`/ruflo`) stays the main way to use Ruflo. If you are not in Claude Code, `ruflo tui` shows the same pages in any terminal, in the console's own look: the Classic BBS block-letter titles by default, or Orbital with its globe, and the pictures of the pages (the swarm graph, gauges and charts) drawn as colour and moving at the console's own speed. It is optional: nothing else depends on it.
+
+<p align="center"><img src="assets/ruflo-tui-walkthrough.svg" width="100%" alt="Looping recording of ruflo tui with its pictures: Overview and Cost in the Classic BBS look, the Orbital look moving, the Swarm graph and Events, then Swarm in a small 80 by 24 window. Sample project and sample agents only."></p>
+
+*The recording is a real run in a throwaway sample project, so some pages say `n/a` or "none yet".*
+
+**Requirements:** Node.js 20 or later and `ruflo` 3.56.7 or later (`npx ruflo@latest tui`). Use `ruflo` or `@claude-flow/cli`: `npx claude-flow tui` does not ship the bundle and says so.
+
+```bash
+npx ruflo tui                       # open it in this terminal
+npx ruflo tui --view swarm          # start on a page: overview | cost | swarm | events | missions | ai
+npx ruflo tui --look orbital        # the look: bbs (default, as in the console) | orbital | plain
+npx ruflo tui --fps 12              # frames per second for moving pictures, 0-30 (default 8; 0 draws them still)
+npx ruflo tui --no-anim             # draw the pictures still (same as --fps 0)
+npx ruflo tui --no-pictures         # the words of each picture only
+npx ruflo tui --boot                # play the look's start-up screen first
+npx ruflo tui --mouse               # click a page in the bar, scroll with the wheel (every action also has a key)
+npx ruflo tui --view federation     # open on any console page, not only the first six
+npx ruflo tui --plain | head -40    # print one plain frame and exit 0 (scripts, CI; the plain look, no colour)
+```
+
+**Pictures and colour.** Pictures are drawn in 24-bit colour when your terminal says it has it (`COLORTERM=truecolor`) and in the nearest of 256 otherwise. With `NO_COLOR`, `TERM=dumb`, `--no-pictures`, or a window narrower than 44 columns, each picture is replaced by the words it stands for. Moving pictures redraw only the rows that changed, pause while the terminal reports it is behind another window (terminals that send focus reports), and a slow terminal skips frames rather than queueing them. A look is the console's own, so the Orbital globe and masthead are the same drawings Claude Code shows.
+
+Without a terminal and without `--plain`, `tui` prints a one-line hint and exits 2.
+
+| Key | Does |
+|---|---|
+| `1`–`6`, or `o` `c` `s` `e` `m` `a` | Go to a page (Overview, Cost, Swarm, Events, Missions, AI) |
+| `Tab` / `Shift-Tab` | Next / previous page |
+| `j` `k` or the arrow keys | Scroll |
+| `r` | Read the files again |
+| `t` | Next look: Classic BBS, Orbital, plain |
+| `0` | The main menu: the console's board, with each entry's key (press it to open that page) |
+| `:` or `/` | Go to any page by name, id or key: `settings`, `go federation`, `terminal` |
+| `Esc` or Backspace | Back to the page you were on |
+| `y` / `n` | Only while a confirm card is on screen: `y` runs the command it shows, `n` or `Esc` drops it |
+| `q` or `Ctrl-C` | Quit |
+
+**What each page shows.** It reads Ruflo's own files and the CLI's output in the current project, and says `n/a` for anything it cannot measure.
+
+- **Overview:** setup steps, health findings and the subsystems.
+- **Cost:** budget and spend across Claude Code and Codex. Missing cost reports are not counted as zero.
+- **Swarm:** topology, agents and the hive-mind.
+- **Events:** swarm, claim, memory and mod events. History is kept only when the `eventsPersist` option is on.
+- **Missions:** the mission record, read-only. Missions are made from a goal in the Claude Code console.
+- **AI (optional):** ask Codex or OpenRouter a question. This is the only page that can send anything, and it always asks first.
+
+**The AI page asks first.** Typing a question and pressing Enter does not send it. It shows a card with exactly what would go out, and only a lone `y` (or a second Enter) while that card is on screen sends it. `n` cancels, and an unanswered card expires after 60 seconds. This is a real card:
+
+```text
+Ask first, #1: this goes to OpenRouter
+POST https://openrouter.ai/api/v1/chat/completions  Authorization: Bearer ‹from
+$OPENROUTER_API_KEY› {"model":"openrouter/auto","messages":[{"role":"user","content":"Summarize
+what my agents did today"}],"usage":{"include":true}}
+The key is read from the named variable, sent in one header and never shown or stored. Metered by the provider.
+y sends it · n cancels · it expires in 59 s
+```
+
+- **Keys on this page:** typing is text, so `Esc` hands the keys back to the page keys. `Ctrl-T` switches between Codex and OpenRouter, `Ctrl-S` stops a running answer, and `Ctrl-C` quits.
+- **Codex** runs only as the pinned `0.162.0` release found under `~/.codex/packages/standalone/releases`, read-only. It never uses the `current` link or `PATH` (0.162.1 crashes). If that release is not installed the page says so.
+- **OpenRouter** needs `OPENROUTER_API_KEY` in your environment. The key is named by its variable and never shown. Requests go only to `https://openrouter.ai` and to the HTTPS hosts you name with `--convo-targets` (or `RUFLO_TUI_CONVO_TARGETS`, syntax `endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;...`), with no redirects. `--model` picks the model (default `openrouter/auto`), and `--max-spend-usd` stops sending once the provider-reported spend reaches the cap (default `0.5`).
+- `--no-ai` turns the AI page off.
+
+**Limits.** It reads files and changes nothing, except what you ask for by name and confirm with a single `y` on the console card, and the AI page after its own card. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. The animation was measured on Linux: at 8 frames per second it used about 2–3% of one core and 14–80 KB/s of terminal output depending on the look and window size (Orbital on a 200 by 50 window is the heaviest), and 30 frames per second about 9% and 230 KB/s. **Every console page opens here** (33 of them, from the main menu `0` or the go prompt `:`), each with the console's own body. What changes is recorded per page in ADR-489: most are read-only here because their action buttons wait for the confirm gate (the next stage); the Room needs a Claude Code session and says so on one screen; the console's terminal is this shell's AI page. **Actions.** The go prompt (`:`) also takes an action by name, such as `swarm-stop` or `evolve plan`: a read runs at once; a change shows the console's confirm card (who asked, the exact command, what it will do) pinned under the bar, and only a single `y` runs it, and only when the whole card fits on screen. A paste, Enter or a card cut off by a small window runs nothing. Settings cannot be changed here yet. On the menu the console's keys work (`b` Hive-Mind, `9` Memory Lab, …; `q` still quits and `p` is the go prompt), so a letter there is not the page-bar letter. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
+
+**In Claude Code**, the same console has an optional Orbital look and a Theme Studio: run `/ruflo themes`. See the [console README](../plugins/ruflo-console/README.md#orbital-theme).
+
 <details>
 <summary>🤖 <strong>OpenAI Codex CLI Support</strong> — Full Codex integration with self-learning</summary>
 
@@ -1710,6 +1779,8 @@ npx ruflo hive-mind memory                  # Collective memory stats
 npx ruflo hive-mind sessions                # List active sessions
 ```
 
+**Access control (ADR-476).** Local use needs nothing extra: `hive-mind init`, the stdio MCP server, `ruflo mcp exec` and the CLI subcommands manage their own hive. `init` writes `.claude-flow/hive-mind/bootstrap.secret` (0600) and never prints or returns the hive token. Clients that reach the MCP server over **HTTP/WebSocket** are refused for `init`, `spawn`, `consensus` propose/vote, `broadcast`, `shutdown`, `join`, `leave`, `memory` set/delete and `optimize-memory` unless the operator hands them the secret: set `RUFLO_HIVE_BOOTSTRAP_SECRET` (16+ chars) on the server, then send it as `bootstrapSecret` in each call. If you bridge a stdio server onto a network, set `RUFLO_HIVE_REQUIRE_AUTH=1`. Against a local agent that can read the project directory this is a speed bump, not a boundary.
+
 **Performance:** Fast batch spawning with parallel agent coordination
 
 </details>
@@ -1858,7 +1929,6 @@ Install these optional plugins to extend Ruflo capabilities:
 
 | Plugin | Version | Description | Install Command |
 |--------|---------|-------------|-----------------|
-| **@claude-flow/plugin-agentic-qe** | 3.0.0-alpha.2 | Quality Engineering with 58 AI agents across 12 DDD contexts. TDD, coverage analysis, security scanning, chaos engineering, accessibility testing. | `npm install @claude-flow/plugin-agentic-qe` |
 | **@claude-flow/plugin-prime-radiant** | 0.1.4 | Mathematical AI interpretability with 6 engines: sheaf cohomology, spectral analysis, causal inference, quantum topology, category theory, HoTT proofs. | `npm install @claude-flow/plugin-prime-radiant` |
 | **@claude-flow/plugin-gastown-bridge** | 0.1.0 | Gas Town orchestrator integration with WASM-accelerated formula parsing (instant (regex-based, no LLM call)), Beads sync, convoy management, and graph analysis. 20 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/plugin-gastown-bridge` |
 | **@claude-flow/teammate-plugin** | 1.0.0-alpha.1 | Native TeammateTool integration for Claude Code v2.1.19+. BMSSP WASM acceleration, rate limiting, circuit breaker, semantic routing. 21 MCP tools. | `npx ruflo@latest plugins install -n @claude-flow/teammate-plugin` |
@@ -1888,12 +1958,7 @@ Install these optional plugins to extend Ruflo capabilities:
 | **@claude-flow/plugin-quantum-optimizer** | 0.1.0 | Quantum-inspired optimization (QAOA, VQE, quantum annealing). Combinatorial optimization, Grover search, tensor networks. | `npm install @claude-flow/plugin-quantum-optimizer` |
 | **@claude-flow/plugin-hyperbolic-reasoning** | 0.1.0 | Hyperbolic geometry for hierarchical reasoning. Poincaré embeddings, tree-like structure analysis, taxonomic inference. | `npm install @claude-flow/plugin-hyperbolic-reasoning` |
 
-**Agentic-QE Plugin Features:**
-- 58 specialized QE agents across 13 bounded contexts
-- 16 MCP tools: `aqe/generate-tests`, `aqe/tdd-cycle`, `aqe/analyze-coverage`, `aqe/security-scan`, `aqe/chaos-inject`, etc.
-- London-style TDD with red-green-refactor cycles
-- O(log n) coverage gap detection with Johnson-Lindenstrauss
-- OWASP/SANS compliance auditing
+**Quality Engineering (Agentic QE):** the in-repo `@claude-flow/plugin-agentic-qe` shim has been retired. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) package (`npx agentic-qe init`), or install its Claude Code plugin `agentic-qe-fleet` from the `agentic-qe` marketplace ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
 
 **Prime-Radiant Plugin Features:**
 - 6 mathematical engines for AI interpretability
@@ -1924,9 +1989,6 @@ Install these optional plugins to extend Ruflo capabilities:
 - **Hyperbolic Reasoning**: 5 tools for Poincaré embeddings, tree inference, taxonomic analysis
 
 ```bash
-# Install Quality Engineering plugin
-npm install @claude-flow/plugin-agentic-qe
-
 # Install AI Interpretability plugin
 npm install @claude-flow/plugin-prime-radiant
 
@@ -2853,6 +2915,7 @@ Run `npx ruflo@latest doctor` to diagnose and fix common issues.
 | **MCP servers** | Responsive | ✅ Restarts unresponsive servers |
 | **Disk space** | >100MB free | ❌ Manual cleanup required |
 | **TypeScript** | Installed | ✅ Installs if missing |
+| **Native addon headers** | No `better-sqlite3` built against Node 24.19+ headers while running Node 24.19–24.21 | ❌ See below |
 
 **Commands:**
 
@@ -2869,6 +2932,14 @@ npx ruflo@latest doctor --component memory
 # Verbose output
 npx ruflo@latest doctor --verbose
 ```
+
+**Node 24.19–24.21 abort (#4055).** A native addon compiled against Node 24.19+ headers can abort the process with `Assertion failed: (env) != nullptr` in `node::RemoveEnvironmentCleanupHook` (nodejs/node#65446; the fix, PR #65943, is in no release through 24.21.0). Prebuilt binaries are not affected, only copies compiled locally, which carry a `build/config.gypi` naming the headers they used. `doctor --component native-addon` reads those files (it never loads an addon) and lists each affected copy. Workarounds, any one of:
+
+- run Node 22, or Node 24.18.1, or a Node release that contains the fix;
+- rebuild the listed copy against older headers: `cd <copy> && npx node-gyp rebuild --release --nodedir=<node 24.18.1 headers>`;
+- install the 12.x prebuilt in the project: `npm install better-sqlite3@12`.
+
+ruflo opens AgentDB through its own prebuilt 12.x copy (since 3.56.4), so a flagged nested copy under `agentdb` or `agentic-flow` matters only to code that loads it directly. npm ignores `overrides` in a dependency's package.json, so the nested 11.x copies cannot be removed from inside the published package.
 
 **Output Example:**
 
@@ -3629,7 +3700,11 @@ npx ruflo@latest memory export --include-embeddings --output ./full-export.json
 npx ruflo@latest config export --scope project --output ./agent-configs.json
 
 # Export session state
-npx ruflo@latest session export --session-id "my-session" --output ./session.json
+npx ruflo@latest session export "my-session" --format json --output ./session.json
+
+# Compress a JSON backup and import it later (gzip is detected from the file bytes)
+npx ruflo@latest session export "my-session" --format json --compress --output ./session.json.gz
+npx ruflo@latest session import ./session.json.gz
 ```
 
 ### Import Commands
@@ -4445,6 +4520,48 @@ npx ruflo@latest hooks route "implement caching layer" --include-explanation
 # Record outcome for learning
 npx ruflo@latest hooks post-task --task-id "task-123" --success true --agent coder
 ```
+
+### Opt-in: `@ruvector/typesafe` Task Router
+
+`hooks_route` can ask [`@ruvector/typesafe`](https://github.com/ruvnet/RuVector/blob/main/npm/packages/typesafe/README.md)
+— local typed decisions over sentence embeddings — to pick the agent, instead of
+relying only on keyword matching (which, for example, routes "sync and review
+latest issues" to `tester` because "la**test**" contains "test"). It is off by
+default, an optional peer dependency, and removable: with the flag unset the
+package is never imported and `hooks_route` output is unchanged.
+
+```bash
+npm install @ruvector/typesafe          # optional peer of @claude-flow/cli
+export CLAUDE_FLOW_ROUTER_TYPESAFE=1
+npx ruflo@latest doctor --component typesafe
+```
+
+The choice options are built from the router's own pattern table (each primary
+agent plus its keywords), with `not_for` hints separating `tester` / `reviewer` /
+`researcher`. typesafe's answer replaces the built-in pick only if every gate holds;
+otherwise the built-in route is kept and `typesafe.reason` names the failed gate:
+
+| Gate | Env var | Default |
+|------|---------|---------|
+| abstain mass at most | `CLAUDE_FLOW_ROUTER_TYPESAFE_MAX_ABSTAIN` | `0.30` |
+| lift (top-1 probability × option count; 1.0 = chance) at least | `CLAUDE_FLOW_ROUTER_TYPESAFE_MIN_LIFT` | `1.2` |
+| top-1 minus runner-up probability at least | `CLAUDE_FLOW_ROUTER_TYPESAFE_MIN_MARGIN` | `0.005` |
+
+When typesafe wins, the result carries `routedBy: "typesafe"`, the answer's
+`confidence`, `abstain` and `calibrated` flag, `primaryAgent.confidenceCalibrated`,
+and the built-in pick under `fallbackRoute`. When it does not, `routedBy` is the
+built-in method and `typesafe.used` is `false`.
+
+Limitations:
+- The default `hash` embedder is a bag-of-words test double. Its answers are
+  always `calibrated: false`, confidences are near chance (~0.1 with ten agents),
+  and that confidence is never copied into `estimatedMetrics.successProbability`.
+- For calibrated answers use the ONNX embedder: fetch models with the package's
+  `scripts/fetch-models.mjs`, then set `CLAUDE_FLOW_ROUTER_TYPESAFE_MODEL_DIR`
+  and `CLAUDE_FLOW_ROUTER_TYPESAFE_MANIFEST`.
+- `@ruvector/typesafe@0.1.0` ships a native binary for linux-x64-gnu only; other
+  platforms use its WASM fallback. Any load or decide error falls back to the
+  built-in router silently (set `CLAUDE_FLOW_LOG_LEVEL=debug` to see why).
 
 ### How Q-Learning Improves Over Time
 

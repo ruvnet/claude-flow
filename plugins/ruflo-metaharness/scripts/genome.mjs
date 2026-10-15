@@ -14,7 +14,15 @@
 //   1  --alert-on-risk-above threshold breached
 //   2  config error or genome failure (no valid readiness report)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runMetaharness, emitDegradedJsonAndExit } from './_harness.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--alert-on-risk-above': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', alertRiskAbove: null };

@@ -20,20 +20,20 @@ Primitive on which every other browser skill composes. Opens a named browser ses
 1. **Allocate session id and RVF container**:
    ```bash
    SID="$(date +%Y%m%d-%H%M%S)-${TASK_SLUG:-record}"
-   npx -y ruvector@0.2.25 rvf create "$SID.rvf" --dimension 384
-   npx -y ruvector@0.2.25 hooks trajectory-begin --session-id "$SID" --task "$1"
+   npx -y ruvector@0.2.27 rvf create "$SID.rvf" --dimension 384
+   npx -y ruvector@0.2.27 hooks trajectory-begin --session-id "$SID" --task "$1"
    ```
 2. **Open the browser** via `mcp__plugin_ruflo-core_ruflo__browser_open` with the URL.
 3. **Snapshot the initial state**: `browser_snapshot` for the accessibility tree, `browser_screenshot` for a baseline image.
 4. **For each interaction**, record a trajectory step before and after:
    ```bash
-   npx -y ruvector@0.2.25 hooks trajectory-step \
+   npx -y ruvector@0.2.27 hooks trajectory-step \
      --session-id "$SID" --action click --args '{"selector":"#login"}' --result ok
    ```
 5. **End cleanly**:
    ```bash
-   npx -y ruvector@0.2.25 hooks trajectory-end --session-id "$SID" --verdict pass
-   npx -y ruvector@0.2.25 rvf compact "$SID.rvf"
+   npx -y ruvector@0.2.27 hooks trajectory-end --session-id "$SID" --verdict pass
+   npx -y ruvector@0.2.27 rvf compact "$SID.rvf"
    ```
 6. **Index in AgentDB** under `browser-sessions`:
    ```bash

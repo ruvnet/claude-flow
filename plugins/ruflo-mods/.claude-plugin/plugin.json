@@ -1,0 +1,154 @@
+{
+  "name": "ruflo-mods",
+  "description": "ruflo as a Claude Code mod (function hooks, ADR-404): in-process prompt routing, edit learning signals, tighten-only tool checks from ruflo policy, the cost-tracker budget ladder, a mod trust gate for newly installed mods, and the $.ruflo noun other mods compose their status with. Opt-in and removable: the classic hook-handler hooks stay the default and take every event back whenever the mod is not loaded.",
+  "version": "0.6.2",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "mods",
+    "function-hooks",
+    "routing",
+    "policy",
+    "cost",
+    "trust"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "routeContext": {
+      "type": "boolean",
+      "title": "Ranked memory with routes",
+      "description": "Add the ranked-memory block (.claude-flow/data/ranked-context.json) to each prompt's routing context, as the classic route hook does.",
+      "required": false,
+      "default": true
+    },
+    "statusLine": {
+      "type": "boolean",
+      "title": "ruflo status line",
+      "description": "Show a one-line ruflo status under the prompt. Never shown where the ruflo statusLine helper is already configured.",
+      "required": false,
+      "default": true
+    },
+    "costBudgetUsd": {
+      "type": "number",
+      "title": "Session budget (USD)",
+      "description": "Apply the cost-tracker budget ladder (50/75/90/100%) to this session's live cost. 0 turns it off.",
+      "required": false,
+      "default": 0
+    },
+    "costHardStop": {
+      "type": "boolean",
+      "title": "Halt agents at 100% of budget",
+      "description": "At 100% of the session budget, refuse new subagent spawns.",
+      "required": false,
+      "default": false
+    },
+    "toolHints": {
+      "type": "boolean",
+      "title": "Usage hints on ruflo tools",
+      "description": "Add one short, static usage hint (restating the project's own CLAUDE.md) to the description of a few ruflo MCP tools, such as memory_search and swarm_init, so the model sees it at the tool. Appends text only, cached for the session. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "agentTrim": {
+      "type": "boolean",
+      "title": "Hide unused agent types",
+      "description": "Keep agent types the project does not use out of the model's agent listing, to save prompt tokens (measured about 4,000 fewer per request with 59 of 69 types hidden). A hidden type the prompt does not name is also refused when spawned. Always kept: built-in agents, coder, reviewer, tester, planner, researcher, any type used in the last 30 days, any in agentTrimKeep. A type named in the prompt can still be spawned, but in a headless session it is not added back to the listing: use agentTrimKeep to keep one reliably. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "agentTrimKeep": {
+      "type": "string",
+      "title": "Agent types to never hide",
+      "description": "Comma-separated agent type names that agentTrim must keep offered.",
+      "required": false,
+      "default": ""
+    },
+    "deliveryScreen": {
+      "type": "boolean",
+      "title": "Screen peer deliveries and outgoing messages",
+      "description": "Drop a delivery from a peer, relay or webhook that carries prompt-injection phrasing, and refuse to send a message to another agent that carries a secret shape (key, token) or a US social security number. In-process pattern screen: no network, no model. Tighten-only; your own Remote Control prompts are never screened. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "compactCarry": {
+      "type": "boolean",
+      "title": "Carry swarm and claims state through compaction",
+      "description": "When the conversation is compacted, tell the summary to keep one short block (600 characters at most): the live swarm id, its topology word and agent count, the ids and status of open claims, the last route agent, and the budget and policy words. Built only from validated ids and fixed words, never prompt text, tool inputs, paths or file contents; nothing is carried when no swarm or claim is open, or when the block fails a secret or injection screen. Appended to what you typed after /compact. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "capabilityProbe": {
+      "type": "boolean",
+      "title": "Capability probe",
+      "description": "Record the engine version and which of this mod's events actually fired, and show it as one line in /ruflo-mods (probe: engine ... · events fired n/m · never fired: ...). Observability only: never denies, rewrites or delays anything. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "sessionRollup": {
+      "type": "boolean",
+      "title": "Session rollup ledger",
+      "description": "At session end, append one record of counters (tools called, routed, tightened, denied, agent spawns, cost rung, probe count) to a capped user-global ledger (last 50 sessions, under 32 KB) and show the last few in /ruflo-mods. Never stores prompt text, tool inputs, paths or file contents. Observability only: never denies, rewrites or delays anything. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "sessionAttention": {
+      "type": "boolean",
+      "title": "Session attention row",
+      "description": "Show one row in /ruflo-mods with the ruflo-console's attention counts (sessions waiting for approval, with a question, failed, or finished and unread), read from the small summary file the console keeps in .claude-flow/console/. Four counts only; no session title, path or transcript text. Observability only: never denies, rewrites or delays anything. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "grounding": {
+      "type": "boolean",
+      "title": "Show RuvNet Brain status",
+      "description": "Show one line in /ruflo-mods saying whether the optional third-party ruvnet-brain plugin (github.com/stuinfla/ruvnet-brain) is installed and enabled: on, not installed, installed but disabled, or unknown. Reads installed_plugins.json and your settings; detect-only: never calls, installs, blocks or rewrites anything, and ruflo works the same without that plugin. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "modTrust": {
+      "type": "string",
+      "title": "Mod trust gate",
+      "description": "How ruflo treats a hooks module installed or hot-reloaded after it (a mod Claude wrote, say). \"observe\" (default): name what it can do (host commands, network, environment, file writes, tool verdicts) in the transcript. \"refuse-risky\": refuse user-tier mods that can do any of those, unless listed in modTrustAllow. \"off\": do not watch.",
+      "required": false,
+      "default": "observe",
+      "options": [
+        "observe",
+        "refuse-risky",
+        "off"
+      ]
+    },
+    "modTrustAllow": {
+      "type": "string",
+      "title": "Trusted mods (plugin ids)",
+      "description": "Comma-separated plugin ids as Claude Code keys them, name@marketplace (e.g. ruflo-swarm@ruflo,ruflo-console@ruflo), that the trust gate never refuses. Matched on where the plugin was installed from, not on the name it gives itself.",
+      "required": false,
+      "default": ""
+    },
+    "guidanceContext": {
+      "type": "boolean",
+      "title": "Advisory task guidance",
+      "description": "Read a bounded compiler projection and attach screened lexical excerpts to prompts. Guidance cannot authorize tool calls.",
+      "required": false,
+      "default": false
+    },
+    "guidanceLearning": {
+      "type": "boolean",
+      "title": "Unverified guidance observations",
+      "description": "Record versioned rule IDs and activity counters in a separate candidate queue. Does not record task success, train or promote guidance.",
+      "required": false,
+      "default": false
+    },
+    "selfCheck": {
+      "type": "boolean",
+      "title": "Startup self-check",
+      "description": "Say once per session, in a toast, when an enabled ruflo plugin is missing from the ruflo marketplace clone (Claude Code then skips it without a word), with the one-line repair. Read-only; never adds text for the model.",
+      "required": false,
+      "default": true
+    }
+  }
+}

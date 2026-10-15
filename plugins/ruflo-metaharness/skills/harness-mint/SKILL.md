@@ -1,6 +1,6 @@
 ---
 name: harness-mint
-description: Scaffold a custom AI agent harness via `metaharness new <name> --template <id> --host <id>`. Defaults to DRY-RUN (no writes) unless --confirm is passed. Refuses to write to the calling repo root or anywhere inside it. Honors ADR-150 architectural constraint + ruflo's "destructive-action confirmation" pattern.
+description: Scaffold a custom AI agent harness via `metaharness new {name} --template {id} --host {id}`. Defaults to DRY-RUN (no writes) unless --confirm is passed. Refuses to write to the calling repo root or anywhere inside it. Honors ADR-150 architectural constraint + ruflo's "destructive-action confirmation" pattern.
 argument-hint: "--name <id> --template <vertical:coding|minimal|…> [--host claude-code|codex|…] [--target /abs/path] [--confirm] [--format table|json]"
 allowed-tools: Bash
 ---

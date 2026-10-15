@@ -70,3 +70,15 @@ This means:
 - [Research dossier](https://gist.github.com/ruvnet/19d166ff9acf368c9da4172d91ac9113) — full graded-evidence sourcing
 - [Upstream](https://github.com/ruvnet/agent-harness-generator) — `metaharness` source
 - ADR-148/149 — `@metaharness/router` cost-optimal routing (sibling integration)
+
+## As a mod
+
+This plugin ships a function-hook mod (ADR-445, `hooks/register.ts`). It makes no network call, spawns no process and makes no model call.
+
+- **Guard** (tighten-only, on by default): Refuses any `metaharness_*` input that holds a key, token or password (MetaHarness writes its inputs to audit memory), and `metaharness_flywheel` `promote` / `evidence-reset` unless the call carries `confirm: true`. A refusal never echoes the secret.
+- **`/metaharness-mod`**: `status`, `recent`, `tools` (which of this plugin's tools are connected) and `scan <text>` (would the guard refuse it). Answered locally.
+- **Status file**: `.claude-flow/metaharness-mod/status.json` (`{version: 1, updatedMs, guard, calls, total, blocked, recent}`, counters only, never tool input), written at session start and after every call to this plugin's tools.
+
+Options (`userConfig`): `guard` (on).
+
+Test it: `claude plugin validate plugins/ruflo-metaharness`, `claude plugin test plugins/ruflo-metaharness`, `bash plugins/ruflo-metaharness/scripts/smoke.sh`.

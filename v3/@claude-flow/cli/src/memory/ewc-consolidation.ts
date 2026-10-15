@@ -527,7 +527,13 @@ export class EWCConsolidator {
    * Called by SONA after distillLearning to track which patterns
    * are important and should be protected from forgetting.
    *
-   * Uses online averaging: F_new = alpha * F_old + (1-alpha) * F_current
+   * Uses online averaging: F_new = (1 - decay) * F_old + decay * F_current
+   * (same convention as computeFisherMatrix()/recordGradient() above: decay
+   * is the weight given to the new batch, so a small decay — the default,
+   * 0.01 — means the accumulated Fisher decays slowly and survives many
+   * subsequent low-signal calls, per the standard online-EWC/EWC++ update
+   * rule, e.g. Chaudhry et al., "Riemannian Walk for Incremental Learning",
+   * ECCV 2018, arXiv:1801.10112).
    *
    * @param confidenceChanges - Array of {id, embedding, oldConf, newConf}
    */
@@ -536,35 +542,58 @@ export class EWCConsolidator {
   ): void {
     if (confidenceChanges.length === 0) return;
 
-    const alpha = this.config.fisherDecayRate;
+    const decay = this.config.fisherDecayRate;
     const currentFisher = new Array(this.config.dimensions).fill(0);
     let sampleCount = 0;
 
     for (const change of confidenceChanges) {
       if (!change.embedding || change.embedding.length === 0) continue;
+      if (!Number.isFinite(change.oldConf) || !Number.isFinite(change.newConf)) continue;
 
       const confDelta = Math.abs(change.newConf - change.oldConf);
       if (confDelta === 0) continue;
 
-      sampleCount++;
       const len = Math.min(change.embedding.length, this.config.dimensions);
 
-      // Squared gradient proxy: embedding scaled by confidence change magnitude
+      // Squared gradient proxy: embedding scaled by confidence change magnitude.
+      // Validate the whole sample before folding any of it in -- a single
+      // non-finite embedding dimension (NaN/Infinity) must not silently poison
+      // the shared accumulator for every other pattern in this batch.
+      const sampleFisher = new Array(len);
+      let sampleValid = true;
       for (let i = 0; i < len; i++) {
         const grad = change.embedding[i] * confDelta;
-        currentFisher[i] += grad * grad;
+        const sq = grad * grad;
+        if (!Number.isFinite(sq)) {
+          sampleValid = false;
+          break;
+        }
+        sampleFisher[i] = sq;
+      }
+      if (!sampleValid) continue;
+
+      sampleCount++;
+      for (let i = 0; i < len; i++) {
+        currentFisher[i] += sampleFisher[i];
       }
     }
 
-    if (sampleCount > 0) {
-      for (let i = 0; i < this.config.dimensions; i++) {
-        currentFisher[i] /= sampleCount;
-      }
-    }
+    // No sample contributed usable signal (all filtered out, or every delta was
+    // zero): leave globalFisher and persisted state untouched rather than
+    // decaying accumulated importance toward an empty/no-op batch.
+    if (sampleCount === 0) return;
 
-    // Online EMA: F_new = alpha * F_old + (1-alpha) * F_current
     for (let i = 0; i < this.config.dimensions; i++) {
-      this.globalFisher[i] = alpha * this.globalFisher[i] + (1 - alpha) * currentFisher[i];
+      currentFisher[i] /= sampleCount;
+    }
+
+    // Online EMA: F_new = (1 - decay) * F_old + decay * F_current
+    for (let i = 0; i < this.config.dimensions; i++) {
+      const next = (1 - decay) * this.globalFisher[i] + decay * currentFisher[i];
+      // Defensive: never let a non-finite result (e.g. from a corrupted prior
+      // globalFisher[i]) propagate into the live signal -- keep the last known
+      // finite value instead of poisoning it further.
+      this.globalFisher[i] = Number.isFinite(next) ? next : this.globalFisher[i];
     }
 
     this.saveToDisk();
@@ -613,6 +642,22 @@ export class EWCConsolidator {
   // ============================================================================
   // Private Methods
   // ============================================================================
+
+  /**
+   * Validate a loaded globalFisher candidate before trusting it: must be an
+   * array of exactly `dimensions` finite, non-negative numbers. Fisher
+   * values are sums of squares (see computeFisherMatrix/recordGradient/
+   * updateFisherFromConfidences above), so a negative or non-finite entry
+   * means the persisted file is corrupted or from an incompatible layout,
+   * not a legitimate state to resume from.
+   */
+  private isValidFisherArray(value: unknown): value is number[] {
+    return (
+      Array.isArray(value) &&
+      value.length === this.config.dimensions &&
+      value.every((v) => typeof v === 'number' && Number.isFinite(v) && v >= 0)
+    );
+  }
 
   /**
    * Calculate importance score for a pattern based on usage
@@ -725,8 +770,15 @@ export class EWCConsolidator {
       throw new Error(`Unsupported state version: ${state.version}`);
     }
 
-    // Restore state
-    this.globalFisher = state.globalFisher || new Array(this.config.dimensions).fill(0);
+    // Restore the Fisher matrix, quarantining anything malformed -- wrong
+    // length, non-numeric/non-finite entries (e.g. JSON's lossy NaN/Infinity
+    // -> null round-trip), or negative values (Fisher values are sums of
+    // squares and can never legitimately be negative) -- rather than
+    // silently absorbing corrupted or truncated state into live importance
+    // tracking on restart.
+    this.globalFisher = this.isValidFisherArray(state.globalFisher)
+      ? state.globalFisher
+      : new Array(this.config.dimensions).fill(0);
 
     // Restore patterns
     this.patterns.clear();

@@ -160,14 +160,20 @@ node v3/@claude-flow/cli/scripts/benchmark-pretrained-retrieval.mjs
 
 ## How to read the consistency block
 
-When `hooks_intelligence_unified-stats` returns a non-empty `consistency.notes`,
-that's a real cross-store drift you should look at:
+`hooks_intelligence_unified-stats` reports two trajectory counters with different
+lifetimes. `global.trajectoriesRecorded` is persisted for the project;
+`sona.trajectoriesTotal` counts the bounded recent trajectory buffer in this
+process.
+A fresh process can therefore report SONA 0 beside thousands of persisted
+trajectories without a learning failure. The counters cannot be compared.
+Other `consistency.notes` can still identify actionable cross-store gaps:
 
 ```jsonc
 "consistency": {
-  "sonaTracksGlobal": true,                  // SONA matches globalStats within ±1
-  "sonaTracksGlobalDelta": 0,
+  "sonaTracksGlobal": null,                  // different lifetimes; no valid comparison
+  "sonaTracksGlobalDelta": null,
   "notes": [
+    "sona.trajectoriesTotal is a process-local, bounded recent trajectory buffer; global.trajectoriesRecorded is project-persisted. These counters have different lifetimes and are not comparable.",
     "globalStats reports 47 patterns learned but neural_patterns store is empty — pretrain has not written here, or trajectory-end isn't promoting patterns to the neural store yet"
   ]
 }

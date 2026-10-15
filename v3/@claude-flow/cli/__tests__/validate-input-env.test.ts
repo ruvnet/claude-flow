@@ -41,6 +41,18 @@ describe('validateEnv (audit_1776853149979)', () => {
       'DYLD_FORCE_FLAT_NAMESPACE',
       'NODE_OPTIONS',
       'NODE_PATH',
+      // dream-cycle 2026-09-21 (CWE-427, Uncontrolled Search Path Element):
+      // PATH itself and the equivalent interpreter/VCS search-path vars were
+      // missing — a caller could override PATH for every subsequent command
+      // in the terminal session.
+      'PATH',
+      'PYTHONPATH',
+      'PERL5LIB',
+      'RUBYLIB',
+      'GIT_EXTERNAL_DIFF',
+      'GIT_SSH_COMMAND',
+      'BASH_ENV',
+      'IFS',
     ];
 
     for (const name of denylisted) {
@@ -52,6 +64,22 @@ describe('validateEnv (audit_1776853149979)', () => {
         expect(r.sanitized).toEqual({});
       });
     }
+
+    // dream-cycle 2026-09-21 (adversarial critique caveat): Windows env vars
+    // are case-insensitive, so `path`/`Path` must be denylisted the same as
+    // `PATH` even though they're distinct object keys here.
+    describe('case-insensitive denylist match', () => {
+      const caseVariants = ['path', 'Path', 'PaTh', 'node_options', 'Node_Options'];
+
+      for (const name of caseVariants) {
+        it(`rejects ${name}`, () => {
+          const r = validateEnv({ [name]: '/tmp/whatever' });
+          expect(r.valid).toBe(false);
+          expect(r.error).toContain('denylisted');
+          expect(r.sanitized).toEqual({});
+        });
+      }
+    });
   });
 
   describe('shape validation', () => {

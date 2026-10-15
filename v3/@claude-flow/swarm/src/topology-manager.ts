@@ -368,11 +368,27 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
 
   private async createEdgesForNode(node: TopologyNode): Promise<void> {
     for (const connectionId of node.connections) {
+      // Dream Cycle 2026-09-19 (swarm): mirror the edge onto the counterpart
+      // whenever it already exists in the topology, not only for `mesh`.
+      // For hierarchical/centralized/hybrid, a new worker's initial
+      // connections already point at the queen/coordinator (see
+      // calculateInitialConnections), so `bidirectional` gated on
+      // `type === 'mesh'` alone left the queen/coordinator's own
+      // `connections`/adjacencyList permanently missing every worker —
+      // shouldRebalance() has no non-mesh logic to repair it later, and
+      // even an explicit rebalance*() call can't: each one's own "connect
+      // worker to leader" guard checks the worker's (already-populated)
+      // connections instead of the leader's, so it never re-triggers.
+      // Net effect before this fix: getNeighbors(queenId) and
+      // findOptimalPath(queenId, workerId) were always empty for every
+      // hierarchical/centralized/hybrid swarm, in steady-state operation,
+      // not just transiently stale.
+      const bidirectional = this.config.type === 'mesh' || this.nodeIndex.has(connectionId);
       const edge: TopologyEdge = {
         from: node.agentId,
         to: connectionId,
         weight: 1,
-        bidirectional: this.config.type === 'mesh',
+        bidirectional,
         latencyMs: 0,
       };
 
@@ -537,6 +553,16 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
         worker.connections.push(target.agentId);
         currentWorkerConnections.push(target.agentId);
         this.adjacencyList.get(worker.agentId)?.add(target.agentId);
+
+        // Dream Cycle 2026-08-29 (swarm): mirror the edge onto the target so
+        // the worker-mesh graph stays symmetric, matching every other
+        // rebalance*() method (and this same function's coordinator loop
+        // below) — without this, the mesh silently degrades into a random
+        // directed graph instead of the undirected mesh it's meant to be.
+        if (!target.connections.includes(worker.agentId)) {
+          target.connections.push(worker.agentId);
+        }
+        this.adjacencyList.get(target.agentId)?.add(worker.agentId);
       }
     }
 

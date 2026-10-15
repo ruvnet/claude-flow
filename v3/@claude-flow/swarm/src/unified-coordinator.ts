@@ -166,6 +166,16 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     this.config = this.createDefaultConfig(config);
     this.state = this.createInitialState();
 
+    // Dream Cycle 2026-09-20 (performance): waitForTaskCompletion()/
+    // waitForQueuedTask() now register up to 2 listeners each (task.completed
+    // + task.failed) per in-flight wait, instead of a setInterval poll.
+    // Node's default per-event-name cap is 10 — at realistic concurrency
+    // (>10 simultaneous executeTaskInDomain() calls, well within
+    // config.maxTasks) that would spam MaxListenersExceededWarning even
+    // though nothing is actually leaking. Raise the cap to the coordinator's
+    // own configured task capacity (adversarial-critic finding, same night).
+    this.setMaxListeners(Math.max(EventEmitter.defaultMaxListeners, this.config.maxTasks * 2));
+
     // Initialize components
     this.topologyManager = createTopologyManager(this.config.topology);
     this.messageBus = createMessageBus(this.config.messageBus);
@@ -479,10 +489,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   // ===== COORDINATION =====
 
-  async proposeConsensus(value: unknown): Promise<ConsensusResult> {
+  async proposeConsensus(
+    value: unknown,
+    weights?: Map<string, number>
+  ): Promise<ConsensusResult> {
     const startTime = performance.now();
 
-    const proposal = await this.consensusEngine.propose(value, this.state.id.id);
+    const proposal = await this.consensusEngine.propose(value, this.state.id.id, weights);
     const result = await this.consensusEngine.awaitConsensus(proposal.id);
 
     const duration = performance.now() - startTime;
@@ -1272,50 +1285,82 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     }
   }
 
+  // Dream Cycle 2026-09-20 (performance): both wait functions previously
+  // busy-polled this.state.tasks on a setInterval(..., 100) even though this
+  // class already extends EventEmitter and already fires 'task.completed'/
+  // 'task.failed' at every terminal task-status transition (handleTaskComplete,
+  // handleTaskFail's non-retry branch, cancelTask). Rewritten to be event-driven
+  // with a synchronous pre-check (task may already be terminal by the time the
+  // wait starts) and a setTimeout fallback for the timeout case, which is a
+  // client-side deadline no coordinator event ever announces. Note: cancelTask
+  // emits 'task.failed' too (with reason:'cancelled') — the event type alone
+  // doesn't distinguish failure from cancellation, so listeners re-read the
+  // task's actual status rather than trusting the event name.
   private async waitForQueuedTask(
     taskId: string,
     domain: AgentDomain,
     startTime: number
   ): Promise<ParallelExecutionResult> {
     return new Promise((resolve) => {
-      const checkInterval = setInterval(() => {
+      const resultForCurrentStatus = (): ParallelExecutionResult | undefined => {
         const task = this.state.tasks.get(taskId);
         if (!task) {
-          clearInterval(checkInterval);
-          resolve({
+          return {
             taskId,
             domain,
             success: false,
             error: new Error(`Task ${taskId} not found`),
             durationMs: performance.now() - startTime,
-          });
-          return;
+          };
         }
-
         if (task.status === 'completed') {
-          clearInterval(checkInterval);
-          resolve({
+          return {
             taskId,
             domain,
             success: true,
             result: task.output,
             durationMs: performance.now() - startTime,
-          });
-        } else if (task.status === 'failed' || task.status === 'cancelled' || task.status === 'timeout') {
-          clearInterval(checkInterval);
-          resolve({
+          };
+        }
+        if (task.status === 'failed' || task.status === 'cancelled' || task.status === 'timeout') {
+          return {
             taskId,
             domain,
             success: false,
             error: new Error(`Task ${task.status}`),
             durationMs: performance.now() - startTime,
-          });
+          };
         }
-      }, 100);
+        return undefined;
+      };
 
-      // Timeout after configured duration
-      setTimeout(() => {
-        clearInterval(checkInterval);
+      const immediate = resultForCurrentStatus();
+      if (immediate) {
+        resolve(immediate);
+        return;
+      }
+
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+      const settle = (result: ParallelExecutionResult): void => {
+        clearTimeout(timeoutHandle);
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
+        resolve(result);
+      };
+      const onTaskEvent = (event: SwarmEvent): void => {
+        if (event.data.taskId !== taskId) return;
+        const result = resultForCurrentStatus();
+        if (result) settle(result);
+      };
+
+      this.on('task.completed', onTaskEvent);
+      this.on('task.failed', onTaskEvent);
+
+      // Timeout after configured duration — a client-side deadline, not a
+      // coordinator-observed state, so it stays a timer rather than an event.
+      timeoutHandle = setTimeout(() => {
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
         const task = this.state.tasks.get(taskId);
         if (task && task.status !== 'completed') {
           task.status = 'timeout';
@@ -1333,22 +1378,40 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   private async waitForTaskCompletion(taskId: string, timeoutMs: number): Promise<TaskDefinition> {
     return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        const task = this.state.tasks.get(taskId);
-        if (!task) {
-          clearInterval(checkInterval);
-          reject(new Error(`Task ${taskId} not found`));
-          return;
-        }
+      const isTerminal = (task: TaskDefinition): boolean =>
+        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
 
-        if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
-          clearInterval(checkInterval);
+      const existing = this.state.tasks.get(taskId);
+      if (!existing) {
+        reject(new Error(`Task ${taskId} not found`));
+        return;
+      }
+      if (isTerminal(existing)) {
+        resolve(existing);
+        return;
+      }
+
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+      const cleanup = (): void => {
+        clearTimeout(timeoutHandle);
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
+      };
+      const onTaskEvent = (event: SwarmEvent): void => {
+        if (event.data.taskId !== taskId) return;
+        const task = this.state.tasks.get(taskId);
+        if (task && isTerminal(task)) {
+          cleanup();
           resolve(task);
         }
-      }, 100);
+      };
 
-      setTimeout(() => {
-        clearInterval(checkInterval);
+      this.on('task.completed', onTaskEvent);
+      this.on('task.failed', onTaskEvent);
+
+      timeoutHandle = setTimeout(() => {
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
         const task = this.state.tasks.get(taskId);
         if (task) {
           task.status = 'timeout';
@@ -1624,6 +1687,30 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       domain = this.agentTypeToDomain(options.type);
       agentId = await this.registerAgent(agentData);
       this.agentDomainMap.set(agentId, domain);
+
+      // Add to domain pool so assignTaskToDomain() can route work to this
+      // agent (mirrors registerAgentWithDomain()'s pool.add() above; without
+      // this the agent is registered/idle but invisible to pool.acquire()).
+      // pool.add() throws once a domain pool is at its (small, fixed)
+      // maxSize (e.g. the 'queen' domain caps at 1) — the agent stays
+      // registered either way, so a full pool degrades back to today's
+      // pre-fix state (pool-invisible) instead of failing spawnAgent()
+      // itself for callers (e.g. a scale-up loop) that don't expect it to
+      // throw.
+      const pool = this.domainPools.get(domain);
+      const agent = this.state.agents.get(agentId);
+      if (pool && agent) {
+        try {
+          await pool.add(agent);
+        } catch (error) {
+          // Only the pool-full condition (AgentPool.add()'s sole throw) is
+          // tolerated; anything else is a real defect and must surface.
+          if (!(error instanceof Error) || !error.message.includes('maximum capacity')) {
+            throw error;
+          }
+          this.emitEvent('agent.domain_pool_full', { agentId, domain });
+        }
+      }
     }
 
     const duration = performance.now() - startTime;

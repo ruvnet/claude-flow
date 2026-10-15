@@ -8,6 +8,7 @@
  */
 
 import type { MCPTool } from './types.js';
+import { readClaimsStore } from '../services/claims-store.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 
 // Inline claim service since we can't import external modules
@@ -43,7 +44,7 @@ interface ClaimsStore {
 }
 
 // File-based persistence
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 const CLAIMS_DIR = '.claude-flow/claims';
@@ -61,15 +62,7 @@ function ensureClaimsDir(): void {
 }
 
 function loadClaims(): ClaimsStore {
-  try {
-    const path = getClaimsPath();
-    if (existsSync(path)) {
-      return JSON.parse(readFileSync(path, 'utf-8'));
-    }
-  } catch {
-    // Return empty store on error
-  }
-  return { claims: {}, stealable: {}, contests: {} };
+  return readClaimsStore(getClaimsPath()) as unknown as ClaimsStore;
 }
 
 function saveClaims(store: ClaimsStore): void {

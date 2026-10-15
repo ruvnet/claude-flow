@@ -11,9 +11,11 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WorkerDaemon } from '../../src/services/worker-daemon.js';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir, cpus } from 'os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 describe('WorkerDaemon resource thresholds', () => {
   let tempDir: string;
@@ -186,6 +188,32 @@ describe('WorkerDaemon resource thresholds', () => {
       expect(config.resourceThresholds.maxCpuLoad).toBeGreaterThanOrEqual(2.0);
       expect(config.resourceThresholds.minFreeMemoryPercent).toBe(expectedMinFreeMem);
     });
+  });
+
+  it('loads daemon settings from config.yaml in the ESM runtime', () => {
+    const configFile = join(tempDir, '.claude-flow', 'config.yaml');
+    writeFileSync(configFile, [
+      "'daemon.maxConcurrent': 7",
+      "'daemon.resourceThresholds.minFreeMemoryPercent': 0",
+    ].join('\n'));
+
+    // Vitest's transform supplies a CommonJS `require`, masking the bug in
+    // the published ESM runtime. Run the source in a real Node ESM process.
+    const cliRoot = fileURLToPath(new URL('../..', import.meta.url));
+    const moduleUrl = new URL('../../src/services/worker-daemon.ts', import.meta.url).href;
+    const script = `import { WorkerDaemon } from ${JSON.stringify(moduleUrl)};
+      const daemon = new WorkerDaemon(${JSON.stringify(tempDir)});
+      console.log('__DAEMON_CONFIG__' + JSON.stringify(daemon.getStatus().config));`;
+    const stdout = execFileSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', script], {
+      cwd: cliRoot, encoding: 'utf8', timeout: 15_000,
+    });
+    const payload = stdout.match(/__DAEMON_CONFIG__(\{[^\n]+\})/);
+    expect(payload).not.toBeNull();
+    const config = JSON.parse(payload![1]);
+    expect(config.maxConcurrent).toBe(7);
+    expect(config.resourceThresholds.minFreeMemoryPercent).toBe(0);
+    expect(readFileSync(join(tempDir, '.claude-flow', 'logs', 'daemon.log'), 'utf8'))
+      .toContain(`Daemon config loaded from ${configFile}`);
   });
 
   // =========================================================================
@@ -853,6 +881,30 @@ describe('WorkerDaemon resource thresholds', () => {
       // The monitor timer must be unref'd so it never keeps the process alive.
       clearInterval((daemon as any).lifecycleTimer);
       (daemon as any).lifecycleTimer = undefined;
+    });
+
+    it('measures idle time from this start when restored worker activity is stale (#3194)', () => {
+      const stateFile = join(tempDir, '.claude-flow', 'daemon-state.json');
+      const previousRun = new Date('2026-01-01T00:00:00.000Z');
+      const startedMs = new Date('2026-01-02T00:00:00.000Z').getTime();
+      writeFileSync(stateFile, JSON.stringify({
+        workers: { audit: { lastRun: previousRun, lastStartedAt: previousRun } },
+      }));
+
+      const daemon = new WorkerDaemon(tempDir, { ttlMs: 0, idleShutdownMs: 90_000 });
+      const internal = daemon as any;
+      internal.startedAt = new Date(startedMs);
+      expect(internal.workers.get('audit').lastRun).toEqual(previousRun);
+
+      // The first lifecycle tick must not kill a fresh daemon because of
+      // activity from a previous process, but idle shutdown still applies.
+      expect(internal.lifecycleShutdownReason(startedMs + 60_000)).toBeNull();
+      expect(internal.lifecycleShutdownReason(startedMs + 90_000)).toMatch(/idle for 90s/);
+
+      // A worker run in this process resets the idle window normally.
+      internal.workers.get('audit').lastRun = new Date(startedMs + 45_000);
+      expect(internal.lifecycleShutdownReason(startedMs + 120_000)).toBeNull();
+      expect(internal.lifecycleShutdownReason(startedMs + 135_000)).toMatch(/idle for 90s/);
     });
   });
 });

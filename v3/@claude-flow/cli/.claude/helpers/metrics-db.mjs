@@ -7,12 +7,14 @@
 
 import initSqlJs from 'sql.js';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync, openSync, writeSync, fsyncSync, closeSync, renameSync, rmSync } from 'fs';
-import { dirname, join, basename } from 'path';
+import { dirname, join, basename, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = join(__dirname, '../..');
+const PROJECT_ROOT = process.env.CLAUDE_PROJECT_DIR
+  ? resolve(process.env.CLAUDE_PROJECT_DIR)
+  : join(__dirname, '../..');
 const V3_DIR = join(PROJECT_ROOT, 'v3');
 const DB_PATH = join(PROJECT_ROOT, '.claude-flow', 'metrics.db');
 

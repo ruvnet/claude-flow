@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
+import { safeGitTextSync } from '@claude-flow/security/safe-git';
 
 const SAFE_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
@@ -20,11 +20,7 @@ export interface WorktreeRunRecord {
 }
 
 function git(repoRoot: string, args: string[]): string {
-  return execFileSync('git', ['-C', repoRoot, ...args], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 4 * 1024 * 1024,
-  }).trim();
+  return safeGitTextSync(repoRoot, args, { maxBuffer: 4 * 1024 * 1024 });
 }
 
 function assertId(value: string, label: string): void {

@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getProjectCwd } from './types.js';
+import { appendAgentExecution, summarizeAgentExecutions, type AgentExecutionSample } from './agent-health-metrics.js';
 import { configManager } from '../services/config-file-manager.js';
 
 const STORAGE_DIR = '.claude-flow';
@@ -43,6 +44,7 @@ export interface AgentRecord {
   /** ADR-148 phase 2 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
+  executionHistory?: AgentExecutionSample[];
 }
 
 interface AgentStore {
@@ -175,7 +177,9 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   // key-presence inference, kept below as the last-resort fallback.
   const explicitProvider = (input.provider || process.env.RUFLO_PROVIDER || '').toLowerCase();
   const ollamaKey = process.env.OLLAMA_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const anthropicAuthToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  // A gateway bearer token is also an Anthropic credential for provider inference.
+  const anthropicKey = process.env.ANTHROPIC_API_KEY || anthropicAuthToken;
   // #2042 — OpenRouter is an OpenAI-compat endpoint that fronts dozens of
   // providers. Reporter (@ummcke00) had `providers.openrouter.apiKey` in
   // their config.yaml but agent_execute hardcoded Anthropic. Detect via
@@ -184,7 +188,7 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   // branch above).
   const openrouterKey = process.env.OPENROUTER_API_KEY;
   const useOpenRouter =
-    explicitProvider === 'openrouter' || (!anthropicKey && !!openrouterKey);
+    explicitProvider === 'openrouter' || (!explicitProvider && !anthropicKey && !!openrouterKey);
   // #2962 — only consult the persisted config when a candidate is actually
   // relevant (explicit choice, or no env key found anywhere), so a normal
   // ANTHROPIC_API_KEY-only setup never pays a config-file read.
@@ -195,7 +199,7 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   const persistedOpenRouter =
     explicitProvider === 'openrouter' && !openrouterKey ? getPersistedProviderConfig('openrouter') : undefined;
   const useOllama =
-    explicitProvider === 'ollama' || (!anthropicKey && !openrouterKey && (!!ollamaKey || !!persistedOllama));
+    explicitProvider === 'ollama' || (!explicitProvider && !anthropicKey && !openrouterKey && (!!ollamaKey || !!persistedOllama));
 
   if (useOpenRouter) {
     const apiKey = openrouterKey || persistedOpenRouter?.apiKey;
@@ -212,6 +216,7 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
         defaultModel: process.env.OPENROUTER_DEFAULT_MODEL || persistedOpenRouter?.model || 'anthropic/claude-sonnet-4-6',
       });
     }
+    return { success: false, error: 'OpenRouter was selected but no API key is configured.' };
   }
   if (useOllama) {
     // #2962 — retire the undocumented OLLAMA_API_KEY=local sentinel
@@ -230,23 +235,27 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
         model: input.model || persistedOllama?.model,
       });
     }
+    return { success: false, error: 'Ollama was selected but no API key or self-hosted endpoint is configured.' };
   }
   if (!anthropicKey) {
     return {
       success: false,
       error:
-        'No LLM provider configured. Set ANTHROPIC_API_KEY (Tier-3), OPENROUTER_API_KEY (#2042), or OLLAMA_API_KEY (Tier-2 — #1725).',
+        'No LLM provider configured. Set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (Tier-3), OPENROUTER_API_KEY (#2042), or OLLAMA_API_KEY (Tier-2 — #1725).',
     };
   }
   const model = input.model || DEFAULT_ANTHROPIC_MODEL;
   const startedAt = Date.now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const baseUrl = (process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const res = await fetch(`${baseUrl}/v1/messages`, {
       method: 'POST',
       headers: {
-        'x-api-key': anthropicKey,
+        ...(anthropicAuthToken
+          ? { Authorization: `Bearer ${anthropicAuthToken}` }
+          : { 'x-api-key': anthropicKey }),
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
@@ -271,7 +280,6 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
       }),
       signal: controller.signal,
     });
-    clearTimeout(timer);
     if (!res.ok) {
       const errText = await res.text().catch(() => '<unreadable error body>');
       return { success: false, model, error: `Anthropic API error ${res.status}: ${errText.slice(0, 400)}` };
@@ -307,6 +315,8 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
       error: err instanceof Error ? err.message : String(err),
       durationMs: Date.now() - startedAt,
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -340,9 +350,9 @@ async function callOllamaCompat(
   // (the daemon binds to 11434 with no auth by default), but Ollama Cloud
   // does. Send the bearer when the key is non-empty AND looks cloud-shaped.
   const sendAuth = !!input.apiKey && input.apiKey !== 'local';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -362,7 +372,6 @@ async function callOllamaCompat(
       }),
       signal: controller.signal,
     });
-    clearTimeout(timer);
     if (!res.ok) {
       const errText = await res.text().catch(() => '<unreadable error body>');
       return { success: false, model, error: `Ollama API error ${res.status} at ${url}: ${errText.slice(0, 400)}` };
@@ -402,6 +411,8 @@ async function callOllamaCompat(
       error: err instanceof Error ? err.message : String(err),
       durationMs: Date.now() - startedAt,
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -426,9 +437,9 @@ async function callOpenAICompat(
   const startedAt = Date.now();
   const base = input.baseUrl.replace(/\/+$/, '');
   const url = `${base}/v1/chat/completions`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
     const messages: Array<{ role: string; content: string }> = [];
     if (input.systemPrompt) messages.push({ role: 'system', content: input.systemPrompt });
     messages.push({ role: 'user', content: input.prompt });
@@ -450,7 +461,6 @@ async function callOpenAICompat(
       }),
       signal: controller.signal,
     });
-    clearTimeout(timer);
     if (!res.ok) {
       const errText = await res.text().catch(() => '<unreadable error body>');
       return { success: false, model, error: `${input.providerLabel} API error ${res.status}: ${errText.slice(0, 400)}` };
@@ -483,6 +493,8 @@ async function callOpenAICompat(
       error: err instanceof Error ? err.message : String(err),
       durationMs: Date.now() - startedAt,
     };
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -552,6 +564,9 @@ export interface AgentExecuteResult {
   fallbackHistory?: Array<{ modelId: string; error: string }>;
 }
 
+// Tracks overlapping calls in this process; persisted state remains authoritative.
+const activeExecutions = new Map<string, number>();
+
 export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentExecuteResult> {
   const store = loadAgentStore();
   const agent = store.agents[input.agentId];
@@ -586,15 +601,27 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
   // Kept for legacy error-path remediation message + final-result `model` field
   // (returned when the request fully fails with no successful retry).
   const anthropicModel = firstCallModel;
+  // The agent registry persists per-agent instructions, including those set
+  // through agent_update. Workflow steps do not supply a systemPrompt, so
+  // omitting this fallback silently discards the configured agent context.
+  const configuredInstructions = typeof agent.config?.instructions === 'string' && agent.config.instructions.trim()
+    ? agent.config.instructions
+    : undefined;
   const systemPrompt = input.systemPrompt ||
+    configuredInstructions ||
     `You are a ${agent.agentType} agent operating as part of a Ruflo swarm. ` +
     `Agent ID: ${input.agentId}. Domain: ${agent.domain ?? 'general'}. ` +
     `Respond directly and stay focused on the task. If you need information you don't have, state that explicitly.`;
 
+  const initialModelId = agent.modelId;
+  const initialModel = agent.model;
   agent.status = 'busy';
   agent.taskCount = (agent.taskCount || 0) + 1;
   saveAgentStore(store);
 
+  const executionKey = JSON.stringify([getAgentPath(), input.agentId, agent.createdAt]);
+  activeExecutions.set(executionKey, (activeExecutions.get(executionKey) || 0) + 1);
+  try {
   const startedAt = Date.now();
 
   // #2042 — delegate to callAnthropicMessages so the v3 provider router
@@ -620,8 +647,11 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
   // the next-cheapest candidate that clears the quality bar. Budget is
   // bounded by CLAUDE_FLOW_ROUTER_FALLBACK_MAX_RETRIES (default 1) so
   // upstream outages don't cause retry storms.
-  const fallbackBudget = Math.max(0, parseInt(process.env.CLAUDE_FLOW_ROUTER_FALLBACK_MAX_RETRIES ?? '1', 10) || 1);
+  const configuredFallbackBudget = parseInt(process.env.CLAUDE_FLOW_ROUTER_FALLBACK_MAX_RETRIES ?? '1', 10);
+  const fallbackBudget = Number.isNaN(configuredFallbackBudget) ? 1 : Math.max(0, configuredFallbackBudget);
   const fallbackHistory: Array<{ modelId: string; error: string }> = [];
+  // Keep feedback for each completed attempt before switching model identity.
+  const failedAttempts: Array<{ model: ClaudeModel; modelId: string }> = [];
   if (!result.success && agent.modelId && fallbackBudget > 0) {
     const isRetryable = /\b(429|500|502|503|504|timeout|ECONNRESET|ETIMEDOUT)\b/i.test(result.error ?? '');
     if (isRetryable) {
@@ -650,7 +680,9 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
             });
             // Record the model that ACTUALLY answered (or errored). On success,
             // update agent.modelId so downstream observers see the retry winner.
+            failedAttempts.push({ model: agent.model ?? 'sonnet', modelId: agent.modelId! });
             agent.modelId = alt.modelId;
+            agent.model = alt.model;
             result = altResult;
           }
         }
@@ -660,7 +692,6 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
     }
   }
 
-  agent.status = 'idle';
 
   // ADR-149 — close the bandit feedback loop. `recordModelOutcome` updates
   // the Beta(α,β) prior for the agent's tier so the Thompson sampler learns
@@ -678,6 +709,10 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
       agent.model === 'opus-4.7' ? 'opus' :
       (agent.model as 'haiku' | 'sonnet' | 'opus' | 'inherit' | undefined) ?? 'sonnet';
     const outcome: 'success' | 'failure' = result.success ? 'success' : 'failure';
+    for (const attempt of failedAttempts) {
+      recordModelOutcome(input.prompt, attempt.model === 'opus-4.7' ? 'opus' : attempt.model, 'failure');
+      recordModelOutcomeByModelId(input.prompt, attempt.modelId, 'failure');
+    }
     recordModelOutcome(input.prompt, tier, outcome);
     // ADR-149 — also write to the shadow per-modelId priors when the cost-
     // optimal neural backend picked a concrete model id. Selection logic
@@ -749,6 +784,38 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
     // Silent — bandit feedback must never block routing.
   }
 
+  const remaining = (activeExecutions.get(executionKey) || 1) - 1;
+  const persistCompletion = (out?: AgentExecuteResult): void => {
+    // Awaited provider/feedback work may have overlapped registration, updates,
+    // termination or deletion. Never replace that newer registry snapshot.
+    const latest = loadAgentStore();
+    const current = latest.agents[input.agentId];
+    if (!current || current.createdAt !== agent.createdAt) return;
+    if (current.status === 'busy') current.status = remaining > 0 ? 'busy' : 'idle';
+    if (agent.modelId !== initialModelId && current.modelId === initialModelId) {
+      // A fallback may also change its tier. Carry that change with the model
+      // ID, but preserve any selection the user edited during the request.
+      if (agent.model !== initialModel && current.model === initialModel) current.model = agent.model;
+      current.modelId = agent.modelId;
+    }
+    if (out) current.lastResult = out as unknown as Record<string, unknown>;
+    const previousMeasuredHealth = summarizeAgentExecutions(current.executionHistory).health;
+    const mayUpdateStoredHealth = previousMeasuredHealth === null
+      ? current.health === agent.health
+      : current.health === previousMeasuredHealth;
+    current.executionHistory = appendAgentExecution(current.executionHistory, {
+      at: new Date().toISOString(),
+      success: result.success,
+      durationMs: result.durationMs ?? Date.now() - startedAt,
+    });
+    // An explicit agent_update during the provider call still wins. The
+    // measured value remains available from executionHistory in agent_health.
+    if (mayUpdateStoredHealth) {
+      current.health = summarizeAgentExecutions(current.executionHistory).health ?? current.health;
+    }
+    saveAgentStore(latest);
+  };
+
   if (result.success) {
     const out: AgentExecuteResult = {
       success: true,
@@ -761,12 +828,11 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
       durationMs: result.durationMs ?? Date.now() - startedAt,
       ...(fallbackHistory.length > 0 ? { fallbackHistory } : {}),
     };
-    agent.lastResult = out as unknown as Record<string, unknown>;
-    saveAgentStore(store);
+    persistCompletion(out);
     return out;
   }
 
-  saveAgentStore(store);
+  persistCompletion();
   // No-provider-configured error → surface the same actionable message
   // the router built, with a #2042-aware remediation pointer.
   const noProvider = (result.error || '').includes('No LLM provider configured');
@@ -783,5 +849,9 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
         'Or set RUFLO_PROVIDER=openrouter|ollama to force a specific provider.',
     }),
   };
+  } finally {
+    const pending = (activeExecutions.get(executionKey) || 1) - 1;
+    if (pending > 0) activeExecutions.set(executionKey, pending);
+    else activeExecutions.delete(executionKey);
+  }
 }
-

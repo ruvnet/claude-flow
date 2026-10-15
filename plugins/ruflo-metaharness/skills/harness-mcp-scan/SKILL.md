@@ -1,6 +1,6 @@
 ---
 name: harness-mcp-scan
-description: Static security scan of a harness's declared MCP surface via `harness mcp-scan <path>`. Reads `.mcp/servers.json` + `.harness/claims.json`. Pure-read, no dispatch. Exits 1 on findings at or above `--fail-on` severity.
+description: Static security scan of a harness's declared MCP surface via `harness mcp-scan {path}`. Reads `.mcp/servers.json` + `.harness/claims.json`. Pure-read, no dispatch. Exits 1 on findings at or above `--fail-on` severity.
 argument-hint: "[--path .] [--fail-on low|medium|high] [--format table|json]"
 allowed-tools: Bash
 ---
@@ -13,7 +13,7 @@ tool; pure static analysis.
 
 Implementation: [`scripts/mcp-scan.mjs`](../../scripts/mcp-scan.mjs).
 
-1. Invoke the pinned `harness` binary (`metaharness@~0.3.0`, resolved from a
+1. Invoke the pinned `harness` binary (`metaharness@~0.4.1`, resolved from a
    local install or the one-time `~/.ruflo/metaharness-cache-<pin>` cache —
    never `@latest`): `harness mcp-scan <path> --json`.
 2. Parse `findings[]` with `{ severity, id, server, tool, message }`.

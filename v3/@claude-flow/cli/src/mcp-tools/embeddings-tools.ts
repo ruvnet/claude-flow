@@ -20,6 +20,14 @@ interface EmbeddingsConfig {
   modelPath: string;
   dimension: number;
   cacheSize: number;
+  /**
+   * #3376 — whether a model was actually downloaded into `modelPath`.
+   * Optional: configs written before this field existed omit it, and
+   * `undefined` means "unknown", not "false". `embeddings init` (CLI) sets it.
+   */
+  modelDownloaded?: boolean;
+  /** #3376 — why no model was downloaded, when `modelDownloaded` is false. */
+  modelSkipReason?: string;
   hyperbolic: {
     enabled: boolean;
     curvature: number;
@@ -146,19 +154,34 @@ function toPoincare(euclidean: number[], curvature: number): number[] {
   return euclidean.map(x => x * factor);
 }
 
-// Poincaré distance
+// #4159: a point is usable only strictly inside the ball of radius 1/sqrt(c).
+function insidePoincareBall(p: number[], curvature: number): boolean {
+  const c = Math.abs(curvature);
+  return c * p.reduce((sum, x) => sum + x * x, 0) < 1;
+}
+
+// Poincaré distance, d_c(a,b) = acosh(1 + 2c|a-b|^2 / ((1-c|a|^2)(1-c|b|^2))) / sqrt(c).
+// Returns NaN for a point on or outside the ball (the formula is undefined there);
+// callers must check Number.isFinite before reporting it.
 function poincareDistance(a: number[], b: number[], curvature: number): number {
   const c = Math.abs(curvature);
+  if (a.length !== b.length || !insidePoincareBall(a, curvature) || !insidePoincareBall(b, curvature)) {
+    return NaN;
+  }
 
   const diffSq = a.reduce((sum, _, i) => sum + (a[i] - b[i]) ** 2, 0);
   const normASq = a.reduce((sum, x) => sum + x * x, 0);
   const normBSq = b.reduce((sum, x) => sum + x * x, 0);
 
-  const denom = (1 - normASq) * (1 - normBSq);
-  const delta = 2 * diffSq / (denom + 1e-15);
+  const denom = (1 - c * normASq) * (1 - c * normBSq);
+  const delta = (2 * c * diffSq) / denom;
 
   return (1 / Math.sqrt(c)) * Math.acosh(1 + delta);
 }
+
+const HYPERBOLIC_RADIUS_NOTE =
+  'convert is an exponential map at the origin: it preserves the input norm ordering, so unit-norm text embeddings all land at the same radius. ' +
+  'It does not encode hierarchy; depth/tree structure has to come from the hierarchy itself (for example depth chosen as the radius, or embeddings trained on the tree edges).';
 
 // Cosine similarity
 function cosineSimilarity(a: number[], b: number[]): number {
@@ -405,6 +428,9 @@ export const embeddingsTools: MCPTool[] = [
           const poinc1 = toPoincare(emb1, config.hyperbolic.curvature);
           const poinc2 = toPoincare(emb2, config.hyperbolic.curvature);
           distance = poincareDistance(poinc1, poinc2, config.hyperbolic.curvature);
+          if (!Number.isFinite(distance)) {
+            return { success: false, error: 'Hyperbolic distance is undefined for these inputs (a converted point reached the ball boundary).' };
+          }
           similarity = 1 / (1 + distance);
           break;
 
@@ -814,6 +840,7 @@ export const embeddingsTools: MCPTool[] = [
             poincare,
             curvature,
             poincareNorm: Math.sqrt(poincare.reduce((sum, x) => sum + x * x, 0)),
+            note: HYPERBOLIC_RADIUS_NOTE,
           };
 
         case 'distance':
@@ -823,6 +850,13 @@ export const embeddingsTools: MCPTool[] = [
             return { success: false, error: 'embedding1 and embedding2 required for distance action' };
           }
           const dist = poincareDistance(emb1, emb2, curvature);
+          if (!Number.isFinite(dist)) {
+            return {
+              success: false,
+              error: 'Poincaré distance needs two points of equal length strictly inside the ball (|x| < 1/sqrt(c)); got a point on or outside it, or mismatched lengths. Run convert on Euclidean vectors first.',
+              curvature,
+            };
+          }
           return {
             success: true,
             action: 'distance',
@@ -858,11 +892,10 @@ export const embeddingsTools: MCPTool[] = [
               epsilon: config.hyperbolic.epsilon,
               maxNorm: config.hyperbolic.maxNorm,
             },
+            note: HYPERBOLIC_RADIUS_NOTE,
             benefits: [
-              'Better hierarchical data representation',
-              'Exponential capacity in low dimensions',
-              'Preserves tree-like structures',
-              'Natural for taxonomy embeddings',
+              'Exponential capacity in low dimensions when the points are placed by hierarchy (for example by depth)',
+              'Natural geometry for taxonomy embeddings that are trained or constructed for it',
             ],
           };
       }

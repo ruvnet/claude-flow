@@ -150,6 +150,13 @@ export {
   type AgentCardValidation,
 } from './a2a/agent-card.js';
 export {
+  projectPlannerSafeAgentCard,
+  type PlannerCapabilityDefinition,
+  type PlannerDescriptorPolicy,
+  type PlannerSafeAgentDescriptor,
+  type PlannerDescriptorProjection,
+} from './a2a/planner-descriptor.js';
+export {
   startAgentCardServer,
   isLoopbackHost,
   type AgentCardServerOptions,

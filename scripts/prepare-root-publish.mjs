@@ -42,15 +42,19 @@ if (result.status !== 0) {
 const cliDirectory = resolve(repoRoot, 'v3', '@claude-flow', 'cli');
 await stageInternalRuntimeBundles(cliDirectory);
 
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+// CreateProcess cannot launch a .cmd directly, and Node has refused to
+// implicitly shell out to one since CVE-2024-27980 — spawnSync('npm.cmd', ...)
+// without shell:true throws EINVAL on Windows (see stage-internal-runtime-
+// bundles.mjs's runBuild(), same bug, same fix). command/args here are
+// constant literals, never externally derived, so shell:true is safe.
+const win32 = process.platform === 'win32';
 for (const packageDirectory of [
   resolve(repoRoot, 'v3', '@claude-flow', 'swarm'),
   cliDirectory,
 ]) {
-  const build = spawnSync(npmCommand, ['run', 'build'], {
-    cwd: packageDirectory,
-    stdio: 'inherit',
-  });
+  const build = win32
+    ? spawnSync('npm.cmd run build', { cwd: packageDirectory, stdio: 'inherit', shell: true })
+    : spawnSync('npm', ['run', 'build'], { cwd: packageDirectory, stdio: 'inherit' });
   if (build.error) throw build.error;
   if (build.status !== 0) {
     throw new Error(

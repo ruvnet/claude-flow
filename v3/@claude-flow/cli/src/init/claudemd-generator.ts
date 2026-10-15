@@ -272,7 +272,7 @@ function performanceSection(): string {
 
 - Always benchmark before AND after optimization
 - Always profile before optimizing — never guess bottlenecks
-- Use HNSW/DiskANN for vector search, Int8 quantization for memory reduction
+- Use HNSW for vector search, Int8 quantization for memory reduction — measure the actual speedup/recall on your own corpus via \`node scripts/benchmark-intelligence.mjs --only=hnsw\` rather than trusting a hardcoded multiplier (recall@10 varies by corpus size — 0.99 at N=5k, 0.92 at N=20k on the reference host, dream-cycle 2026-08-30)
 
 \`\`\`bash
 npx @claude-flow/cli@latest performance benchmark --suite all
@@ -309,7 +309,7 @@ function intelligenceSystem(): string {
 Pipeline: **RETRIEVE** (vector search) → **JUDGE** (success/failure) → **DISTILL** (extract patterns) → **CONSOLIDATE** (persist)
 
 - **ONNX Embeddings**: all-MiniLM-L6-v2, 384-dim
-- **HNSW/DiskANN**: 150x-12,500x faster search
+- **HNSW**: faster than brute-force search, magnitude scales with corpus size — reproduce with \`node scripts/benchmark-intelligence.mjs --only=hnsw\` rather than a hardcoded multiplier
 - **SONA**: Sub-millisecond pattern adaptation
 - **Claude Bridge**: Auto-imports \`~/.claude/projects/*/memory/*.md\` into AgentDB`;
 }

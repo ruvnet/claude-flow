@@ -2,6 +2,7 @@ import { policyHash, signPolicyHash, verifyPolicySignature } from './canonical.j
 import { evaluatePolicy } from './evaluator.js';
 import type {
   BudgetLimit,
+  LedgerVerification,
   BudgetUsage,
   PolicyApproval,
   PolicyDecision,
@@ -58,6 +59,10 @@ export class AgenticPolicyEngine {
     engine.state.migratedAt = state.migratedAt;
     engine.state.migratedFrom = state.migratedFrom;
     engine.state.configuredMode = state.configuredMode;
+    if (typeof state.ledgerLength === 'number') {
+      engine.state.ledgerLength = state.ledgerLength;
+      engine.state.ledgerHead = state.ledgerHead ?? null;
+    }
     return engine;
   }
 
@@ -148,7 +153,15 @@ export class AgenticPolicyEngine {
     return { ...decision, receiptId: receipt.payload.receiptId };
   }
 
-  verifyLedger(): { valid: boolean; length: number; error?: string } {
+  /**
+   * `establishAnchor` is the ONLY way to create an anchor over receipts that
+   * already exist (#3602). A caller must have decided, outside the state file,
+   * that this is legitimate (genesis, an authentic second anchor, or an
+   * explicit operator action). Without it a ledger with receipts and no anchor
+   * is `anchor-missing`, because deleting the anchor fields from the file the
+   * anchor protects would otherwise let verify bless a truncated chain.
+   */
+  verifyLedger(options: { establishAnchor?: boolean } = {}): LedgerVerification {
     let previous: string | null = null;
     for (let i = 0; i < this.state.receipts.length; i++) {
       const receipt = this.state.receipts[i]!;
@@ -171,7 +184,28 @@ export class AgenticPolicyEngine {
       }
       previous = receipt.hash;
     }
-    return { valid: true, length: this.state.receipts.length };
+    const length = this.state.receipts.length;
+    // #3568: a prefix of a valid chain is itself a valid chain, so the chain
+    // alone cannot tell "the last receipts were deleted" from "they were never
+    // written". The anchor records how long the chain is and where it ends.
+    if (typeof this.state.ledgerLength === 'number') {
+      if (this.state.ledgerLength !== length || (this.state.ledgerHead ?? null) !== previous) {
+        return {
+          valid: false,
+          length,
+          error: length < this.state.ledgerLength ? 'policy-ledger-truncated' : 'policy-ledger-anchor-mismatch',
+        };
+      }
+      return length === 0 ? { valid: true, length, state: 'empty' } : { valid: true, length };
+    }
+    if (length === 0) return { valid: true, length, state: 'empty' };
+    // Receipts but no anchor: either written before anchors existed, or the
+    // anchor fields were deleted (#3602). The two are indistinguishable from
+    // this state alone, so never re-anchor silently.
+    if (!options.establishAnchor) return { valid: false, length, error: 'anchor-missing' };
+    this.state.ledgerHead = previous;
+    this.state.ledgerLength = length;
+    return { valid: true, length, anchor: 'established-now' };
   }
 
   private applyBudget(request: PolicyRequest, decision: Omit<PolicyDecision, 'receiptId'>): Omit<PolicyDecision, 'receiptId'> {
@@ -246,6 +280,19 @@ export class AgenticPolicyEngine {
 
   private appendReceipt(request: PolicyRequest, decision: Omit<PolicyDecision, 'receiptId'>): PolicyReceipt {
     const previous = this.state.receipts.at(-1)?.hash ?? null;
+    // #3602: appending to receipts that have no anchor would anchor them,
+    // which is the silent re-establishment verify refuses to do.
+    if (typeof this.state.ledgerLength !== 'number' && this.state.receipts.length > 0) {
+      throw new Error('policy-ledger-anchor-missing');
+    }
+    // Never extend a chain that no longer matches its anchor: appending would
+    // re-anchor onto the truncated chain and erase the evidence of truncation.
+    if (typeof this.state.ledgerLength === 'number'
+      && (this.state.ledgerLength !== this.state.receipts.length || (this.state.ledgerHead ?? null) !== previous)) {
+      throw new Error(this.state.receipts.length < this.state.ledgerLength
+        ? 'policy-ledger-truncated'
+        : 'policy-ledger-anchor-mismatch');
+    }
     const sequence = this.state.receipts.length;
     const payloadWithoutId = {
       previousReceiptHash: previous,
@@ -265,6 +312,8 @@ export class AgenticPolicyEngine {
       keyId: this.signingKey ? (this.keyId ?? 'local') : undefined,
     };
     this.state.receipts.push(receipt);
+    this.state.ledgerHead = hash;
+    this.state.ledgerLength = this.state.receipts.length;
     return receipt;
   }
 

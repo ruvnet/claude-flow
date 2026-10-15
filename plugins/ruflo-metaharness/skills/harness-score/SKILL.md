@@ -1,6 +1,6 @@
 ---
 name: harness-score
-description: 5-dimension harness readiness scorecard from `metaharness score <path>`. Returns harnessFit / compileConfidence / taskCoverage / toolSafety / memoryUsefulness + estCostPerRunUsd + scaffoldReady. Pure-read; subprocess invocation; degrades gracefully when MetaHarness is absent (ADR-150 architectural constraint).
+description: 5-dimension harness readiness scorecard from `metaharness score {path}`. Returns harnessFit / compileConfidence / taskCoverage / toolSafety / memoryUsefulness + estCostPerRunUsd + scaffoldReady. Pure-read; subprocess invocation; degrades gracefully when MetaHarness is absent (ADR-150 architectural constraint).
 argument-hint: "[--path .] [--alert-on-fit-below 70] [--format table|json]"
 allowed-tools: Bash
 ---
@@ -58,7 +58,7 @@ no network, registry unreachable), the script emits:
 {
   "degraded": true,
   "reason": "metaharness-not-available",
-  "hint": "Install with `npm i -D metaharness@~0.3.0` (pinned range — this plugin never fetches @latest) or verify network access for the one-time cache install."
+  "hint": "Install with `npm i -D metaharness@~0.4.1` (pinned range — this plugin never fetches @latest) or verify network access for the one-time cache install."
 }
 ```
 

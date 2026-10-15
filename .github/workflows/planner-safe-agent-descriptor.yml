@@ -1,0 +1,51 @@
+name: Planner Safe Agent Descriptor
+
+on:
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/plugin-agent-federation/src/a2a/planner-descriptor.ts'
+      - 'v3/@claude-flow/plugin-agent-federation/__tests__/unit/planner-descriptor.test.ts'
+      - 'v3/@claude-flow/plugin-agent-federation/scripts/benchmark-planner-descriptor.mjs'
+      - 'v3/@claude-flow/plugin-agent-federation/package.json'
+      - '.github/workflows/planner-safe-agent-descriptor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: planner-safe-agent-descriptor-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 8
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: v3/pnpm-lock.yaml
+      - name: Install exact workspace dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+      - name: Build shared dependency
+        working-directory: v3
+        run: pnpm --dir @claude-flow/shared run build
+      - name: Build federation package
+        working-directory: v3
+        run: pnpm --dir @claude-flow/plugin-agent-federation run build
+      - name: Run focused adversarial tests
+        working-directory: v3
+        run: pnpm --dir @claude-flow/plugin-agent-federation exec vitest run __tests__/unit/planner-descriptor.test.ts
+      - name: Run deterministic 10000 card benchmark
+        working-directory: v3
+        run: pnpm --dir @claude-flow/plugin-agent-federation run benchmark:planner-descriptor

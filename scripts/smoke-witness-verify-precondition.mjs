@@ -6,7 +6,8 @@
  *   1. cryptographically verify a signed manifest without node_modules;
  *   2. validate every source marker while explicitly skipping generated dist/;
  *   3. reject a tampered signature and a regressed source marker; and
- *   4. retain exit 2 for legacy full-tree checks when dist has not been built.
+ *   4. preserve advisory drift by default but fail it with --strict; and
+ *   5. retain exit 2 for legacy full-tree checks when dist has not been built.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -94,6 +95,16 @@ try {
       && sourceResult?.signature?.publicKeyReproducible === true,
     `signature=${JSON.stringify(sourceResult?.signature)}`,
   );
+  // The release witness hashes a historical tree, so legitimate later source
+  // changes may drift. Test the zero-drift path against a fixed signed fixture.
+  const fixtureRoot = resolve(REPO_ROOT, 'scripts/fixtures/witness-source-only');
+  const fixtureManifest = join(fixtureRoot, 'manifest.json');
+  const strictClean = run(fixtureRoot, fixtureManifest, '--source-only', '--strict');
+  record(
+    '--strict accepts the unchanged signed test fixture',
+    strictClean.status === 0 && parseOutput(strictClean)?.summary?.drift === 0,
+    `exit=${strictClean.status}, output=${strictClean.stdout.slice(0, 300)}`,
+  );
 
   console.log('\nCase 2: signature tampering fails closed');
   const tampered = structuredClone(witness);
@@ -108,13 +119,33 @@ try {
     `exit=${badSignature.status}, output=${badSignature.stdout.slice(0, 300)}`,
   );
 
-  console.log('\nCase 3: source marker regression fails closed');
+  console.log('\nCase 3: --strict fails SHA drift without changing default behavior');
   const markerFix = sourceFixes.find((fix) => existsSync(resolve(tmp, fix.file)));
   if (!markerFix) {
     record('manifest has a locally present source entry', false);
   } else {
     const markerPath = resolve(tmp, markerFix.file);
     const source = readFileSync(markerPath, 'utf8');
+    writeFileSync(markerPath, `${source}\n`);
+    const advisoryDrift = run(tmp, REAL_MANIFEST, '--source-only');
+    const strictDrift = run(tmp, REAL_MANIFEST, '--source-only', '--strict');
+    const advisoryResult = parseOutput(advisoryDrift);
+    const strictResult = parseOutput(strictDrift);
+    record(
+      'marker-preserving SHA drift still exits 0 by default',
+      advisoryDrift.status === 0 && advisoryResult?.ok === true
+        && advisoryResult?.summary?.drift >= 1,
+      `exit=${advisoryDrift.status}, summary=${JSON.stringify(advisoryResult?.summary)}`,
+    );
+    record(
+      '--strict exits 1 and reports the same drift',
+      strictDrift.status === 1 && strictResult?.ok === false
+        && strictResult?.summary?.drift === advisoryResult?.summary?.drift,
+      `exit=${strictDrift.status}, summary=${JSON.stringify(strictResult?.summary)}`,
+    );
+    writeFileSync(markerPath, source);
+
+    console.log('\nCase 4: source marker regression fails closed');
     writeFileSync(markerPath, source.replace(markerFix.marker, 'ruflo-regressed-marker'));
     const regression = run(tmp, REAL_MANIFEST, '--source-only');
     const result = parseOutput(regression);
@@ -126,13 +157,19 @@ try {
     writeFileSync(markerPath, source);
   }
 
-  console.log('\nCase 4: legacy full-tree verification retains precondition exit');
+  console.log('\nCase 5: legacy full-tree verification retains precondition exit');
   const full = run(tmp);
   const fullResult = parseOutput(full);
   record(
     'unbuilt full-tree verification exits 2',
     full.status === 2 && fullResult?.precondition === 'dist-not-built',
     `exit=${full.status}, output=${(full.stdout + full.stderr).slice(0, 300)}`,
+  );
+  const help = spawnSync(process.execPath, [VERIFY, '--help'], { encoding: 'utf8' });
+  record(
+    '--help prints usage without requiring a manifest',
+    help.status === 0 && help.stdout.includes('--strict'),
+    `exit=${help.status}, output=${(help.stdout + help.stderr).slice(0, 300)}`,
   );
 } finally {
   rmSync(tmp, { recursive: true, force: true });

@@ -50,7 +50,14 @@ node plugins/ruflo-core/scripts/witness/verify.mjs \
 # Generated dist/ entries are explicitly reported as skipped.
 node plugins/ruflo-core/scripts/witness/verify.mjs \
   --manifest verification.md.json --source-only
+
+# For a CI hash tripwire, also fail when a file changes but its marker remains.
+node plugins/ruflo-core/scripts/witness/verify.mjs \
+  --manifest verification.md.json --source-only --strict
 ```
+
+Without `--strict`, marker-preserving SHA drift is reported but exits 0.
+`--strict` makes that drift exit 1 without changing signature or missing-file checks.
 
 ## Temporal queries (ADR-103)
 

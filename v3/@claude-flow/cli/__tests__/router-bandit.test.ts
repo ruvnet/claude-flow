@@ -14,11 +14,11 @@
  * escalated` strings, which is exactly what hooks_model-outcome delivers.
  */
 
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { rmSync, mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ModelRouter } from '../src/ruvector/model-router.js';
+import { ModelRouter, sampleBeta } from '../src/ruvector/model-router.js';
 
 let cwdRestore: string;
 let tmpDir: string;
@@ -187,4 +187,177 @@ describe('ModelRouter — Thompson sampling bandit (#1772, ADR-142 bucketed)', (
     const meanOpus  = priors.opus.alpha  / (priors.opus.alpha  + priors.opus.beta);
     expect(meanHaiku).toBeGreaterThan(meanOpus);
   }, 30_000);
+});
+
+describe('ModelRouter — priorDecay (discounted Thompson sampling, arXiv 2305.10718)', () => {
+  beforeEach(setupTempCwd);
+  afterEach(cleanupTempCwd);
+
+  it('defaults priorDecay to 1 (no-op) — identical behavior to a router with no decay config', () => {
+    const withDefault = new ModelRouter();
+    const task = 'simple task';
+    for (let i = 0; i < 5; i++) withDefault.recordOutcome(task, 'haiku', 'success');
+    for (let i = 0; i < 3; i++) withDefault.recordOutcome(task, 'sonnet', 'failure');
+    const p = withDefault.getBanditPriors(bucketOf(withDefault, task));
+    // Same math as the pre-priorDecay assertions above: reward accumulates
+    // with no decay applied anywhere in the call chain.
+    expect(p.haiku.alpha).toBeCloseTo(6.0, 5); // 1 + 5*1.0
+    expect(p.haiku.beta).toBeCloseTo(1.0, 5);
+    expect(p.sonnet.beta).toBeCloseTo(4.0, 5); // 1 + 3*1.0 (failure reward=0)
+  });
+
+  it('decays ALL bucket/model priors once per recordOutcome call, before adding the new reward', () => {
+    const router = new ModelRouter({ priorDecay: 0.5 });
+    const task = 'simple task';
+    const bucket = bucketOf(router, task);
+    // Round 1: decay Beta(1,1)→Beta(1,1) (no-op at the uniform prior), then
+    // haiku success (reward 1.0) → alpha 1*0.5 + 1.0 = 1.5, beta 1*0.5 = 0.5.
+    router.recordOutcome(task, 'haiku', 'success');
+    let p = router.getBanditPriors(bucket);
+    expect(p.haiku.alpha).toBeCloseTo(1.5, 5);
+    expect(p.haiku.beta).toBeCloseTo(0.5, 5);
+    // Round 2: decay is applied to EVERY bucket/model first (this is the
+    // "every routing decision is one time-step for every arm" semantics) —
+    // so sonnet, though untouched in round 1's outcome, already decayed
+    // from Beta(1,1) to Beta(0.5,0.5) as a side effect of round 1's call.
+    // Now: haiku decays 1.5*0.5=0.75, 0.5*0.5=0.25 (no reward added, it
+    // wasn't this round's outcome). sonnet decays 0.5*0.5=0.25, 0.5*0.5=0.25,
+    // then gets this round's failure (reward 0) → alpha stays 0.25, beta
+    // becomes 0.25 + (1 - 0) = 1.25.
+    router.recordOutcome(task, 'sonnet', 'failure');
+    p = router.getBanditPriors(bucket);
+    expect(p.haiku.alpha).toBeCloseTo(0.75, 5);
+    expect(p.haiku.beta).toBeCloseTo(0.25, 5);
+    expect(p.sonnet.alpha).toBeCloseTo(0.25, 5);
+    expect(p.sonnet.beta).toBeCloseTo(1.25, 5);
+  });
+
+  it('floors decayed alpha/beta at PRIOR_DECAY_FLOOR (0.05) instead of collapsing to 0', () => {
+    const router = new ModelRouter({ priorDecay: 0.1 }); // aggressive decay
+    const task = 'simple task';
+    // One bucket/model (opus, in the 'low' bucket) never receives an outcome
+    // directly — but every recordOutcome call for ANY model in this bucket
+    // still decays it. Hammer haiku with outcomes many times; opus's
+    // untouched Beta(1,1) should decay toward the floor, never below it,
+    // and never go non-positive (which would break sampleBeta's Gamma draws).
+    for (let i = 0; i < 50; i++) router.recordOutcome(task, 'haiku', 'failure');
+    const p = router.getBanditPriors(bucketOf(router, task));
+    expect(p.opus.alpha).toBeCloseTo(0.05, 5);
+    expect(p.opus.beta).toBeCloseTo(0.05, 5);
+    expect(p.opus.alpha).toBeGreaterThan(0);
+    expect(p.opus.beta).toBeGreaterThan(0);
+    expect(sampleBeta(p.opus.alpha, p.opus.beta)).not.toBeNaN();
+  });
+
+  it('rejects an out-of-range priorDecay (NaN/negative/>1) by falling back to disabled (1)', () => {
+    // Caught by an independent adversarial-critic pass: Math.max's NaN-
+    // poisoning bypasses sampleBeta's own alpha<=0||beta<=0 fallback, and a
+    // negative decay pins every prior at PRIOR_DECAY_FLOOR on the first
+    // call — either would silently corrupt persisted router state forever.
+    for (const [i, bad] of [NaN, -1, 0, 1.5, Infinity, -Infinity].entries()) {
+      const router = new ModelRouter({
+        priorDecay: bad,
+        statePath: join(tmpDir, `.swarm/state-${i}.json`),
+      });
+      router.recordOutcome('t', 'haiku', 'success');
+      const p = router.getBanditPriors(bucketOf(router, 't'));
+      // Falls through to priorDecay=1 (disabled): plain accumulation, no decay.
+      expect(p.haiku.alpha).toBeCloseTo(2.0, 5);
+      expect(p.haiku.beta).toBeCloseTo(1.0, 5);
+    }
+  });
+
+  it('regression: candidate must not degrade routing under a stationary workload', async () => {
+    // Pre-declared invariant (STEP 3.3 hypothesis, checked in the receipt at
+    // benchmarks/results/prior-decay-receipt.json with n=30 paired trials):
+    // decay must not reduce accuracy when the correct model never changes.
+    // This is the fast in-suite version of that same check.
+    async function runStationary(priorDecay: number): Promise<number> {
+      const router = new ModelRouter({ priorDecay });
+      let seed = 0x2468ace;
+      const rng = () => {
+        seed |= 0;
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+      const origRandom = Math.random;
+      Math.random = rng;
+      let correct = 0;
+      const N = 150;
+      try {
+        for (let i = 0; i < N; i++) {
+          const r = await router.route('fix a typo in the readme file');
+          const outcome = r.model === 'haiku' ? 'success' : 'failure';
+          router.recordOutcome('fix a typo in the readme file', r.model, outcome);
+          if (r.model === 'haiku') correct++;
+        }
+      } finally {
+        Math.random = origRandom;
+      }
+      return correct / N;
+    }
+    const baseline = await runStationary(1);
+    const candidate = await runStationary(0.995);
+    expect(candidate).toBeGreaterThanOrEqual(baseline - 0.05); // no material regression
+  }, 30_000);
+});
+
+describe('ModelRouter — CLAUDE_FLOW_PRIOR_DECAY env override (Dream Cycle 2026-09-17, mirrors #2250 envMaxUncertainty)', () => {
+  const ENV_KEY = 'CLAUDE_FLOW_PRIOR_DECAY';
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    setupTempCwd();
+    originalEnv = process.env[ENV_KEY];
+  });
+
+  afterEach(() => {
+    cleanupTempCwd();
+    if (originalEnv === undefined) delete process.env[ENV_KEY];
+    else process.env[ENV_KEY] = originalEnv;
+    vi.resetModules();
+  });
+
+  it('wires the env var into the default priorDecay for a router built with no explicit config', async () => {
+    process.env[ENV_KEY] = '0.5';
+    vi.resetModules();
+    const { ModelRouter: FreshModelRouter } = await import('../src/ruvector/model-router.js');
+    const router = new FreshModelRouter();
+    const task = 'simple task';
+    const bucket = bucketOf(router, task);
+    router.recordOutcome(task, 'haiku', 'success');
+    const p = router.getBanditPriors(bucket);
+    // Same math as the explicit `new ModelRouter({ priorDecay: 0.5 })` case above:
+    // decay Beta(1,1)->Beta(0.5,0.5) (no-op at the uniform prior) then +1.0 success.
+    expect(p.haiku.alpha).toBeCloseTo(1.5, 5);
+    expect(p.haiku.beta).toBeCloseTo(0.5, 5);
+  });
+
+  it('falls back to disabled (1) for an out-of-range env value, matching the constructor guard', async () => {
+    process.env[ENV_KEY] = '1.5';
+    vi.resetModules();
+    const { ModelRouter: FreshModelRouter } = await import('../src/ruvector/model-router.js');
+    const router = new FreshModelRouter();
+    const task = 'simple task';
+    const bucket = bucketOf(router, task);
+    router.recordOutcome(task, 'haiku', 'success');
+    const p = router.getBanditPriors(bucket);
+    expect(p.haiku.alpha).toBeCloseTo(2.0, 5); // no decay: 1 + 1*1.0
+    expect(p.haiku.beta).toBeCloseTo(1.0, 5);
+  });
+
+  it('defaults to disabled (1) when unset — zero behavior change for existing deployments', async () => {
+    delete process.env[ENV_KEY];
+    vi.resetModules();
+    const { ModelRouter: FreshModelRouter } = await import('../src/ruvector/model-router.js');
+    const router = new FreshModelRouter();
+    const task = 'simple task';
+    const bucket = bucketOf(router, task);
+    router.recordOutcome(task, 'haiku', 'success');
+    const p = router.getBanditPriors(bucket);
+    expect(p.haiku.alpha).toBeCloseTo(2.0, 5);
+    expect(p.haiku.beta).toBeCloseTo(1.0, 5);
+  });
 });

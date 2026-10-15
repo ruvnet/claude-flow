@@ -22,7 +22,14 @@ export interface SearchCandidate {
   id: string;
   key: string;
   content: string;
+  /** Raw retrieval score on input; pipeline ranking score on smartSearch output. */
   score: number;
+  /**
+   * Underlying retrieval relevance before SmartRetrieval ranking, not necessarily
+   * cosine similarity. Defaults to the selected candidate's input score; RRF
+   * selects the candidate with the highest input score across query variants.
+   */
+  rawScore?: number;
   namespace: string;
   /** Optional metadata pulled through from the underlying store. */
   metadata?: Record<string, unknown>;
@@ -30,6 +37,15 @@ export interface SearchCandidate {
   createdAt?: number;
   /** Optional unix-ms timestamp; preferred over createdAt when present. */
   updatedAt?: number;
+  /**
+   * Optional embedding vector, when the caller's SearchFn has one on hand
+   * (e.g. already computed for the primary similarity score). When both
+   * candidates in an MMR comparison carry one, `mmrRerank` uses cosine
+   * similarity instead of the token-Jaccard proxy — see "MMR Diversity"
+   * below. Never forwarded to CLI/MCP JSON responses by this module's
+   * callers (they whitelist output fields explicitly).
+   */
+  embedding?: number[];
 }
 
 export interface RawSearchRequest {
@@ -51,7 +67,7 @@ export interface SmartSearchOptions {
   namespace?: string;
   /** Final number of results to return (default 10). */
   limit?: number;
-  /** Similarity floor applied to the raw store (default 0.3). */
+  /** Retrieval relevance floor applied to the raw store, not final ranking (default 0.3). */
   threshold?: number;
 
   // ── Phase toggles ──
@@ -238,7 +254,19 @@ function pickTimestamp(cand: SearchCandidate): number | undefined {
   return undefined;
 }
 
-// ── MMR Diversity (token-Jaccard proxy) ────────────────────────
+// ── MMR Diversity (embedding-cosine, token-Jaccard fallback) ───
+//
+// Dream Cycle 2026-09-03: 2026 production practice (LangChain's reference
+// `maximal_marginal_relevance`, Qdrant's native `Mmr` query, Weaviate 1.37's
+// MMR reranker) universally computes MMR's "similarity to already-selected"
+// term over the embedding space, not lexical overlap — token-Jaccard misses
+// low-token-overlap paraphrases that embeddings correctly flag as
+// near-duplicates (see e.g. openclaw/openclaw#19760). Ruflo's own retrieval
+// pipeline already computes these embeddings upstream; this only threads
+// them through to MMR. Falls back to token-Jaccard whenever either
+// candidate lacks an embedding (test fakes, or a SearchFn that doesn't
+// supply one) or the two embeddings have mismatched dimensions, so existing
+// callers/tests that never populate `.embedding` are unaffected.
 
 /**
  * Public-facing MMR rerank.
@@ -258,27 +286,61 @@ export function applyMMR<T extends SearchCandidate>(
 function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
   if (scored.length <= 1) return scored.slice(0, limit);
 
+  // Lazy, per-candidate token cache: PR #3169 made embedding-cosine the
+  // common `pairSimilarity` path, so eager per-outer-pass tokenization
+  // (the prior implementation) mostly computed tokens that were then
+  // discarded. Tokens are now computed at most once per candidate, only
+  // when the Jaccard fallback actually needs them (Dream Cycle 2026-09-10).
+  const tokenCache = new Map<SearchCandidate, Set<string>>();
+  const getTokens = (item: Scored): Set<string> => {
+    let tokens = tokenCache.get(item.candidate);
+    if (!tokens) {
+      tokens = tokenize(item.candidate.content);
+      tokenCache.set(item.candidate, tokens);
+    }
+    return tokens;
+  };
+
   const selected: Scored[] = [];
   const remaining = [...scored];
-  const selectedTokens: Set<string>[] = [];
+
+  // Running per-remaining-candidate "max similarity to any already-selected
+  // item" cache. #3169/#3266 made the Jaccard-fallback *tokenization* lazy
+  // but left this half of the redundant-recompute problem untouched: every
+  // outer pass still re-walked the full `selected` list for every remaining
+  // candidate (O(candidates x selected) `pairSimilarity` calls per pass,
+  // growing every round). Since `max(0, s_1, ..., s_k)` can be folded in
+  // incrementally, each round only needs one new comparison per remaining
+  // candidate (to the just-added item) instead of re-comparing against the
+  // whole selected set — turning the total `pairSimilarity` call count from
+  // O(candidates x selected^2) into O(candidates x selected) (Dream Cycle
+  // 2026-09-28, flagged A-grade by 2026-09-27's memory scan). The zero floor
+  // matches the original loop's `let maxOverlap = 0` seed exactly, so the
+  // fold-in is mathematically identical to recomputing the max from
+  // scratch — output is byte-identical, not merely "close enough".
+  const maxSimCache = new Map<Scored, number>();
 
   // Seed with the top-scored candidate.
   const first = remaining.shift()!;
   selected.push(first);
-  selectedTokens.push(tokenize(first.candidate.content));
 
   while (selected.length < limit && remaining.length > 0) {
     let bestIdx = -1;
     let bestMmr = -Infinity;
+    const newest = selected[selected.length - 1];
 
     for (let i = 0; i < remaining.length; i++) {
       const cand = remaining[i];
-      const candTokens = tokenize(cand.candidate.content);
-      let maxOverlap = 0;
-      for (const selTokens of selectedTokens) {
-        const sim = jaccard(candTokens, selTokens);
-        if (sim > maxOverlap) maxOverlap = sim;
-      }
+      const simToNewest = pairSimilarity(
+        cand.candidate.embedding,
+        newest.candidate.embedding,
+        cand,
+        newest,
+        getTokens
+      );
+      const maxOverlap = Math.max(maxSimCache.get(cand) ?? 0, simToNewest);
+      maxSimCache.set(cand, maxOverlap);
+
       const mmr = lambda * cand.score - (1 - lambda) * maxOverlap;
       if (mmr > bestMmr) {
         bestMmr = mmr;
@@ -288,14 +350,66 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
 
     if (bestIdx < 0) break;
     const [chosen] = remaining.splice(bestIdx, 1);
+    maxSimCache.delete(chosen);
     selected.push(chosen);
-    selectedTokens.push(tokenize(chosen.candidate.content));
   }
 
   return selected;
 }
 
-function tokenize(text: string): Set<string> {
+/** Cosine similarity when both embeddings exist, agree in dimension, and are well-formed; token-Jaccard (computed lazily via `getTokens`) otherwise. */
+function pairSimilarity(
+  embA: number[] | undefined,
+  embB: number[] | undefined,
+  a: Scored,
+  b: Scored,
+  getTokens: (item: Scored) => Set<string>
+): number {
+  if (
+    isWellFormedEmbedding(embA) &&
+    isWellFormedEmbedding(embB) &&
+    embA.length === embB.length
+  ) {
+    return cosineSimilarity(embA, embB);
+  }
+  return jaccard(getTokens(a), getTokens(b));
+}
+
+/**
+ * Guards against malformed embeddings (NaN/Infinity components, empty
+ * arrays, non-arrays) reaching `cosineSimilarity`, where a single NaN/
+ * Infinity would poison the dot product and silently corrupt every
+ * downstream MMR comparison for the rest of the rerank — falls back to
+ * `jaccard` instead, same as a missing/dimension-mismatched embedding.
+ */
+function isWellFormedEmbedding(emb: number[] | undefined): emb is number[] {
+  return (
+    Array.isArray(emb) &&
+    emb.length > 0 &&
+    emb.every((v) => typeof v === 'number' && Number.isFinite(v))
+  );
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+/**
+ * Exported (this package's `exports` map is a `"./*"` wildcard, so this is
+ * real public API, not just test access) so the mmrRerank tokenize-call-
+ * count regression test can spy on it (Dream Cycle 2026-09-10). Pure and
+ * side-effect-free, so widening its visibility carries no behavioral risk.
+ */
+export function tokenize(text: string): Set<string> {
   return new Set(
     text
       .toLowerCase()
@@ -445,6 +559,7 @@ export async function smartSearch(
   return {
     results: final.slice(0, limit).map(({ candidate, score }) => ({
       ...candidate,
+      rawScore: candidate.rawScore ?? candidate.score,
       score,
     })),
     stats: {
