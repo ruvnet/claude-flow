@@ -220,7 +220,7 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
   // Node.js scripts handle errors internally via try/catch.
   // No shell-level error suppression needed (2>/dev/null || true breaks Windows).
 
-  // PreToolUse — validate commands and edits before execution
+  // PreToolUse — validate shell commands before execution
   if (config.preToolUse) {
     hooks.PreToolUse = [
       {
@@ -233,20 +233,10 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
           },
         ],
       },
-      {
-        matcher: 'Write|Edit|MultiEdit',
-        hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('pre-edit', scope),
-            timeout: config.timeout,
-          },
-        ],
-      },
     ];
   }
 
-  // PostToolUse — record edits and commands for session metrics / learning
+  // PostToolUse — record edits for session metrics / learning
   if (config.postToolUse) {
     hooks.PostToolUse = [
       {
@@ -256,16 +246,6 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
             type: 'command',
             command: hookHandlerCmd('post-edit', scope),
             timeout: 10000,
-          },
-        ],
-      },
-      {
-        matcher: 'Bash',
-        hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('post-bash', scope),
-            timeout: config.timeout,
           },
         ],
       },
@@ -337,16 +317,13 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
     ];
   }
 
-  // PreCompact — preserve context before compaction
+  // PreCompact — end the current session before compaction. The handler has no
+  // manual/automatic compaction-specific command, so don't wire no-op hooks.
   if (config.preCompact) {
     hooks.PreCompact = [
       {
         matcher: 'manual',
         hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('compact-manual', scope),
-          },
           {
             type: 'command',
             command: hookHandlerCmd('session-end', scope),
@@ -359,10 +336,6 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
         hooks: [
           {
             type: 'command',
-            command: hookHandlerCmd('compact-auto', scope),
-          },
-          {
-            type: 'command',
             command: hookHandlerCmd('session-end', scope),
             timeout: 6000,
           },
@@ -370,19 +343,6 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
       },
     ];
   }
-
-  // SubagentStart — status update when a sub-agent is spawned
-  hooks.SubagentStart = [
-    {
-      hooks: [
-        {
-          type: 'command',
-          command: hookHandlerCmd('status', scope),
-          timeout: 3000,
-        },
-      ],
-    },
-  ];
 
   // SubagentStop — track agent completion for metrics
   // NOTE: The valid event is "SubagentStop" (not "SubagentEnd")
@@ -397,21 +357,6 @@ function generateHooksConfig(config: HooksConfig, scope: HelperScope): object {
       ],
     },
   ];
-
-  // Notification — capture Claude Code notifications for logging
-  if (config.notification) {
-    hooks.Notification = [
-      {
-        hooks: [
-          {
-            type: 'command',
-            command: hookHandlerCmd('notify', scope),
-            timeout: 3000,
-          },
-        ],
-      },
-    ];
-  }
 
   // NOTE: TeammateIdle, TaskCompleted, and PostCompact are NOT accepted by
   // Claude Code's settings.json validator (rejected as "Invalid key in record").
