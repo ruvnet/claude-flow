@@ -1,5 +1,5 @@
 ---
-name: "Verification & Quality Assurance"
+name: verification-quality
 description: |
   Check code quality and change risk with ruflo's shipped analysis commands (analyze diff, analyze complexity, analyze code), and run or extend ruflo's own CI regression guards. Use when assessing a change's risk, finding complexity hot spots, or adding a regression guard to ruflo. The truth-scoring and auto-rollback commands described later in this file are design notes, not shipped CLI commands.
 ---
