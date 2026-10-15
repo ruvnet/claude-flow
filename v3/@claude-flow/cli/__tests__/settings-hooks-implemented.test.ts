@@ -12,7 +12,7 @@ describe('generated hook settings', () => {
       .flatMap((groups) => groups.flatMap((group) => group.hooks.map((hook) => hook.command)));
 
     for (const unsupported of ['pre-edit', 'post-bash', 'compact-manual', 'compact-auto', 'status', 'notify']) {
-      expect(commands.some((command) => command.endsWith(` ${unsupported}`))).toBe(false);
+      expect(commands.some((command) => new RegExp(`(?:^|[\\s'\"])${unsupported}(?:['\"]|$)`).test(command))).toBe(false);
     }
     expect(hooks.PreToolUse).toBeDefined();
     expect(hooks.PostToolUse).toBeDefined();
