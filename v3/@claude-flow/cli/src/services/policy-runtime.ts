@@ -1,10 +1,11 @@
+// Narrow subpath imports (not the '@claude-flow/security' barrel): this module
+// is loaded eagerly by the MCP server, and the barrel also evaluates the OAuth
+// callback server (an ESM `node:http` import that materialises http's lazy
+// undici getters), bcryptjs, keychain and credential helpers that the policy
+// runtime never uses.
 import {
   AgenticPolicyEngine,
   createLegacyCompatibleState,
-  isMcpCallerAuthEnabled,
-  decodeTokenEnvelope,
-  publicKeyFromHex,
-  verifyInvocationToken,
   type BudgetLimit,
   type CapabilityEnvelope,
   type PolicyApproval,
@@ -13,7 +14,13 @@ import {
   type PolicyRequest,
   type PolicyRule,
   type PolicyState,
-} from '@claude-flow/security';
+} from '@claude-flow/security/policy/index';
+import {
+  isMcpCallerAuthEnabled,
+  decodeTokenEnvelope,
+  publicKeyFromHex,
+  verifyInvocationToken,
+} from '@claude-flow/security/mcp-caller-identity';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {

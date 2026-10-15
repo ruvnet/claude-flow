@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.56.9",
+  "version": "3.56.10",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -98,7 +98,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "3.7.2",
+    "@claude-flow/cli-core": "3.7.3",
     "@claude-flow/codex": "3.0.5",
     "@claude-flow/mcp": "3.1.1",
     "@claude-flow/neural": "3.0.0",

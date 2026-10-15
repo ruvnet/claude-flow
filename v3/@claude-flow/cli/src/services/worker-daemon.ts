@@ -196,6 +196,10 @@ const CONSOLIDATE_DEDUP_DISTANCE = 0.2;
 // this env var on the forked/foreground daemon process.
 const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
 
+// Opt-out for recording each finished worker job as a learning trajectory
+// (see WorkerDaemon.recordWorkerTrajectory).
+const NO_LEARN_ENV = 'RUFLO_DAEMON_NO_LEARN';
+
 // #2356 — Self-terminating lifecycle defaults. A background daemon with no
 // upper bound on its lifetime runs until the box reboots; in the field this
 // leaked tens of thousands of headless `claude --print` sweeps over many days
@@ -1413,6 +1417,7 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:complete', result);
       this.log('info', `Worker ${workerConfig.type} completed in ${durationMs}ms`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } catch (error) {
@@ -1435,12 +1440,47 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:error', result);
       this.log('error', `Worker ${workerConfig.type} failed: ${result.error}`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } finally {
       // Remove from running set and process queue
       this.runningWorkers.delete(workerConfig.type);
       this.processPendingWorkers();
+    }
+  }
+
+  /**
+   * Feed a finished worker job into the self-learning pipeline as a one-step
+   * trajectory (SONA + ReasoningBank + @ruvector/ruvllm forwarding, persisted
+   * to `.claude-flow/neural/stats.json`). Before this, the daemon could run
+   * hundreds of jobs at "100% success" while `trajectoriesRecorded` stayed 0:
+   * no daemon code path ever called the intelligence module.
+   *
+   * Best-effort and bounded: never throws, never changes the WorkerResult.
+   * Opt-out: RUFLO_DAEMON_NO_LEARN=1.
+   */
+  private async recordWorkerTrajectory(result: WorkerResult): Promise<void> {
+    if (process.env[NO_LEARN_ENV] === '1') return;
+    try {
+      const intel = await import('../memory/intelligence.js');
+      await intel.recordTrajectory(
+        [{
+          type: 'result',
+          // A worker error is free text (it can quote command output): keep only its first line, cut, so it cannot fill the learning store.
+          content: `daemon worker ${result.type} ${result.success ? 'succeeded' : `failed: ${String(result.error ?? 'unknown error').split('\n')[0].slice(0, 200)}`}`,
+          metadata: {
+            source: 'worker-daemon',
+            worker: result.type,
+            success: result.success,
+            durationMs: result.durationMs,
+          },
+          timestamp: Date.now(),
+        }],
+        result.success ? 'success' : 'failure',
+      );
+    } catch (error) {
+      this.log('warn', `Worker ${result.type}: trajectory recording skipped: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
