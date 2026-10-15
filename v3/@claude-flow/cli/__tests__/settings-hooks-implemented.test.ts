@@ -17,8 +17,8 @@ describe('generated hook settings', () => {
     expect(hooks.PreToolUse).toBeDefined();
     expect(hooks.PostToolUse).toBeDefined();
     expect(hooks.PreCompact).toBeDefined();
-    expect(commands.some((command) => command.endsWith(' pre-bash'))).toBe(true);
-    expect(commands.some((command) => command.endsWith(' post-edit'))).toBe(true);
-    expect(commands.some((command) => command.endsWith(' session-end'))).toBe(true);
+    expect(commands.some((command) => /(?:^|[\s'])pre-bash(?:['"]|$)/.test(command))).toBe(true);
+    expect(commands.some((command) => /(?:^|[\s'])post-edit(?:['"]|$)/.test(command))).toBe(true);
+    expect(commands.some((command) => /(?:^|[\s'])session-end(?:['"]|$)/.test(command))).toBe(true);
   });
 });
