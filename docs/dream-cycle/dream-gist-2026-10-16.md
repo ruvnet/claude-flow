@@ -38,7 +38,9 @@ No `.harness/bench.json` corpus exists for this surface (confirmed, same as ever
 
 ## Evaluation
 
-**evaluated: accepted.** Stash-isolated baseline (`git stash` on just the two changed files): **18/18 new test cases fail** exactly as predicted (`expected true to be false` on every new name/pattern), the 33 pre-existing cases in the same file pass unchanged — confirms the tests actually discriminate. Candidate: **51/51 pass**. Full `@claude-flow/cli` vitest suite: baseline 1650 suites/5210 tests, candidate 1651 suites/5229 tests (the +1 suite / +19 tests is the new test file itself); **failed-suite lists are byte-identical between baseline and candidate** (60 pre-existing failures both ways, diffed directly) — zero regressions. `npx tsc --noEmit` in `cli-core`: 0 errors.
+**evaluated: accepted.** Stash-isolated baseline (`git stash` on just the two changed files): of 19 new test cases, **18 discriminate and fail** exactly as predicted (`expected true to be false` on every new denylisted name/pattern); the 19th is a non-discriminating negative control (`GIT_CONFIGURATION_PROFILE` must NOT be rejected) that correctly passes on both baseline and candidate. The 32 pre-existing cases in the same file pass unchanged on baseline. Candidate: **51/51 pass** (32 + 19). An independent adversarial-critic subagent re-ran this exact stash/pop cycle itself and caught an arithmetic error in the first pass of this count (originally miscounted as "33 pre-existing / 18 new") — corrected here. Full `@claude-flow/cli` vitest suite: baseline 1650 suites/5210 tests, candidate 1651 suites/5229 tests (the +1 suite / +19 tests is the new test file itself); **failed-suite lists are byte-identical between baseline and candidate** (60 pre-existing failures both ways, diffed directly) — zero regressions. `npx tsc --noEmit` in `cli-core`: 0 errors, confirmed independently by the critic.
+
+**Independent adversarial critique: CONFIRMED-WITH-CAVEATS** (no blocking issues). The critic additionally: verified the `GIT_CONFIG_ENV_RE` regex against real git source (`config.c`) and found it a safe superset with no realistic false negatives; found and the candidate fixed forward two documentation gaps — `GIT_CONFIG_NOSYSTEM`'s denylist rationale was undocumented despite this repo's own `guidance/mod-sources.ts` setting that same var defensively elsewhere (now explained in-source); and `PYTHONSTARTUP`'s comment overclaimed that execSync's non-interactive child "cannot enter" Python's interactive mode — empirically, a caller-supplied `python3 -i` command can still trigger it even off non-tty stdin (now corrected in-source, with the net conclusion — no new capability gained, since that caller already has unrestricted command execution — unchanged). Checked for a second caller-controlled env→child-process path (none found; the only other env-merging exec call, `guidance/mod-sources.ts`'s git() helper, builds a fully internal/hardcoded env and never takes caller-supplied names) and confirmed no stale third copy of `validate-input.ts` exists in the repo.
 
 ## Darwin Results
 
@@ -49,8 +51,8 @@ Skipped — binary detection-wiring fix (extend a denylist Set + one regex check
 ```
 Session commit:   1882006a02487590c8c66a7eec8d7504f6af33c3
 Candidate commit: (this branch's head — see PR for exact SHA)
-Gist SHA-256 (pre-witness, this block stripped back to PENDING): 41a0bb30b27b9e15f60aa328a62fdeef87b495ec5407aeb67af3e4f78bcbbb9f
-Witness stamp:    c9a263c9da7a9e858dc3e61a7945ed0b817c314a6decefd4588c89ce7dcd4d67
+Gist SHA-256 (pre-witness, this block stripped back to PENDING): 6fdcc3866bc6b3a66c61871a94c2cb7639e44a2847aecf5ab236231c672f77c3
+Witness stamp:    fd98a162d7f7ea730b2c18712ef071444162dc33cbf8ce25e1a910e621df49e4
 ```
 Verifier: fetch `docs/dream-cycle/dream-gist-2026-10-16.md` from this branch, strip this witness block's filled-in values back to `PENDING`, SHA-256 the file, concatenate with the session commit above, SHA-256 again — must equal the witness stamp.
 

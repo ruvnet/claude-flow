@@ -156,12 +156,25 @@ export function validateText(value: unknown, label: string, maxLen = 10_000): Va
  * two more search-path vars (PYTHONHOME, CLASSPATH), and git's numbered
  * GIT_CONFIG_KEY_n/VALUE_n/COUNT family (arbitrary runtime git config
  * injection — strictly broader than any single fixed name, needs a
- * pattern check below, not a fixed Set entry). PYTHONSTARTUP is included
+ * pattern check below, not a fixed Set entry). Also GIT_CONFIG_NOSYSTEM:
+ * lets a caller suppress system-level git config entirely, which can
+ * bypass an admin-set git security policy (e.g. protocol/safe.directory
+ * restrictions) — note this repo's OWN `guidance/mod-sources.ts` git()
+ * helper sets this same var to '1' for a benign, defensive purpose (to
+ * sandbox ITS OWN git calls against ambient system config), so the risk
+ * here is specifically a *caller of terminal_create* setting it to widen
+ * trust, not the variable being inherently dangerous — same category
+ * judgment call as the other search-path vars below, not a pure RCE
+ * primitive like GIT_ASKPASS/GIT_PROXY_COMMAND. PYTHONSTARTUP is included
  * for defense-in-depth despite weaker fit here: official docs confirm
- * arbitrary code execution, but only in Python's *interactive* REPL mode,
- * which `terminal_execute`'s non-interactive execSync child does not
- * enter today — kept denylisted in case that changes, not because it is
- * live-exploitable through this path right now.
+ * arbitrary code execution, but only in Python's *interactive* REPL mode.
+ * `terminal_execute` doesn't request that mode itself, but a caller-
+ * supplied command string COULD pass `python3 -i` (confirmed empirically:
+ * `-i` triggers PYTHONSTARTUP even off a non-tty stdin) — that caller
+ * already has unrestricted arbitrary-command execution via `command`
+ * under the same trust boundary that controls `env`, so this adds no new
+ * capability; it's kept denylisted as defense-in-depth for a future
+ * caller shape, not because it's exploitable today through this path.
  * NOT added (researched, rejected): PYTHONEXECUTABLE (macOS-only,
  * cosmetic sys.argv[0] override, no search-path effect); PSModulePath
  * (single third-party source, no primary vendor confirmation — Grade C,
