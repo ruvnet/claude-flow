@@ -418,13 +418,14 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   }
 
   async acknowledge(ack: MessageAck): Promise<void> {
-    const pending = this.pendingAcks.get(ack.messageId);
+    const key = this.ackKey(ack.messageId, ack.from);
+    const pending = this.pendingAcks.get(key);
     if (!pending) {
       return;
     }
 
     clearTimeout(pending.timeout);
-    this.pendingAcks.delete(ack.messageId);
+    this.pendingAcks.delete(key);
 
     if (!ack.received && ack.error) {
       this.handleAckFailure(pending.message, ack.error);
@@ -434,6 +435,18 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       messageId: ack.messageId,
       success: ack.received
     });
+  }
+
+  private ackKey(messageId: string, recipient: string): string {
+    // Broadcast recipients share a message ID, but acknowledge independently.
+    return JSON.stringify([messageId, recipient]);
+  }
+
+  private clearPendingAck(messageId: string, recipient: string): void {
+    const key = this.ackKey(messageId, recipient);
+    const pending = this.pendingAcks.get(key);
+    if (pending) clearTimeout(pending.timeout);
+    this.pendingAcks.delete(key);
   }
 
   private startProcessing(): void {
@@ -530,11 +543,13 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     try {
       // Set up ack timeout if required
       if (message.requiresAck) {
+        const key = this.ackKey(message.id, subscription.agentId);
+        this.clearPendingAck(message.id, subscription.agentId);
         const timeout = setTimeout(() => {
-          this.handleAckTimeout(message);
+          this.handleAckTimeout(message, key);
         }, this.config.ackTimeoutMs);
 
-        this.pendingAcks.set(message.id, { message, timeout });
+        this.pendingAcks.set(key, { message, timeout });
       }
 
       // Deliver asynchronously
@@ -554,8 +569,8 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     }
   }
 
-  private handleAckTimeout(message: Message): void {
-    this.pendingAcks.delete(message.id);
+  private handleAckTimeout(message: Message, key: string): void {
+    this.pendingAcks.delete(key);
     this.stats.ackRate = Math.max(0, this.stats.ackRate - 0.01);
     this.emit('message.ack_timeout', { messageId: message.id });
   }
@@ -566,6 +581,8 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   }
 
   private handleDeliveryError(message: Message, entry: MessageQueueEntry, error: Error, subscriberAgentId: string): void {
+    // A failed callback never completed delivery; its retry owns a fresh timer.
+    this.clearPendingAck(message.id, subscriberAgentId);
     entry.attempts++;
     entry.lastAttemptAt = new Date();
 
