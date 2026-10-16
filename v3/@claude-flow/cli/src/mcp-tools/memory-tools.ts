@@ -12,9 +12,10 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'crypto';
-import type { MCPTool } from './types.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 import { validateIdentifier } from './validate-input.js';
 import { DEFAULT_SEARCH_THRESHOLD, nearMisses } from '../memory/search-defaults.js';
 
@@ -175,7 +176,22 @@ function resolveProjectMemoryDir(claudeProjectsDir: string, projectPathOverride?
   if (projectPathOverride && projectPathOverride.length > 0) {
     sources.push(projectPathOverride);
   } else {
-    sources.push(process.cwd());
+    const project = getProjectCwd();
+    sources.push(project);
+    // Claude Code shares auto-memory across linked Git worktrees under the
+    // main checkout's project slug. Preserve the direct-path match first,
+    // then try the common Git directory's parent. Explicit overrides above
+    // remain authoritative, and non-Git projects need no Git dependency.
+    try {
+      const commonDir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+        cwd: project,
+        encoding: 'utf-8',
+        timeout: 1000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      if (basename(commonDir) === '.git') sources.push(dirname(resolve(project, commonDir)));
+    } catch { /* Git unavailable or not a repository: use the project path */ }
   }
 
   for (const source of sources) {
