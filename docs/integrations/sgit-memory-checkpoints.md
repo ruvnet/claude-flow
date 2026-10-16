@@ -6,7 +6,7 @@ This opt-in community example connects an Agent Behaviour Policy to a local memo
 
 It runs as a separate stdio MCP server. It does not register a native Ruflo memory backend or alter Ruflo's default/running policy configuration.
 
-[Source and reproducible example](https://github.com/mondweep/sgit-ruv-memory/tree/e86cefa88da5f46e43af9bdc822b27909ac46a0b) · [SGit executable-example PR](https://github.com/SGit-AI/SGit-AI__Website__Ruv/pull/1).
+[Source and reproducible example](https://github.com/mondweep/sgit-ruv-memory/tree/7607d72766a74ca2b8b379ae6fd154a749f7cfd1) · [SGit executable-example PR](https://github.com/SGit-AI/SGit-AI__Website__Ruv/pull/1).
 
 ## Install and reproduce
 
@@ -15,7 +15,7 @@ Requires Linux/macOS, Python 3.11+, Git and Node 24+ for TypeScript stripping. T
 ```bash
 git clone https://github.com/mondweep/sgit-ruv-memory.git
 cd sgit-ruv-memory
-git checkout e86cefa88da5f46e43af9bdc822b27909ac46a0b
+git checkout 7607d72766a74ca2b8b379ae6fd154a749f7cfd1
 python -m venv .venv
 . .venv/bin/activate
 pip install .
@@ -63,6 +63,21 @@ These hashes are not independent signatures or immutable audit receipts. The loc
 
 16 tests pass, covering compilation, scoped decisions, malformed-policy rejection, raw-rule bypass rejection, role mismatch, ABP/rule hash binding, approval/deny enforcement, expiry, wrong keys, tampering, live WAL writes and concurrent checkpoints. The real MCP demonstration compiles an ABP, blocks a forbidden namespace and approval-required deletion, removes the original database, restores both synthetic facts in a new server process and rejects tampering. Evidence and source hashes are in the linked repository.
 
-This is not yet validated through Ruflo CLI semantic recall or embeddings. SQLite backup covers one DB, not a coordinated multi-database/project snapshot. Native plugin registration, RVF, remote sync, Federation announcements, signed manifests and a general ABP compiler remain follow-ups. Adapter policy does not restrict other shell or MCP tools; there is no global erase, multi-tenant isolation, key-rotation/HSM or crash-orphan reconciliation guarantee. Local deletion leaves source databases, restored copies, OS caches and external backups untouched.
+Ruflo 3.56.10 exact-key and keyword recall are now validated through its actual CLI and real SQLite store, using two CLI-written facts, missing-key/wrong-namespace controls, source-project removal and a fresh restore workspace. Embedding-based semantic recall remains unvalidated: even with explicit `--embedding --vector`, this runtime persisted no vectors and its paraphrased query returned no results before or after restore. The semantic report records a partial result, not a pass. SQLite backup covers one DB, not a coordinated multi-database/project snapshot. Native plugin registration, RVF, remote sync, Federation announcements, signed manifests and a general ABP compiler remain follow-ups. Adapter policy does not restrict other shell or MCP tools; there is no global erase, multi-tenant isolation, key-rotation/HSM or crash-orphan reconciliation guarantee. Local deletion leaves source databases, restored copies, OS caches and external backups untouched.
 
-The next integration gate is actual Ruflo store/checkpoint/restore/recall on a pinned version, followed by a supported live policy interface to replace vendoring. This PR changes documentation only; it adds no Ruflo runtime dependencies or defaults.
+The next integration gates are diagnosing embedding persistence, demonstrating nonempty semantic recall with relevant and unrelated controls, and adopting a supported live policy interface to replace vendoring. This PR changes documentation only; it adds no Ruflo runtime dependencies or defaults.
+
+
+## Reproduce the native recall checks
+
+From the standalone adapter project:
+
+```bash
+npm install --prefix /tmp/ruflo-recall-runtime --no-audit --no-fund ruflo@3.56.10
+python scripts/validate_ruflo_recall.py --runtime /tmp/ruflo-recall-runtime
+python scripts/validate_ruflo_recall.py --runtime /tmp/ruflo-recall-runtime --semantic
+```
+
+The default run disables embeddings to isolate exact/keyword recovery. It snapshots `.swarm/memory.db`, removes the entire original project, then invokes Ruflo with `--path` pointing directly at the adapter's new restored `memory.sqlite`. It never overwrites a live database. An independent negative-control project proves the facts were not already present. The initial failed test procedure, which copied over an opened negative-control DB, is retained alongside the corrected passing run. No adapter restore-code changes were required.
+
+See `evidence/ruflo-native-recall-summary.md`, the baseline/semantic JSON reports and complete CLI traces in the linked source. Reports record the runner and installed runtime lock hashes. Results cover one pinned CLI path and two facts, not every memory store or production scale.
