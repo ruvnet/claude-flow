@@ -229,6 +229,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   private statsInterval?: NodeJS.Timeout;
   private processScheduled: boolean = false;
   private isShutdown: boolean = false;
+  private deliveryImmediates: Set<NodeJS.Immediate> = new Set();
   private messageCounter: number = 0;
   private stats: MessageBusStats;
   private startTime: Date = new Date();
@@ -291,6 +292,12 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       clearTimeout(timer);
     }
     this.retryTimers.clear();
+
+    // Queue draining schedules subscriber callbacks separately. Cancel those
+    // pending callbacks too, including across a later initialize() call.
+    // A subscriber that is already running is not interrupted.
+    for (const delivery of this.deliveryImmediates) clearImmediate(delivery);
+    this.deliveryImmediates.clear();
 
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
@@ -537,8 +544,10 @@ export class MessageBus extends EventEmitter implements IMessageBus {
         this.pendingAcks.set(message.id, { message, timeout });
       }
 
-      // Deliver asynchronously
-      setImmediate(() => {
+      // Deliver asynchronously; shutdown owns and cancels pending handles.
+      const delivery = setImmediate(() => {
+        this.deliveryImmediates.delete(delivery);
+        if (this.isShutdown) return;
         try {
           subscription.callback(message);
           this.emit('message.delivered', {
@@ -549,6 +558,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
           this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
         }
       });
+      this.deliveryImmediates.add(delivery);
     } catch (error) {
       this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
     }
