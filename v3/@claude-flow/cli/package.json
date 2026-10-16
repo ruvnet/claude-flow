@@ -98,7 +98,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "3.7.3",
+    "@claude-flow/cli-core": "3.7.4",
     "@claude-flow/codex": "3.0.5",
     "@claude-flow/mcp": "3.1.1",
     "@claude-flow/neural": "3.0.0",
