@@ -1,23 +1,21 @@
-# External SGit memory checkpoint MCP example
+# External SGit memory checkpoints governed by an ABP
 
-This opt-in community example checkpoints a host-allowlisted SQLite memory database into an encrypted SGit vault and restores it into an isolated workspace. It runs as a separate local MCP server. It does not register a native Ruflo memory backend or change Ruflo's default policy.
+This opt-in community example connects an Agent Behaviour Policy to a local memory adapter:
 
-Source and reproducible demonstration: [mondweep/sgit-ruv-memory](https://github.com/mondweep/sgit-ruv-memory/tree/0e8eed5d6bb4b0ae60f50bac52853d5b4d0028c1).
+**ABP mandate → strict compiler → Ruflo evaluator (enforce mode) → adapter operation → SGit encrypted vault.**
 
-## Why an external checkpoint adapter?
+It runs as a separate stdio MCP server. It does not register a native Ruflo memory backend or alter Ruflo's default/running policy configuration.
 
-Operational memory and recovery artifacts have different jobs. SQLite's online backup API can capture one consistent database while committed WAL writes continue; SGit then encrypts and commits that snapshot. Restore verifies the stored digest, decrypted manifest and SQLite integrity before renaming a staging directory into a new workspace.
-
-The adapter uses SGit 0.22.3 and a pinned copy of Ruflo's MIT-licensed policy evaluator from commit `1882006a02487590c8c66a7eec8d7504f6af33c3`, in enforce mode. It is not wired into Ruflo's running policy state. The standalone repository documents provenance and includes the license. Migrating to a supported evaluator dependency is a follow-up integration question.
+[Source and reproducible example](https://github.com/mondweep/sgit-ruv-memory/tree/e86cefa88da5f46e43af9bdc822b27909ac46a0b) · [SGit executable-example PR](https://github.com/SGit-AI/SGit-AI__Website__Ruv/pull/1).
 
 ## Install and reproduce
 
-Requires Linux or macOS, Python 3.11+ and Node 24+ (for TypeScript stripping). The recorded run used Linux and Python 3.12.
+Requires Linux/macOS, Python 3.11+, Git and Node 24+ for TypeScript stripping. The recorded run used Linux and Python 3.12.
 
 ```bash
 git clone https://github.com/mondweep/sgit-ruv-memory.git
 cd sgit-ruv-memory
-git checkout 0e8eed5d6bb4b0ae60f50bac52853d5b4d0028c1
+git checkout e86cefa88da5f46e43af9bdc822b27909ac46a0b
 python -m venv .venv
 . .venv/bin/activate
 pip install .
@@ -25,60 +23,46 @@ python -m unittest discover -s tests -v
 python demo.py
 ```
 
-The demo talks to the actual server through MCP stdio. It stores two synthetic role-labelled facts, blocks a forbidden namespace, checkpoints, removes the original database, starts a fresh server process, restores both facts and rejects tampered ciphertext. It does not exercise Ruflo CLI retrieval, embeddings or semantic search. Recorded outputs are linked from the standalone repository's `evidence/` directory.
+SGit is pinned to source commit `559752641bc520986fb0851b4a43875b6ad0d4ad`, whose declared version is 0.22.3, because that version was unavailable from the package index. The adapter uses the MIT-licensed Ruflo evaluator from `1882006a02487590c8c66a7eec8d7504f6af33c3`, with attribution. It is currently vendored, not dynamically connected to Ruflo's running policy state.
 
-## Configure an actual database
+## Define policy before connecting memory
 
-First identify the SQLite database used by your installed Ruflo version and verify its store/retrieve behaviour. Different versions and commands may use different stores; do not assume `.swarm/memory.db` is universally correct. Do not point this example at RVF files. A checkpoint covers one SQLite database, not a whole project or a consistent set of multiple databases.
+Copy the source repository's `examples/config.json` and `examples/memory.abp.json` into a private directory. Edit absolute database/storage paths, review the role mandate, set its owner and future expiry, and set both files to mode `0600`.
 
-Create `/absolute/private/config.json` with mode `0600`:
+Configuration supplies only the fixed principal, source allowlist, private directories and `abp_path`. The ABP supplies role permissions and expiry. Raw rule/expiry overrides are rejected. The principal must match an ABP role. A new policy requires restarting the server; expiry is checked on every call.
 
-```json
-{
-  "store": "/absolute/private/checkpoints",
-  "keys": "/absolute/private/key-records",
-  "restore_root": "/absolute/private/restored",
-  "principal": "local-agent",
-  "valid_until": "2027-01-01T00:00:00+00:00",
-  "sources": {"project": "/absolute/project/verified-memory.sqlite"},
-  "rules": [{
-    "id": "project-checkpoint",
-    "effect": "allow",
-    "actions": ["memory.checkpoint", "memory.inspect", "memory.restore"],
-    "principals": ["local-agent"],
-    "resources": ["project"]
-  }]
-}
-```
+The compiler follows SGit's `abp_version: 0.1-poc` structure with explicit profile `sgit-ruv-memory/v1`. Three capabilities below are proposed vocabulary extensions, not claims of existing upstream support:
 
-Set the expiry to an appropriate future date. The adapter creates private directories with mode `0700`; pre-existing directories must already use that mode. Keep keys outside the ciphertext store. Each source namespace exposes its entire database, not an authorised subset of its rows.
+| ABP capability | MCP operation | Origin |
+|---|---|---|
+| `write.memory.project` | `checkpoint(namespace)` | Adapter extension |
+| `read.memory.project` | `restore(checkpoint_id, workspace)` | Adapter extension; includes isolated recovery |
+| `read.record.history` | `inspect(checkpoint_id)` | Existing primitive |
+| `delete.memory.project` | `close_run(checkpoint_id)` | Adapter extension |
 
-Add the separate server to a compatible MCP host using its Python environment's absolute executable path:
+Rows contain capability, boolean reach, yes/no/approval mandate, reason and explicit namespace instances. Deny/approval rows require a barrier. All effects retain their namespace scope. Unsupported capabilities, ambiguous/wildcard/unknown instances, duplicate roles/capabilities, invalid profiles or unknown fields reject the whole document; no row is silently skipped. The sample deletion mandate requires approval, so the MVP blocks deletion while leaving the checkpoint intact. No human approval fulfilment UI is implemented.
+
+The example ABP was checked against SGit's upstream structural JSON Schema in addition to strict profile validation. Its schema match does not imply the unextended upstream compiler recognises the new memory vocabulary. A date expires at the start of that UTC date; timezone-aware timestamps are also accepted by this profile.
+
+## Connect the MCP host
 
 ```json
-{
-  "mcpServers": {
-    "sgit-ruv-memory": {
-      "command": "/absolute/sgit-ruv-memory/.venv/bin/sgit-ruv-memory",
-      "env": {"SGIT_RUV_CONFIG": "/absolute/private/config.json"}
-    }
-  }
-}
+{"mcpServers":{"sgit-ruv-memory":{
+  "command":"/absolute/sgit-ruv-memory/.venv/bin/sgit-ruv-memory",
+  "env":{"SGIT_RUV_CONFIG":"/absolute/private/config.json"}
+}}}
 ```
 
-This is a generic MCP host configuration, not a new Ruflo CLI command.
+This is a generic MCP host configuration, not a new Ruflo CLI command. Existing adapter directories require mode `0700`; keep key records separate from ciphertext. Identify the actual SQLite database used by the installed Ruflo commands first: layouts vary. A namespace authorises the whole database, not selected rows.
 
-## Tools and trust boundary
+Checkpoint uses SQLite online backup and integrity checking, then SGit init/commit. Only the encrypted bare store is retained outside private staging. The encrypted manifest binds database, source-ABP and compiled-rule digests, profile, owner and principal. Restore checks those historical records and current policy before creating a new workspace; it never overwrites an existing workspace.
 
-| Tool | Result |
-|---|---|
-| `checkpoint(namespace)` | Consistent SQLite backup, SGit encrypted commit and separate private key record |
-| `inspect(checkpoint_id)` | Manifest metadata and ciphertext digest comparison |
-| `restore(checkpoint_id, workspace)` | Verified plaintext database in a new isolated workspace; no overwrite |
-| `close_run(checkpoint_id)` | Local checkpoint/key-record deletion, only with explicit `memory.delete` permission |
+These hashes are not independent signatures or immutable audit receipts. The local host/configuration/key records are trusted. Restored workspaces intentionally contain plaintext. One independent vault per checkpoint avoids binary database merges; this does not provide cross-checkpoint shared branch history.
 
-Unknown actions default deny. Expired mandates and approval-required decisions are blocked. The host fixes the principal; callers cannot supply an identity or arbitrary source path. This policy boundary covers adapter tools only and does not constrain another shell or MCP server.
+## Evidence and remaining integration work
 
-One independent vault is used per checkpoint; binary databases are not merged. Keys and trusted digests are local private records. The manifest is digest-bound, not independently signed. A process controlling both keys and ciphertext can forge those records. Plaintext exists during staging and intentionally remains in restored workspaces. Fragment probes are not a cryptographic audit.
+16 tests pass, covering compilation, scoped decisions, malformed-policy rejection, raw-rule bypass rejection, role mismatch, ABP/rule hash binding, approval/deny enforcement, expiry, wrong keys, tampering, live WAL writes and concurrent checkpoints. The real MCP demonstration compiles an ABP, blocks a forbidden namespace and approval-required deletion, removes the original database, restores both synthetic facts in a new server process and rejects tampering. Evidence and source hashes are in the linked repository.
 
-Remote sync, Federation announcements, RVF exports, automatic promotion into a running Ruflo project, multi-tenant isolation and end-to-end Ruflo semantic recall remain unimplemented. Local deletion does not erase source databases, restored workspaces, retained keys elsewhere, caches or backups.
+This is not yet validated through Ruflo CLI semantic recall or embeddings. SQLite backup covers one DB, not a coordinated multi-database/project snapshot. Native plugin registration, RVF, remote sync, Federation announcements, signed manifests and a general ABP compiler remain follow-ups. Adapter policy does not restrict other shell or MCP tools; there is no global erase, multi-tenant isolation, key-rotation/HSM or crash-orphan reconciliation guarantee. Local deletion leaves source databases, restored copies, OS caches and external backups untouched.
+
+The next integration gate is actual Ruflo store/checkpoint/restore/recall on a pinned version, followed by a supported live policy interface to replace vendoring. This PR changes documentation only; it adds no Ruflo runtime dependencies or defaults.
