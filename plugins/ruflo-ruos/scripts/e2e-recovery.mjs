@@ -77,6 +77,7 @@ const jobs = {
 const make = () => {
   const ledger = createLedger({ cwd: repo, callTool: null });
   return { ledger, adapter: new RuosHostAdapter({ fleet, jobs, ledger, sleep: ms => delay(Math.min(ms, 100)) }) };
+};
 try {
   const initial = make();
   const runIds = ['r-recovery-e2e-a', 'r-recovery-e2e-b'];
