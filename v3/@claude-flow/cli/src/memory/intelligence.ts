@@ -17,6 +17,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
 import { getProjectCwd } from '../mcp-tools/types.js';
+import { withStatsFileLock } from './stats-file-lock.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -822,10 +823,9 @@ function bumpStat(key: CounterKey, n = 1): void {
 
 function readStatsFile(): Partial<typeof globalStats> | null {
   try {
-    const path = getStatsPath();
-    if (!existsSync(path)) return null;
-    const data = JSON.parse(readFileSync(path, 'utf-8'));
-    return data && typeof data === 'object' ? data : null;
+    // Read-only callers keep their unavailable-on-error contract, while invalid
+    // disk values cannot poison local state and a later repaired-file flush.
+    return readStatsForWrite(getStatsPath());
   } catch {
     return null;
   }
@@ -858,32 +858,75 @@ function maxTimestamp(a: number | null, b: number | null): number | null {
   return Math.max(a, b);
 }
 
-/**
- * Save stats to disk: merge this process's unsaved deltas into whatever is
- * currently on disk (read-merge-write, atomic rename), then adopt the merged
- * totals locally so this process also sees other writers' progress.
- */
-function savePersistedStats(): void {
+/** Missing files are first use; unreadable or invalid files must not be replaced. */
+function readStatsForWrite(path: string): Partial<typeof globalStats> | null {
+  let text: string;
   try {
-    ensureDataDir();
-    const path = getStatsPath();
-    const disk = readStatsFile();
-    const merged = disk
-      ? {
-          trajectoriesRecorded: (disk.trajectoriesRecorded ?? 0) + pendingDelta.trajectoriesRecorded,
-          patternsLearned: (disk.patternsLearned ?? 0) + pendingDelta.patternsLearned,
-          signalsProcessed: (disk.signalsProcessed ?? 0) + pendingDelta.signalsProcessed,
-          lastAdaptation: maxTimestamp(disk.lastAdaptation ?? null, globalStats.lastAdaptation),
-        }
-      : { ...globalStats };
-    const tmp = `${path}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
-    renameSync(tmp, path);
-    globalStats = merged;
-    pendingDelta = { trajectoriesRecorded: 0, patternsLearned: 0, signalsProcessed: 0 };
-    persistedStatsLoaded = true;
+    text = readFileSync(path, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(text);
   } catch {
-    // Ignore save errors (deltas are retained for the next save)
+    throw Object.assign(new Error('Invalid learning stats JSON'), { code: 'EINVALIDSTATS' });
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw Object.assign(new Error('Invalid learning stats object'), { code: 'EINVALIDSTATS' });
+  }
+  for (const key of ['trajectoriesRecorded', 'patternsLearned', 'signalsProcessed']) {
+    const value = data[key];
+    // Older files may omit a counter, but present counters must be exact counts.
+    if (value === undefined) continue;
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+      throw Object.assign(new Error(`Invalid learning stats field: ${key}`), { code: 'EINVALIDSTATS' });
+    }
+  }
+  const timestamp = data.lastAdaptation;
+  if (timestamp != null && (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp < 0)) {
+    throw Object.assign(new Error('Invalid learning stats timestamp'), { code: 'EINVALIDSTATS' });
+  }
+  return data as Partial<typeof globalStats>;
+}
+
+/** Merge pending deltas under the cooperating-writer lock, then adopt committed totals. */
+function savePersistedStats(): void {
+  let statsPath: string | undefined;
+  try {
+    statsPath = join(ensureDataDir(), 'stats.json');
+    withStatsFileLock(statsPath, (path) => {
+      const disk = readStatsForWrite(path);
+      const merged = disk
+        ? {
+            trajectoriesRecorded: (disk.trajectoriesRecorded ?? 0) + pendingDelta.trajectoriesRecorded,
+            patternsLearned: (disk.patternsLearned ?? 0) + pendingDelta.patternsLearned,
+            signalsProcessed: (disk.signalsProcessed ?? 0) + pendingDelta.signalsProcessed,
+            lastAdaptation: maxTimestamp(disk.lastAdaptation ?? null, globalStats.lastAdaptation),
+          }
+        : { ...globalStats };
+      for (const key of ['trajectoriesRecorded', 'patternsLearned', 'signalsProcessed'] as const) {
+        if (!Number.isSafeInteger(merged[key]) || merged[key] < 0) {
+          throw Object.assign(new Error('Learning stats counter overflow'), { code: 'EINVALIDSTATS' });
+        }
+      }
+      if (merged.lastAdaptation != null &&
+          (!Number.isFinite(merged.lastAdaptation) || merged.lastAdaptation < 0)) {
+        throw Object.assign(new Error('Invalid merged learning stats timestamp'), { code: 'EINVALIDSTATS' });
+      }
+      const tmp = `${path}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
+      renameSync(tmp, path);
+      // Commit local state before release: a failed release must not replay it.
+      globalStats = merged;
+      pendingDelta = { trajectoriesRecorded: 0, patternsLearned: 0, signalsProcessed: 0 };
+      persistedStatsLoaded = true;
+    });
+  } catch (error) {
+    const { code = 'UNKNOWN', path = statsPath || 'neural stats directory' } = error as NodeJS.ErrnoException;
+    // Do not print file contents, which may be malformed or user-controlled.
+    console.warn(`[intelligence] Could not persist learning stats at ${path} (${code}); pending increments retained`);
   }
 }
 
