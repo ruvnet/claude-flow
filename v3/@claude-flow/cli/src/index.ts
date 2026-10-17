@@ -133,7 +133,7 @@ export class CLI {
       }
 
       // Run startup update check (non-blocking, silent on skip)
-      if (!flags.noUpdate && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json)) {
+      if (!flags.noUpdate && flags.update !== false && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json)) {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 

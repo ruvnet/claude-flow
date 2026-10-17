@@ -383,6 +383,31 @@ describe('CLI', () => {
       expect(flagsPassed).toBe(true);
     });
 
+    it.each(['--no-update', '--update=false', '--no-update=true'])(
+      'should skip startup update checks with %s',
+      async (flag) => {
+        const updateCheck = vi.spyOn(
+          cli as unknown as { checkForUpdatesOnStartup(): Promise<void> },
+          'checkForUpdatesOnStartup'
+        ).mockResolvedValue(undefined);
+
+        await cli.run([flag, '--help']);
+
+        expect(updateCheck).not.toHaveBeenCalled();
+      }
+    );
+
+    it('should retain startup update checks without an opt-out', async () => {
+      const updateCheck = vi.spyOn(
+        cli as unknown as { checkForUpdatesOnStartup(): Promise<void> },
+        'checkForUpdatesOnStartup'
+      ).mockResolvedValue(undefined);
+
+      await cli.run(['--help']);
+
+      expect(updateCheck).toHaveBeenCalledOnce();
+    });
+
     it('should disable color with --no-color', async () => {
       const originalColorEnabled = cli['output']['colorEnabled'];
       try {
