@@ -185,8 +185,8 @@ class PriorityMessageQueue {
         return queue.popFront();
       }
     }
-    // Fall back to any queue
-    for (const priority of PRIORITY_ORDER) {
+    // Only high/urgent remain; preserve urgent before high on overflow too.
+    for (const priority of ['high', 'urgent'] as Priority[]) {
       const queue = this.queues.get(priority)!;
       if (queue.length > 0) {
         this.totalCount--;
