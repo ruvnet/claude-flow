@@ -1296,13 +1296,15 @@ export async function recordTrajectory(
         const avgQuality = verdict === 'success' ? 1.0 : verdict === 'partial' ? 0.5 : 0.0;
         ruvllmCoord.recordTrajectory({
           steps: enrichedSteps.map(s => ({
-            state: s.content,
-            action: s.type,
-            reward: avgQuality,
-            embedding: s.embedding || []
+            type: ['query', 'route', 'generate', 'memory', 'feedback'].includes(s.type)
+              ? s.type : 'generate',
+            input: s.content,
+            output: '',
+            durationMs: 0,
+            confidence: avgQuality
           })),
           totalReward: avgQuality,
-          success: verdict === 'success'
+          outcome: verdict
         });
       } catch {
         // ruvllm recording failed silently
