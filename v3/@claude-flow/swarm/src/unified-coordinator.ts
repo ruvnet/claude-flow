@@ -443,12 +443,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   async cancelTask(taskId: string): Promise<void> {
     const task = this.state.tasks.get(taskId);
-    if (!task) {
+    if (!task || this.isTaskSettled(task)) {
       return;
     }
 
-    const wasTerminal =
-      task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
+    // Fence late worker reports and our asynchronously delivered cancellation
+    // notification before yielding to the message bus.
+    task.status = 'cancelled';
 
     // Notify assigned agent
     if (task.assignedTo) {
@@ -470,8 +471,6 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       }
     }
 
-    task.status = 'cancelled';
-
     this.emitEvent('task.failed', {
       taskId,
       reason: 'cancelled',
@@ -479,11 +478,9 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
     // A domain-pool agent stays in AgentPool.busy until it is explicitly
     // released. Cancel is a terminal transition, so return its slot (and
-    // dispatch the next queued task for that domain) only when this call
-    // actually ended a non-terminal task. A late/duplicate cancel for an
-    // already-terminal task must not steal an agent that has since been
-    // reassigned.
-    if (!wasTerminal && task.assignedTo) {
+    // dispatch the next queued task for that domain) now that the guard
+    // above has confirmed this call ended a non-terminal task.
+    if (task.assignedTo) {
       await this.releaseDomainAgent(task.assignedTo.id);
     }
   }
@@ -683,6 +680,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         scaleDownThreshold: 0.2,
         cooldownMs: 30000,
         healthCheckIntervalMs: this.config.healthCheckIntervalMs,
+        // Domain membership is an explicit 15-agent roster. Letting the pool
+        // create/remove agents would desynchronize it from state.agents,
+        // topology, message subscriptions and consensus (and produce agents
+        // whose task_complete reports are silently ignored).
+        autoScale: false,
+        healthChecks: false,
       });
 
       await pool.initialize();
@@ -763,6 +766,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       clearInterval(this.metricsInterval);
       this.metricsInterval = undefined;
     }
+  }
+
+  private isTaskSettled(task: TaskDefinition): boolean {
+    return task.status === 'completed' || task.status === 'failed' ||
+      task.status === 'cancelled';
   }
 
   private async assignTask(task: TaskDefinition): Promise<AgentState | undefined> {
@@ -898,10 +906,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
-      const wasTerminal =
-        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
-
+    if (task && agent && !this.isTaskSettled(task)) {
       task.status = 'completed';
       task.output = data.result;
       task.completedAt = new Date();
@@ -930,12 +935,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       // nothing in the completion path used to call it. Without this, every
       // completed task permanently consumed one slot; once a domain pool was
       // full, assignTaskToDomain() queued tasks forever because
-      // releaseAgentToDomain() had no callers. Only release on the transition
-      // out of a non-terminal state so a duplicate/late completion cannot free
-      // an agent already working on a reassigned task.
-      if (!wasTerminal) {
-        void this.releaseDomainAgent(agentId);
-      }
+      // releaseAgentToDomain() had no callers. The guard above already
+      // confirmed this is a transition out of a non-terminal state, so a
+      // duplicate/late completion cannot free an agent already working on a
+      // reassigned task.
+      void this.releaseDomainAgent(agentId);
     }
   }
 
@@ -943,10 +947,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
-      const wasTerminal =
-        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
-
+    if (task && agent && !this.isTaskSettled(task)) {
       // Check retry
       if (task.retries < task.maxRetries) {
         task.retries++;
@@ -975,9 +976,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         // untouched: handleTaskFail() re-queues them through assignTask(),
         // which may hand the task back to the same agent, so releasing here
         // would race that re-assignment.
-        if (!wasTerminal) {
-          void this.releaseDomainAgent(agentId);
-        }
+        void this.releaseDomainAgent(agentId);
       }
     }
   }
