@@ -108,13 +108,13 @@ export class CLI {
       const { command: commandPath, flags, positional } = parseResult;
 
       // Handle global flags
+      if (flags.noColor || flags.color === false) {
+        this.output.setColorEnabled(false);
+      }
+
       if (flags.version || flags.V) {
         this.showVersion();
         return;
-      }
-
-      if (flags.noColor) {
-        this.output.setColorEnabled(false);
       }
 
       // Set verbosity level based on flags
