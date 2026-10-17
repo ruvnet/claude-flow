@@ -358,6 +358,7 @@ export type SwarmEventType =
   | 'agent.heartbeat'
   | 'agent.domain_assigned'
   | 'agent.domain_pool_full'
+  | 'agent.domain_release_failed'
   | 'task.created'
   | 'task.assigned'
   | 'task.started'
@@ -519,7 +520,7 @@ export interface IMessageBus {
 export interface IAgentPool {
   initialize(config: AgentPoolConfig): Promise<void>;
   acquire(): Promise<AgentState | undefined>;
-  release(agentId: string): Promise<void>;
+  release(agentId: string, options?: { rescale?: boolean }): Promise<void>;
   add(agent: AgentState): Promise<void>;
   remove(agentId: string): Promise<void>;
   scale(delta: number): Promise<void>;

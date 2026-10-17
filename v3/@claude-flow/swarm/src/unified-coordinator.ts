@@ -447,6 +447,9 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       return;
     }
 
+    const wasTerminal =
+      task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
+
     // Notify assigned agent
     if (task.assignedTo) {
       await this.messageBus.send({
@@ -473,6 +476,16 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       taskId,
       reason: 'cancelled',
     });
+
+    // A domain-pool agent stays in AgentPool.busy until it is explicitly
+    // released. Cancel is a terminal transition, so return its slot (and
+    // dispatch the next queued task for that domain) only when this call
+    // actually ended a non-terminal task. A late/duplicate cancel for an
+    // already-terminal task must not steal an agent that has since been
+    // reassigned.
+    if (!wasTerminal && task.assignedTo) {
+      await this.releaseDomainAgent(task.assignedTo.id);
+    }
   }
 
   getTask(taskId: string): TaskDefinition | undefined {
@@ -886,6 +899,9 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const agent = this.state.agents.get(agentId);
 
     if (task && agent) {
+      const wasTerminal =
+        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
+
       task.status = 'completed';
       task.output = data.result;
       task.completedAt = new Date();
@@ -908,6 +924,18 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         agentId,
         result: data.result,
       });
+
+      // Domain pool ownership is separate from AgentState.status: acquire()
+      // leaves the agent in AgentPool.busy until release() is called, and
+      // nothing in the completion path used to call it. Without this, every
+      // completed task permanently consumed one slot; once a domain pool was
+      // full, assignTaskToDomain() queued tasks forever because
+      // releaseAgentToDomain() had no callers. Only release on the transition
+      // out of a non-terminal state so a duplicate/late completion cannot free
+      // an agent already working on a reassigned task.
+      if (!wasTerminal) {
+        void this.releaseDomainAgent(agentId);
+      }
     }
   }
 
@@ -916,6 +944,9 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const agent = this.state.agents.get(agentId);
 
     if (task && agent) {
+      const wasTerminal =
+        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
+
       // Check retry
       if (task.retries < task.maxRetries) {
         task.retries++;
@@ -939,6 +970,14 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
           agentId,
           error: data.error,
         });
+
+        // Terminal failure ends this agent's pool ownership. Retries are left
+        // untouched: handleTaskFail() re-queues them through assignTask(),
+        // which may hand the task back to the same agent, so releasing here
+        // would race that re-assignment.
+        if (!wasTerminal) {
+          void this.releaseDomainAgent(agentId);
+        }
       }
     }
   }
@@ -1609,17 +1648,66 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const domain = this.agentDomainMap.get(agentId);
     if (!domain) return;
 
+    // Read the queue before releasing: if a task is waiting, the just-freed
+    // slot must be handed to it before AgentPool.checkScaling() can remove
+    // the agent (a one-agent domain such as queen would otherwise scale to 0
+    // and the subsequent acquire() would create an unregistered pool agent).
+    const queue = this.domainTaskQueues.get(domain) || [];
+    const hasAssignableTask = queue.some(taskId => {
+      const task = this.state.tasks.get(taskId);
+      return task !== undefined && (task.status === 'queued' || task.status === 'created');
+    });
     const pool = this.domainPools.get(domain);
     if (pool) {
-      await pool.release(agentId);
+      await pool.release(agentId, { rescale: !hasAssignableTask });
     }
 
-    // Check if there are queued tasks for this domain
-    const queue = this.domainTaskQueues.get(domain) || [];
+    // Drain the next task that is still assignable. Cancelled or timed-out
+    // ids can remain in the queue; resurrecting one here would turn a
+    // terminal task back into 'assigned' and send it to a worker.
     if (queue.length > 0) {
-      const nextTaskId = queue.shift()!;
+      let nextTaskId: string | undefined;
+      while (queue.length > 0) {
+        const candidateId = queue.shift()!;
+        const candidate = this.state.tasks.get(candidateId);
+        if (candidate && (candidate.status === 'queued' || candidate.status === 'created')) {
+          nextTaskId = candidateId;
+          break;
+        }
+      }
       this.domainTaskQueues.set(domain, queue);
-      await this.assignTaskToDomain(nextTaskId, domain);
+      if (nextTaskId) {
+        await this.assignTaskToDomain(nextTaskId, domain);
+      }
+    }
+  }
+
+  /**
+   * Fire-and-forget release used by synchronous task handlers. A pool
+   * bookkeeping failure must not turn a completed/failed task into an
+   * unhandled rejection, but it must stay observable.
+   */
+  private async releaseDomainAgent(agentId: string): Promise<void> {
+    const domain = this.agentDomainMap.get(agentId);
+    if (!domain) return;
+
+    const pool = this.domainPools.get(domain);
+    // Only agents acquired from this pool are in its busy set. A generic
+    // assignment can share the same domain map; releasing it here would add
+    // an already-available agent back to the pool (and trigger an
+    // unnecessary scale-down decision).
+    const poolOwnsAgent = pool
+      ?.getBusyAgents()
+      .some(agent => agent.id.id === agentId);
+    if (!poolOwnsAgent) return;
+
+    try {
+      await this.releaseAgentToDomain(agentId);
+    } catch (error) {
+      this.emitEvent('agent.domain_release_failed', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

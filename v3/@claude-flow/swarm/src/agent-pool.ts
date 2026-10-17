@@ -130,7 +130,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
     return undefined;
   }
 
-  async release(agentId: string): Promise<void> {
+  async release(agentId: string, options: { rescale?: boolean } = {}): Promise<void> {
     const pooled = this.pooledAgents.get(agentId);
     if (!pooled) {
       return;
@@ -145,8 +145,13 @@ export class AgentPool extends EventEmitter implements IAgentPool {
 
     this.emit('agent.released', { agentId });
 
-    // Check if we need to scale down
-    await this.checkScaling();
+    // Check if we need to scale down. Callers that are about to dispatch a
+    // queued task into this just-freed slot pass rescale:false, because a
+    // scale-down here can remove the only available agent (e.g. the queen
+    // pool's maxSize 1) before the dispatch runs.
+    if (options.rescale !== false) {
+      await this.checkScaling();
+    }
   }
 
   async add(agent: AgentState): Promise<void> {
