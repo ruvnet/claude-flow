@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { attentionLine } from '../../ruflo-mods/hooks/attention'
 import { readDisk, type ReaderFs } from '../hooks/data/files'
 import { ruosRows } from '../hooks/data/harness-ruos'
@@ -110,6 +113,45 @@ describe('connection state and attention', () => {
 })
 
 describe('console and mod integration', () => {
+  it('reads the actual RunStore producer through healthy, disconnected and completed states with the same job and cursor', async () => {
+    // The producer is plain JavaScript in a sibling plugin. Resolve it at runtime to test its actual emitted bytes.
+    const source = '../../ruflo-ruos/scripts/lib/run-store.mjs'
+    const { RunStore } = await import(source)
+    const cwd = mkdtempSync(join(tmpdir(), 'ruflo-console-contract-'))
+    let now = NOW
+    try {
+      const store = new RunStore(cwd, () => new Date(now))
+      const runId = 'r-console-contract-001'
+      const desktopId = 'd'.repeat(32)
+      const binding = { missionId: `msn_${'a'.repeat(24)}`, missionRevision: 2, worktree: '/work/project/.worktrees/task-1', commit: 'b'.repeat(40), sourceDigest: `sha256:${'c'.repeat(64)}` }
+      store.reserve({ runId, agentId: 'coder-1', agentType: 'coder', desktopId, jobs: 'jobs-api', transport: 'fleet-mcp', jobId: 'server_job_7', state: 'running', connection: 'healthy', startedAt: iso(now), commandSha256: 'e'.repeat(64), exitCode: null, timeoutSecs: 60, stopAt: null, binding })
+      const read = () => parseRuos(readFileSync(join(cwd, '.claude-flow/ruos/observation.json'), 'utf8'))!
+      let observed = read()
+      expect(observed.runs[0]).toMatchObject({ runId, desktopId, jobId: 'server_job_7', state: 'running', connection: 'healthy', revision: 1, nextOffset: 0, binding })
+      expect(reconcileReason(observed.runs[0]!, observed, now)).toBeNull()
+      const identity = ruosRows(observed, cwd, now)[0]!.key
+
+      now += 1000
+      store.checkpoint(runId, { expectedOffset: 0, nextOffset: 6, chunk: Buffer.from('hello ') })
+      store.update(runId, { connection: 'disconnected' })
+      observed = read()
+      expect(observed.runs[0]).toMatchObject({ runId, jobId: 'server_job_7', state: 'running', connection: 'disconnected', revision: 3, nextOffset: 6 })
+      expect(ruosRows(observed, cwd, now)[0]!.key).toBe(identity)
+      expect(attentionOf(ruosRows(observed, cwd, now), { baselineMs: NOW - 1, seen: {} }, null).map(item => item.kind)).toEqual(['reconcile'])
+      expect(JSON.stringify(observed)).not.toContain('hello ')
+
+      now += 1000
+      store.update(runId, { state: 'completed', connection: 'healthy', exitCode: 0 })
+      observed = read()
+      expect(observed.runs[0]).toMatchObject({ runId, jobId: 'server_job_7', state: 'completed', connection: 'healthy', revision: 4, nextOffset: 6, exitCode: 0 })
+      const complete = ruosRows(observed, cwd, now)
+      expect(complete[0]).toMatchObject({ key: identity, status: 'done' })
+      expect(attentionOf(complete, { baselineMs: NOW - 1, seen: {} }, null).map(item => item.kind)).toEqual(['completed-unread'])
+    } finally {
+      rmSync(cwd, { recursive: true, force: true })
+    }
+  })
+
   it('surfaces remote work beside session-bound missions without starting any process', async () => {
     vi.useFakeTimers({ now: NOW })
     const w = world({ disk: {} })
