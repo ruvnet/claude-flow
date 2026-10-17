@@ -26,6 +26,7 @@ import {
   type RouterState,
 } from './facts'
 import { parseMissions, type MissionObservation } from './missions'
+import { parseRuos, type RuosObservation } from './ruos'
 import { readBounded, readDisk, textOf, type ProjectKey, type Read, type ReadCache, type ReaderFs } from './files'
 import { parseAgentdbMod, type AgentdbMod } from './agentdb-mod'
 import { readMods, type ModsFacts } from './mods'
@@ -84,6 +85,8 @@ export type Snapshot = {
   hasNostrKey: boolean | null
   plugins: PluginsFacts
   missions: MissionObservation | null
+  /** Durable remote jobs are observed separately from session-bound mission execution. */
+  ruos?: RuosObservation | null
   /** The ruflo-agentdb mod's own status file (ADR-445); null while the mod has not written one. */
   agentdbMod: AgentdbMod | null
   /** Project Anatole's reported files (ADR-453): unauthenticated, bounded, shape-checked. */
@@ -112,6 +115,7 @@ export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, 
   const location = markets?.find(market => market.name === RUFLO_MARKET)?.location
   const offered = location === undefined ? null : parseMarketplaceManifest(textOf(await readBounded(fs, cache, `${location}/.claude-plugin/marketplace.json`)))
   const reads = Object.fromEntries((Object.keys(disk.project) as ProjectKey[]).map(key => [key, statusOf(disk.project[key])])) as Snapshot['reads']
+  const ruos = parseRuos(text('ruos'))
 
   return {
     reads,
@@ -130,7 +134,7 @@ export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, 
     harnessPolicy: parseHarnessPolicy(text('harnessPolicy')),
     helpers: parseHelpers(text('helpersManifest')),
     helpersVersion: text('helpersVersion')?.trim().slice(0, 20) ?? null,
-    isRufloProject: text('config') !== null || swarm !== null || text('claims') !== null || text('daemon') !== null,
+    isRufloProject: text('config') !== null || swarm !== null || text('claims') !== null || text('daemon') !== null || ruos !== null,
     federationNodes: disk.federationNodes,
     hasNostrKey: disk.hasNostrKey,
     plugins: {
@@ -142,6 +146,7 @@ export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, 
       missingFromClone: offered === null ? [] : EXPECTED_IN_MARKET.filter(name => !offered.includes(name)),
     },
     missions: parseMissions(text('missions')),
+    ruos,
     agentdbMod: parseAgentdbMod(text('agentdbMod')),
     mods: await readMods(fs, cache, cwd),
     anatole: await readAnatole(fs, cache, cwd),

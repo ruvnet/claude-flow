@@ -30,6 +30,13 @@ describe('attention row of /ruflo-mods (ADR-486)', () => {
     for (const bad of ['', 'not json', summary({ schema: 'other' }), summary({ approve: -1 }), summary({ unread: 'many' }), `${summary()}${' '.repeat(3000)}`]) expect(attentionLine(bad, NOW)).toBeUndefined()
   })
 
+  test('optional remote reconciliation counts stay advisory and never become failures', () => {
+    expect(attentionLine(summary({ reconcile: 2 }), NOW)).toContain('2 remote runs to reconcile · 0 failed')
+    expect(attentionLine(summary({ reconcile: 1 }), NOW)).toContain('1 remote run to reconcile')
+    expect(attentionLine(summary({ reconcile: -1 }), NOW)).toBeUndefined()
+    expect(attentionLine(summary({ reconcile: 'many' }), NOW)).toBeUndefined()
+  })
+
   test('off by default: the report never reads the file', async ($, on) => {
     const w = world(on, {}, { [`${ROOT}/${ATTENTION_STATUS}`]: summary() })
     await $.session.start(START)

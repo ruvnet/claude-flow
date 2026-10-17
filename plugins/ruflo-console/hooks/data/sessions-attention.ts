@@ -1,6 +1,6 @@
 /**
- * The attention queue (ADR-486): what needs the person, across every harness. Four kinds, in this order: needs-approval, question, failed,
- * completed-unread. An approval or a question stays until the harness stops reporting it (viewing never clears one). A failure or a completion
+ * The attention queue (ADR-486): what needs the person, across every harness: needs-approval, question, reconcile, failed,
+ * completed-unread. Approval, question and reconciliation stay until the harness stops reporting them. A failure or a completion
  * clears once its content was actually displayed (`markViewed`, committed by the page after the frame that drew the preview), and comes back
  * only if the session moves on to something newer. Completions older than the baseline (when this queue first ran) are history, not unread.
  * An unassigned row raises nothing: its identity is in doubt.
@@ -14,7 +14,7 @@ export const SEEN_MAX = 500
 export type AttentionItem = { id: string; kind: AttentionKind; rowKey: string | null; title: string; harness: string; atMs: number; detail: string; stale: boolean }
 export type PendingAsk = { label: string; askedAtMs: number } | null
 
-const DETAIL: Record<AttentionKind, string> = { 'needs-approval': 'waiting for your yes', question: 'asked you a question', failed: 'the last tool failed', 'completed-unread': 'finished since you looked' }
+const DETAIL: Record<AttentionKind, string> = { 'needs-approval': 'waiting for your yes', question: 'asked you a question', reconcile: 'check the existing remote run before retrying', failed: 'the last tool failed', 'completed-unread': 'finished since you looked' }
 
 export const newViewed = (nowMs: number): Viewed => ({ baselineMs: nowMs, seen: {} })
 
@@ -58,10 +58,11 @@ export function attentionOf(rows: readonly SessionRow[], viewed: Viewed, pending
   for (const row of rows) {
     if (row.unassigned !== null) continue
 
-    const add = (kind: AttentionKind, atMs: number) => items.push({ id: seenKey(row.key, kind), kind, rowKey: row.key, title: row.title, harness: row.harness, atMs, detail: DETAIL[kind], stale: row.stale !== null })
+    const add = (kind: AttentionKind, atMs: number) => items.push({ id: seenKey(row.key, kind), kind, rowKey: row.key, title: row.title, harness: row.harness, atMs, detail: kind === 'reconcile' ? row.signals.reconcile ?? DETAIL[kind] : DETAIL[kind], stale: row.stale !== null })
 
     if (row.signals.approval) add('needs-approval', row.updatedMs)
     if (row.signals.question) add('question', row.updatedMs)
+    if (row.signals.reconcile !== undefined) add('reconcile', row.updatedMs)
     // A time is never believed past the row's own last write (the adapters also hold it to the clock: harness-text.ts believedAt), so nothing
     // stored as seen can sit in the future and silence the session.
     const held = (ms: number): number => Math.max(1, Math.min(ms, row.updatedMs > 0 ? row.updatedMs : Number.POSITIVE_INFINITY))
@@ -105,6 +106,7 @@ export function markViewed(viewed: Viewed, items: readonly AttentionItem[]): Vie
 export const countsOf = (items: readonly AttentionItem[]): Record<AttentionKind, number> => ({
   'needs-approval': items.filter(item => item.kind === 'needs-approval').length,
   question: items.filter(item => item.kind === 'question').length,
+  reconcile: items.filter(item => item.kind === 'reconcile').length,
   failed: items.filter(item => item.kind === 'failed').length,
   'completed-unread': items.filter(item => item.kind === 'completed-unread').length,
 })

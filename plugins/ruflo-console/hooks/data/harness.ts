@@ -18,8 +18,8 @@ export type Capabilities = Record<Capability, CapabilityState>
 export const yes = (why = 'verified against the on-disk format'): CapabilityState => ({ supported: true, why })
 export const no = (why: string): CapabilityState => ({ supported: false, why })
 
-/** The four kinds the attention queue shows. */
-export const ATTENTION_KINDS = ['needs-approval', 'question', 'failed', 'completed-unread'] as const
+/** A reconciliation is distinct from a failure: the process may still be running. */
+export const ATTENTION_KINDS = ['needs-approval', 'question', 'reconcile', 'failed', 'completed-unread'] as const
 export type AttentionKind = (typeof ATTENTION_KINDS)[number]
 
 /** Cost is never guessed: `reported` came from the harness, `estimated` from a stated rule, `unavailable` is shown as such. */
@@ -34,6 +34,8 @@ export type Preview = {
 }
 
 export type Signals = {
+  /** A remote observation needs reconciliation. Viewing never resolves it or restarts work. */
+  reconcile?: string
   /** A question put to the person is open (the harness asked, nothing has answered). */
   question: boolean
   /** An approval is open (only an adapter that declares `approvals` sets it). */
