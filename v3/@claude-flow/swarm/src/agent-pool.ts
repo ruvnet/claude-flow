@@ -44,6 +44,8 @@ export class AgentPool extends EventEmitter implements IAgentPool {
       scaleDownThreshold: config.scaleDownThreshold ?? 0.2,
       cooldownMs: config.cooldownMs ?? 30000,
       healthCheckIntervalMs: config.healthCheckIntervalMs ?? SWARM_CONSTANTS.DEFAULT_HEALTH_CHECK_INTERVAL_MS,
+      autoScale: config.autoScale ?? true,
+      healthChecks: config.healthChecks ?? true,
     };
   }
 
@@ -52,15 +54,22 @@ export class AgentPool extends EventEmitter implements IAgentPool {
       this.config = { ...this.config, ...config };
     }
 
-    // Start with minimum pool size - create agents in parallel
+    // Start with minimum pool size - create agents in parallel. Pools whose
+    // membership is externally owned (domain pools) must start empty even if a
+    // caller supplied minSize; explicit add()/spawnAgent() is the only way in.
+    const initialSize = this.config.autoScale ? this.config.minSize : 0;
     const createPromises = Array.from(
-      { length: this.config.minSize },
+      { length: initialSize },
       () => this.createPooledAgent()
     );
     await Promise.all(createPromises);
 
-    // Start health checks
-    this.startHealthChecks();
+    // Start health checks only when the pool owns liveness. Domain pools
+    // explicitly disable this; UnifiedSwarmCoordinator.checkHeartbeats()
+    // remains the authority for their agents.
+    if (this.config.healthChecks) {
+      this.startHealthChecks();
+    }
 
     this.emit('initialized', {
       poolName: this.config.name,
@@ -109,8 +118,11 @@ export class AgentPool extends EventEmitter implements IAgentPool {
       }
     }
 
-    // No available agents, try to scale up
-    if (this.pooledAgents.size < this.config.maxSize) {
+    // No available agents, try to scale up. Pools that do not own their
+    // membership (domain pools) must never synthesize an agent here: it would
+    // not exist in the coordinator's state/topology/bus and could never report
+    // task completion.
+    if (this.config.autoScale && this.pooledAgents.size < this.config.maxSize) {
       const agent = await this.createPooledAgent();
       if (agent) {
         const pooled = this.pooledAgents.get(agent.id.id)!;
@@ -131,7 +143,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
     return undefined;
   }
 
-  async release(agentId: string): Promise<void> {
+  async release(agentId: string, options: { rescale?: boolean } = {}): Promise<void> {
     const pooled = this.pooledAgents.get(agentId);
     if (!pooled) {
       return;
@@ -146,8 +158,13 @@ export class AgentPool extends EventEmitter implements IAgentPool {
 
     this.emit('agent.released', { agentId });
 
-    // Check if we need to scale down
-    await this.checkScaling();
+    // Check if we need to scale down. Callers that are about to dispatch a
+    // queued task into this just-freed slot pass rescale:false, because a
+    // scale-down here can remove the only available agent (e.g. the queen
+    // pool's maxSize 1) before the dispatch runs.
+    if (options.rescale !== false) {
+      await this.checkScaling();
+    }
   }
 
   async add(agent: AgentState): Promise<void> {
@@ -183,6 +200,13 @@ export class AgentPool extends EventEmitter implements IAgentPool {
 
   async scale(delta: number): Promise<void> {
     this.reconcileReservations();
+
+    // Explicit-roster pools cannot grow/shrink themselves; a caller that wants
+    // a domain member must add a registered agent through the coordinator.
+    if (!this.config.autoScale) {
+      return;
+    }
+
     const now = new Date();
 
     // Check cooldown
@@ -363,6 +387,13 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   private async checkScaling(): Promise<void> {
+    // Explicit-roster pools (domain pools) never resize themselves. Scaling
+    // them up creates agents the coordinator does not know about; scaling them
+    // down removes agents the coordinator still lists.
+    if (!this.config.autoScale) {
+      return;
+    }
+
     const utilization = this.getUtilization();
 
     if (utilization >= this.config.scaleUpThreshold &&

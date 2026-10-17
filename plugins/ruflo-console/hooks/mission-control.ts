@@ -29,7 +29,11 @@ export { cancelSpec, createSpec, createWhy, dispatchSpec, resultOf, setPaused }
 export type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
 
 const states = new WeakMap<State, McState>()
+/** The pre-#4237 ledger key, shared by every project on the machine. Read once per project as a fallback, never written for a known cwd. */
 export const LEDGER_KEY = 'mission-ledger'
+
+/** The mission ledger is per project, like the UI view (`storeKeyOf`): one machine-wide key let one project's active mission drive another's. */
+export const ledgerKeyOf = (cwd: string): string => (cwd === '' ? LEDGER_KEY : `${LEDGER_KEY}:${cwd}`)
 
 export function mcOf(state: State): McState {
   let found = states.get(state)
@@ -148,11 +152,16 @@ export function record(mission: MissionRecord, event: Omit<LedgerEvent, 'seq' | 
 export function saveLedger(state: State, host: Host): void {
   const mc = mcOf(state)
 
-  void host.storeSet(LEDGER_KEY, { active: mc.active, missions: [...mc.missions.values()].slice(-20) }).catch(() => undefined)
+  void host.storeSet(ledgerKeyOf(state.cwd), { active: mc.active, missions: [...mc.missions.values()].slice(-20) }).catch(() => undefined)
 }
 
 export async function loadLedger(state: State, host: Host): Promise<void> {
-  const saved = await host.storeGet(LEDGER_KEY).catch(() => undefined)
+  const key = ledgerKeyOf(state.cwd)
+  const own = await host.storeGet(key).catch(() => undefined)
+  // A project with no ledger of its own falls back to the old machine-wide one, keeping only missions not recorded for another project and
+  // never its `active`: that was whichever project wrote last (#4237).
+  const isLegacy = own === undefined && key !== LEDGER_KEY
+  const saved = isLegacy ? await host.storeGet(LEDGER_KEY).catch(() => undefined) : own
   const missions = (saved as { missions?: unknown } | undefined)?.missions
   const mc = mcOf(state)
 
@@ -161,11 +170,15 @@ export async function loadLedger(state: State, host: Host): Promise<void> {
   for (const raw of missions.slice(0, 20)) {
     const m = raw as MissionRecord
 
+    if (m?.cwd !== undefined && m.cwd !== state.cwd) continue
+
     const isShaped = Array.isArray(m?.tasks) && m.tasks.every(task => typeof task?.id === 'string' && Array.isArray(task.dependsOn)) && Array.isArray(m.events)
 
     // Auto-run never survives a restart: a new session starts by asking.
     if (typeof m?.id === 'string' && /^msn_[a-f0-9]{24}$/.test(m.id) && isShaped) mc.missions.set(m.id, { ...m, auto: false, ...(Array.isArray(m.adrs) && { adrs: m.adrs.filter(file => typeof file === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,119}\.md$/.test(file)).slice(0, 8) }) })
   }
+
+  if (isLegacy) return
 
   const active = (saved as { active?: unknown }).active
 
