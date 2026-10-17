@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync, execSync, spawn } from 'node:child_process';
 import { readFileSync, mkdtempSync, writeFileSync, chmodSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -163,6 +163,14 @@ test('real /bin/sh: hostile prompt round-trips inert; run completes and stops', 
   assert.equal(stale !== 'norun' && stale.alive, false, 'a stale process receipt is not liveness');
   assert.throws(() => sh(buildStop(run2, N), env2), 'stale process identity must not be signalled');
   writeFileSync(bootFile, originalBoot);
+  const pidFile = join(home, '.ruflo-ruos/runs', run2, 'pid');
+  const originalPid = readFileSync(pidFile, 'utf8');
+  const unrelated = spawn('sleep', ['30'], { stdio: 'ignore' });
+  try {
+    writeFileSync(pidFile, String(unrelated.pid));
+    assert.throws(() => sh(buildStop(run2, N), env2), e => /STALE_PID/.test(String(e.stdout)), 'the verified process must match the signalled PID namespace target');
+    assert.doesNotThrow(() => process.kill(unrelated.pid, 0), 'unrelated process remains alive');
+  } finally { writeFileSync(pidFile, originalPid); unrelated.kill(); }
   assert.match(sh(buildStop(run2, N), env2), new RegExp(`^RUOS${N}_STOPPED$`, 'm'));
 });
 

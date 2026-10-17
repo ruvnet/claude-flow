@@ -166,7 +166,7 @@ export function buildPoll(runId, offset, n, maxBytes = POLL_SLICE_BYTES) {
   return seal(
     `cd ${d} 2>/dev/null || { ${say(n, 'NORUN')} ; exit 3; }` +
       ` ; e=$(cat exit.code 2>/dev/null || echo -) ; s=$(stat -c %s out.log 2>/dev/null || echo 0)` +
-      ` ; p=$(cat pid 2>/dev/null) ; a=0 ; case "$p" in ''|*[!0-9]*) ;; *) b=$(cat boot.id 2>/dev/null) ; t=$(cat pid.start 2>/dev/null) ; q=$(cat pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; c=$(sed 's/.*) //' "/proc/$q/stat" 2>/dev/null | cut -d ' ' -f20) ; if [ -n "$b" ] && [ -n "$t" ] && [ "$b" = "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)" ] && [ "$t" = "$c" ]; then kill -0 "$p" 2>/dev/null && a=1 ; fi ;; esac` +
+      ` ; p=$(cat pid 2>/dev/null) ; a=0 ; case "$p" in ''|*[!0-9]*) ;; *) b=$(cat boot.id 2>/dev/null) ; t=$(cat pid.start 2>/dev/null) ; q=$(cat pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; v=$(awk '/^NSpid:/ {print $NF}' "/proc/$q/status" 2>/dev/null) ; c=$(sed 's/.*) //' "/proc/$q/stat" 2>/dev/null | cut -d ' ' -f20) ; if [ "$v" = "$p" ] && [ -n "$b" ] && [ -n "$t" ] && [ "$b" = "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)" ] && [ "$t" = "$c" ]; then kill -0 "$p" 2>/dev/null && a=1 ; fi ;; esac` +
       ` ; ${say(n, 'POLL', '%s:%s:%s:', '"$e" "$s" "$a"')} ; tail -c +${off + 1} out.log 2>/dev/null | head -c ${max} | base64 -w0 ; echo`,
   );
 }
@@ -182,8 +182,8 @@ export function buildStop(runId, n) {
   return seal(
     `p=$(cat ${d}/pid 2>/dev/null)` +
       ` ; case "$p" in ''|*[!0-9]*) ${say(n, 'NOPID')} ; exit 4;; esac` +
-      ` ; b=$(cat ${d}/boot.id 2>/dev/null) ; t=$(cat ${d}/pid.start 2>/dev/null) ; q=$(cat ${d}/pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; c=$(sed 's/.*) //' \"/proc/$q/stat\" 2>/dev/null | cut -d ' ' -f20)` +
-      ` ; if [ -z \"$b\" ] || [ -z \"$t\" ] || [ \"$b\" != \"$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)\" ] || [ \"$t\" != \"$c\" ]; then ${say(n, 'STALE_PID')} ; exit 5 ; fi` +
+      ` ; b=$(cat ${d}/boot.id 2>/dev/null) ; t=$(cat ${d}/pid.start 2>/dev/null) ; q=$(cat ${d}/pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; v=$(awk '/^NSpid:/ {print $NF}' "/proc/$q/status" 2>/dev/null) ; c=$(sed 's/.*) //' \"/proc/$q/stat\" 2>/dev/null | cut -d ' ' -f20)` +
+      ` ; if [ \"$v\" != \"$p\" ] || [ -z \"$b\" ] || [ -z \"$t\" ] || [ \"$b\" != \"$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)\" ] || [ \"$t\" != \"$c\" ]; then ${say(n, 'STALE_PID')} ; exit 5 ; fi` +
       ` ; if { kill -TERM -- -"$p" 2>/dev/null || kill -TERM "$p" 2>/dev/null; } ; then ${say(n, 'STOPPED')} ; else ${say(n, 'NOT_RUNNING')} ; fi`,
   );
 }
