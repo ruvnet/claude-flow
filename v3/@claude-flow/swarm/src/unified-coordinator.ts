@@ -392,7 +392,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
   }
 
   getAvailableAgents(): AgentState[] {
-    return this.getAllAgents().filter(a => a.status === 'idle');
+    return this.getAllAgents().filter(a => a.status === 'idle' && !a.currentTask);
   }
 
   // ===== TASK MANAGEMENT =====
@@ -1162,8 +1162,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       throw new Error(`Domain pool ${domain} not found`);
     }
 
-    // Try to acquire an agent from the domain pool
-    const agent = await pool.acquire();
+    // A global assignment can already own this task in the requested domain.
+    // Transfer that reservation rather than trying to acquire the busy owner twice.
+    const owner = task.assignedTo && this.state.agents.get(task.assignedTo.id);
+    const sameReservation = owner?.status === 'busy' && owner.currentTask?.id === taskId &&
+      this.agentDomainMap.get(owner.id.id) === domain;
+    const agent = sameReservation ? owner : await pool.acquire();
     if (!agent) {
       // Add to domain queue if no agents available
       const queue = this.domainTaskQueues.get(domain) || [];
@@ -1185,6 +1189,8 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     task.status = 'assigned';
     task.assignedTo = agent.id;
     task.startedAt = new Date();
+    agent.status = 'busy';
+    agent.currentTask = task.id;
 
     // Track assignment
     const assignment: TaskAssignment = {
@@ -1691,13 +1697,16 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     if (!domain) return;
 
     const pool = this.domainPools.get(domain);
-    // Only agents acquired from this pool are in its busy set. A generic
-    // assignment can share the same domain map; releasing it here would add
-    // an already-available agent back to the pool (and trigger an
-    // unnecessary scale-down decision).
-    const poolOwnsAgent = pool
-      ?.getBusyAgents()
-      .some(agent => agent.id.id === agentId);
+    // Membership, not current busy/available bucket: by the time this runs,
+    // the caller (handleTaskComplete/handleTaskFail/cancelTask) has already
+    // reset the shared AgentState to idle, and AgentPool's busy/available
+    // sets self-heal from that live status on every read (reconcileReservations).
+    // Checking getBusyAgents() here would therefore always read this agent as
+    // already-available and skip the release entirely. A generic assignment
+    // can share the same domain map without ever being a pool member; only
+    // skip release for those (releasing them would add an already-available
+    // agent back to the pool and trigger an unnecessary scale-down decision).
+    const poolOwnsAgent = pool?.getAgent(agentId) !== undefined;
     if (!poolOwnsAgent) return;
 
     try {

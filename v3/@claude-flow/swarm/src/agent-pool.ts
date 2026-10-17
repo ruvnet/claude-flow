@@ -96,6 +96,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   async acquire(): Promise<AgentState | undefined> {
+    this.reconcileReservations();
     // Try to get an available agent
     const availableId = this.available.values().next().value as string | undefined;
 
@@ -178,7 +179,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
     };
 
     this.pooledAgents.set(agent.id.id, pooled);
-    this.available.add(agent.id.id);
+    this.reconcileReservations();
 
     this.emit('agent.added', { agentId: agent.id.id });
   }
@@ -198,6 +199,8 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   async scale(delta: number): Promise<void> {
+    this.reconcileReservations();
+
     // Explicit-roster pools cannot grow/shrink themselves; a caller that wants
     // a domain member must add a registered agent through the coordinator.
     if (!this.config.autoScale) {
@@ -253,6 +256,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   getState(): AgentPoolState {
+    this.reconcileReservations();
     return {
       id: `pool_${this.config.name}`,
       config: { ...this.config },
@@ -269,10 +273,12 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   getAvailableCount(): number {
+    this.reconcileReservations();
     return this.available.size;
   }
 
   getBusyCount(): number {
+    this.reconcileReservations();
     return this.busy.size;
   }
 
@@ -281,11 +287,27 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   getUtilization(): number {
+    this.reconcileReservations();
     if (this.pooledAgents.size === 0) return 0;
     return this.busy.size / this.pooledAgents.size;
   }
 
   // ===== PRIVATE METHODS =====
+
+  private reconcileReservations(): void {
+    // Coordinator paths share these AgentState objects. Their current ownership
+    // must win over cached pool membership, including before scale-down.
+    for (const [id, { agent }] of this.pooledAgents) {
+      if (agent.status === 'idle' && !agent.currentTask) {
+        this.busy.delete(id);
+        this.available.add(id);
+      } else {
+        this.available.delete(id);
+        if (agent.status === 'busy' || agent.currentTask) this.busy.add(id);
+        else this.busy.delete(id);
+      }
+    }
+  }
 
   private async createPooledAgent(): Promise<AgentState | undefined> {
     if (this.pooledAgents.size >= this.config.maxSize) {
@@ -455,12 +477,14 @@ export class AgentPool extends EventEmitter implements IAgentPool {
   }
 
   getAvailableAgents(): AgentState[] {
+    this.reconcileReservations();
     return Array.from(this.available)
       .map(id => this.pooledAgents.get(id)?.agent)
       .filter((a): a is AgentState => a !== undefined);
   }
 
   getBusyAgents(): AgentState[] {
+    this.reconcileReservations();
     return Array.from(this.busy)
       .map(id => this.pooledAgents.get(id)?.agent)
       .filter((a): a is AgentState => a !== undefined);
@@ -490,6 +514,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
     avgHealth: number;
     avgUsageCount: number;
   } {
+    this.reconcileReservations();
     const agents = Array.from(this.pooledAgents.values());
     const avgHealth = agents.length > 0
       ? agents.reduce((sum, p) => sum + p.agent.health, 0) / agents.length
@@ -502,7 +527,7 @@ export class AgentPool extends EventEmitter implements IAgentPool {
       total: this.pooledAgents.size,
       available: this.available.size,
       busy: this.busy.size,
-      utilization: this.getUtilization(),
+      utilization: agents.length > 0 ? this.busy.size / agents.length : 0,
       avgHealth,
       avgUsageCount,
     };
