@@ -133,7 +133,7 @@ export class CLI {
       }
 
       // Run startup update check (non-blocking, silent on skip)
-      if (!flags.noUpdate && commandPath[0] !== 'update') {
+      if (!flags.noUpdate && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json)) {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
@@ -587,7 +587,7 @@ export class CLI {
     } catch (error) {
       // Config loading is optional - don't fail if it doesn't exist
       if (process.env.DEBUG) {
-        this.output.writeln(
+        this.output.writeErrorln(
           this.output.dim(`Config loading failed: ${(error as Error).message}`)
         );
       }
