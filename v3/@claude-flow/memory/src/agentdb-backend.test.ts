@@ -4,7 +4,7 @@
  * Tests for agentdb@2.0.0-alpha.3.4 integration with V3 memory system
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentDBBackend } from './agentdb-backend.js';
 import { createDefaultEntry } from './types.js';
 
@@ -213,6 +213,58 @@ describe('AgentDBBackend', () => {
       });
 
       expect(results.length).toBeGreaterThan(0);
+    });
+
+    it('should not log a false "HNSW search failed" error on a real agentdb instance', async () => {
+      // `this.agentdb.getController('hnsw')` (storeInAgentDB / searchWithAgentDB
+      // / getStats) always throws `Error('Unknown controller: hnsw')` against
+      // every real `agentdb` release — its own `AgentDB.getController()`
+      // switch recognizes only 'memory'/'reflexion', 'skills', and
+      // 'causal'/'causalGraph'. The old code caught that throw in
+      // searchWithAgentDB and logged it as `console.error('HNSW search
+      // failed:', error)` on every single search, even though the result
+      // (falling back to bruteForceSearch) was identical either way.
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const entry = createDefaultEntry({
+        key: 'hnsw-dead-path-test',
+        content: 'content',
+      });
+      entry.embedding = new Float32Array([0.1, 0.2, 0.3, 0.4]);
+      await backend.store(entry);
+
+      const results = await backend.search(new Float32Array([0.1, 0.2, 0.3, 0.4]), { k: 5 });
+      expect(results.length).toBeGreaterThan(0);
+
+      const hnswErrorCalls = errorSpy.mock.calls.filter((args) =>
+        String(args[0]).includes('HNSW search failed')
+      );
+      expect(hnswErrorCalls).toHaveLength(0);
+
+      await backend.getStats();
+      const hnswErrorCallsAfterStats = errorSpy.mock.calls.filter((args) =>
+        String(args[0]).includes('HNSW search failed')
+      );
+      expect(hnswErrorCallsAfterStats).toHaveLength(0);
+
+      errorSpy.mockRestore();
+    });
+
+    it('pins that the real agentdb package has no "hnsw" controller (regression guard)', async () => {
+      // If a future `agentdb` release ever adds real HNSW controller support,
+      // this test should start failing loudly — that is the signal to revisit
+      // the dead-code removal above and wire the real controller in, rather
+      // than silently leaving storeInAgentDB/searchWithAgentDB/getStats
+      // forever skipping it.
+      const agentdbModule: any = await import('agentdb');
+      const AgentDBCtor = agentdbModule.AgentDB;
+      const instance = new AgentDBCtor({ dbPath: ':memory:', namespace: 'pin-test' });
+      await instance.initialize();
+      try {
+        expect(() => instance.getController('hnsw')).toThrow(/Unknown controller/);
+      } finally {
+        await instance.close?.();
+      }
     });
   });
 

@@ -545,25 +545,13 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       entriesByType[entry.type]++;
     }
 
-    // Get HNSW stats if available
-    let hnswStats: HNSWStats | undefined;
-    if (this.agentdb && HNSWIndex) {
-      try {
-        const hnsw = this.agentdb.getController('hnsw');
-        if (hnsw) {
-          const stats = hnsw.getStats();
-          hnswStats = {
-            vectorCount: stats.numElements || 0,
-            memoryUsage: 0,
-            avgSearchTime: stats.avgSearchTimeMs || 0,
-            buildTime: stats.lastBuildTime || 0,
-            compressionRatio: 1.0,
-          };
-        }
-      } catch {
-        // HNSW not available
-      }
-    }
+    // NOTE: `hnswStats` is intentionally always undefined here. It used to
+    // call `this.agentdb.getController('hnsw')` in a try/catch, but that
+    // call always throws `Error('Unknown controller: hnsw')` against every
+    // real `agentdb` release (see the matching note in storeInAgentDB),
+    // so this path never once produced real stats — just a swallowed
+    // exception on every getStats() call.
+    const hnswStats: HNSWStats | undefined = undefined;
 
     return {
       totalEntries: this.entries.size,
@@ -739,19 +727,17 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       // AgentDB storage failed - entry is already in-memory
     }
 
-    // Add to vector index if HNSW is available
-    if (entry.embedding && HNSWIndex) {
-      try {
-        const hnsw = this.agentdb.getController('hnsw');
-        if (hnsw) {
-          // Convert string ID to number for HNSW (use hash)
-          const numericId = this.stringIdToNumeric(entry.id);
-          hnsw.addVector(numericId, entry.embedding);
-        }
-      } catch {
-        // HNSW not available
-      }
-    }
+    // NOTE: there is intentionally no "add to native HNSW controller" step
+    // here. `this.agentdb.getController('hnsw')` always throws
+    // `Error('Unknown controller: hnsw')` against every real `agentdb`
+    // release (confirmed by reading `AgentDB.getController()`'s own switch
+    // statement in the installed package — it recognizes only
+    // 'memory'/'reflexion', 'skills', and 'causal'/'causalGraph'; anything
+    // else hits its `default: throw`). The previous version of this method
+    // called it in a try/catch on every single store(), paying for a thrown
+    // JS exception it then silently discarded. Search already unconditionally
+    // falls back to bruteForceSearch() (see searchWithAgentDB below), so
+    // there was never a real index for this call to populate.
   }
 
   /**
@@ -846,35 +832,15 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       return [];
     }
 
-    try {
-      const hnsw = this.agentdb.getController('hnsw');
-      if (!hnsw) {
-        return this.bruteForceSearch(embedding, options);
-      }
-
-      const results = await hnsw.search(embedding, options.k, {
-        threshold: options.threshold,
-      });
-
-      const searchResults: SearchResult[] = [];
-
-      for (const result of results) {
-        const id = this.numericIdToString(result.id);
-        const entry = await this.get(id);
-        if (!entry) continue;
-
-        searchResults.push({
-          entry,
-          score: result.similarity,
-          distance: result.distance,
-        });
-      }
-
-      return searchResults;
-    } catch (error) {
-      console.error('HNSW search failed:', error);
-      return this.bruteForceSearch(embedding, options);
-    }
+    // NOTE: this always goes straight to bruteForceSearch(). It previously
+    // tried `this.agentdb.getController('hnsw')` first, but that call always
+    // throws `Error('Unknown controller: hnsw')` against every real
+    // `agentdb` release (see the matching note in storeInAgentDB above), so
+    // the catch here logged a misleading "HNSW search failed" to stderr on
+    // every single search call and then fell back to bruteForceSearch()
+    // anyway — the exact same call made unconditionally below, just without
+    // the thrown exception or the log spam.
+    return this.bruteForceSearch(embedding, options);
   }
 
   /**
