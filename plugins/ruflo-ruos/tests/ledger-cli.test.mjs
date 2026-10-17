@@ -52,14 +52,18 @@ test('hosts.json merges: discovery keeps placements, runs keep other hosts', () 
   assert.deepEqual(read().find((/** @type {any} */ h) => h.desktopId === DESKTOP_ID).agents, []);
 });
 
-test('policy denial / missing tool degrades to unavailable without throwing', async () => {
-  const ledger = createLedger({ cwd: tmp(), callTool: async () => { throw new Error('policy-denied:enforce; receipt=x'); } });
-  await ledger.registerAgent('a1', 'coder', host, 't');
-  assert.equal(ledger.swarmLedger, 'unavailable');
-  assert.equal(await ledger.claim('r-ledger-0001', 'a1', 'coder'), true, 'no ledger means no claim conflict to report');
-  assert.ok(ledger.warnings[0].includes('policy-denied'));
-  const conflict = createLedger({ cwd: tmp(), callTool: async () => ({ success: false, error: 'Issue already claimed' }) });
-  assert.equal(await conflict.claim('r-ledger-0001', 'a1', 'coder'), false);
+test('explicit policy refusal fails closed; only missing optional tools degrade', async () => {
+  const ledger = createLedger({ cwd: tmp(), callTool: async () => { throw new Error('policy-denied:enforce; secret receipt=x'); } });
+  await assert.rejects(ledger.registerAgent('a1', 'coder', host, 't'), e => e.code === 'policy-denied' && !e.message.includes('secret'));
+  assert.equal(ledger.swarmLedger, 'cli', 'a denial never disables the policy integration');
+  await assert.rejects(ledger.claim('r-ledger-0001', 'a1', 'coder'), e => e.code === 'policy-denied');
+  for (const response of [{ success: false, error: 'Issue already claimed' }, { ok: false }, { allowed: false }, { decision: 'deny' }, { isError: true }]) {
+    const conflict = createLedger({ cwd: tmp(), callTool: async () => response });
+    await assert.rejects(conflict.claim('r-ledger-0001', 'a1', 'coder'), e => e.code === 'policy-denied');
+  }
+  const missing = createLedger({ cwd: tmp(), callTool: async () => { throw new Error('unknown tool claims_claim'); } });
+  assert.equal(await missing.claim('r-ledger-0001', 'a1', 'coder'), true);
+  assert.equal(missing.swarmLedger, 'unavailable');
   const none = createLedger({ cwd: tmp(), callTool: null });
   assert.equal(none.swarmLedger, 'unavailable');
 });

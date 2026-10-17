@@ -96,15 +96,15 @@ test('--start wakes the desktop and waits for a fresh heartbeat (not `ready`)', 
   assert.ok(ledger.events.some((e) => e.type === 'desktop.state' && e.state === 'started'));
 });
 
-test('desktop auto-stopped mid-run is reported as auto-stopped and released', async () => {
+test('desktop auto-stopped mid-run retains its claim until outcome reconciliation', async () => {
   const clock = fakeClock();
   let calls = 0;
   const fleet = fakeFleet(() => [desktop(++calls <= 1 ? { heartbeatAt: Math.floor(clock.now() / 1000) } : { state: 'stopped', heartbeatStatus: 'asleep' })]);
   const ledger = fakeLedger();
   const adapter = new RuosHostAdapter({ fleet, jobs: createExecPollTransport(remote([`RUOS_POLL:-:2:1:${b64('hi')}`, 'THROW'])), ledger: /** @type {any} */ (ledger), now: clock.now, sleep: clock.sleep });
   await assert.rejects(adapter.run(base), (e) => e instanceof RuosError && e.code === 'auto-stopped');
-  assert.ok(ledger.calls.some((c) => c[0] === 'release'), 'claim released on failure');
-  assert.equal(ledger.events.at(-1).type, 'run.failed');
+  assert.ok(!ledger.calls.some((c) => c[0] === 'release'), 'claim retained for uncertain execution');
+  assert.equal(ledger.events.at(-1).type, 'run.disconnected');
   assert.equal(ledger.events.at(-1).error, 'auto-stopped');
 });
 
@@ -155,7 +155,7 @@ test('run timeout stops the remote process group', async () => {
 
 test('abort signal stops the run and records run.stopped', async () => {
   const ac = new AbortController();
-  const { adapter, ledger } = setup({ transport: remote([`RUOS_POLL:-:1:1:${b64('x')}`, 'RUOS_POLL:-:1:1:']) });
+  const { adapter, ledger } = setup({ transport: remote([`RUOS_POLL:-:1:1:${b64('x')}`, 'RUOS_POLL:143:1:0:']) });
   const p = adapter.run({ ...base, signal: ac.signal, onOutput: () => ac.abort() });
   const out = await p;
   assert.equal(out.status, 'stopped');
@@ -174,7 +174,7 @@ test('destructive ops require explicit confirm', async () => {
   await assert.rejects(adapter.stopDesktop({ desktop: 'Work Desktop' }), (e) => e instanceof RuosError && e.code === 'confirm-required');
   assert.equal(transport.commands.length, 0);
   assert.ok(!fleet.calls.some((c) => c[0] === 'stop'));
-  assert.deepEqual(await adapter.stopRun({ desktop: 'Work Desktop', runId: RUN, confirm: true }), { runId: RUN, desktopId: DESKTOP_ID, stopped: true });
+  await assert.rejects(adapter.stopRun({ desktop: 'Work Desktop', runId: RUN, confirm: true }), (e) => e instanceof RuosError && e.code === 'run-not-found');
   await adapter.stopDesktop({ desktop: 'Work Desktop', confirm: true });
   assert.deepEqual(fleet.calls.find((c) => c[0] === 'stop'), ['stop', [DESKTOP_ID]]);
 });
@@ -189,8 +189,9 @@ test('isUp uses heartbeat freshness, not `ready`', () => {
 
 test('runner killed without an exit code is detected, not waited out', async () => {
   const { adapter, ledger } = setup({ transport: remote(['RUOS_POLL:-:0:0:']) });
-  await assert.rejects(adapter.run(base), /died without an exit code/);
-  assert.equal(ledger.events.at(-1).type, 'run.failed');
+  await assert.rejects(adapter.run(base), /outcome is unknown/);
+  assert.equal(ledger.events.at(-1).type, 'run.unknown');
+  assert.ok(!ledger.calls.some((c) => c[0] === 'release'));
 });
 
 test('enrolled devices (no Fly id) are not subject to the cloud auto-stop window', async () => {

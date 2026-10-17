@@ -1,5 +1,11 @@
 // @ts-check
 /** London-school test doubles for ruflo-ruos (ADR-405). */
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { RunStore } from '../scripts/lib/run-store.mjs';
+const roots = [];
+process.once('exit', () => { for (const root of roots) rmSync(root, { recursive: true, force: true }); });
 
 export const DESKTOP_ID = '43faac2ae346b16fafdd7c6b70061294';
 export const FLY_ID = '85050dc77130e8';
@@ -80,6 +86,8 @@ export function fakeTransport(respond) {
 export const ok = (stdout) => ({ stdout, stderr: '', exitCode: 0 });
 
 export function fakeLedger() {
+  const root = mkdtempSync(join(tmpdir(), 'ruflo-ruos-test-')); roots.push(root);
+  const runs = new RunStore(root);
   /** @type {Array<[string, unknown[]]>} */
   const calls = [];
   /** @type {any[]} */
@@ -87,7 +95,7 @@ export function fakeLedger() {
   /** @type {Buffer[]} */
   const output = [];
   return {
-    calls, events, output,
+    calls, events, output, runs,
     swarmLedger: /** @type {'cli'} */ ('cli'),
     warnings: /** @type {string[]} */ ([]),
     registerAgent: async (/** @type {unknown[]} */ ...a) => { calls.push(['registerAgent', a]); },

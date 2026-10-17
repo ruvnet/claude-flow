@@ -8,6 +8,7 @@
 import { RuosError } from './types.mjs';
 import { resolveDesktop, assertRunId, assertAgentId, assertInt, assertPrompt } from './validate.mjs';
 import { checkWindow } from './autostop.mjs';
+import { validateBinding } from './run-store.mjs';
 
 const TERMINAL = new Set(['exited', 'failed', 'cancelled']);
 export const POLL_MIN_MS = 1000;
@@ -51,6 +52,7 @@ export function isUp(d, nowMs) {
  * @property {boolean=} allowStart   opt-in: wake a stopped desktop
  * @property {boolean=} ignoreAutoStop
  * @property {(chunk: Buffer) => void=} onOutput
+ * @property {import('./run-store.mjs').RunBinding=} binding local provenance, not proof of remote workspace execution
  * @property {AbortSignal=} signal
  */
 
@@ -80,6 +82,7 @@ export class RuosHostAdapter {
     this.jobs = deps.jobs;
     this.transportKind = deps.transportKind ?? 'fleet-mcp';
     this.ledger = deps.ledger;
+    this.runs = deps.ledger.runs;
     this.now = deps.now ?? Date.now;
     this.sleep = deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   }
@@ -192,6 +195,8 @@ export class RuosHostAdapter {
     const agentType = assertAgentId(o.agentType ?? 'coder');
     const timeoutSecs = assertInt(o.timeoutSecs ?? 900, 30, 6 * 3600, 'timeoutSecs');
     assertPrompt(o.prompt); // validate before any remote call
+    const binding = validateBinding(o.binding);
+    if (this.runs.read(runId)) throw new RuosError('run-exists', 'run id already exists; attach to reconcile it, never launch it again');
 
     let desktop = await this.resolve(o.desktop);
     // The 23:00 auto-stop applies to cloud desktops only, not enrolled devices.
@@ -199,18 +204,25 @@ export class RuosHostAdapter {
     if (desktop.flyMachineId && !win.ok && !o.ignoreAutoStop) {
       throw new RuosError('autostop-window', `run may outlast the next auto-stop in ${win.minutesUntilStop} min (weekday 23:00 America/Toronto); shorten --timeout or pass --ignore-autostop`);
     }
-    desktop = await this.ensureUp(desktop, { allowStart: o.allowStart });
-    await this.checkLlmRoute();
     const name = desktop.displayName ?? desktop.name;
     const stopAt = desktop.flyMachineId ? new Date(win.nextStopMs).toISOString() : null;
     /** @type {import('./types.mjs').HostRef} */
     const host = { kind: 'ruos', desktopId: desktop.id, desktopName: name, transport: this.transportKind, jobs: this.jobs.kind, runId, stopAt };
 
-    const claimed = await this.ledger.claim(runId, agentId, agentType);
-    if (!claimed) throw new RuosError('invalid-input', `run ${runId} is already claimed`);
-    await this.ledger.registerAgent(agentId, agentType, host, o.prompt);
-    this.ledger.snapshotHosts([desktop]);
-    this.ledger.setHostAgent(desktop.id, agentId, true);
+    this.runs.reserve({ runId, agentId, agentType, desktopId: desktop.id, jobs: this.jobs.kind, transport: this.transportKind,
+      jobId: this.jobs.kind === 'exec-poll' ? runId : null, state: 'starting', connection: 'unknown', startedAt: new Date(t0).toISOString(),
+      commandSha256: '', exitCode: null, timeoutSecs, stopAt, binding });
+    try {
+      const claimed = await this.ledger.claim(runId, agentId, agentType);
+      if (!claimed) throw new RuosError('policy-denied', `run ${runId} is already claimed`);
+      await this.ledger.registerAgent(agentId, agentType, host, o.prompt);
+      this.ledger.snapshotHosts([desktop]);
+      this.ledger.setHostAgent(desktop.id, agentId, true);
+    } catch (err) {
+      // No remote launch was attempted. A refusal remains recorded and cannot be retried under the same run identity.
+      this.runs.update(runId, { state: 'stopped', error: 'ledger-refused' });
+      throw err;
+    }
 
     /** @type {Stream} */
     const st = { bytes: 0, firstOutputMs: null, offset: 0 };
@@ -219,10 +231,16 @@ export class RuosHostAdapter {
     /** @type {number|null} */ let exitCode = null;
     let commandSha256 = '';
     let jobId = runId;
+    let launchAttempted = false;
     try {
+      desktop = await this.ensureUp(desktop, { allowStart: o.allowStart });
+      await this.checkLlmRoute();
+      launchAttempted = true;
       const started = await this.startWithBackoff(desktop, { runId, prompt: o.prompt, runner: 'claude', model: o.model, maxBudgetUsd: o.maxBudgetUsd, timeoutSecs });
       jobId = started.jobId;
       commandSha256 = started.commandSha256;
+      // Persist the server's actual identity before the first poll. A lost acknowledgement leaves an uncertain record, never a restart.
+      this.runs.update(runId, { jobId, state: 'running', connection: 'healthy', commandSha256 });
       dispatchMs = this.now() - t0;
       this.ledger.event({ type: 'run.started', runId, agentId, desktopId: desktop.id, desktopName: name });
       if (desktop.flyMachineId) {
@@ -234,12 +252,18 @@ export class RuosHostAdapter {
       status = end.status;
       exitCode = end.exitCode;
     } catch (err) {
+      if (!launchAttempted) {
+        this.runs.update(runId, { state: 'stopped', error: err instanceof RuosError ? err.code : 'preflight-failed' });
+        await this.finish(desktop.id, agentId, agentType, runId, 'stopped', null, 0);
+        throw err;
+      }
       const e = await this.classifyMidRun(desktop, err);
-      this.ledger.event({ type: 'run.failed', runId, agentId, desktopId: desktop.id, error: e.code ?? 'remote-error' });
-      this.audit({ runId, jobId, desktopId: desktop.id, agentId, commandSha256, t0, status: 'failed', exitCode: null, bytes: st.bytes, error: e.code });
-      await this.finish(desktop.id, agentId, agentType, runId, 'failed', null, st.bytes);
+      this.uncertain(runId, agentId, desktop.id, e);
+      this.audit({ runId, jobId, desktopId: desktop.id, agentId, commandSha256, t0, status: 'unknown', exitCode: null, bytes: st.bytes, error: e.code });
+      // Transport loss is not execution failure. Keep the claim and placement until the host reports a terminal outcome.
       throw e;
     }
+    this.runs.update(runId, { state: status, connection: 'healthy', exitCode });
     this.ledger.event({
       type: status === 'stopped' ? 'run.stopped' : status === 'completed' ? 'run.completed' : 'run.failed',
       runId, agentId, desktopId: desktop.id, exitCode, bytes: st.bytes,
@@ -261,7 +285,7 @@ export class RuosHostAdapter {
    * @param {string} runId
    * @param {string} agentId
    * @param {Stream} st
-   * @param {{ t0: number, timeoutSecs: number, signal?: AbortSignal, onOutput?: (c: Buffer) => void }} o
+   * @param {{ t0: number, timeoutSecs: number, signal?: AbortSignal, onOutput?: (c: Buffer) => void, observer?: boolean }} o
    * @returns {Promise<{ status: RunOutcome['status'], exitCode: number|null }>}
    */
   async stream(desktop, jobId, runId, agentId, st, o) {
@@ -276,22 +300,29 @@ export class RuosHostAdapter {
         cancelAt = this.now();
       }
       if (cancelAt !== null && this.now() - cancelAt > CANCEL_DRAIN_MS) {
-        return { status: 'stopped', exitCode: null };
+        throw new RuosError('reconciliation-required', 'stop requested but no terminal acknowledgement; attach to reconcile');
       }
       if (this.now() - o.t0 > o.timeoutSecs * 1000) {
+        if (o.observer) throw new RuosError('observer-detached', 'observer wait ended; remote job was not cancelled');
         await this.jobs.cancel(desktop, jobId).catch(() => false);
         throw new RuosError('timeout', `run exceeded ${o.timeoutSecs}s and was stopped`);
       }
       const polledAt = this.now();
       const p = await this.jobs.poll(desktop, jobId, st.offset);
+      const before = this.runs.required(runId);
+      if ((before.connection !== 'healthy' || this.now() - Date.parse(before.updatedAt) >= 60_000) && p.state !== 'lost' && p.state !== 'stopped') {
+        this.runs.update(runId, { connection: 'healthy', ...(['queued', 'running'].includes(p.state) && before.state !== 'stopping' ? { state: 'running' } : {}) });
+      }
+      const nextOffset = Math.max(st.offset + p.chunk.length, p.nextOffset);
+      // One durable transaction commits output and its cursor before notifying a client. Duplicate observers are fenced by expectedOffset.
+      if (nextOffset !== st.offset || p.chunk.length) this.runs.checkpoint(runId, { expectedOffset: st.offset, nextOffset, chunk: p.chunk });
       if (p.chunk.length > 0) {
         if (st.firstOutputMs === null) st.firstOutputMs = this.now() - o.t0;
         st.bytes += p.chunk.length;
-        this.ledger.appendOutput(runId, p.chunk);
         o.onOutput?.(p.chunk);
         this.ledger.event({ type: 'run.output', runId, agentId, desktopId: desktop.id, bytes: p.chunk.length });
       }
-      st.offset = Math.max(st.offset + p.chunk.length, p.nextOffset);
+      st.offset = nextOffset;
       if (p.truncated) this.ledger.warnings.push('job output exceeded the server cap; tail truncated');
       if (p.chunk.length > 0) { delay = POLL_MIN_MS; continue; }
       if (TERMINAL.has(p.state)) {
@@ -303,9 +334,8 @@ export class RuosHostAdapter {
       if (p.state === 'stopped') {
         throw new RuosError('auto-stopped', `desktop stopped mid-run; HOME persists — wake it and \`attach --run ${runId}\` to read the output`);
       }
-      if (p.state === 'lost' && cancelAt !== null) return { status: 'stopped', exitCode: p.exitCode }; // we killed it
       if (p.state === 'lost') {
-        if (lostOnce) throw new RuosError('remote-error', 'runner died without an exit code (killed on the desktop?)');
+        if (lostOnce) throw new RuosError('reconciliation-required', 'runner has no exit receipt; outcome is unknown, attach to reconcile');
         lostOnce = true; // exit.code is written just after the runner exits: re-check once
         continue;
       }
@@ -317,18 +347,49 @@ export class RuosHostAdapter {
     }
   }
 
+  /** Persist an uncertain outcome without removing the execution claim. @param {string} runId @param {string} agentId @param {string} desktopId @param {RuosError} error */
+  uncertain(runId, agentId, desktopId, error) {
+    const disconnected = ['network-down', 'auth-expired', 'insufficient-scope', 'auto-stopped', 'desktop-stopped'].includes(error.code);
+    const previous = this.runs.required(runId);
+    this.runs.update(runId, { state: disconnected && ['running', 'stopping'].includes(previous.state) ? previous.state : 'unknown', connection: disconnected ? 'disconnected' : 'unknown', error: error.code });
+    this.ledger.event({ type: disconnected ? 'run.disconnected' : 'run.unknown', runId, agentId, desktopId, error: error.code });
+  }
+
   /**
-   * Re-attach to an existing run (e.g. after a desktop restart: HOME
-   * survives, the process does not). Reads output from `offset`; no claim.
-   * @param {{ desktop: string, runId: string, agentId?: string, offset?: number, timeoutSecs?: number, onOutput?: (c: Buffer) => void }} o
+   * Reconnect to the recorded job and committed cursor. Observation never launches, wakes, restarts or cancels remote work.
+   * @param {{ desktop?: string, runId: string, agentId?: string, offset?: number, timeoutSecs?: number, onOutput?: (c: Buffer) => void }} o
    */
   async attach(o) {
     const runId = assertRunId(o.runId);
-    const desktop = await this.resolve(o.desktop);
+    const saved = this.runs.required(runId);
+    if (saved.jobs !== this.jobs.kind || saved.transport !== this.transportKind) throw new RuosError('binding-mismatch', 'select the original jobs and exec transport before attaching');
+    if (saved.jobId === null) throw new RuosError('reconciliation-required', 'launch acknowledgement was lost; resolve the existing job by its run id on the host before attaching; never launch again');
+    if (o.agentId !== undefined && o.agentId !== saved.agentId) throw new RuosError('binding-mismatch', 'agent does not match the saved run');
+    if (o.offset !== undefined && o.offset !== saved.nextOffset) throw new RuosError('revision-conflict', 'attach uses the durable cursor; use logs to replay earlier output');
+    const timeoutSecs = assertInt(o.timeoutSecs ?? 300, 1, 6 * 3600, 'timeoutSecs');
+    const desktop = await this.resolve(o.desktop ?? saved.desktopId);
+    if (desktop.id !== saved.desktopId) throw new RuosError('binding-mismatch', 'desktop does not match the saved run');
+    if (['completed', 'failed', 'stopped'].includes(saved.state)) return { runId, desktopId: desktop.id, status: saved.state, exitCode: saved.exitCode, bytes: 0, offset: saved.nextOffset };
     /** @type {Stream} */
-    const st = { bytes: 0, firstOutputMs: null, offset: assertInt(o.offset ?? 0, 0, Number.MAX_SAFE_INTEGER, 'offset') };
-    const end = await this.stream(desktop, runId, runId, o.agentId ?? `ruos-${runId}`, st, { t0: this.now(), timeoutSecs: o.timeoutSecs ?? 300, onOutput: o.onOutput });
-    return { runId, desktopId: desktop.id, ...end, bytes: st.bytes, offset: st.offset };
+    const st = { bytes: 0, firstOutputMs: null, offset: saved.nextOffset };
+    this.ledger.event({ type: 'run.attached', runId, agentId: saved.agentId, desktopId: desktop.id });
+    try {
+      const end = await this.stream(desktop, saved.jobId, runId, saved.agentId, st, { t0: this.now(), timeoutSecs, onOutput: o.onOutput, observer: true });
+      const latest = this.runs.update(runId, { state: end.status, connection: 'healthy', exitCode: end.exitCode });
+      this.ledger.event({ type: end.status === 'completed' ? 'run.completed' : end.status === 'stopped' ? 'run.stopped' : 'run.failed', runId, agentId: saved.agentId, desktopId: desktop.id, exitCode: end.exitCode, bytes: st.bytes });
+      await this.finish(desktop.id, saved.agentId, saved.agentType, runId, end.status, end.exitCode, latest.localBytes);
+      return { runId, desktopId: desktop.id, ...end, bytes: st.bytes, offset: st.offset };
+    } catch (err) {
+      if (err instanceof RuosError && err.code === 'observer-detached') {
+        this.ledger.event({ type: 'run.detached', runId, agentId: saved.agentId, desktopId: desktop.id });
+        return { runId, desktopId: desktop.id, status: 'detached', exitCode: null, bytes: st.bytes, offset: st.offset };
+      }
+      // A competing reader can advance the cursor; it is not a remote failure and must not downgrade its newer state.
+      if (err instanceof RuosError && ['revision-conflict', 'run-busy'].includes(err.code)) throw err;
+      const e = await this.classifyMidRun(desktop, err);
+      this.uncertain(runId, saved.agentId, desktop.id, e);
+      throw e;
+    }
   }
 
   /**
@@ -360,16 +421,28 @@ export class RuosHostAdapter {
   }
 
   /**
-   * Stop a run (its process group) — explicit confirm required.
-   * @param {{ desktop: string, runId: string, jobId?: string, confirm?: boolean }} o
+   * Request stop for the exact persisted run revision and source binding. Acknowledgement is reconciled by attach.
+   * @param {{ desktop?: string, runId: string, jobId?: string, confirm?: boolean, expectedRevision?: number, bindingDigest?: string }} o
    */
   async stopRun(o) {
     if (!o.confirm) throw new RuosError('confirm-required', 'stopping a run interrupts work; pass --confirm');
     const runId = assertRunId(o.runId);
-    const desktop = await this.resolve(o.desktop);
-    const stopped = await this.jobs.cancel(desktop, o.jobId ?? runId);
-    this.ledger.event({ type: 'run.stopped', runId, desktopId: desktop.id, state: stopped ? 'stopped' : 'not-running' });
-    return { runId, desktopId: desktop.id, stopped };
+    const saved = this.runs.required(runId);
+    if (saved.jobs !== this.jobs.kind || saved.transport !== this.transportKind) throw new RuosError('binding-mismatch', 'stop must use the original transport');
+    if (saved.jobId === null) throw new RuosError('reconciliation-required', 'job identity is not acknowledged; reconcile it on the host before stopping');
+    if (o.jobId !== undefined && o.jobId !== saved.jobId) throw new RuosError('binding-mismatch', 'job id does not match the saved run');
+    const desktop = await this.resolve(o.desktop ?? saved.desktopId);
+    if (desktop.id !== saved.desktopId) throw new RuosError('binding-mismatch', 'desktop does not match the saved run');
+    this.runs.requestStop(runId, o.expectedRevision, o.bindingDigest);
+    try {
+      const stopped = await this.jobs.cancel(desktop, saved.jobId);
+      this.ledger.event({ type: 'run.stop-requested', runId, desktopId: desktop.id, state: stopped ? 'requested' : 'not-running' });
+      return { runId, desktopId: desktop.id, stopped, acknowledgement: 'pending' };
+    } catch (err) {
+      const e = await this.classifyMidRun(desktop, err);
+      this.uncertain(runId, saved.agentId, desktop.id, e);
+      throw e;
+    }
   }
 
   /**

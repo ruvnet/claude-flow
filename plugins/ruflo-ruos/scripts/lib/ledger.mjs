@@ -15,13 +15,16 @@
  *                 start/end, exit, bytes (ruOS does not audit detached output)
  *   hosts.json    snapshot of the caller's desktops + which agents run there
  *   runs/<id>.log local copy of the remote output (mode 0600)
- * If ruflo's CLI cannot be resolved, or policy denies a call, the ledger
+ * If ruflo's CLI cannot be resolved, or an optional tool is absent, the ledger
  * degrades to these plugin files and reports `swarmLedger: 'unavailable'`.
+ * An explicit policy or tool refusal fails closed before remote execution.
  */
 import { appendFileSync, mkdirSync, writeFileSync, renameSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { RunStore } from './run-store.mjs';
+import { RuosError } from './types.mjs';
 
 /**
  * @typedef {(name: string, input: Record<string, unknown>) => Promise<any>} CallTool
@@ -29,6 +32,7 @@ import { pathToFileURL } from 'node:url';
 
 /**
  * @typedef {object} Ledger
+ * @property {RunStore} runs durable recovery journal
  * @property {'cli'|'unavailable'} swarmLedger
  * @property {(agentId: string, agentType: string, host: import('./types.mjs').HostRef, task: string) => Promise<void>} registerAgent
  * @property {(agentId: string, status: 'busy'|'idle', lastResult?: Record<string, unknown>) => Promise<void>} updateAgent
@@ -95,29 +99,35 @@ export function createLedger({ cwd, callTool, now = () => new Date() }) {
   /** @type {string[]} */
   const warnings = [];
   let available = callTool !== null;
+  const missingTools = new Set();
 
   const ensure = () => mkdirSync(runsDir, { recursive: true, mode: 0o700 });
 
   /**
-   * Call a ruflo tool; on policy denial / missing tool, degrade instead of
-   * failing the remote run.
+   * Missing optional integration may degrade. A configured policy or tool refusal must never become permission to execute.
    * @param {string} name
    * @param {Record<string, unknown>} input
    */
   const safeCall = async (name, input) => {
-    if (!available || !callTool) return null;
+    if (!callTool || missingTools.has(name)) return null;
     try {
       const r = await callTool(name, input);
-      if (r && r.success === false) {
-        warnings.push(`${name}: ${String(r.error ?? 'failed').slice(0, 160)}`);
-        return r;
+      if (r && (r.success === false || r.ok === false || r.allowed === false || r.decision === 'deny' || r.status === 'denied' || r.isError === true)) {
+        const detail = String(r.error ?? r.message ?? '');
+        if (!/policy|denied|forbidden|unauthori[sz]ed|permission/i.test(detail) && /(?:unknown|missing|unavailable) tool|tool.*not found/i.test(detail)) {
+          available = false; missingTools.add(name); warnings.push(`${name}: optional tool unavailable`); return null;
+        }
+        throw new RuosError('policy-denied', `ruflo ${name} refused the operation; no dependent remote action is authorized`);
       }
       return r;
     } catch (err) {
+      if (err instanceof RuosError) throw err;
       const msg = String(/** @type {Error} */ (err)?.message ?? err);
-      warnings.push(`${name}: ${msg.slice(0, 160)}`);
-      if (/not found|policy-/i.test(msg)) available = false;
-      return null;
+      if (!/policy|denied|forbidden|unauthori[sz]ed|permission/i.test(msg) && /(?:unknown|missing|unavailable) tool|tool.*not found/i.test(msg)) {
+        warnings.push(`${name}: optional tool unavailable`); available = false; missingTools.add(name); return null;
+      }
+      // Never echo untrusted tool error bodies, which may contain input text or credentials.
+      throw new RuosError('policy-denied', `ruflo ${name} could not authorize the operation; no dependent remote action is authorized`);
     }
   };
 
@@ -144,6 +154,7 @@ export function createLedger({ cwd, callTool, now = () => new Date() }) {
   const ledger = {
     get swarmLedger() { return available ? 'cli' : 'unavailable'; },
     warnings,
+    runs: new RunStore(cwd, now),
     async registerAgent(agentId, agentType, host, task) {
       await safeCall('agent_spawn', {
         agentType,
