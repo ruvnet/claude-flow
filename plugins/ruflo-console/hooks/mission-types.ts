@@ -24,6 +24,8 @@ export type MissionRecord = {
   loop?: unknown
   /** ADR-480: the file names of the project's ADRs attached to this mission (validated where read). */
   adrs?: string[]
+  /** The project directory the mission was created in (#4237); absent on missions saved before it was recorded. */
+  cwd?: string
 }
 export type McTab = 'plan' | 'tasks' | 'agents' | 'evidence' | 'record' | 'loop'
 export type Derived = 'done' | 'running' | 'ready' | 'waiting' | 'failed' | 'cancelled'

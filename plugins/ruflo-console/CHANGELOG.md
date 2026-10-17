@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.3 — 2026-10-15
+- fix: the rest of Mission Control's prose wraps at 80 columns (tmux) instead of ending in "…" (#3899): a launch step's detail (Claude's guidance note, the screen verdict, the next task's title) moves onto wrapped rows under its step when it does not fit beside it, and the "Create the mission and its tasks" label no longer runs into its detail; on the record, the expanded mission's state, plan, evidence, executor and blocked-reason lines, the stale and attention notes, the legend and the observation note wrap; the Mission options "not offered by this session" hint wraps.
+
 ## 0.44.2 — 2026-10-14
 - fix: the console reads the project on Windows (#4175, thanks @GangOn0215). Every path under the working directory came out as `C:\dev\app/C:\dev\app/.claude-flow/...` (the working directory prefixed twice, because the host wrapper counted only a leading `/` as absolute), so every read failed with ENOENT, the project showed as "Unregistered" and the pane never opened on its own. A drive path (`C:\x` or `C:/x`) and a UNC share (`\\server\share`) now count as absolute (`hooks/data/abs-path.ts`). Tested on win32-style paths only: no Windows machine was available to run the pane. The same leading-`/` test still guards a few other spots (ADR folder, event export, workflow file, mission cost, plugin catalog); those refuse Windows paths rather than misplace them, and are left to the Windows work in #4036.
 

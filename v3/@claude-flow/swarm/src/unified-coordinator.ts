@@ -443,9 +443,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   async cancelTask(taskId: string): Promise<void> {
     const task = this.state.tasks.get(taskId);
-    if (!task) {
+    if (!task || this.isTaskSettled(task)) {
       return;
     }
+
+    // Fence late worker reports and our asynchronously delivered cancellation
+    // notification before yielding to the message bus.
+    task.status = 'cancelled';
 
     // Notify assigned agent
     if (task.assignedTo) {
@@ -466,8 +470,6 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         agent.currentTask = undefined;
       }
     }
-
-    task.status = 'cancelled';
 
     this.emitEvent('task.failed', {
       taskId,
@@ -670,6 +672,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         scaleDownThreshold: 0.2,
         cooldownMs: 30000,
         healthCheckIntervalMs: this.config.healthCheckIntervalMs,
+        // Domain membership is an explicit 15-agent roster. Letting the pool
+        // create/remove agents would desynchronize it from state.agents,
+        // topology, message subscriptions and consensus (and produce agents
+        // whose task_complete reports are silently ignored).
+        autoScale: false,
+        healthChecks: false,
       });
 
       await pool.initialize();
@@ -750,6 +758,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       clearInterval(this.metricsInterval);
       this.metricsInterval = undefined;
     }
+  }
+
+  private isTaskSettled(task: TaskDefinition): boolean {
+    return task.status === 'completed' || task.status === 'failed' ||
+      task.status === 'cancelled';
   }
 
   private async assignTask(task: TaskDefinition): Promise<AgentState | undefined> {
@@ -885,7 +898,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
+    if (task && agent && !this.isTaskSettled(task)) {
       task.status = 'completed';
       task.output = data.result;
       task.completedAt = new Date();
@@ -915,7 +928,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
+    if (task && agent && !this.isTaskSettled(task)) {
       // Check retry
       if (task.retries < task.maxRetries) {
         task.retries++;

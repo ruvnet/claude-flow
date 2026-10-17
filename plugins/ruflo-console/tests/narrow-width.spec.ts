@@ -98,3 +98,34 @@ describe('Mission Control at narrow widths (#3899)', () => {
     })
   }
 })
+
+describe('Mission Control prose that still ended in "…" at 80 columns (#3899)', () => {
+  it('a launch step whose detail does not fit beside its label wraps it underneath', () => {
+    const note = 'Claude suggests starting with the failing test for an empty password, then guarding the handler and the form'
+    const state = newState({})
+
+    state.view = 'missions'
+    mcOf(state).tab = 'plan'
+    setGoal(state, 'fix the crash when the password is empty')
+    mcOf(state).guidance = { goal: 'fix the crash when the password is empty', status: 'done', lines: [], note, stop: null, startedAtMs: 0 }
+    const screen = viewText({ state, nowMs: Date.now(), columns: 80, act }, 'missions')
+
+    expect(screen.replace(/\s+/g, ' ')).toContain(note)
+    expect(screen.replace(/\s+/g, ' ')).toContain('writes the mission record and one ruflo task per plan node; runs no agent')
+  })
+
+  it('the record keeps a blocked reason, the legend and the observation note whole', () => {
+    const blockedReason = 'the budget ceiling was reached before the second task could reserve its estimate'
+    const state = newState({})
+
+    state.view = 'missions'
+    state.snapshot = { plugins: { installed: [] }, missions: parseMissions(JSON.stringify({ schemaVersion: 1, contract: 'ruflo.mission-observation/1', observedAt: new Date().toISOString(), missions: [{ missionId: 'msn_blocked', objective: 'ship it', state: 'blocked', blockedReason, revision: 1, plan: { revision: 1, taskCount: 0, tasks: [] }, evidence: { count: 0, verified: 0 } }] })) } as never
+    mcOf(state).tab = 'record'
+    const screen = viewText({ state, nowMs: Date.now(), columns: 80, act }, 'missions')
+    const flat = screen.replace(/\s+/g, ' ')
+
+    expect(flat).toContain(`blocked: ${blockedReason}`)
+    expect(flat).toContain('● recorded done (recorded, not verified) · ✖ failed')
+    expect(flat).toContain('with a request id and the expected revision')
+  })
+})
