@@ -21,3 +21,9 @@ Place one swarm agent on a ruOS desktop. Follow the `ruos-host-run` skill. Summa
 
 Never put task text into a `desktop_exec` command yourself — only the strings `build` prints.
 Never contact a desktop on port 17870.
+
+For CLI-managed runs, use `cli.mjs runs --run <id>` to inspect the saved identity and
+`cli.mjs attach --run <id>` to reconnect. Attachment never launches or cancels work.
+A lost connection is an unknown outcome, not permission to start a replacement.
+Stopping a saved run requires its reviewed `--expected-revision` and
+`--binding-digest` together with `--confirm`. Refresh and review again if stale.

@@ -1,6 +1,6 @@
 /** The confirm-gated writes of Mission Control: create the mission and its tasks, hand a task to Claude, cancel. */
 import type { ActionSpec } from './actions'
-import { plain, type TaskRecord } from './data/parse'
+import { plain, recordOf, type TaskRecord } from './data/parse'
 import { resultOf } from './data/mcp-run'
 import { taskStatusOf } from './data/automate'
 import type { Host } from './host'
@@ -30,6 +30,7 @@ export const isInflight = (task: LedgerTask): boolean => inflight.has(task)
 /** `isReady` replaces the one-at-a-time check for a caller that has its own bound (autopilot's `startable`); without it the mission's own `nextTask` rule applies. */
 export function dispatchSpec(state: State, host: Host, mission: MissionRecord, task: LedgerTask, send: (text: string) => Promise<void>, isReady?: (mission: MissionRecord, tasks: readonly TaskRecord[], task: LedgerTask) => boolean): ActionSpec {
   const text = instructionOf(mission, task, adrBlockFor(state, mission))
+  const approvedPlan = planBinding(mission)
 
   return {
     label: `hand task ${task.id} to Claude: ${task.title}`,
@@ -40,7 +41,7 @@ export function dispatchSpec(state: State, host: Host, mission: MissionRecord, t
     note: 'Starts a Claude Code turn on your plan (billed as any turn is); the prompt is visible and Claude records the result with task_complete.',
     run: async () => {
       // The ask stays open for a while: the mission may have moved (paused, cancelled, auto-run took it, a double press).
-      if (mission.paused || mission.cancelled || inflight.has(task) || !(isReady === undefined ? nextTask(mission, state.snapshot?.tasks ?? [])?.id === task.id : isReady(mission, state.snapshot?.tasks ?? [], task))) {
+      if (planBinding(mission) !== approvedPlan || mission.paused || mission.cancelled || inflight.has(task) || !(isReady === undefined ? nextTask(mission, state.snapshot?.tasks ?? [])?.id === task.id : isReady(mission, state.snapshot?.tasks ?? [], task))) {
         mcOf(state).last = { label: `task ${task.id} not handed over`, ok: false, detail: 'the mission changed since you asked (paused, cancelled, or that task already went)' }
         host.invalidate()
 
@@ -62,6 +63,17 @@ export function dispatchSpec(state: State, host: Host, mission: MissionRecord, t
         mcOf(state).last = { label: `task ${task.id} was not handed over`, ok: false, detail: 'the ruflo task store refused the in_progress update, so no prompt was sent' }
         host.invalidate()
 
+        return
+      }
+
+      // Updating the task store awaits a remote process. A cancel, pause or plan edit can win while it is in flight.
+      // Keep the acknowledged in_progress record for reconciliation rather than rolling a concurrently cancelled task back to pending.
+      if (mission.cancelled || mission.paused || approvedPlan !== planBinding(mission) || !mission.tasks.includes(task)) {
+        inflight.delete(task)
+        record(mission, { type: 'task.handout-held', taskId: task.id, note: 'mission changed during task update; no prompt sent, reconcile task state' })
+        saveLedger(state, host)
+        mcOf(state).last = { label: `task ${task.id} not sent`, ok: false, detail: 'The mission changed during its task update. No prompt was sent; reconcile the acknowledged task state before resuming.' }
+        host.invalidate()
         return
       }
 
@@ -116,27 +128,63 @@ export function setPaused(state: State, host: Host, paused: boolean, by: ResumeB
   host.invalidate()
 }
 
-/** Cancel: cancel every task not done in the ruflo task store, then ask the mission record to cancel (allowed only from some states). */
+/** Fields authorized by a dispatch/cancel card. Runtime counters and observations do not change the plan. */
+function planBinding(mission: MissionRecord): string {
+  return JSON.stringify({ objective: mission.objective, planDigest: mission.planDigest, acceptance: mission.acceptance,
+    adrs: mission.adrs, tasks: mission.tasks.map(({ id, title, phase, stage, agent, requirement, dependsOn, rufloTaskId }) =>
+      ({ id, title, phase, stage, agent, requirement, dependsOn, rufloTaskId })) })
+}
+
+/** Cancel is revision-bound. The authoritative mission must accept before any task is touched. */
 export function cancelSpec(state: State, host: Host, mission: MissionRecord, tasks: readonly TaskRecord[]): ActionSpec {
   const open = mission.tasks.filter(task => task.rufloTaskId !== undefined && !['completed', 'cancelled'].includes(taskStatusOf(rufloTaskOf(tasks, task)?.status)))
+  const revision = state.snapshot?.missions?.missions.find(candidate => candidate.id === mission.id)?.revision
+  const approvedPlan = planBinding(mission)
+  const requestId = `console-cancel-${Date.now().toString(36)}-${revision ?? 'unknown'}`
+  let applying = false
 
   return {
     label: `cancel mission ${mission.id} (${open.length} open tasks)`,
     scope: 'controls',
     args: [],
-    shows: `task_cancel × ${open.length}, then mission_request_action cancel (the record may refuse from its state)`,
+    shows: `mission_request_action cancel at revision ${revision ?? 'unknown'}, then task_cancel × ${open.length}`,
     expect: 'every open task cancelled',
     note: 'Cancels this mission’s open tasks in the ruflo task store. A task already finished stays finished.',
     run: async () => {
-      for (const task of open) await host.run(argvOf(state, 'task_cancel', { taskId: task.rufloTaskId, reason: 'mission cancelled from the console' }), 60_000)
-
-      const refused = resultOf((await host.run(argvOf(state, 'mission_request_action', { requestId: `console-cancel-${Date.now().toString(36)}`, missionId: mission.id, expectedRevision: 2, action: 'cancel', reason: 'cancelled from the console' }), 60_000)).stdout)
-
-      mission.cancelled = true
-      record(mission, { type: 'mission.cancelled', status: 'cancelled', note: refused?.ok === true ? 'record cancelled' : `record: ${plain(String(refused?.message ?? 'not asked'), 100)}` })
-      mcOf(state).last = { label: `mission ${mission.id} cancelled`, ok: true, detail: `${open.length} tasks cancelled${refused?.ok === true ? '' : `; the record said: ${plain(String(refused?.message ?? ''), 100)}`}` }
-      saveLedger(state, host)
-      host.invalidate()
+      const refuse = (detail: string) => { mcOf(state).last = { label: 'mission cancellation needs review', ok: false, detail }; host.invalidate() }
+      if (applying || mission.cancelled) return
+      if (!Number.isSafeInteger(revision) || (revision ?? 0) < 1 || approvedPlan !== planBinding(mission)) {
+        refuse('Refresh the mission and review cancellation again; its revision is missing or the plan changed.')
+        return
+      }
+      applying = true
+      try {
+        const response = await host.run(argvOf(state, 'mission_request_action', { requestId, missionId: mission.id, expectedRevision: revision, action: 'cancel', reason: 'cancelled from the console' }), 60_000)
+        const answer = resultOf(response.stdout)
+        const data = recordOf(answer?.data)
+        if (response.exitCode !== 0 || answer?.ok !== true || data?.missionId !== mission.id || data.state !== 'cancelled') {
+          refuse(plain(String(answer?.message ?? 'Cancellation is unconfirmed or still awaiting its executor; no tasks were cancelled. Refresh before retrying.'), 200))
+          return
+        }
+        // Stop local dispatch as soon as the authoritative cancellation is known, even if task cleanup fails.
+        mission.cancelled = true
+        mission.auto = false
+        const failures: string[] = []
+        for (const task of open) {
+          const current = rufloTaskOf(state.snapshot?.tasks ?? tasks, task)
+          if (['completed', 'cancelled'].includes(taskStatusOf(current?.status))) continue
+          try {
+            const cancelled = await host.run(argvOf(state, 'task_cancel', { taskId: task.rufloTaskId, reason: 'mission cancelled from the console' }), 60_000)
+            if (cancelled.exitCode !== 0 || resultOf(cancelled.stdout)?.success !== true) failures.push(task.id)
+          } catch { failures.push(task.id) }
+        }
+        record(mission, { type: 'mission.cancelled', status: 'cancelled', note: failures.length ? `task cancellation unconfirmed: ${failures.join(', ')}` : 'record and open tasks cancelled' })
+        mcOf(state).last = { label: `mission ${mission.id} cancelled`, ok: failures.length === 0, detail: failures.length ? `Dispatch stopped; task cancellation unconfirmed: ${failures.join(', ')}. Refresh and inspect the task store.` : 'The record accepted cancellation and the open task cancellations were acknowledged.' }
+        saveLedger(state, host)
+        host.invalidate()
+      } catch {
+        refuse('Cancellation outcome unknown; refresh the authoritative record before retrying. No further task actions were sent.')
+      } finally { applying = false }
     },
   }
 }
