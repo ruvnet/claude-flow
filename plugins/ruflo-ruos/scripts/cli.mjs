@@ -105,7 +105,6 @@ async function pickJobTransport(mode, client, fleet, exec, env) {
   if (mode === 'jobs-api') return createJobsApiTransport(rest, exec);
   const first = (await fleet.listDesktops())[0];
   const available = first ? await rest.detect(first.flyMachineId ?? first.id) : false;
-  if (!available && mode === 'jobs-api') throw new RuosError('not-configured', 'the ruOS jobs API is not available on this fleet yet');
   return available ? createJobsApiTransport(rest, exec) : createExecPollTransport(exec);
 }
 

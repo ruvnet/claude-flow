@@ -49,6 +49,7 @@ let launches = 0, cancellations = 0;
 const children = [];
 const failures = new Set();
 const delay = ms => new Promise(done => setTimeout(done, ms));
+/** @type {import('./lib/types.mjs').JobTransport} */
 const jobs = {
   kind: 'jobs-api',
   async start(_desktop, spec) {
