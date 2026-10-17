@@ -476,11 +476,12 @@ function parseEventJson(stdinData) {
 function claimSideEffectEvent(family, stdinData, event) {
   if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
   try {
-    const eventId = event?.tool_use_id || event?.toolUseId ||
-      event?.session_id || event?.sessionId || event?.hook_event_id;
+    const eventId = event?.tool_use_id || event?.toolUseId || event?.hook_event_id ||
+      event?.session_id || event?.sessionId;
+    const lifecycle = event?.hook_event_name || event?.hookEventName || '';
     const payloadIdentity = eventId
-      ? `event:${eventId}`
-      : `payload:${(stdinData || '').trim()}|bucket:${Math.floor(Date.now() / 2000)}`;
+      ? `event:${lifecycle}:${eventId}`
+      : `payload:${lifecycle}:${(stdinData || '').trim()}|bucket:${Math.floor(Date.now() / 2000)}`;
     const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
     const digest = crypto.createHash('sha256')
       .update(`ruflo-hook-dedup-v1\0${path.resolve(projectRoot)}\0${family}\0${payloadIdentity}`)
