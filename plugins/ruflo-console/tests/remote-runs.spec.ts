@@ -13,7 +13,7 @@ import { NOW } from './fixtures/sessions-fs'
 const iso = (ms: number) => new Date(ms).toISOString()
 const rawRun = (over: Record<string, unknown> = {}) => ({
   runId: 'run-1', agentId: 'agent-1', desktopId: 'desktop-1', jobId: 'job-1', jobs: 'jobs-api',
-  state: 'running', connection: 'connected', revision: 4, nextOffset: 17, startedAt: iso(NOW - 100_000), updatedAt: iso(NOW - 1000),
+  state: 'running', connection: 'healthy', revision: 4, nextOffset: 17, startedAt: iso(NOW - 100_000), updatedAt: iso(NOW - 1000),
   binding: { missionId: 'm1', missionRevision: 2, worktree: '/work/project/.worktrees/task-1', commit: 'a'.repeat(40), sourceDigest: 'sha256:' + 'b'.repeat(64) },
   bindingDigest: 'sha256:' + 'c'.repeat(64), ...over,
 })
@@ -57,6 +57,20 @@ describe('ruOS observation parsing', () => {
 })
 
 describe('connection state and attention', () => {
+  it('accepts the producer healthy connection and stopping state without inventing a failure or completion', () => {
+    for (const state of ['starting', 'running', 'stopping']) {
+      const obs = observation({ state, connection: 'healthy' })
+      expect(obs.runs[0]).toMatchObject({ state, connection: 'healthy' })
+      expect(reconcileReason(obs.runs[0]!, obs, NOW)).toBeNull()
+      const rows = ruosRows(obs, '/work/project', NOW)
+      expect(rows[0]).toMatchObject({ status: 'working', signals: { failed: false, turnEndedAtMs: null } })
+      expect(attentionOf(rows, { baselineMs: NOW - 100_000, seen: {} }, null)).toEqual([])
+    }
+    const disconnected = observation({ state: 'stopping', connection: 'disconnected' })
+    expect(ruosRows(disconnected, '/work/project', NOW)[0]?.status).toBe('unknown')
+    expect(disconnected.runs[0]?.state).toBe('stopping')
+  })
+
   it('shows a disconnected running job as unknown with reconciliation, never failed or done', () => {
     const obs = observation({ connection: 'disconnected' })
     const rows = ruosRows(obs, '/work/project', NOW)

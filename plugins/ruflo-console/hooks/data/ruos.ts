@@ -5,7 +5,7 @@ export const RUOS_CONTRACT = 'ruflo.ruos-observation/1'
 export const RUOS_MAX_BYTES = 128_000
 export const RUOS_MAX_RUNS = 50
 export const RUOS_STALE_MS = 5 * 60_000
-export const RUOS_STATES = ['starting', 'running', 'disconnected', 'unknown', 'completed', 'failed', 'stopped'] as const
+export const RUOS_STATES = ['starting', 'running', 'stopping', 'disconnected', 'unknown', 'completed', 'failed', 'stopped'] as const
 export type RemoteState = (typeof RUOS_STATES)[number]
 export type RemoteRun = {
   runId: string
@@ -14,7 +14,7 @@ export type RemoteRun = {
   jobId: string | null
   jobs: 'exec-poll' | 'jobs-api'
   state: RemoteState
-  connection: 'connected' | 'disconnected' | 'unknown'
+  connection: 'healthy' | 'disconnected' | 'unknown'
   revision: number
   nextOffset: number
   startedAtMs: number | null
@@ -56,7 +56,7 @@ export function parseRuos(text: string | null): RuosObservation | null {
     const out: RemoteRun = {
       runId, agentId, desktopId, jobId, jobs: value.jobs,
       state: RUOS_STATES.includes(value.state as RemoteState) ? value.state as RemoteState : 'unknown',
-      connection: value.connection === 'connected' || value.connection === 'disconnected' ? value.connection : 'unknown',
+      connection: value.connection === 'healthy' || value.connection === 'disconnected' ? value.connection : 'unknown',
       revision: value.revision, nextOffset: value.nextOffset,
       startedAtMs: msOf(value.startedAt) ?? null, updatedAtMs: msOf(value.updatedAt) ?? null,
       binding: binding === null ? null : {
