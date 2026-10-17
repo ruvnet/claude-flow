@@ -392,7 +392,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
   }
 
   getAvailableAgents(): AgentState[] {
-    return this.getAllAgents().filter(a => a.status === 'idle');
+    return this.getAllAgents().filter(a => a.status === 'idle' && !a.currentTask);
   }
 
   // ===== TASK MANAGEMENT =====
@@ -1124,8 +1124,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       throw new Error(`Domain pool ${domain} not found`);
     }
 
-    // Try to acquire an agent from the domain pool
-    const agent = await pool.acquire();
+    // A global assignment can already own this task in the requested domain.
+    // Transfer that reservation rather than trying to acquire the busy owner twice.
+    const owner = task.assignedTo && this.state.agents.get(task.assignedTo.id);
+    const sameReservation = owner?.status === 'busy' && owner.currentTask?.id === taskId &&
+      this.agentDomainMap.get(owner.id.id) === domain;
+    const agent = sameReservation ? owner : await pool.acquire();
     if (!agent) {
       // Add to domain queue if no agents available
       const queue = this.domainTaskQueues.get(domain) || [];
@@ -1147,6 +1151,8 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     task.status = 'assigned';
     task.assignedTo = agent.id;
     task.startedAt = new Date();
+    agent.status = 'busy';
+    agent.currentTask = task.id;
 
     // Track assignment
     const assignment: TaskAssignment = {
