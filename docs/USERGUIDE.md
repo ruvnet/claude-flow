@@ -1683,13 +1683,13 @@ chain.verify(envelope); // true — tamper-evident
 
 ### Documentation
 
-- [Architecture Overview](v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
-- [Getting Started](v3/@claude-flow/guidance/docs/guides/getting-started.md)
-- [Enforcement Gates Tutorial](v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
-- [Proof Audit Trail](v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
-- [Multi-Agent Security](v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
-- [API Quick Reference](v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
-- [Full README](v3/@claude-flow/guidance/README.md)
+- [Architecture Overview](../v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
+- [Getting Started](../v3/@claude-flow/guidance/docs/guides/getting-started.md)
+- [Enforcement Gates Tutorial](../v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
+- [Proof Audit Trail](../v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
+- [Multi-Agent Security](../v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
+- [API Quick Reference](../v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
+- [Full README](../v3/@claude-flow/guidance/README.md)
 
 </details>
 
@@ -6461,7 +6461,7 @@ const template = getWorkflow('login-basic');
 // { steps: [{action: 'open'}, {action: 'fill'}, ...], variables: [...] }
 ```
 
-📖 [Full Documentation](./v3/@claude-flow/browser/README.md)
+📖 [Full Documentation](../v3/@claude-flow/browser/README.md)
 
 </details>
 
@@ -7711,27 +7711,27 @@ cp -r ./data-backup-v2 ./data
 
 | Module | Description | Docs |
 |--------|-------------|------|
-| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](./v3/@claude-flow/plugins/README.md) |
-| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](./v3/@claude-flow/hooks/) |
-| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](./v3/@claude-flow/memory/) |
-| `@claude-flow/security` | CVE remediation & security patterns | [Source](./v3/@claude-flow/security/) |
-| `@claude-flow/swarm` | 15-agent coordination engine | [Source](./v3/@claude-flow/swarm/) |
-| `@claude-flow/cli` | CLI modernization | [Source](./v3/@claude-flow/cli/) |
-| `@claude-flow/neural` | SONA learning integration | [Source](./v3/@claude-flow/neural/) |
-| `@claude-flow/testing` | TDD London School framework | [Source](./v3/@claude-flow/testing/) |
-| `@claude-flow/mcp` | MCP server & tools | [Source](./v3/@claude-flow/mcp/) |
-| `@claude-flow/embeddings` | Vector embedding providers | [Source](./v3/@claude-flow/embeddings/) |
-| `@claude-flow/providers` | LLM provider integrations | [Source](./v3/@claude-flow/providers/) |
-| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](./v3/@claude-flow/integration/) |
-| `@claude-flow/performance` | Benchmarking & optimization | [Source](./v3/@claude-flow/performance/) |
-| `@claude-flow/deployment` | Release & CI/CD | [Source](./v3/@claude-flow/deployment/) |
-| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](./v3/@claude-flow/shared/) |
-| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](./v3/@claude-flow/browser/README.md) |
+| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](../v3/@claude-flow/plugins/README.md) |
+| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](../v3/@claude-flow/hooks/) |
+| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](../v3/@claude-flow/memory/) |
+| `@claude-flow/security` | CVE remediation & security patterns | [Source](../v3/@claude-flow/security/) |
+| `@claude-flow/swarm` | 15-agent coordination engine | [Source](../v3/@claude-flow/swarm/) |
+| `@claude-flow/cli` | CLI modernization | [Source](../v3/@claude-flow/cli/) |
+| `@claude-flow/neural` | SONA learning integration | [Source](../v3/@claude-flow/neural/) |
+| `@claude-flow/testing` | TDD London School framework | [Source](../v3/@claude-flow/testing/) |
+| `@claude-flow/mcp` | MCP server & tools | [Source](../v3/@claude-flow/mcp/) |
+| `@claude-flow/embeddings` | Vector embedding providers | [Source](../v3/@claude-flow/embeddings/) |
+| `@claude-flow/providers` | LLM provider integrations | [Source](../v3/@claude-flow/providers/) |
+| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](../v3/@claude-flow/integration/) |
+| `@claude-flow/performance` | Benchmarking & optimization | [Source](../v3/@claude-flow/performance/) |
+| `@claude-flow/deployment` | Release & CI/CD | [Source](../v3/@claude-flow/deployment/) |
+| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](../v3/@claude-flow/shared/) |
+| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](../v3/@claude-flow/browser/README.md) |
 
 ### Additional Resources
 
 - [V2 Documentation](./v2/README.md)
-- [Architecture Decisions (ADRs)](./v3/implementation/adrs/)
+- [Architecture Decisions (ADRs)](../v3/implementation/adrs/)
 - [API Reference](./v2/docs/technical/)
 - [Examples](./v2/examples/)
 
