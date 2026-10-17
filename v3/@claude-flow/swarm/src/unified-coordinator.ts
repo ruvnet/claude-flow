@@ -670,6 +670,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         scaleDownThreshold: 0.2,
         cooldownMs: 30000,
         healthCheckIntervalMs: this.config.healthCheckIntervalMs,
+        // Domain membership is an explicit 15-agent roster. Letting the pool
+        // create/remove agents would desynchronize it from state.agents,
+        // topology, message subscriptions and consensus (and produce agents
+        // whose task_complete reports are silently ignored).
+        autoScale: false,
+        healthChecks: false,
       });
 
       await pool.initialize();
