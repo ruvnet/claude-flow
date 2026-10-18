@@ -77,3 +77,17 @@ Acceptance evidence must include: graph search and selected neighborhoods; stale
 The built in graph measurement compares the captured npm graph with the source evidenced runtime overlay. It reduces unexplained isolates from 138 to 95 (31.2 percent) and requires the relationship, graph and installed RuVector checks to pass. This makes the existing relationship annotation eligible for review. It is neither a newly discovered improvement each cycle nor evidence of runtime compatibility or adoption. Caller supplied objective scores cannot pass the promotion gate.
 
 The initial registry covers 10 of 401 packages. Seven checks pass over two cycles, but 391 packages remain without registered checks and global promotion remains rejected. See [usage and validation](../../../docs/ecosystem/capability-web.md).
+
+## Durable ecosystem improvement extension
+
+Decision accepted as operating policy; autonomous mutation, perpetual scheduling and universal runtime coverage remain unimplemented. Build a renewable service around bounded evaluations: package contracts, typed consumer impact, isolated candidates, independent validation, retained evidence and governed release. Each accepted change becomes the next baseline while a fixed reference detects gradual regressions. Correctness fixes need a reproducer; quantitative optimization claims retain the 10 percent threshold and zero applicable regressions.
+
+Every maintained source package receives AGENTS.md pointing to the shared policy, without replacing existing instructions. The rollout inventory distinguishes local source documentation from external repository work and npm artifact inclusion. The 401 package inventory spans repositories; local coverage must never be reported as ecosystem completion.
+
+Store source identities, environment, baseline and candidate measurements, test results, affected consumers, disposition, rollback and subsequent revalidation in durable evidence. Core memory is the decision record; RuVector retrieval is a rebuildable projection, not promotion authority. Use expiring leases, bounded retries, checkpoints, failure backoff, renewable budgets and an operator stop control.
+
+The overnight pilot remains nine hourly runs, October 17 at 23:00 through October 18 at 07:00 America/Toronto, at most 45 minutes per run. It prioritizes the 111971638 byte payload regression, restart persistent memory and retrieval, then package guidance rollout. A permanent schedule is not established by this ADR.
+
+Seven day acceptance target: at least two independently measured retained improvements, earlier gains preserved, and fixed consumer workflows passing. Report inconclusive experiments honestly. Never equate repeated passes, additional graph edges or downloads with compounding improvement.
+
+[Shared package policy](../../../docs/ecosystem/package-improvement-policy.md), [rollout inventory](../../../data/ecosystem-guidance-rollout.json), and [core memory decision](https://github.com/ruvnet/core-memory/issues/186).

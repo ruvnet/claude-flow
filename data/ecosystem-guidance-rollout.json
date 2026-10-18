@@ -1,0 +1,1990 @@
+{
+  "schema": "ruflo-package-guidance/v1",
+  "coreMemory": "https://github.com/ruvnet/core-memory/issues/186",
+  "localPackageRoots": [
+    {
+      "name": "claude-flow",
+      "manifest": "package.json",
+      "guidance": "AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@ruflo/ai-team-service",
+      "manifest": "plugins/ruflo-ai-team/package.json",
+      "guidance": "plugins/ruflo-ai-team/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "ruflo-arena",
+      "manifest": "plugins/ruflo-arena/package.json",
+      "guidance": "plugins/ruflo-arena/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@ruflo/chatgpt-federation",
+      "manifest": "plugins/ruflo-chatgpt-federation/package.json",
+      "guidance": "plugins/ruflo-chatgpt-federation/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "ruflo-graph-intelligence",
+      "manifest": "plugins/ruflo-graph-intelligence/package.json",
+      "guidance": "plugins/ruflo-graph-intelligence/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@ruflo/x-gateway",
+      "manifest": "plugins/ruflo-x-gateway/package.json",
+      "guidance": "plugins/ruflo-x-gateway/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "ruflo",
+      "manifest": "ruflo/package.json",
+      "guidance": "ruflo/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "mcp-bridge",
+      "manifest": "ruflo/src/mcp-bridge/package.json",
+      "guidance": "ruflo/src/mcp-bridge/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "mcp-bridge",
+      "manifest": "ruflo/src/ruvocal/mcp-bridge/package.json",
+      "guidance": "ruflo/src/ruvocal/mcp-bridge/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "chat-ui",
+      "manifest": "ruflo/src/ruvocal/package.json",
+      "guidance": "ruflo/src/ruvocal/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@reflink/reflink",
+      "manifest": "ruflo/src/ruvocal/stub/@reflink/reflink/package.json",
+      "guidance": "ruflo/src/ruvocal/stub/@reflink/reflink/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/aidefence",
+      "manifest": "v3/@claude-flow/aidefence/package.json",
+      "guidance": "v3/@claude-flow/aidefence/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/browser",
+      "manifest": "v3/@claude-flow/browser/package.json",
+      "guidance": "v3/@claude-flow/browser/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/claims",
+      "manifest": "v3/@claude-flow/claims/package.json",
+      "guidance": "v3/@claude-flow/claims/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/cli-core",
+      "manifest": "v3/@claude-flow/cli-core/package.json",
+      "guidance": "v3/@claude-flow/cli-core/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "publish-registry",
+      "manifest": "v3/@claude-flow/cli/cloud-functions/publish-registry/package.json",
+      "guidance": "v3/@claude-flow/cli/cloud-functions/publish-registry/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/cli",
+      "manifest": "v3/@claude-flow/cli/package.json",
+      "guidance": "v3/@claude-flow/cli/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/codex",
+      "manifest": "v3/@claude-flow/codex/package.json",
+      "guidance": "v3/@claude-flow/codex/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/deployment",
+      "manifest": "v3/@claude-flow/deployment/package.json",
+      "guidance": "v3/@claude-flow/deployment/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/embeddings",
+      "manifest": "v3/@claude-flow/embeddings/package.json",
+      "guidance": "v3/@claude-flow/embeddings/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/guidance",
+      "manifest": "v3/@claude-flow/guidance/package.json",
+      "guidance": "v3/@claude-flow/guidance/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "guidance-kernel",
+      "manifest": "v3/@claude-flow/guidance/wasm-pkg/package.json",
+      "guidance": "v3/@claude-flow/guidance/wasm-pkg/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/hooks",
+      "manifest": "v3/@claude-flow/hooks/package.json",
+      "guidance": "v3/@claude-flow/hooks/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/integration",
+      "manifest": "v3/@claude-flow/integration/package.json",
+      "guidance": "v3/@claude-flow/integration/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/mcp",
+      "manifest": "v3/@claude-flow/mcp/package.json",
+      "guidance": "v3/@claude-flow/mcp/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/memory",
+      "manifest": "v3/@claude-flow/memory/package.json",
+      "guidance": "v3/@claude-flow/memory/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/neural",
+      "manifest": "v3/@claude-flow/neural/package.json",
+      "guidance": "v3/@claude-flow/neural/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/performance",
+      "manifest": "v3/@claude-flow/performance/package.json",
+      "guidance": "v3/@claude-flow/performance/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-agent-federation",
+      "manifest": "v3/@claude-flow/plugin-agent-federation/package.json",
+      "guidance": "v3/@claude-flow/plugin-agent-federation/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-iot-cognitum",
+      "manifest": "v3/@claude-flow/plugin-iot-cognitum/package.json",
+      "guidance": "v3/@claude-flow/plugin-iot-cognitum/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugins",
+      "manifest": "v3/@claude-flow/plugins/package.json",
+      "guidance": "v3/@claude-flow/plugins/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/providers",
+      "manifest": "v3/@claude-flow/providers/package.json",
+      "guidance": "v3/@claude-flow/providers/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/security",
+      "manifest": "v3/@claude-flow/security/package.json",
+      "guidance": "v3/@claude-flow/security/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/shared",
+      "manifest": "v3/@claude-flow/shared/package.json",
+      "guidance": "v3/@claude-flow/shared/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/swarm",
+      "manifest": "v3/@claude-flow/swarm/package.json",
+      "guidance": "v3/@claude-flow/swarm/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/testing",
+      "manifest": "v3/@claude-flow/testing/package.json",
+      "guidance": "v3/@claude-flow/testing/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/watermark",
+      "manifest": "v3/@claude-flow/watermark/package.json",
+      "guidance": "v3/@claude-flow/watermark/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": null,
+      "manifest": "v3/@claude-flow/watermark/web/package.json",
+      "guidance": "v3/@claude-flow/watermark/web/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@ruflo/research",
+      "manifest": "v3/goal_ui/package.json",
+      "guidance": "v3/goal_ui/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/v3-monorepo",
+      "manifest": "v3/package.json",
+      "guidance": "v3/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-code-intelligence",
+      "manifest": "v3/plugins/code-intelligence/package.json",
+      "guidance": "v3/plugins/code-intelligence/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-cognitive-kernel",
+      "manifest": "v3/plugins/cognitive-kernel/package.json",
+      "guidance": "v3/plugins/cognitive-kernel/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-financial-risk",
+      "manifest": "v3/plugins/financial-risk/package.json",
+      "guidance": "v3/plugins/financial-risk/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-gastown-bridge",
+      "manifest": "v3/plugins/gastown-bridge/package.json",
+      "guidance": "v3/plugins/gastown-bridge/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-healthcare-clinical",
+      "manifest": "v3/plugins/healthcare-clinical/package.json",
+      "guidance": "v3/plugins/healthcare-clinical/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-hyperbolic-reasoning",
+      "manifest": "v3/plugins/hyperbolic-reasoning/package.json",
+      "guidance": "v3/plugins/hyperbolic-reasoning/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-legal-contracts",
+      "manifest": "v3/plugins/legal-contracts/package.json",
+      "guidance": "v3/plugins/legal-contracts/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-neural-coordination",
+      "manifest": "v3/plugins/neural-coordination/package.json",
+      "guidance": "v3/plugins/neural-coordination/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-perf-optimizer",
+      "manifest": "v3/plugins/perf-optimizer/package.json",
+      "guidance": "v3/plugins/perf-optimizer/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-prime-radiant",
+      "manifest": "v3/plugins/prime-radiant/package.json",
+      "guidance": "v3/plugins/prime-radiant/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-quantum-optimizer",
+      "manifest": "v3/plugins/quantum-optimizer/package.json",
+      "guidance": "v3/plugins/quantum-optimizer/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/ruvector-upstream",
+      "manifest": "v3/plugins/ruvector-upstream/package.json",
+      "guidance": "v3/plugins/ruvector-upstream/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/teammate-plugin",
+      "manifest": "v3/plugins/teammate-plugin/package.json",
+      "guidance": "v3/plugins/teammate-plugin/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    },
+    {
+      "name": "@claude-flow/plugin-test-intelligence",
+      "manifest": "v3/plugins/test-intelligence/package.json",
+      "guidance": "v3/plugins/test-intelligence/AGENTS.md",
+      "status": "source-documented",
+      "npmArtifact": "unverified"
+    }
+  ],
+  "ecosystem": [
+    {
+      "name": "@agentic-robotics/cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentic-robotics/core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentic-robotics/linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentic-robotics/mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentic-robotics/self-learning",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentics.org/agentic-mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@agentics.org/sparc2",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@claude-flow/aidefence",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/browser",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/claims",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/cli",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/cli-core",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/codex",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/deployment",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/embeddings",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/guidance",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/hooks",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/integration",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/mcp",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/memory",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/neural",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/performance",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-agent-federation",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-agentic-qe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@claude-flow/plugin-code-intelligence",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-cognitive-kernel",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-financial-risk",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-gastown-bridge",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-healthcare-clinical",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-hyperbolic-reasoning",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-iot-cognitum",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-legal-contracts",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-neural-coordination",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-perf-optimizer",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-prime-radiant",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-quantum-optimizer",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugin-test-intelligence",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/plugins",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/providers",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/security",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/shared",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/swarm",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/teammate-plugin",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/testing",
+      "status": "source-documented"
+    },
+    {
+      "name": "@claude-flow/watermark",
+      "status": "source-documented"
+    },
+    {
+      "name": "@cognitum-one/sdk",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@cognitum/freetokens",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@cognitum/gate",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@cognitum/ruos",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@dream-machine/compile",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@dream-machine/ledger",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@dream-machine/memory",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@dream-machine/schedule",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@dream-machine/witness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/cf-doctor",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/e2b-runner",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/iris",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/iris-agentic-synth",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/iris-core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/iris-ultrathink",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@foxruv/nova-medicina",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/agntcy",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/avo",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/aws-finops",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/claude-code",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/codex",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/coding",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/copilot",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/darwin",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/devops",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/education",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-ads",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-aws",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-azure",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-bio",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-datadog",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-fhir",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-gcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-github",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-huggingface",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-iot",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-nasa",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-pinecone",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-qiskit",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-slack",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-stripe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-supabase",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-twilio",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/example-web3",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/field-memory",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/flywheel",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/gaming",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/github-actions",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/harness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/hermes",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/horizon",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-claude-code",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-codex",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-copilot",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-github-actions",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-hermes",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-openclaw",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-opencode",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-pi-dev",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-prime-agent",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/host-rvm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/jujutsu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/kernel",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/legal",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/oo-agents",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/openclaw",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/opencode",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/pi-dev",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/projects",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/radio",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/redblue",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/repo-maintainer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/research",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/router",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/rvm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/sales",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/sdk",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/support",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/trading",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/turn-credit",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/vertical-base",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/vertical-trading",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/weight-eft",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/workspace-lens",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@metaharness/workspace-probe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-agents",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-rust-core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/agentic-accounting-types",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/backend",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/backtesting",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/benchoptimizer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/brokers",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/e2b-strategies",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-dynamic-pricing",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-energy-forecasting",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-energy-grid-optimization",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-evolutionary-game-theory",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-healthcare-optimization",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-logistics-optimization",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-market-microstructure",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-neuromorphic-computing",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-portfolio-optimization",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-quantum-optimization",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/example-supply-chain-prediction",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/execution",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/features",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/market-data",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/mcp-protocol",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/neural",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/neuro-divergent",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/news-trading",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/portfolio",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/prediction-markets",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/predictor",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/risk",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/sports-betting",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/strategies",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@neural-trader/syndicate",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@qudag/cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@qudag/mcp-sse",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@qudag/mcp-stdio",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@qudag/napi-core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruv/rash",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruv/rvcsi",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruv/sparc-ui",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/acorn-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/agentic-integration",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/agentic-synth",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/agentic-synth-examples",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-unified-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/attention-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/burst-scaling",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/cluster",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/cnn",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/diskann-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/economy-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/edge",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/edge-full",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/edge-net",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/emergent-time",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/exotic-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-linux-arm64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-linux-x64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/gnn-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-data-generator",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-node-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-arm64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-linux-x64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-transformer-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/graph-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/kge-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/learning-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/math-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/mincut-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/nervous-system-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/neural-trader-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/node-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ospipe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ospipe-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/pi-brain",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/postgres-cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rabitq-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/raft",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/replication",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/router-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rudag",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruqu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruqu-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvector-consciousness-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-cli",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/ruvllm-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvagent-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvdna",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-mcp-server",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-node-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-solver",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvf-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvforge",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/rvlite",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/scipix",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/server",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-linux-x64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-win32-arm64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/sona-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/spiking-neural",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-arm64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-linux-x64-musl",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-win32-arm64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/tiny-dancer-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/typesafe-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvector/wasm-unified",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/agent-harness-generator",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/bmssp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/open-claude-code",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/ruvector-verified-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/ruview",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/ruview-kernel",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/ruvn",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/rvagent",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/site-harness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "@ruvnet/strange-loop",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agent-booster",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentbbs",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentdb",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentic-flow",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentic-jujutsu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentic-payments",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentic-robotics",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agenticow",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agentics-hackathon",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "agenticsjs",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ai-text-watermark",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "aidefence",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "aidefense",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "bmssp-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "claude-flow",
+      "status": "source-documented"
+    },
+    {
+      "name": "claude-flow-v3",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "cogmusic",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "consciousness-explorer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "create-sparc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "cuda-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "dream-machine",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "dspy.ts",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "flow-nexus",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "goalie",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "homecore",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "lean-agentic",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "llm-stream-reformat",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "metaharness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "midstreamer",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "neural-trader",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "prime-radiant-advanced-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "psycho-symbolic-integration",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "psycho-symbolic-reasoner",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "qudag",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "radio-moe",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "readme-proof",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "research-swarm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "rucelium-harness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruflo",
+      "status": "source-documented"
+    },
+    {
+      "name": "ruflo-graph-intelligence",
+      "status": "source-documented"
+    },
+    {
+      "name": "rulake-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "rupixel",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruv-swarm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvbot",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvdrone",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-attention-unified-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-attention-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core-darwin-arm64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core-darwin-x64",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core-linux-arm64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core-linux-x64-gnu",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-core-win32-x64-msvc",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-extensions",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-gnn-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-graph-transformer-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-math-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-mragent",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-onnx-embeddings-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-sona",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvector-wasm",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvi",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvllm-esp32",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "ruvneural",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "rvlite",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "spiking-neural",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "strange-loops",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "strange-loops-mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "sublinear-time-solver",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "symbolic-scribe-harness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "temporal-lead-solver",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "temporal-neural-solver",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "vscode-remote-mcp",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "wifi-densepose-sar-harness",
+      "status": "pending-source-repository-verification"
+    },
+    {
+      "name": "worldgraphs",
+      "status": "pending-source-repository-verification"
+    }
+  ]
+}
