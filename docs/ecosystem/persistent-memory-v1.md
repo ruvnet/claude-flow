@@ -1,5 +1,7 @@
 # Persistent memory and vector retrieval starter v1
 
+For explicit update/delete and ID/version conflict checks, use [lifecycle starter v2](persistent-memory-v2.md). The current consumer now rejects duplicate existing keys and cross-batch dimension changes instead of silently replacing records or creating an unreadable namespace. The original measurements below remain historical evidence, not a new gain.
+
 This repository-owned consumer composes `@claude-flow/memory@3.0.5`, `sql.js@1.15.0`, `ruvector@0.2.41` and native `@ruvector/core@0.1.33`. It saves content and supplied vectors in SQLite, exits, then loads those saved entries in a new process. RuVector builds a fresh namespace-scoped index and returns IDs that are resolved back to saved memory.
 
 SQLite is the source of truth; the vector index is a disposable projection. No artificial dependency edge is added to the published packages. This is an application-composed workflow, not a claim that the memory package automatically uses RuVector or AgentDB. The actual `agentdb` runtime is not exercised by this example.

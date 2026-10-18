@@ -28,7 +28,7 @@ async function databaseBytes(path, optional = false) {
 
 // Trusted local directory; all writers must use this protocol. The checkpoint
 // callback is an explicit test seam, never read from CLI input/environment.
-export async function withMemorySnapshot({ databasePath, write, checkpoint = async () => {} }, operation) {
+export async function withMemorySnapshot({ databasePath, write, requireExisting = false, checkpoint = async () => {} }, operation) {
   if (process.platform === 'win32') throw new Error('Atomic memory starter currently requires POSIX filesystem semantics');
   const requested = resolve(databasePath), parent = await realpath(dirname(requested));
   const path = join(parent, basename(requested)), lock = path + '.writer.lock';
@@ -51,7 +51,7 @@ export async function withMemorySnapshot({ databasePath, write, checkpoint = asy
       directory = await open(parent, constants.O_RDONLY | constants.O_DIRECTORY);
       await directory.sync(); // Fail before work if directory sync is unsupported.
     }
-    const bytes = await databaseBytes(path, write);
+    const bytes = await databaseBytes(path, write && !requireExisting);
     folder = await mkdtemp(join(write ? parent : tmpdir(), '.ruflo-memory-stage-'));
     const workingPath = join(folder, 'working.sqlite');
     if (bytes) await writeFile(workingPath, bytes, { flag: 'wx', mode: 0o600 });

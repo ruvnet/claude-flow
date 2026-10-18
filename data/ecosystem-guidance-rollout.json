@@ -1168,7 +1168,7 @@
       "proposedGuidancePackInclusionVerified": true,
       "sourceDocumentedUpstream": false,
       "buildValidation": "data/ecosystem-guidance-ruvector-build.validation.json",
-      "nextAction": "Pinned NAPI CLI now resolves; native build is blocked by missing Cargo in both available executors. Use an existing authorized Rust-capable environment and pass native build plus full wrapper tests before a grouped PR. Existing-binary core tests pass; proposed fixture pack inclusion is not release validation."
+      "nextAction": "Native source build remains blocked by missing Cargo in existing executors. JS-only guidance is separately submitted in RuVector PR1227; do not count it as native-core validation. Use an existing authorized Rust-capable environment, then pass native build and applicable tests before a separate core PR."
     },
     {
       "name": "@ruvector/diskann",
@@ -1220,7 +1220,25 @@
     },
     {
       "name": "@ruvector/gnn",
-      "status": "pending-source-repository-verification"
+      "status": "pending",
+      "stage": "source-repository-verified-guidance-pending",
+      "repository": "https://github.com/ruvnet/RuVector",
+      "packagePath": "crates/ruvector-gnn-node",
+      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "manifestBlobSha": "c4a57eab08c897b9a889e96f13cf9d10fa5e4e16",
+      "manifestSha256": "f80afe7396b2894205eb8d684a4cb3da8a2602b7bbc888470028ac71c854c73a",
+      "registryVersionInspected": "0.1.25",
+      "sourceVersionInspected": "0.1.25",
+      "registryRepository": {
+        "type": "git",
+        "url": "https://github.com/ruvnet/ruvector"
+      },
+      "registryIntegrity": "sha512-4q9HRHzA6IzCi2gXkppCuj8+y5jBN9xw9ea3nLq0WwtOc7zSK2x0n+zsNPiQVAeuGFO8CBTPjRyIDbXAOPvtsQ==",
+      "pullRequest": null,
+      "npmArtifact": "unverified",
+      "sourceDocumentedUpstream": false,
+      "nextAction": "Read package-specific build/test policy; add package guidance in a separate source change with applicable tests and pack inclusion evidence. No guidance change or release is claimed by this mapping.",
+      "validation": "data/ecosystem-guidance-ruvector-js.validation.json"
     },
     {
       "name": "@ruvector/gnn-darwin-arm64",
@@ -1260,7 +1278,26 @@
     },
     {
       "name": "@ruvector/graph-node",
-      "status": "pending-source-repository-verification"
+      "status": "pending",
+      "stage": "source-repository-verified-guidance-pending",
+      "repository": "https://github.com/ruvnet/RuVector",
+      "packagePath": "npm/packages/graph-node",
+      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "manifestBlobSha": "9ef25ba2dea39c62d5dee9b794a35c87f4125466",
+      "manifestSha256": "369351ffc032472d04dcb6f5351de2b95943ba46efeffab8615bcb03b2817b7a",
+      "registryVersionInspected": "2.1.1",
+      "sourceVersionInspected": "2.1.1",
+      "registryRepository": {
+        "type": "git",
+        "url": "https://github.com/ruvnet/ruvector.git",
+        "directory": "npm/packages/graph-node"
+      },
+      "registryIntegrity": "sha512-Wkm741bdM9FOUeVxAfpDBmUla9g1vGGhFVnfoOhDwVcYj2sUCIBVFTEPVw199r3QOsyj5YyYy6uExPsiY/aXrw==",
+      "pullRequest": null,
+      "npmArtifact": "unverified",
+      "sourceDocumentedUpstream": false,
+      "nextAction": "Read package-specific build/test policy; add package guidance in a separate source change with applicable tests and pack inclusion evidence. No guidance change or release is claimed by this mapping.",
+      "validation": "data/ecosystem-guidance-ruvector-js.validation.json"
     },
     {
       "name": "@ruvector/graph-node-darwin-arm64",
@@ -1352,7 +1389,26 @@
     },
     {
       "name": "@ruvector/mincut-wasm",
-      "status": "pending-source-repository-verification"
+      "status": "pending",
+      "stage": "source-repository-verified-guidance-pending",
+      "repository": "https://github.com/ruvnet/RuVector",
+      "packagePath": "npm/packages/mincut-wasm",
+      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "manifestBlobSha": "b37609783427cd24a48ffdcf0d61c7df0d3ef71c",
+      "manifestSha256": "30f8f67626570c61be90b35af710ac5f8d9c97e365e0d2d4500c02ac0e74931d",
+      "registryVersionInspected": "2.3.0",
+      "sourceVersionInspected": "2.3.0",
+      "registryRepository": {
+        "type": "git",
+        "url": "https://github.com/ruvnet/ruvector.git",
+        "directory": "npm/packages/mincut-wasm"
+      },
+      "registryIntegrity": "sha512-vCksKzgzlLiN6tMWC9FBAuXaam3HzAh4Xr+Wgydc4OjuDLUstWb2tgtitEUfPm0NI0W2nILMJ0Jypg1i0hJl7Q==",
+      "pullRequest": null,
+      "npmArtifact": "unverified",
+      "sourceDocumentedUpstream": false,
+      "nextAction": "Read package-specific build/test policy; add package guidance in a separate source change with applicable tests and pack inclusion evidence. No guidance change or release is claimed by this mapping.",
+      "validation": "data/ecosystem-guidance-ruvector-js.validation.json"
     },
     {
       "name": "@ruvector/nervous-system-wasm",
@@ -1884,22 +1940,27 @@
     },
     {
       "name": "ruvector",
-      "status": "pending",
-      "stage": "proposed-guidance-pack-verified-build-blocked",
+      "status": "source-documented",
+      "stage": "draft-pr-source-documented-pack-verified",
       "repository": "https://github.com/ruvnet/RuVector",
       "packagePath": "npm/packages/ruvector",
-      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "sourceCommit": "c9bbc7df42bfdaa33f834bbfe67ada052c15eb79",
       "manifestBlobSha": "402d9974c9c7566716358d97dfdc06cfbeba1ed3",
       "registryVersionInspected": "0.2.41",
       "sourceVersionInspected": "0.3.3",
-      "pullRequest": null,
-      "npmArtifact": "unverified",
-      "proposedPatch": "docs/ecosystem/proposals/ruvector-guidance.patch",
-      "validation": "data/ecosystem-guidance-ruvector.validation.json",
+      "pullRequest": "https://github.com/ruvnet/RuVector/pull/1227",
+      "npmArtifact": "unsigned-proposed-pack-verified-not-released",
+      "proposedPatch": "docs/ecosystem/proposals/ruvector-guidance-js.patch",
+      "validation": "data/ecosystem-guidance-ruvector-js.validation.json",
       "proposedGuidancePackInclusionVerified": true,
-      "sourceDocumentedUpstream": false,
-      "buildValidation": "data/ecosystem-guidance-ruvector-build.validation.json",
-      "nextAction": "Baseline and candidate JS builds now pass; all 15 dist paths exist and 129 generated files match. Built guidance pack adds 1021 compressed bytes. Full tests remain blocked at unavailable MetaHarness SDK dependencies, with two MinCut skips. Provision a recorded source-compatible dependency fixture and pass applicable tests before a grouped PR. Source 0.3.3 is not the pinned 0.2.41 runtime proof; unsigned pack inclusion is not release validation."
+      "sourceDocumentedUpstream": true,
+      "buildValidation": "data/ecosystem-guidance-ruvector-js.validation.json",
+      "nextAction": "Maintainer review and existing CI/signing/release gates for draft PR1227. JS build, verify-dist and full16-script suite pass with recorded compatible dependencies and zero skips. Source0.3.3 is distinct from pinned0.2.41 runtime validation; local pack is unsigned and unreleased.",
+      "sourceBaseCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "pullRequestState": "open-draft",
+      "merged": false,
+      "released": false,
+      "guidance": "npm/packages/ruvector/AGENTS.md"
     },
     {
       "name": "ruvector-attention-unified-wasm",

@@ -23,7 +23,7 @@ RUFLO_MEMORY_REQUIRED=1 \
 RUFLO_MEMORY_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_RUVECTOR_REQUIRED=1 \
 RUFLO_RUVECTOR_RESOLVE_FROM=/tmp/ruflo-ruvector-proof/package.json \
-node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 60000
+node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 120000
 node scripts/build-ecosystem-web.mjs
 ```
 
@@ -57,6 +57,8 @@ An explicit executor can now turn one current proposal into an isolated, leased 
 Regression tests cover traversal and symbolic link rejection, stale evidence, fabricated success, skipped tests, execution timeout, excessive output, deduplication, failure prioritization and bounded iteration. The installed integration test runs two actual cycles and verifies that captured downloads and manifests remain unchanged. CI runs contracts on Node 22 and 24 and requires installed RuVector integration.
 
 The persistent-memory check also runs a separate-process stale-reader race and SIGKILL tests on either side of atomic database replacement. Private reader snapshots prevent shutdown from overwriting a newer successful writer. Exclusive writer ownership and explicit stale-lock recovery apply only to this trusted-local POSIX consumer. Process interruption is tested; power-loss durability and the underlying package outside this wrapper are not. See the [snapshot safety receipt](../../data/ecosystem-memory-atomic.validation.json). This strengthens an existing capability without increasing package coverage or counting an earlier payload saving twice.
+
+[Lifecycle starter v2](persistent-memory-v2.md) adds explicit ID-and-version-fenced update/delete, namespace-wide dimension/capacity checks and insert-only writes. The required check runs real restart, stale mutation, namespace, expired-key and SIGKILL regressions plus the six-process starter. The default two-cycle budget is now 120 seconds to fit the expanded suite; the 300-second hard maximum and failure gates are unchanged. This is a functional-test budget adjustment, not a performance improvement or weakened benchmark threshold.
 
 Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the new eighth capability has source/receipt tests but awaits a fresh visual browser pass.
 

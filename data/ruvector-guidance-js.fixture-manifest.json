@@ -1,0 +1,30 @@
+{
+  "name": "ruvector-source-0-3-3-guidance-validation",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@metaharness/darwin": "0.9.1",
+    "@metaharness/flywheel": "0.1.10",
+    "@metaharness/harness": "0.2.0",
+    "@metaharness/redblue": "0.1.6",
+    "@metaharness/router": "0.4.0",
+    "@metaharness/weight-eft": "0.1.1",
+    "@metaharness/workspace-lens": "0.1.2",
+    "@metaharness/workspace-probe": "0.1.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@ruvector/attention": "0.1.32",
+    "@ruvector/core": "0.1.33",
+    "@ruvector/gnn": "0.1.25",
+    "@ruvector/graph-node": "2.1.1",
+    "@ruvector/mincut-wasm": "2.3.0",
+    "@ruvector/rvf": "0.3.4",
+    "@ruvector/sona": "0.1.8",
+    "@ruvector/tiny-dancer": "0.1.22",
+    "@types/node": "20.19.43",
+    "chalk": "4.1.2",
+    "commander": "11.1.0",
+    "metaharness": "0.4.7",
+    "ora": "5.4.1",
+    "typescript": "5.9.3"
+  }
+}

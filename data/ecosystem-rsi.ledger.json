@@ -347,5 +347,71 @@
     "successfulChecks": 8,
     "complete": false,
     "adoptionScore": null
+  },
+  {
+    "inputHash": "3ec765efdff20211a419c574804edd90a9bd883a8b00b67ca0571377abebdd64",
+    "sourceSha256": "38673cdc8b89af3ddb781204bf1cc386a44eccc8e60b2820d4c7752cb8cfaa70",
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed"
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed"
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "timedout"
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "timedout"
+      }
+    ],
+    "successfulChecks": 2,
+    "complete": false,
+    "adoptionScore": null
+  },
+  {
+    "inputHash": "9ae4054abb93c8cda3fb5c5634e9b6b220b975a1633df75d5e93a972b76bf49a",
+    "sourceSha256": "76d1764006affc7ca1a1e334fef5da5e4f4b28b8adb61cf3360f1d73b4b18864",
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed"
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed"
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed"
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed"
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed"
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed"
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed"
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed"
+      }
+    ],
+    "successfulChecks": 8,
+    "complete": false,
+    "adoptionScore": null
   }
 ]

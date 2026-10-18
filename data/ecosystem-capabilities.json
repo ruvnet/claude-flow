@@ -106,8 +106,8 @@
     {
       "id": "persistent-memory-retrieval",
       "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],
-      "testFiles": ["scripts/tests/ecosystem-memory-installed.test.mjs", "scripts/tests/ecosystem-memory-atomic-installed.test.mjs", "scripts/tests/ecosystem-memory-snapshot.test.mjs"],
-      "sourceFiles": ["scripts/ecosystem-memory.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs", "scripts/tests/fixtures/ecosystem-memory-worker.mjs"]
+      "testFiles": ["scripts/tests/ecosystem-memory-installed.test.mjs", "scripts/tests/ecosystem-memory-atomic-installed.test.mjs", "scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs", "scripts/tests/ecosystem-memory-snapshot.test.mjs"],
+      "sourceFiles": ["scripts/ecosystem-memory.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs", "scripts/tests/fixtures/ecosystem-memory-worker.mjs", "scripts/examples/persistent-memory-lifecycle-v2.mjs"]
     },
     {
       "id": "dependency-ownership",

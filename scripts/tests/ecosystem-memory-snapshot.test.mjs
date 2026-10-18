@@ -18,6 +18,14 @@ test('reader snapshot is private and discards backend persistence', async t => {
   await withMemorySnapshot({ databasePath, write: false }, async path => { assert.notEqual(path,databasePath); await writeFile(path,bytes('reader mutation')); });
   assert.deepEqual(await readFile(databasePath),bytes('baseline'));
 });
+test('required existing writer state is not synthesized on a missing path', async t => {
+  const { folder } = await fixture(t), databasePath = join(folder, 'missing.sqlite');
+  let called = false;
+  await assert.rejects(withMemorySnapshot({ databasePath, write: true, requireExisting: true }, () => { called = true; }), { code: 'ENOENT' });
+  assert.equal(called, false);
+  await assert.rejects(stat(databasePath), { code: 'ENOENT' });
+  await assert.rejects(stat(databasePath + '.writer.lock'), { code: 'ENOENT' });
+});
 test('writer atomically replaces complete content, restricts permissions and releases ownership', async t => {
   const { databasePath, folder } = await fixture(t);
   const r = await withMemorySnapshot({ databasePath, write: true }, async path => { await writeFile(path,bytes('new')); return { ok:true }; });

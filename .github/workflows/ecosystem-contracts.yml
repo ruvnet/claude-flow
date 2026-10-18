@@ -67,4 +67,4 @@ jobs:
           RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
           RUFLO_MEMORY_REQUIRED: '1'
           RUFLO_MEMORY_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
-        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs
+        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs

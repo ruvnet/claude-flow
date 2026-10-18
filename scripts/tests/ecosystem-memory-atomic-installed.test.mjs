@@ -64,3 +64,28 @@ for(const phase of ['before-publish','after-publish']) {
     t.diagnostic(JSON.stringify({phase,signal:terminated.signal,retainedKeys:result.results.map(x=>x.key),competingWriterRejected:true,staleLeaseNotStolen:true,powerLossTested:false}));
   });
 }
+
+for (const mode of ['update', 'delete']) for (const phase of ['before-publish', 'after-publish']) {
+  test(`SIGKILL during ${mode} ${phase} preserves a complete lifecycle state`, { skip }, async t => {
+    const { database } = await fixture(t), before = await readFile(database);
+    const original = (await run('retrieve', database, query)).results[0];
+    const input = { records: [{ key: original.key, expectedId: original.id, expectedVersion: original.version, content: 'updated', vector: [0, 1] }] };
+    const pending = worker(mode, database, phase, input); t.after(() => pending.child.kill('SIGKILL'));
+    await pending.ready; pending.child.kill('SIGKILL');
+    assert.equal((await pending.done).signal, 'SIGKILL');
+    const actual = await run('retrieve', database, query);
+    if (phase === 'before-publish') {
+      assert.deepEqual(await readFile(database), before);
+      assert.deepEqual(actual.results[0], original);
+    } else if (mode === 'update') {
+      assert.equal(actual.results[0].content, 'updated');
+      assert.equal(actual.results[0].id, original.id);
+      assert.equal(actual.results[0].version, original.version + 1);
+    } else {
+      assert.equal(actual.indexed, 0); assert.deepEqual(actual.results, []);
+    }
+    const fenced = await worker('write', database, 'none', records('later')).done;
+    assert.equal(fenced.code, 1); assert.match(fenced.report.message, /EEXIST/);
+    t.diagnostic(JSON.stringify({ mode, phase, signal: 'SIGKILL', staleLeaseFenced: true, powerLossTested: false }));
+  });
+}
