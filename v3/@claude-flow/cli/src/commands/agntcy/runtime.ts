@@ -40,7 +40,8 @@
  *   - removable:            deleting this whole directory changes nothing
  *                            about the rest of the CLI working.
  *   - optional-only:        `@agntcy/slim-bindings` MUST live in
- *                            optionalDependencies, never `dependencies`.
+ *                            optionalDependencies in the scoped CLI, or an explicit
+ *                            optional peer in the umbrella; never `dependencies`.
  *   - graceful degradation: every caller of `detectAgntcyRuntime()` falls
  *                            back to the local transport / existing
  *                            authorization model on `configured: false`.
@@ -55,9 +56,8 @@ export const AGNTCY_ENDPOINT_ENV = 'RUFLO_AGNTCY_SLIM_ENDPOINT';
  * The real SLIM Node.js bindings package (npm, published, real). Kept as a
  * named constant (not a string literal scattered through the module) so a
  * single edit repoints every dynamic-import call site if that ever changes.
- * Currently fails to load due to an upstream packaging bug — see this
- * file's header comment — which `detectAgntcyRuntime()`'s catch-all branch
- * already handles gracefully.
+ * The exact alpha pin is retained for compatibility. Import failures are
+ * reported by detectAgntcyRuntime without disabling local transport.
  */
 export const AGNTCY_PACKAGE_NAME = '@agntcy/slim-bindings';
 

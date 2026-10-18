@@ -33,6 +33,7 @@ jobs:
           scripts/tests/ecosystem-ruvector.test.mjs
           scripts/tests/ecosystem-runtime-relationships.test.mjs
           scripts/tests/ecosystem-runtime-contract.test.mjs
+          scripts/tests/slim-opt-in.test.mjs
           scripts/tests/root-publish-capability-parity.test.mjs
           scripts/tests/ruvector-native-adapter.test.mjs
           scripts/tests/weight-eft-api-contract.test.mjs

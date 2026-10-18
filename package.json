@@ -99,7 +99,6 @@
     "sql.js": "^1.13.0"
   },
   "optionalDependencies": {
-    "@agntcy/slim-bindings": "2.0.0-alpha.5",
     "@claude-flow/memory": "3.0.5",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
     "@metaharness/darwin": "~0.12.0",
@@ -234,5 +233,13 @@
   "directories": {
     "doc": "docs",
     "test": "tests"
+  },
+  "peerDependencies": {
+    "@agntcy/slim-bindings": "2.0.0-alpha.5"
+  },
+  "peerDependenciesMeta": {
+    "@agntcy/slim-bindings": {
+      "optional": true
+    }
   }
 }

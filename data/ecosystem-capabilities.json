@@ -108,12 +108,15 @@
         "@metaharness/weight-eft"
       ],
       "testFiles": [
-        "scripts/tests/ecosystem-runtime-contract.test.mjs"
+        "scripts/tests/ecosystem-runtime-contract.test.mjs",
+        "scripts/tests/slim-opt-in.test.mjs"
       ],
       "sourceFiles": [
         "package.json",
         "ruflo/package.json",
-        "v3/@claude-flow/cli/package.json"
+        "v3/@claude-flow/cli/package.json",
+        "package-lock.json",
+        "v3/@claude-flow/cli/src/commands/agntcy/runtime.ts"
       ]
     },
     {

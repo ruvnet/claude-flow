@@ -51,3 +51,5 @@ For example, the latest manifests of `strange-loops` and `sublinear-time-solver`
 [RuVector analysis, runtime relationships and targeted regression planning](ruvector-analysis.md) maps the disconnected groups, validates structural cuts with an independent oracle, and includes source proven runtime delegations that npm manifests omit.
 
 [Interactive capability web and bounded RSI loop](capability-web.md) provides package neighborhoods, verified check receipts and a prioritized integration work queue.
+
+The umbrella's SLIM transport is an explicit optional peer: install `@agntcy/slim-bindings@2.0.0-alpha.5` in the same application when using it. The scoped CLI keeps its existing optional dependency. [Measured cost and acceptance](slim-opt-in-validation.md).

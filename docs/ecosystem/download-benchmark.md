@@ -48,3 +48,7 @@ Use a new output path. The runner records every result, preserves tarball invent
 [Machine readable measurements](../../data/npm-download-benchmark.latest.json).
 
 Decision: retain the analysis tooling and CLI declaration work, but hold the umbrella dependency expansion pending a SLIM platform filtering or explicit opt in fix. Acceptance: rerun the same bundle preserving consumer comparison, eliminate off platform SLIM archives on Linux x64, and retain working integration tests on every supported platform before publication.
+
+## Follow up candidate
+
+The [SLIM optional peer comparison](slim-opt-in-validation.md) reduces the previous candidate payload by 109.38 MB (20.95 percent) while retaining an explicit SDK install path. The net difference from the published release still requires a fresh matched comparison. This is validated candidate evidence, not a published release or a latency claim.
