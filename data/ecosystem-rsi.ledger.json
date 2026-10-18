@@ -1,0 +1,113 @@
+[
+  {
+    "inputHash": "c0d20ec6e2aa7f8e70d153ed8f5f015bc3ef8ce039909e570fc258fe42918ab2",
+    "sourceSha256": "92c9ea70d9dd2788cf14aea92a6b9851a37b4ce79c99a5bbe7f2d75456d44efb",
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed"
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed"
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed"
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed"
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed"
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed"
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed"
+      }
+    ],
+    "successfulChecks": 7,
+    "complete": false,
+    "adoptionScore": null
+  },
+  {
+    "inputHash": "22a7deb3c90def5289676ac728d03e7bdeeecf16a2f78e664a61a5e332cab0e2",
+    "sourceSha256": "fd1db8d218df5bcdc5213abfcc1aa1abb4778c972d60d207b553e804a6e4ea38",
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed"
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed"
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed"
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed"
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed"
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed"
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed"
+      }
+    ],
+    "successfulChecks": 7,
+    "complete": false,
+    "adoptionScore": null
+  },
+  {
+    "inputHash": "7886b4a013590451c9dd9328299045a5bdb73a2f8ca3e1176e0f648f278f012f",
+    "sourceSha256": "98d6befaa5df08218f9e0254825c9b6adbb4126f84f63ea92db45ce03d30f9e0",
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed"
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed"
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed"
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed"
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed"
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed"
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed"
+      }
+    ],
+    "successfulChecks": 7,
+    "complete": false,
+    "adoptionScore": null
+  }
+]

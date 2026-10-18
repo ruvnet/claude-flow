@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Ruflo · Ecosystem Atlas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead"><a class="brand" href="../../../README.md" aria-label="Ruflo repository readme"><span class="brand-icon" aria-hidden="true">◈</span> RUFLO <span class="brand-sub">ECOSYSTEM ATLAS</span></a><span class="local-pill"><span aria-hidden="true"></span> Repository evidence</span></header>
+  <main>
+    <section class="intro"><div><p class="eyebrow">RELATIONSHIPS YOU CAN INSPECT</p><h1>One ecosystem.<br><span>Every connection explained.</span></h1><p class="lede">Explore package dependencies, observed runtime links and the evidence behind each capability.</p></div><div class="intro-note"><span class="note-icon" aria-hidden="true">◎</span><p>Connected does not mean compatible.<br>Evidence makes the difference.</p></div></section>
+    <div id="message" class="message" role="status" aria-live="polite">Loading repository snapshots…</div>
+    <section id="stats" class="stats" aria-label="Graph summary"></section>
+    <section class="workspace" aria-label="Package relationship explorer">
+      <aside class="catalog"><div class="catalog-head"><h2>Find a package</h2><label for="search">Name or scope</label><input id="search" type="search" placeholder="Search 401 packages…" autocomplete="off"><label for="filter">Relationship view</label><select id="filter"><option value="all">All packages</option><option value="isolated">No mapped connections</option><option value="runtime">Observed runtime links</option><option value="connected">Connected packages</option></select><p id="result-count" class="muted" aria-live="polite"></p></div><div id="package-list" class="package-list" aria-label="Matching packages"></div></aside>
+      <div class="graph-panel"><div class="graph-toolbar"><div><h2 id="graph-title">Ecosystem overview</h2><p id="graph-subtitle">Select a package to inspect its neighborhood.</p></div><button id="reset" type="button">Reset view</button></div><div class="legend"><span><i class="declared"></i> Declared dependency</span><span><i class="observed"></i> Observed runtime link</span><span><i class="isolated"></i> No mapped link</span></div><div class="graph-stage"><svg id="graph" viewBox="0 0 900 620" role="group" aria-label="Interactive package graph"></svg><div class="graph-caption">Select a node to focus. Arrow keys move between nodes. Enter selects.</div></div><div class="graph-controls"><label><input id="show-edges" type="checkbox" checked> Show all visible connections</label><span id="edge-count"></span></div></div>
+    </section>
+    <section id="detail" class="detail" aria-live="polite"><p class="eyebrow">PACKAGE INSPECTOR</p><h2>Select any package</h2><p>Inspect incoming consumers, outgoing dependencies and source evidence.</p></section>
+    <section class="capabilities"><div class="section-heading"><div><p class="eyebrow">CAPABILITY CONTRACTS</p><h2>What is actually verified?</h2></div><span id="receipt-state" class="status-chip unknown">No verified receipt</span></div><p class="section-copy">Declared links come from npm manifests. Observed links come from inspected package source. Passing contract checks validate their stated assertions, not every runtime integration. Availability is not probed.</p><div id="capability-list" class="capability-grid"></div></section>
+    <section class="capabilities" aria-label="Recursive improvement cycle"><div class="section-heading"><div><p class="eyebrow">MEASURE · CHECK · LEARN</p><h2>Improvement loop</h2></div><span class="status-chip unknown">Review evidence only</span></div><p id="cycle-summary" class="section-copy">No matching cycle receipt.</p><p class="section-copy">A repeated successful check is not a new improvement. Release promotion requires separate measured candidate evidence and existing release authority.</p><div id="proposal-list" class="capability-grid"></div><details><summary>Run a bounded cycle in your checkout</summary><pre><code>node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 30000</code></pre><p>Exit code 2 means checks passed but package coverage is incomplete. The browser cannot execute this command.</p></details></section>
+    <footer><p>This atlas reads repository snapshots only. It does not install packages, execute capabilities or contact analytics services.</p><p>Download counts are registry events, including CI and reinstalls. They do not measure users or adoption.</p><a href="../dependencies.md">Read the dependency methodology ↗</a></footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

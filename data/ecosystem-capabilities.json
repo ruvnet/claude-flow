@@ -1,0 +1,207 @@
+{
+  "schema": "ruflo-capabilities/v1",
+  "semantics": "Registry entries describe bounded checks, not universal package interoperability. Availability requires a separate environment probe. Download events are not adoption.",
+  "capabilities": [
+    {
+      "id": "dependency-ownership",
+      "title": "Optional capability dependency ownership",
+      "kind": "contract",
+      "packages": [
+        "claude-flow",
+        "@claude-flow/cli",
+        "@claude-flow/memory",
+        "@ruvector/core",
+        "@ruvector/sona",
+        "@metaharness/weight-eft"
+      ],
+      "checks": [
+        "dependency-ownership"
+      ]
+    },
+    {
+      "id": "vector-mutations",
+      "title": "Awaited vector mutations and fallback",
+      "kind": "contract",
+      "packages": [
+        "@claude-flow/cli",
+        "@ruvector/core"
+      ],
+      "checks": [
+        "vector-mutations"
+      ]
+    },
+    {
+      "id": "weight-eft-api",
+      "title": "Weight EFT export and evaluation API contract",
+      "kind": "contract",
+      "packages": [
+        "@claude-flow/cli",
+        "@metaharness/weight-eft"
+      ],
+      "checks": [
+        "weight-eft-api"
+      ]
+    },
+    {
+      "id": "signed-publication",
+      "title": "Source and signed artifact publication contract",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli"
+      ],
+      "checks": [
+        "signed-publication"
+      ]
+    },
+    {
+      "id": "relationship-provenance",
+      "title": "Runtime relationship evidence validation",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "metaharness",
+        "@ruvector/kge"
+      ],
+      "checks": [
+        "relationship-provenance"
+      ]
+    },
+    {
+      "id": "graph-impact",
+      "title": "Dependency impact and cycle planning",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "checks": [
+        "graph-impact"
+      ]
+    },
+    {
+      "id": "ruvector-workflow",
+      "title": "Real RuVector ecosystem analysis workflow",
+      "kind": "integration",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "checks": [
+        "ruvector-workflow"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "dependency-ownership",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli",
+        "@claude-flow/memory",
+        "@ruvector/core",
+        "@ruvector/sona",
+        "@metaharness/weight-eft"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-runtime-contract.test.mjs"
+      ],
+      "sourceFiles": [
+        "package.json",
+        "ruflo/package.json",
+        "v3/@claude-flow/cli/package.json"
+      ]
+    },
+    {
+      "id": "vector-mutations",
+      "packages": [
+        "@claude-flow/cli",
+        "@ruvector/core"
+      ],
+      "testFiles": [
+        "scripts/tests/ruvector-native-adapter.test.mjs"
+      ],
+      "sourceFiles": [
+        "v3/@claude-flow/cli/src/ruvector/vector-db.ts"
+      ]
+    },
+    {
+      "id": "weight-eft-api",
+      "packages": [
+        "@claude-flow/cli",
+        "@metaharness/weight-eft"
+      ],
+      "testFiles": [
+        "scripts/tests/weight-eft-api-contract.test.mjs"
+      ],
+      "sourceFiles": [
+        "v3/@claude-flow/cli/src/services/weight-eft.ts"
+      ]
+    },
+    {
+      "id": "signed-publication",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli"
+      ],
+      "testFiles": [
+        "scripts/tests/root-publish-capability-parity.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/prepare-scoped-cli.mjs",
+        "scripts/prepare-root-publish.mjs",
+        "v3/@claude-flow/cli/scripts/prepare-publish.mjs"
+      ]
+    },
+    {
+      "id": "relationship-provenance",
+      "packages": [
+        "ruflo",
+        "metaharness",
+        "@ruvector/kge"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-runtime-relationships.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/ecosystem-runtime-relationships.mjs"
+      ]
+    },
+    {
+      "id": "graph-impact",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-connectivity.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/ecosystem-connectivity.mjs"
+      ]
+    },
+    {
+      "id": "ruvector-workflow",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-analysis-installed.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/analyze-ecosystem.mjs",
+        "scripts/lib/ecosystem-ruvector.mjs",
+        "scripts/lib/ecosystem-connectivity.mjs",
+        "scripts/lib/ecosystem-runtime-relationships.mjs"
+      ]
+    }
+  ]
+}

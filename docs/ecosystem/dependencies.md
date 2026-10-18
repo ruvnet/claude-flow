@@ -49,3 +49,5 @@ For example, the latest manifests of `strange-loops` and `sublinear-time-solver`
 [Validation results and remaining release gates](dependency-validation.md).
 
 [RuVector analysis, runtime relationships and targeted regression planning](ruvector-analysis.md) maps the disconnected groups, validates structural cuts with an independent oracle, and includes source proven runtime delegations that npm manifests omit.
+
+[Interactive capability web and bounded RSI loop](capability-web.md) provides package neighborhoods, verified check receipts and a prioritized integration work queue.

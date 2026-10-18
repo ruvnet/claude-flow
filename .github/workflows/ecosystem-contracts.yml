@@ -2,10 +2,10 @@ name: Ecosystem dependency contracts
 
 on:
   pull_request:
-    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', '.github/workflows/ecosystem-contracts.yml']
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', 'data/ecosystem-*.json', 'docs/ecosystem/explorer/**', '.github/workflows/ecosystem-contracts.yml']
   push:
     branches: [main]
-    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', '.github/workflows/ecosystem-contracts.yml']
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', 'data/ecosystem-*.json', 'docs/ecosystem/explorer/**', '.github/workflows/ecosystem-contracts.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,9 @@ jobs:
           node --test
           scripts/tests/ecosystem-dependency-graph.test.mjs
           scripts/tests/ecosystem-connectivity.test.mjs
+          scripts/tests/ecosystem-rsi.test.mjs
+          scripts/tests/ecosystem-loop.test.mjs
+          scripts/tests/ecosystem-explorer.test.mjs
           scripts/tests/ecosystem-ruvector.test.mjs
           scripts/tests/ecosystem-runtime-relationships.test.mjs
           scripts/tests/ecosystem-runtime-contract.test.mjs
@@ -52,4 +55,4 @@ jobs:
         env:
           RUFLO_RUVECTOR_REQUIRED: '1'
           RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
-        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs
+        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs
