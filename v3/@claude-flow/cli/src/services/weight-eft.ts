@@ -125,10 +125,18 @@ const WEIGHT_EFT_PKG = '@metaharness/weight-eft';
 export async function loadWeightEft(importer?: WeightEftImporter): Promise<WeightEftApi | null> {
   const load = importer ?? (() => import(/* @vite-ignore */ WEIGHT_EFT_PKG));
   try {
-    const mod = (await load()) as Partial<WeightEftApi> & { default?: Partial<WeightEftApi> };
-    const api = (mod && typeof mod.exportTrainingData === 'function' ? mod : mod?.default) as WeightEftApi | undefined;
-    if (!api || typeof api.exportTrainingData !== 'function') return null;
-    return api;
+    const mod = (await load()) as { default?: unknown } | null | undefined;
+    // A resolvable package is not necessarily a compatible API. Validate every
+    // operation this service calls before committing to either ESM or CJS shape.
+    const required: (keyof WeightEftApi)[] = [
+      'exportTrainingData', 'sftToJsonl', 'dpoToJsonl', 'costParetoDelta', 'twoStagePlan',
+    ];
+    const compatible = (candidate: unknown): candidate is WeightEftApi =>
+      candidate !== null && (typeof candidate === 'object' || typeof candidate === 'function') &&
+      required.every(name => typeof (candidate as Record<string, unknown>)[name] === 'function');
+    if (compatible(mod)) return mod;
+    if (compatible(mod?.default)) return mod.default;
+    return null;
   } catch {
     return null; // MODULE_NOT_FOUND or any load error → degraded
   }

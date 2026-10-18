@@ -25,23 +25,24 @@ test('models typed edges, optional overrides, pinned evidence and leaf-first ord
   assert.equal(graph.nodes[0].integrity, 'sha512-example');
   assert.equal(graph.nodes[0].gitHead, 'abc');
   assert.match(graph.nodes[0].registryUrl, /\/1.2.3$/);
-  assert.equal(graph.releaseReady, true);
+  assert.equal(graph.graphPlanAvailable, true);
+  assert.match(graph.cycleSemantics, /cycles do not prove a resolved installation cycle/);
 });
-test('rejects hard cycles, preserves capability cycles without blocking release', () => {
+test('blocks declaration cycles but permits optional capability cycles in graph plans', () => {
   const manifests = { app: manifest('app', { dependencies: { memory: '^1' } }), memory: manifest('memory', { dependencies: { app: '^1' } }), core: manifest('core', { dependencies: { core: '^1' } }) };
   const graph = buildDependencyGraph(inventory, manifests);
-  assert.deepEqual(graph.hardCycles, [['app', 'memory'], ['core']]);
+  assert.deepEqual(graph.hardDeclarationCycles, [['app', 'memory'], ['core']]);
   assert.equal(graph.releaseOrder, null);
   manifests.memory = manifest('memory', { peerDependencies: { app: '^1' }, peerDependenciesMeta: { app: { optional: true } } });
   manifests.core = manifest('core');
   const optional = buildDependencyGraph(inventory, manifests);
-  assert.equal(optional.hardDependenciesAcyclic, true);
+  assert.equal(optional.hardDeclarationGraphAcyclic, true);
   assert.deepEqual(optional.capabilityReverseImpact.app, ['memory']);
 });
-test('incomplete or spoofed registry identity never produces a release plan', () => {
+test('incomplete or spoofed registry identity never produces a graph plan', () => {
   const graph = buildDependencyGraph(inventory, { app: manifest('other'), memory: manifest('memory') }, { errors: { core: 'registry HTTP 404' } });
   assert.deepEqual(graph.missing, ['app', 'core']);
-  assert.equal(graph.releaseReady, false);
+  assert.equal(graph.graphPlanAvailable, false);
   assert.equal(graph.releaseOrder, null);
   assert.equal(graph.nodes.find(n => n.name === 'core').reason, 'registry HTTP 404');
 });
@@ -76,4 +77,16 @@ test('offline CLI fixture emits graph and returns nonzero for cycle or required 
     await writeFile(input, JSON.stringify({ inventory: { packages: ['a'] }, manifests: {} }));
     assert.equal(await main(['--input', input, '--output', output, '--require-complete']), 2);
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test('latest name cycles explicitly preserve range skew without claiming resolved install cycles', () => {
+  const graph = buildDependencyGraph({ packages: ['strange-loops', 'sublinear-time-solver'] }, {
+    'strange-loops': { name: 'strange-loops', version: '1.0.3', dependencies: { 'sublinear-time-solver': '^1.4.3' } },
+    'sublinear-time-solver': { name: 'sublinear-time-solver', version: '1.7.2', dependencies: { 'strange-loops': '^0.5.1' } },
+  });
+  assert.deepEqual(graph.hardDeclarationCycles, [['strange-loops', 'sublinear-time-solver']]);
+  assert.equal(graph.edges.find(e => e.target === 'strange-loops').range, '^0.5.1');
+  assert.match(graph.cycleSemantics, /ranges are not resolved/);
+  assert.equal(graph.graphPlanAvailable, false);
+  assert.equal(Object.hasOwn(graph, 'releaseReady'), false);
 });

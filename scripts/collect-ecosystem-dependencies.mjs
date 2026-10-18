@@ -47,8 +47,8 @@ export async function main(argv = process.argv.slice(2)) {
   const graph = buildDependencyGraph(inventory, captured.manifests, { capturedAt: input.capturedAt ?? new Date().toISOString(), errors: captured.errors });
   await mkdir(dirname(resolve(options.output)), { recursive: true });
   await writeFile(options.output, `${JSON.stringify(graph, null, 2)}\n`);
-  console.log(JSON.stringify({ output: options.output, ...graph.counts, hardCycles: graph.hardCycles, releaseReady: graph.releaseReady }));
-  return graph.hardCycles.length ? 1 : options.requireComplete && graph.missing.length ? 2 : 0;
+  console.log(JSON.stringify({ output: options.output, ...graph.counts, hardDeclarationCycles: graph.hardDeclarationCycles, graphPlanAvailable: graph.graphPlanAvailable }));
+  return graph.hardDeclarationCycles.length ? 1 : options.requireComplete && graph.missing.length ? 2 : 0;
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   main().then(code => { process.exitCode = code; }).catch(error => { console.error(error.message); process.exitCode = 3; });

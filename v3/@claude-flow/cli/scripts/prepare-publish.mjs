@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stageInternalRuntimeBundles } from '../../../../scripts/stage-internal-runtime-bundles.mjs';
+import { writePreparedCliReceipt } from '../../../../scripts/lib/prepare-scoped-cli.mjs';
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageDir, '..', '..', '..');
@@ -68,3 +69,7 @@ for (const script of [
     throw new Error(`${script} failed with exit code ${result.status ?? 'unknown'}`);
   }
 }
+
+// Bind the successful signing gate to current source bytes and every staged
+// capability. The umbrella validates this receipt without receiving a key.
+await writePreparedCliReceipt(repoRoot);

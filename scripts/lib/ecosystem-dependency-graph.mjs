@@ -74,24 +74,25 @@ export function buildDependencyGraph(inventory, manifests, { capturedAt = new Da
       }
     }
   }
-  const hardCycles = stronglyConnected(names, hard), visited = new Set(), order = [];
+  const hardDeclarationCycles = stronglyConnected(names, hard), visited = new Set(), order = [];
   function orderVisit(name) {
     if (visited.has(name)) return;
     visited.add(name);
     for (const dep of [...hard.get(name)].sort()) orderVisit(dep);
     order.push(name);
   }
-  if (!hardCycles.length) for (const name of names) orderVisit(name);
+  if (!hardDeclarationCycles.length) for (const name of names) orderVisit(name);
   const missing = nodes.filter(node => node.status === 'missing').map(node => node.name);
   return { schema: 'ruflo-ecosystem-dependency-graph/v1', capturedAt,
+    cycleSemantics: 'Package-name graph of captured latest manifests; ranges are not resolved and cycles do not prove a resolved installation cycle.',
     source: 'Public npm registry latest manifests, pinned to captured versions; metadata only. Ranges are declarations, not resolved installations.',
     counts: { inventory: names.length, captured: names.length - missing.length, missing: missing.length,
       edges: edges.length, internalEdges: edges.filter(edge => edge.internal).length, hardInternalEdges: [...hard.values()].reduce((sum, deps) => sum + deps.size, 0) },
-    nodes, edges, missing, hardCycles, hardDependenciesAcyclic: hardCycles.length === 0,
+    nodes, edges, missing, hardDeclarationCycles, hardDeclarationGraphAcyclic: hardDeclarationCycles.length === 0,
     metadataComplete: missing.length === 0,
-    // Publishing requires completeness as well as acyclicity; no plan on partial evidence.
-    releaseReady: !hardCycles.length && !missing.length,
-    releaseOrder: hardCycles.length || missing.length ? null : order,
+    // Availability of a name-based all-latest graph plan only; never release authorization or resolved install validation.
+    graphPlanAvailable: !hardDeclarationCycles.length && !missing.length,
+    releaseOrder: hardDeclarationCycles.length || missing.length ? null : order,
     reverseImpact: reverseCascades(names, hard), capabilityReverseImpact: reverseCascades(names, all),
   };
 }
