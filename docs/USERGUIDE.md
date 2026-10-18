@@ -4347,9 +4347,9 @@ The Claims system manages **who is working on what** — whether human or agent.
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `issues list` | See all issues and their status | `npx ruflo@latest issues list` |
-| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --as coder-1` |
-| `issues release` | Release your claim | `npx ruflo@latest issues release #123` |
-| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to reviewer` |
+| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --agent coder:coder-1` |
+| `issues release` | Release your claim | `npx ruflo@latest issues release #123 --agent coder:coder-1` |
+| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to agent:reviewer:reviewer-1` |
 | `issues status` | Update progress on claimed work | `npx ruflo@latest issues status #123 --progress 75` |
 | `issues stealable` | List abandoned/stuck issues | `npx ruflo@latest issues stealable` |
 | `issues steal` | Take over stealable issue | `npx ruflo@latest issues steal #123` |
@@ -4383,12 +4383,10 @@ When you need to pass work to someone else:
 ```bash
 # 1. Request handoff with context
 npx ruflo@latest issues handoff #123 \
-  --to security-architect \
-  --reason "Needs security review" \
-  --progress 80
+  --to agent:security-architect:security-architect-1 \
+  --reason "Needs security review"
 
-# 2. Target accepts handoff
-npx ruflo@latest issues accept #123 --as security-architect
+# 2. Target accepts the handoff through the claims_accept-handoff MCP tool
 
 # 3. Work continues with full context
 ```
@@ -4470,7 +4468,7 @@ The Route system uses **Q-Learning** to automatically assign tasks to the best a
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `route task` | Get agent recommendation | `npx ruflo@latest route task "implement OAuth2"` |
-| `route explain` | Understand routing decision | `npx ruflo@latest route explain "task"` |
+| `hooks explain` | Understand routing decision | `npx ruflo@latest hooks explain -t "task"` |
 | `route coverage` | Route based on test coverage | `npx ruflo@latest route coverage` |
 
 ### Example: Route a Task
