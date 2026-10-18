@@ -10,6 +10,17 @@ The ecosystem is a set of cooperating layers, not a requirement to install every
 | Native vector operations | `@ruvector/core`, `@ruvector/sona`, `ruvector` | Optional acceleration and learning integrations with fallback behavior |
 | Evaluation and improvement | MetaHarness packages | Optional integrations activated through existing adapters |
 
+```mermaid
+flowchart TD
+  entry["ruflo"] -->|exact version| cli["@claude-flow/cli"]
+  umbrella["claude-flow"] -->|embeds prepared artifacts| cli
+  cli -. optional .-> memory["@claude-flow/memory"]
+  cli -. optional .-> vector["@ruvector/core and sona"]
+  cli -. optional .-> training["@metaharness/weight-eft"]
+```
+
+Solid arrows describe the entry points; dotted arrows describe capabilities that can be absent. The umbrella declares its own runtime dependencies because embedding CLI files does not transfer npm dependency ownership.
+
 [Captured registry relationships](../../data/npm-dependencies.latest.json) distinguish required dependencies, optional dependencies and peers. Every node has a captured version and registry URL. The graph includes the full download inventory plus packages whose download counts were unavailable; missing downloads do not mean a missing npm package.
 
 ```bash

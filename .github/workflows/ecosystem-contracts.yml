@@ -1,0 +1,36 @@
+name: Ecosystem dependency contracts
+
+on:
+  pull_request:
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', '.github/workflows/ecosystem-contracts.yml']
+  push:
+    branches: [main]
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', '.github/workflows/ecosystem-contracts.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check dependency and artifact contracts without installing packages
+        run: >-
+          node --test
+          scripts/tests/ecosystem-dependency-graph.test.mjs
+          scripts/tests/ecosystem-runtime-contract.test.mjs
+          scripts/tests/root-publish-capability-parity.test.mjs
+          scripts/tests/ruvector-native-adapter.test.mjs
+          scripts/tests/weight-eft-api-contract.test.mjs
+          scripts/tests/keychain-optional-binding.test.mjs
+          scripts/__tests__/stage-internal-runtime-bundles.test.mjs
+      - run: node scripts/audit-umbrella-version-lockstep.mjs
+      - run: node scripts/audit-package-dep-overlap.mjs
