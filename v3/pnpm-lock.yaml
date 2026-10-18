@@ -143,12 +143,18 @@ importers:
       '@metaharness/router':
         specifier: ^0.4.0
         version: 0.4.0
+      '@metaharness/weight-eft':
+        specifier: 0.1.2
+        version: 0.1.2
       '@noble/ed25519':
         specifier: 2.3.0
         version: 2.3.0
       '@ruvector/rabitq-wasm':
         specifier: 0.1.0
         version: 0.1.0
+      '@ruvector/sona':
+        specifier: ^0.1.5
+        version: 0.1.8
       '@ruvector/typesafe':
         specifier: ^0.1.0
         version: 0.1.0
@@ -225,18 +231,12 @@ importers:
       '@metaharness/turn-credit':
         specifier: ~0.1.0
         version: 0.1.0
-      '@metaharness/weight-eft':
-        specifier: 0.1.2
-        version: 0.1.2
       '@napi-rs/keyring':
         specifier: 1.3.0
         version: 1.3.0
       '@ruvector/core':
         specifier: ^0.1.30
         version: 0.1.30
-      '@ruvector/sona':
-        specifier: ^0.1.5
-        version: 0.1.8
       agentdb:
         specifier: ^3.0.0-alpha.20
         version: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
@@ -1943,6 +1943,7 @@ packages:
   /@modelcontextprotocol/sdk@1.32.1(zod@4.3.5):
     resolution: {integrity: sha512-2DdE+SJDtzLEEWzY1ZjY7Q+VcPhcV1KisD3zI4u0XZyktsjHum1mwbMI+JaulUBi2OZk+KJAi2uPXzxichPkdw==}
     engines: {node: '>=18'}
+    requiresBuild: true
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
       zod: ^3.25 || ^4.0
