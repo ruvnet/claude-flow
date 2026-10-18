@@ -335,10 +335,13 @@ async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
 // cleanup, so a full-size copy of the file stays behind forever (~250 MB each
 // on a mature ledger). Every writer of these files holds the project's
 // state.lock, so while the lock is held no temp file for them can belong to a
-// write in progress. The age floor keeps removal conservative should that
-// invariant ever be broken; a skipped orphan is removed by a later call.
-const ORPHAN_TEMP_MIN_AGE_MS = 60_000;
-const ATOMIC_TEMP = /^(.+)\.\d+\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/;
+// write in progress. That invariant has known gaps: released versions before
+// the dead-owner fix take over any lock older than 30 s, even a live owner's
+// (a writer suspended mid-write, e.g. a sleeping laptop). So a temp is also
+// kept while its writer pid is alive on this host, and until it is
+// ORPHAN_TEMP_MIN_AGE_MS old; a skipped orphan is removed by a later call.
+const ORPHAN_TEMP_MIN_AGE_MS = 10 * 60_000;
+const ATOMIC_TEMP = /^(.+)\.(\d+)\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/;
 const PROJECT_ATOMIC_FILES = new Set([POLICY_FILE, ANCHOR_LOG_FILE]);
 const TRUST_ATOMIC_FILES = new Set([STATE_ANCHOR_FILE, ANCHOR_MIRROR_FILE]);
 
@@ -349,6 +352,8 @@ function reapOrphanedTemps(dir: string, files: ReadonlySet<string>): void {
   for (const name of names) {
     const match = ATOMIC_TEMP.exec(name);
     if (!match || !files.has(match[1])) continue;
+    const pid = Number(match[2]);
+    if (Number.isSafeInteger(pid) && pid > 0 && isPidAlive(pid)) continue;
     const file = join(dir, name);
     try {
       const stat = lstatSync(file);

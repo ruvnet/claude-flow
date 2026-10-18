@@ -7,9 +7,10 @@ import './helpers/isolated-policy-trust.js';
  * On a mature ledger each one is ~250 MB.
  *
  * Every writer of these files holds the project's state.lock, so a
- * transaction that holds the lock may remove temp files of exactly those
- * names. It must leave everything else alone: fresh temps (age floor),
- * other files' temps, symlinks, and names that only look similar.
+ * transaction or verify that holds the lock may remove temp files of exactly
+ * those names. It must leave everything else alone: temps younger than the
+ * 10-minute floor, temps whose writer pid is alive, other files' temps,
+ * symlinks, and names that only look similar.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,7 +43,7 @@ function project(): string {
   return root;
 }
 
-function aged(file: string, contents = 'partial', ageMs = 10 * 60_000): string {
+function aged(file: string, contents = 'partial', ageMs = 60 * 60_000): string {
   writeFileSync(file, contents);
   const then = (Date.now() - ageMs) / 1000;
   utimesSync(file, then, then);
@@ -62,7 +63,7 @@ describe('#3164 orphaned atomic-write temp files', () => {
     const dir = join(root, '.claude-flow', 'policy');
     const orphans = [
       aged(join(dir, temp('state.json'))),
-      aged(join(dir, temp('state.json', 1))),
+      aged(join(dir, temp('state.json', 999_998))),
       aged(join(dir, temp('ledger-anchors.json'))),
     ];
 
@@ -97,6 +98,9 @@ describe('#3164 orphaned atomic-write temp files', () => {
     symlinkSync(target, link);
     const kept = [
       aged(join(dir, temp('state.json')), 'in flight', 1_000),
+      aged(join(dir, temp('state.json')), 'suspended writer', 5 * 60_000),
+      aged(join(dir, temp('state.json', process.pid)), 'live writer'),
+      aged(join(dir, temp('ledger-anchors.json', process.pid)), 'live writer'),
       aged(join(dir, temp('receipts.ledger.jsonl'))),
       aged(join(dir, temp('other.json'))),
       aged(join(dir, 'state.json.tmp')),
@@ -112,14 +116,26 @@ describe('#3164 orphaned atomic-write temp files', () => {
     expect(existsSync(target)).toBe(true);
   });
 
-  it('never fails the transaction when the policy directory cannot be listed cleanly', async () => {
+  it('skips a directory with a temp-like name without failing the transaction', async () => {
     const root = project();
     await transact(root);
-    const dir = join(root, '.claude-flow', 'policy');
-    // A directory with a temp-like name cannot be unlinked; it must be skipped.
-    mkdirSync(join(dir, temp('state.json')));
+    const dir = join(root, '.claude-flow', 'policy', temp('state.json'));
+    mkdirSync(dir);
+    const then = (Date.now() - 60 * 60_000) / 1000;
+    utimesSync(dir, then, then);
 
     await expect(transact(root)).resolves.toBeUndefined();
+    expect(existsSync(dir)).toBe(true);
     expect((await verifyPolicyLedger(root)).valid).toBe(true);
+  });
+
+  it('removes orphans during a verify that holds the lock, without a transaction', async () => {
+    const root = project();
+    await transact(root);
+    const orphan = aged(join(root, '.claude-flow', 'policy', temp('state.json')));
+
+    expect((await verifyPolicyLedger(root)).valid).toBe(true);
+
+    expect(existsSync(orphan)).toBe(false);
   });
 });
