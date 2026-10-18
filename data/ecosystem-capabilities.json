@@ -3,6 +3,13 @@
   "semantics": "Registry entries describe bounded checks, not universal package interoperability. Availability requires a separate environment probe. Download events are not adoption.",
   "capabilities": [
     {
+      "id": "persistent-memory-retrieval",
+      "title": "Persisted scoped memory and native vector retrieval across process restart",
+      "kind": "integration",
+      "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "checks": ["persistent-memory-retrieval"]
+    },
+    {
       "id": "dependency-ownership",
       "title": "Optional capability dependency ownership",
       "kind": "contract",
@@ -96,6 +103,12 @@
     }
   ],
   "checks": [
+    {
+      "id": "persistent-memory-retrieval",
+      "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "testFiles": ["scripts/tests/ecosystem-memory-installed.test.mjs"],
+      "sourceFiles": ["scripts/ecosystem-memory.mjs", "scripts/lib/ecosystem-memory-workflow.mjs"]
+    },
     {
       "id": "dependency-ownership",
       "packages": [

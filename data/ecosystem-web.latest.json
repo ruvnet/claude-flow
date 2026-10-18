@@ -1,16 +1,25 @@
 {
   "schema": "ruflo-ecosystem-web/v1",
-  "generatedAt": "2026-10-18T03:03:48.988Z",
+  "generatedAt": "2026-10-18T04:03:35.326Z",
   "provenance": {
     "verified": true,
     "semantics": "Local source identity verification, not signed authorship or runtime availability",
     "dependencySnapshotSha256": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
     "runtimeSnapshotSha256": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
-    "registrySha256": "dddcd4005b7d8da3ea94275527ae2c121e76191712bc2ff6cf389c89532284d3",
-    "sourceSha256": "d903975f5f5b554397c89549972b1e3412220fd040b819855587b723070e1f4f",
-    "executionInputHash": "a2bb6ed758d9d39d3d47984d47145d6f03116128a52d4dddb14d6c982facbfca"
+    "registrySha256": "17bae16d780794d6349f0181ed343eab49726deff968286ade1c4b838533516f",
+    "sourceSha256": "41a51781d4253951d23ce079916851eb75396297e580e7bb2ec4ef49c7eb7fb8",
+    "executionInputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff"
   },
   "capabilities": [
+    {
+      "id": "persistent-memory-retrieval",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "persistent-memory-retrieval: passed"
+      ]
+    },
     {
       "id": "dependency-ownership",
       "kind": "contract",
@@ -78,19 +87,19 @@
   "cycle": {
     "requestedIterations": 2,
     "completedIterations": 2,
-    "budgetMs": 30000,
-    "durationMs": 10111.537043999999,
+    "budgetMs": 60000,
+    "durationMs": 14987.526085,
     "history": [
       {
         "iteration": 1,
-        "inputHash": "a2bb6ed758d9d39d3d47984d47145d6f03116128a52d4dddb14d6c982facbfca",
+        "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
         "checksPassed": true,
         "uncoveredPackages": 391,
         "newSourceEvidence": true
       },
       {
         "iteration": 2,
-        "inputHash": "a2bb6ed758d9d39d3d47984d47145d6f03116128a52d4dddb14d6c982facbfca",
+        "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
         "checksPassed": true,
         "uncoveredPackages": 391,
         "newSourceEvidence": false
@@ -103,37 +112,42 @@
       {
         "id": "dependency-ownership",
         "status": "passed",
-        "durationMs": 532.1084609999998
+        "durationMs": 492.90468299999975
       },
       {
         "id": "graph-impact",
         "status": "passed",
-        "durationMs": 259.74608200000057
+        "durationMs": 229.6194919999998
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed",
+        "durationMs": 2715.7635210000008
       },
       {
         "id": "relationship-provenance",
         "status": "passed",
-        "durationMs": 190.28259799999978
+        "durationMs": 162.02968399999918
       },
       {
         "id": "ruvector-workflow",
         "status": "passed",
-        "durationMs": 2290.6082750000005
+        "durationMs": 2210.659211
       },
       {
         "id": "signed-publication",
         "status": "passed",
-        "durationMs": 986.3848180000005
+        "durationMs": 845.423057
       },
       {
         "id": "vector-mutations",
         "status": "passed",
-        "durationMs": 427.6388050000005
+        "durationMs": 433.2143560000004
       },
       {
         "id": "weight-eft-api",
         "status": "passed",
-        "durationMs": 202.39003700000103
+        "durationMs": 263.97581099999843
       }
     ],
     "gate": {

@@ -56,4 +56,13 @@ jobs:
         env:
           RUFLO_RUVECTOR_REQUIRED: '1'
           RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
-        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs
+        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs
+      - name: Install pinned memory and native vector consumer without lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/memory-proof" --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0
+      - name: Verify persistent memory across process restart and two complete registered check cycles
+        env:
+          RUFLO_RUVECTOR_REQUIRED: '1'
+          RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
+          RUFLO_MEMORY_REQUIRED: '1'
+          RUFLO_MEMORY_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
+        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs

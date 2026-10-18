@@ -18,6 +18,9 @@ Install the pinned analysis dependency into a separate tooling directory. This d
 
 ```bash
 npm install --prefix /tmp/ruflo-ruvector-proof --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
+npm install --prefix /tmp/ruflo-memory-proof --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0
+RUFLO_MEMORY_REQUIRED=1 \
+RUFLO_MEMORY_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_RUVECTOR_REQUIRED=1 \
 RUFLO_RUVECTOR_RESOLVE_FROM=/tmp/ruflo-ruvector-proof/package.json \
 node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 30000
@@ -39,8 +42,9 @@ The ledger deduplicates equivalent source identities. Checks still execute every
 | Runtime relationship provenance | Contract |
 | Graph impact selection | Contract |
 | Installed RuVector workflow | Integration |
+| Persistent scoped memory and native retrieval after process restart | Integration |
 
-The captured run completes two cycles with all seven checks passing. The registry covers 10 packages; 391 of 401 remain without registered coverage. A passing fixture does not establish that every package interoperates.
+The current registry has eight checks covering 10 packages; 391 of 401 remain without registered coverage. Five inventory packages have a registered integration check, up from three; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md) documents the real package composition and its limits. Passing contracts alone do not establish runtime interoperability.
 
 The graph artifact measurement explains 43 previously isolated nodes, from 138 to 95, a 31.2 percent reduction. Its three required graph and runtime evidence checks pass. This makes the captured annotations ready for review; it does not create new runtime integrations or measure adoption. Global runtime promotion remains rejected.
 
@@ -50,7 +54,7 @@ The ranked queue includes the measured umbrella payload increase of 111,971,638 
 
 Regression tests cover traversal and symbolic link rejection, stale evidence, fabricated success, skipped tests, execution timeout, excessive output, deduplication, failure prioritization and bounded iteration. The installed integration test runs two actual cycles and verifies that captured downloads and manifests remain unchanged. CI runs contracts on Node 22 and 24 and requires installed RuVector integration.
 
-Browser validation covers 401 rendered nodes, seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It uses Chromium 153 through Playwright; browser testing is currently a separate local check.
+Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the new eighth capability has source/receipt tests but awaits a fresh visual browser pass.
 
 Next, register and execute one real cross package workflow at a time. Expand coverage based on successful tasks and compatibility evidence. No adoption telemetry is collected, and no increase in user adoption is claimed. Existing signing and release gates remain mandatory.
 

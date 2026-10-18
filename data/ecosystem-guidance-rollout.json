@@ -182,7 +182,12 @@
       "manifest": "v3/@claude-flow/memory/package.json",
       "guidance": "v3/@claude-flow/memory/AGENTS.md",
       "status": "source-documented",
-      "npmArtifact": "unverified"
+      "npmArtifact": "unverified",
+      "repository": "https://github.com/ruvnet/ruflo",
+      "packagePath": "v3/@claude-flow/memory",
+      "sourceCommit": "5a61c6143060a8485ed938991c39b1044e3f9b1e",
+      "pullRequest": "https://github.com/ruvnet/ruflo/pull/4264",
+      "artifactBlocker": "files whitelist excludes AGENTS.md; source checkout has no built dist. Complete built artifact must be inspected before pack-verified status."
     },
     {
       "name": "@claude-flow/neural",
@@ -1148,7 +1153,17 @@
     },
     {
       "name": "@ruvector/core",
-      "status": "pending-source-repository-verification"
+      "status": "pending",
+      "stage": "source-repository-verified",
+      "repository": "https://github.com/ruvnet/RuVector",
+      "packagePath": "npm/packages/core",
+      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "manifestBlobSha": "263c0b33695f5ba26a55a30e4d62e5c0e219a463",
+      "registryVersionInspected": "0.1.33",
+      "sourceVersionInspected": "0.1.33",
+      "pullRequest": null,
+      "npmArtifact": "unverified",
+      "nextAction": "Read upstream ancestor/package policy, preserve existing guidance, then group source and pack-inclusion changes with ruvector in one narrowly scoped PR."
     },
     {
       "name": "@ruvector/diskann",
@@ -1864,7 +1879,17 @@
     },
     {
       "name": "ruvector",
-      "status": "pending-source-repository-verification"
+      "status": "pending",
+      "stage": "source-repository-verified",
+      "repository": "https://github.com/ruvnet/RuVector",
+      "packagePath": "npm/packages/ruvector",
+      "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+      "manifestBlobSha": "402d9974c9c7566716358d97dfdc06cfbeba1ed3",
+      "registryVersionInspected": "0.2.41",
+      "sourceVersionInspected": "0.3.3",
+      "pullRequest": null,
+      "npmArtifact": "unverified",
+      "nextAction": "Source version differs from the pinned runtime proof; do not claim 0.3.3 compatibility. Read upstream policy and open grouped guidance PR with @ruvector/core."
     },
     {
       "name": "ruvector-attention-unified-wasm",

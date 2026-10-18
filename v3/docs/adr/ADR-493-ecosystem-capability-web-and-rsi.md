@@ -78,6 +78,10 @@ The built in graph measurement compares the captured npm graph with the source e
 
 The initial registry covers 10 of 401 packages. Seven checks pass over two cycles, but 391 packages remain without registered checks and global promotion remains rejected. See [usage and validation](../../../docs/ecosystem/capability-web.md).
 
+### Restart-persistent workflow extension
+
+The eighth registered check composes real `@claude-flow/memory` SQL/WASM persistence with native `ruvector` retrieval in separate writer and reader processes. SQLite is authoritative and the vector projection is rebuilt from scoped persisted embeddings. This is application-level composition, not an invented package dependency. Missing native implementation fails closed. The test proves clean shutdown/restart and scoped retrieval; it does not prove crash durability, embeddings quality or AgentDB integration. Total package coverage remains 10/401; integration-covered inventory packages increase from 3 to 5. [Starter v1 and rollback](../../../docs/ecosystem/persistent-memory-v1.md).
+
 ## Durable ecosystem improvement extension
 
 Decision accepted as operating policy; autonomous mutation, perpetual scheduling and universal runtime coverage remain unimplemented. Build a renewable service around bounded evaluations: package contracts, typed consumer impact, isolated candidates, independent validation, retained evidence and governed release. Each accepted change becomes the next baseline while a fixed reference detects gradual regressions. Correctness fixes need a reproducer; quantitative optimization claims retain the 10 percent threshold and zero applicable regressions.
