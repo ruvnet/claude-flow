@@ -9,6 +9,10 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/claude-flow?style=for-the-badge&logo=github&color=gold)](https://github.com/ruvnet/claude-flow)
 
+[![Original Claude Flow lineage. First commit June 2, 2025 by rUv. Inspect the evidence.](docs/assets/readme/badges/first-commit.svg)](docs/harness-origins.md)
+
+<sub>Created by <a href="https://github.com/ruvnet">Reuven Cohen · rUv</a>. <a href="docs/harness-origins.md">The origin story, illustrated · dated commits and prior context</a>.</sub>
+
 <p align="center">
 <a href="data/npm-downloads.latest.json"><img src="docs/assets/readme/badges/downloads.svg?v=mobile-readable-3" width="300" alt="Ecosystem npm downloads: 12.52M over 12 months through October 4, 2026"></a>
 <br>
@@ -108,6 +112,14 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 </details>
 
 > **New to Ruflo?** You don't need to learn 314 MCP tools or 26 CLI commands. After `init`, just use Claude Code normally — the hooks system automatically routes tasks, learns from successful patterns, and coordinates agents in the background.
+
+### An origin you can inspect
+
+[![Claude Flow to Ruflo: founding idea on June 2, 2025, orchestration source on June 10, and the continuing Ruflo lineage.](docs/assets/readme/harness-origins.svg)](docs/harness-origins.md)
+
+**Built by [Reuven Cohen (rUv)](https://github.com/ruvnet), originally as Claude Flow.** The [first commit, June 2, 2025](https://github.com/ruvnet/ruflo/commit/7c1f9402d70e7af56c01a879073cbac92564dc4e), describes a code orchestration layer for recursive agent cycles: Claude writes, edits, tests and improves. The [June 10 source snapshot](https://github.com/ruvnet/ruflo/tree/dba545f012ea92a2375a26332bbf3797495e93c9) adds orchestration, task scheduling, memory and terminal modules.
+
+A harness is the workbench around the model: it organizes tasks, carries context between steps and helps check results. **This establishes Ruflo's lineage, not a universal first across every Claude Code tool.** [See the illustrated explainer, exact commits and earlier ecosystem context](docs/harness-origins.md).
 
 <details>
 <summary><strong>📖 Background — where the name comes from</strong></summary>
