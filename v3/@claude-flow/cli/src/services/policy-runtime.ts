@@ -38,6 +38,7 @@ import {
   openSync,
   readFileSync,
   readSync,
+  readdirSync,
   readlinkSync,
   realpathSync,
   renameSync,
@@ -49,12 +50,13 @@ import { hostname, userInfo } from 'node:os';
 import { syncPolicyProjection } from '../mods/policy-projection.js';
 import { ATOMIC_JSON_WRITER, type AtomicJsonSource } from './policy-anchor-log.js';
 import { captureArchiveSnapshot, verifyFullPolicyLedger, type ArchiveSnapshot } from './policy-ledger-audit.js';
-import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent, type AnchorEntry } from './policy-ledger-anchor.js';
+import { ANCHOR_LOG_FILE, ANCHOR_MIRROR_FILE, assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent, type AnchorEntry } from './policy-ledger-anchor.js';
 
 const POLICY_DIR = join('.claude-flow', 'policy');
 const POLICY_FILE = 'state.json';
 const LOCK_FILE = 'state.lock';
 const RECEIPT_ARCHIVE_FILE = 'receipts.ledger.jsonl';
+const STATE_ANCHOR_FILE = 'state.anchor.json';
 const LOCK_WAIT_MS = 5_000;
 // #3164: without a bound, `state.receipts` grows forever and every
 // transaction's verify/clone/serialize cost is O(all receipts ever issued) —
@@ -328,11 +330,45 @@ async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
   }
 }
 
+// #3164: a writer killed between creating its temp file and renaming it
+// (SIGKILL from a caller's timeout, OOM) never reaches writeJsonAtomic's
+// cleanup, so a full-size copy of the file stays behind forever (~250 MB each
+// on a mature ledger). Every writer of these files holds the project's
+// state.lock, so while the lock is held no temp file for them can belong to a
+// write in progress. The age floor keeps removal conservative should that
+// invariant ever be broken; a skipped orphan is removed by a later call.
+const ORPHAN_TEMP_MIN_AGE_MS = 60_000;
+const ATOMIC_TEMP = /^(.+)\.\d+\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.tmp$/;
+const PROJECT_ATOMIC_FILES = new Set([POLICY_FILE, ANCHOR_LOG_FILE]);
+const TRUST_ATOMIC_FILES = new Set([STATE_ANCHOR_FILE, ANCHOR_MIRROR_FILE]);
+
+function reapOrphanedTemps(dir: string, files: ReadonlySet<string>): void {
+  let names: string[];
+  try { names = readdirSync(dir); } catch { return; }
+  const now = Date.now();
+  for (const name of names) {
+    const match = ATOMIC_TEMP.exec(name);
+    if (!match || !files.has(match[1])) continue;
+    const file = join(dir, name);
+    try {
+      const stat = lstatSync(file);
+      if (!stat.isFile() || now - stat.mtimeMs < ORPHAN_TEMP_MIN_AGE_MS) continue;
+      unlinkSync(file);
+    } catch { /* already gone, or not removable: never fail the caller */ }
+  }
+}
+
+/** Call only while holding the project's state.lock. */
+function reapOrphanedPolicyTemps(projectRoot: string): void {
+  reapOrphanedTemps(paths(projectRoot).dir, PROJECT_ATOMIC_FILES);
+  try { reapOrphanedTemps(dirname(trustPaths(projectRoot).anchor), TRUST_ATOMIC_FILES); } catch { /* no trust dir yet */ }
+}
+
 function trustPaths(projectRoot: string): { key: string; anchor: string } {
   const trustRoot = policyTrustRoot();
   const projectId = createHash('sha256').update(realpathSync(projectRoot)).digest('hex');
   const dir = join(trustRoot, projectId);
-  return { key: join(dir, 'anchor.key'), anchor: join(dir, 'state.anchor.json') };
+  return { key: join(dir, 'anchor.key'), anchor: join(dir, STATE_ANCHOR_FILE) };
 }
 
 function trustKey(projectRoot: string, create: boolean): Buffer | undefined {
@@ -508,6 +544,7 @@ export async function withPolicyTransaction<T>(
   mkdirDurably(target.dir);
   const release = await acquireLock(target.lock);
   try {
+    reapOrphanedPolicyTemps(projectRoot);
     const loaded = loadPolicyState(projectRoot);
     const engine = AgenticPolicyEngine.fromState(loaded, {
       signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
@@ -698,6 +735,7 @@ export async function verifyPolicyLedger(
   // strings, receipt arrays or maps. The descriptor pins path replacements.
   const release = await acquireLock(target.lock);
   try {
+    reapOrphanedPolicyTemps(projectRoot);
     const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), engineOptions);
     const outcome = reconcileLedger(projectRoot, engine, options);
     if (outcome.persist) {
