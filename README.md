@@ -11,7 +11,7 @@
 
 <p align="center">
 <a href="docs/harness-origins.md"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/e69e4b95aa08d65ea0f7715489bbf8e62a83a0d2/docs/assets/readme/badges/first-commit.svg" width="300" height="76" alt="Claude Flow lineage: first commit June 2, 2025 by rUv; inspect the evidence"></a>
-<a href="data/npm-downloads.latest.json"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/e69e4b95aa08d65ea0f7715489bbf8e62a83a0d2/docs/assets/readme/badges/downloads.svg" width="300" height="76" alt="Ecosystem npm downloads: 97,022,120 observed events across 399 packages, October 13, 2025 through October 12, 2026; verified October 17, 2026"></a>
+<a href="data/npm-downloads.latest.json"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/a21ddd9a153d79b547df984b3eee766ab5274475/docs/assets/readme/badges/downloads.svg" width="300" height="76" alt="Ecosystem npm downloads: 97,022,120 observed events across 399 packages, October 13, 2025 through October 12, 2026; verified October 17, 2026"></a>
 <br>
 <a href="https://github.com/ruvnet/claude-flow"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/claude.svg" width="300" height="76" alt="Claude Code plugin"></a>
 <a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/codex.svg" width="300" height="76" alt="Codex plugin"></a>
