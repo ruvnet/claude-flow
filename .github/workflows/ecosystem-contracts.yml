@@ -34,3 +34,10 @@ jobs:
           scripts/__tests__/stage-internal-runtime-bundles.test.mjs
       - run: node scripts/audit-umbrella-version-lockstep.mjs
       - run: node scripts/audit-package-dep-overlap.mjs
+      - name: Install pinned Weight EFT integration without lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/weight-eft-proof" --ignore-scripts --no-audit --no-fund --save-exact @metaharness/weight-eft@0.1.2
+      - name: Exercise real Weight EFT export, holdout, plan and evaluation
+        env:
+          RUFLO_WEIGHT_EFT_REQUIRED: '1'
+          RUFLO_WEIGHT_EFT_RESOLVE_FROM: ${{ runner.temp }}/weight-eft-proof/package.json
+        run: node --test scripts/tests/weight-eft-installed.test.mjs
