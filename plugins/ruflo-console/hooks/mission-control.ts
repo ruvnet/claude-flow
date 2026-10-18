@@ -23,28 +23,12 @@ import { CLI_PREFIXES, type State } from './state'
 import type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
 
 import { checkpointPlan } from './mission-advisor-live'
+import { adoptLegacy, dismissLegacy, mcOf, saveLedger } from './mission-ledger'
 import { cancelSpec, createSpec, createWhy, dispatchSpec, isInflight, MAX_HANDOUTS, resultOf, setPaused } from './mission-specs'
 
 export { cancelSpec, createSpec, createWhy, dispatchSpec, resultOf, setPaused }
+export { adoptLegacy, dismissLegacy, LEDGER_KEY, ledgerKeyOf, loadLedger, mcOf, saveLedger } from './mission-ledger'
 export type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
-
-const states = new WeakMap<State, McState>()
-/** The pre-#4237 ledger key, shared by every project on the machine. Read once per project as a fallback, never written for a known cwd. */
-export const LEDGER_KEY = 'mission-ledger'
-
-/** The mission ledger is per project, like the UI view (`storeKeyOf`): one machine-wide key let one project's active mission drive another's. */
-export const ledgerKeyOf = (cwd: string): string => (cwd === '' ? LEDGER_KEY : `${LEDGER_KEY}:${cwd}`)
-
-export function mcOf(state: State): McState {
-  let found = states.get(state)
-
-  if (found === undefined) {
-    found = { goal: '', profile: 'feature', rigor: 'standard', isProfilePicked: false, planned: null, missions: new Map(), active: null, tab: 'plan', lastGuide: '', guidance: null, screen: null, isScreenOn: true, last: null }
-    states.set(state, found)
-  }
-
-  return found
-}
 
 export const activeMission = (state: State): MissionRecord | null => {
   const mc = mcOf(state)
@@ -147,42 +131,6 @@ export function record(mission: MissionRecord, event: Omit<LedgerEvent, 'seq' | 
 
   mission.events.push({ seq, atMs: Date.now(), ...event })
   if (mission.events.length > 500) mission.events.splice(0, mission.events.length - 500)
-}
-
-export function saveLedger(state: State, host: Host): void {
-  const mc = mcOf(state)
-
-  void host.storeSet(ledgerKeyOf(state.cwd), { active: mc.active, missions: [...mc.missions.values()].slice(-20) }).catch(() => undefined)
-}
-
-export async function loadLedger(state: State, host: Host): Promise<void> {
-  const key = ledgerKeyOf(state.cwd)
-  const own = await host.storeGet(key).catch(() => undefined)
-  // A project with no ledger of its own falls back to the old machine-wide one, keeping only missions not recorded for another project and
-  // never its `active`: that was whichever project wrote last (#4237).
-  const isLegacy = own === undefined && key !== LEDGER_KEY
-  const saved = isLegacy ? await host.storeGet(LEDGER_KEY).catch(() => undefined) : own
-  const missions = (saved as { missions?: unknown } | undefined)?.missions
-  const mc = mcOf(state)
-
-  if (!Array.isArray(missions)) return
-
-  for (const raw of missions.slice(0, 20)) {
-    const m = raw as MissionRecord
-
-    if (m?.cwd !== undefined && m.cwd !== state.cwd) continue
-
-    const isShaped = Array.isArray(m?.tasks) && m.tasks.every(task => typeof task?.id === 'string' && Array.isArray(task.dependsOn)) && Array.isArray(m.events)
-
-    // Auto-run never survives a restart: a new session starts by asking.
-    if (typeof m?.id === 'string' && /^msn_[a-f0-9]{24}$/.test(m.id) && isShaped) mc.missions.set(m.id, { ...m, auto: false, ...(Array.isArray(m.adrs) && { adrs: m.adrs.filter(file => typeof file === 'string' && /^[A-Za-z0-9][A-Za-z0-9._ -]{0,119}\.md$/.test(file)).slice(0, 8) }) })
-  }
-
-  if (isLegacy) return
-
-  const active = (saved as { active?: unknown }).active
-
-  if (typeof active === 'string' && mc.missions.has(active)) mc.active = active
 }
 
 /**
@@ -358,6 +306,13 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       if (mc.missions.has(id)) mc.active = id
       saveLedger(state, host)
       host.invalidate()
+    },
+    adoptLegacy: () => {
+      void adoptLegacy(state, host).then(count => say(count === 0 ? 'nothing to adopt' : `adopted ${count} mission${count === 1 ? '' : 's'}`, count > 0, count === 0 ? 'no missions from before per-project storage are offered here' : 'recorded under this project and removed from the old shared ledger'))
+    },
+    dismissLegacy: () => {
+      dismissLegacy(state, host)
+      say('not this project\'s', true, 'the older missions stay in the shared ledger for the project they were made in')
     },
     next: () => {
       const mission = activeMission(state)

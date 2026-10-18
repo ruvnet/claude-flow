@@ -39,6 +39,10 @@ export type McState = {
   planned: Plan | null
   missions: Map<string, MissionRecord>
   active: string | null
+  /** Missions saved before #4237 that name no project (the old shared ledger, or a copy of it): offered here, never taken in without the person (#4254). */
+  legacy: MissionRecord[]
+  /** The person said the offered missions are not this project's: no offer here again; they stay in the old ledger for the project they belong to. */
+  isLegacyDismissed: boolean
   tab: McTab
   /** The last instruction sent to Claude, kept so it can be edited and sent again. */
   lastGuide: string
@@ -61,6 +65,10 @@ export type MissionActions = {
   tab: (tab: McTab) => void
   create: () => void
   select: (id: string) => void
+  /** Takes the offered pre-#4237 missions into this project (recorded under its directory) and removes them from the old shared ledger (#4254). */
+  adoptLegacy: () => void
+  /** Stops offering them in this project; they stay in the old shared ledger for the project they belong to (#4254). */
+  dismissLegacy: () => void
   /** Hands the next ready task to the primary session (asks first: it starts a model turn). */
   next: () => void
   pause: () => void

@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.4 — 2026-10-18
+- fix: the mission ledger is kept per project (#4237, #4242, thanks @kevin9327). One machine-wide key let the active mission of one project show in, and go into the prompt of, every other project, and two sessions in different projects overwrote each other. Each project now has its own key, and a new mission records the project it was made in. This shipped in 3.57.0 under the same 0.44.3 version, so `claude plugin update` never offered it.
+- fix: missions from before per-project storage no longer leak into every project (#4254). The old shared key's missions with no project recorded were still taken into each project that opened, and saved into its own key. Now Mission Control offers them ("N missions from before per-project storage") with adopt here and not this project. Adopt records the project on them and takes them out of the old key; not this project keeps the offer away there. A mission the old key records for this project is taken in and removed from it without asking. A session that starts again in another directory begins with none of the last project's missions.
+
 ## 0.44.3 — 2026-10-15
 - fix: the rest of Mission Control's prose wraps at 80 columns (tmux) instead of ending in "…" (#3899): a launch step's detail (Claude's guidance note, the screen verdict, the next task's title) moves onto wrapped rows under its step when it does not fit beside it, and the "Create the mission and its tasks" label no longer runs into its detail; on the record, the expanded mission's state, plan, evidence, executor and blocked-reason lines, the stale and attention notes, the legend and the observation note wrap; the Mission options "not offered by this session" hint wraps.
 
