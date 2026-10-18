@@ -15,7 +15,7 @@ Each graph edge records the source package version, declared target range, relat
 ## Decision
 
 1. Preserve a directed package architecture instead of adding dependencies merely to increase connectivity. Keep native and learning extensions optional, with existing absence behavior.
-2. Declare direct ownership of packages used by CLI source, rather than relying on transitive hoisting. The CLI owns its RuVector core and SONA extensions; the root umbrella owns the runtime dependencies and extension contracts used by its embedded CLI.
+2. Declare direct ownership of packages used by CLI source, rather than relying on transitive hoisting. RuVector core is a direct optional dependency. SONA and Weight EFT are optional peers in the scoped CLI, deliberately installed by consumers, to preserve the existing 13-package cold-start budget and forbidden-package guard. The root umbrella owns direct optional runtime dependencies used by its embedded CLI. A cold-install benchmark attempt did not yield verified completion and cannot justify relaxing that guard.
 3. Keep memory optional with one exact declaration. Do not add a required memory to neural edge: neural already requires memory.
 4. Await native vector insert and delete completion. The caller must not observe successful completion before the dependency finishes or after it rejects.
 5. Reuse one canonical scoped CLI preparation. After signing and verification, record current source and staged artifact hashes. Root preparation verifies that exact payload and existing helper signatures without receiving the signing key. Stage console, MetaHarness, helper and runtime capabilities into the root archive.
@@ -41,7 +41,7 @@ No performance improvement is inferred from a denser graph. Download events are 
 
 * Graph fixture tests preserve optional overrides, missing metadata, version range skew, reverse impact and cycle behavior.
 * Native adapter regression fails against the previous source and passes with awaited completion, including rejection paths and JavaScript fallback.
-* Root and scoped manifest contracts declare the same direct optional extensions without required or peer duplication.
+* Root and scoped manifest contracts declare matching extension versions with explicit installable or opt-in roles, without required/optional or optional/peer duplication. The existing cold-start guard passes unchanged.
 * The root release gate rejects changed tracked source, untracked source, staged runtime/plugin/catalog drift, missing preparation and invalid helper signatures.
 * Before publication: install dependencies with reviewed lockfiles, run focused and existing regressions, build and inspect all three archives, then exercise independent consumer installs and optional absence behavior.
 * Publish only from reviewed source using authenticated npm and the existing helper signer; verify registry integrity and `latest`, `alpha`, `v3alpha` for all three packages afterward.

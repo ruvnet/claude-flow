@@ -1,6 +1,6 @@
 # Dependency integration validation
 
-Validated on October 18, 2026 against candidate source `751c3e3c5c70d1c3dcdea233223c118259df0cad`. This records source and fixture checks, not an npm release.
+Validated on October 18, 2026 during [PR #4264](https://github.com/ruvnet/ruflo/pull/4264). This records source and fixture checks, not an npm release.
 
 | Check | Result |
 | --- | --- |
@@ -13,13 +13,14 @@ Validated on October 18, 2026 against candidate source `751c3e3c5c70d1c3dcdea233
 | Workspace installation | pnpm 8.15.0 frozen lockfile install with lifecycle scripts disabled passed |
 | Builds | Security, shared, swarm, CLI core and CLI passed; security OAuth verifier checked 10 exports |
 | Release preparation | Builds and stages internal runtime packages and console; stops at the required helper signing step because the signing key is unavailable |
+| Cold-start dependency guard | Unchanged guard passes: CLI has 13 optional dependencies, wrapper has zero; SONA and Weight EFT are opt-in optional peers in the scoped CLI |
 | Version and dependency audits | Three umbrella packages remain at 3.57.0; exact wrapper pin and optional/peer overlap audit pass |
 
 The async vector fixture fails against the previous adapter because it observes zero vectors before insertion finishes. The candidate awaits insert and delete, propagates backend errors and retains the missing-package fallback. This is deterministic adapter coverage, not native binary compatibility or speed evidence.
 
 The previous Weight EFT loader fails two new contract checks by accepting an incomplete API or choosing it over a complete default export. The candidate checks all five functions. The installed-package test actually produces SFT and DPO rows, excludes a held-out record, creates both training plans and evaluates controlled outcomes. The evaluation values are synthetic fixtures, not measured model improvements.
 
-CI runs the focused contracts on Node 22 and 24. A separate required integration step installs the exact Weight EFT package without lifecycle scripts. Missing dependencies fail that step instead of silently passing.
+CI is configured to run the focused contracts on Node 22 and 24. A separate required integration step installs the exact Weight EFT package without lifecycle scripts. Missing dependencies fail that step instead of silently passing.
 
 ## Reproduce
 
@@ -36,7 +37,9 @@ node scripts/audit-umbrella-version-lockstep.mjs
 node scripts/audit-package-dep-overlap.mjs
 ```
 
-Node 20 requires the installed TypeScript development dependency for source fixtures. Node 22 and 24 use built-in type stripping. The installed integration requires Weight EFT to resolve from the checkout, or an explicit `RUFLO_WEIGHT_EFT_RESOLVE_FROM` absolute path to an isolated installation's `package.json`.
+Node 20 requires the installed TypeScript development dependency for source fixtures. Recent Node 22 releases and Node 24 use built-in type stripping. The installed integration requires Weight EFT to resolve from the checkout, or an explicit `RUFLO_WEIGHT_EFT_RESOLVE_FROM` absolute path to an isolated installation's `package.json`.
+
+The cold-install comparison attempt lost transport before verified completion and produced no usable timing evidence. It does not justify weakening the existing guard. The final dependency design leaves that guard unchanged.
 
 ## Remaining release gates
 

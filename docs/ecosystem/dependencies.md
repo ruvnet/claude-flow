@@ -21,6 +21,14 @@ flowchart TD
 
 Solid arrows describe the entry points; dotted arrows describe capabilities that can be absent. The umbrella declares its own runtime dependencies because embedding CLI files does not transfer npm dependency ownership.
 
+The scoped CLI declares SONA and Weight EFT as optional peers: they are explicit, tested contracts, but npm does not automatically install them. This preserves the existing cold `npx` dependency budget and forbidden-package guard. Install these capabilities deliberately in the same application that installs the CLI:
+
+```bash
+npm install @claude-flow/cli @ruvector/sona@^0.1.5 @metaharness/weight-eft@0.1.2
+```
+
+The `claude-flow` umbrella retains direct optional dependencies for these capabilities. Memory and RuVector core remain direct optional dependencies of both entry packages.
+
 [Captured registry relationships](../../data/npm-dependencies.latest.json) distinguish required dependencies, optional dependencies and peers. Every node has a captured version and registry URL. The graph includes the full download inventory plus packages whose download counts were unavailable; missing downloads do not mean a missing npm package.
 
 ```bash
