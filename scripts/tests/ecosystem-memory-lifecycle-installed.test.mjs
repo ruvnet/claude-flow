@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { memoryWorkflow } from '../lib/ecosystem-memory-workflow.mjs';
 
 const from = process.env.RUFLO_MEMORY_RESOLVE_FROM;
 const skip = !from && process.env.RUFLO_MEMORY_REQUIRED !== '1';
@@ -66,6 +67,29 @@ test('cross-batch dimensional mismatch rejects before publishing and preserves r
   await rejectedUnchanged(database, 'write', 'project-a', { records: [record('bad', [1, 0])] }, /dimensions/);
   assert.deepEqual(read(database).results.map(r => r.key), ['original']);
 });
+
+for (const mode of ['write', 'update', 'retrieve']) {
+  test(`direct API rejects sparse ${mode} vectors before opening state and preserves saved records`, { skip }, async t => {
+    const database = await fixture(t);
+    passed(child('write', database, 'project-a', { records: [record('original'), record('other', [0, 1, 0])] }));
+    const prior = read(database), original = prior.results.find(r => r.key === 'original');
+    const other = prior.results.find(r => r.key === 'other'), before = await readFile(database);
+    // JSON converts holes to null, so exercise the exported API without a
+    // JSON round trip. Include holes at either end and within the vector.
+    for (const vector of [[1, , 0], [, 1, 0], [0, 1, ,], Array(3)]) {
+      const input = mode === 'retrieve' ? { vector } : { records: mode === 'write'
+        ? [record('valid-new', [0, 0, 1]), record('invalid-new', vector)]
+        : [{ ...record('original', [0, 0, 1], 'must not be saved'), ...fence(original) },
+          { ...record('other', vector), ...fence(other) }] };
+      let snapshotOpened = false;
+      await assert.rejects(memoryWorkflow({ mode, databasePath: database, namespace: 'project-a', input, resolveFrom: from,
+        checkpoint: () => { snapshotOpened = true; } }), /Expected finite nonzero vector/);
+      assert.equal(snapshotOpened, false, 'invalid vector must reject before opening database state');
+      assert.deepEqual(await readFile(database), before, 'sparse vector must not publish any bytes');
+      assert.deepEqual(read(database).results, prior.results, 'previously saved records remain retrievable after restart');
+    }
+  });
+}
 
 test('duplicate existing keys require explicit update rather than silently replacing saved identity', { skip }, async t => {
   const database = await fixture(t);

@@ -100,6 +100,30 @@ test('test subprocess does not inherit unrelated credential environment', async 
   try { assert.equal((await evaluateCandidate(c)).status,'checks-passed-review-required'); } finally { delete process.env.RUFLO_TEST_DUMMY_SECRET; }
   await releaseCandidate(c);
 });
+test('candidate passes exact harness fixture settings to both sides without widening credential forwarding', async t => {
+  const settings = {
+    RUFLO_REQUIRE_HARNESS: '1',
+    RUFLO_HARNESS_RESOLVE_FROM: '/tmp/qualified harness fixture/package.json',
+    RUFLO_HARNESS_TOKEN: 'fixture-not-a-secret',
+    RUFLO_REQUIRE_HARNESS_DEBUG: 'fixture-not-a-secret',
+  };
+  const previous = Object.fromEntries(Object.keys(settings).map(key => [key, process.env[key]]));
+  const c = await candidate(t, "test('harness fixture',()=>{assert.equal(process.env.RUFLO_REQUIRE_HARNESS,'1');assert.equal(process.env.RUFLO_HARNESS_RESOLVE_FROM,'/tmp/qualified harness fixture/package.json');assert.equal(process.env.RUFLO_HARNESS_TOKEN,undefined);assert.equal(process.env.RUFLO_REQUIRE_HARNESS_DEBUG,undefined);});");
+  await writeFile(join(c.worktree, 'value.txt'), '2');
+  Object.assign(process.env, settings);
+  try {
+    const result = await evaluateCandidate(c);
+    assert.equal(result.baseline.checksPassed, true, JSON.stringify(result.baseline.results));
+    assert.equal(result.candidate.checksPassed, true, JSON.stringify(result.candidate.results));
+    assert.equal(result.status, 'checks-passed-review-required');
+    assert.equal(result.promotionAllowed, false);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+    await releaseCandidate(c);
+  }
+});
 for (const flag of ['--assume-unchanged', '--skip-worktree']) {
   test(`hidden protected test with ${flag} is rejected before execution`, async t => {
     const c=await candidate(t); await writeFile(join(c.worktree,'value.txt'),'2');

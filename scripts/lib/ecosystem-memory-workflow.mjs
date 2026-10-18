@@ -28,10 +28,14 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
     sqljs: JSON.parse(await readFile(join(dirname(memoryRequire.resolve('sql.js')), '..', 'package.json'))).version,
   };
   const validVector = vector => {
-    if (!Array.isArray(vector) || vector.length < 2 || vector.length > 4096 ||
-        vector.some(v => !Number.isFinite(v) || !Number.isFinite(Math.fround(v))) ||
-        !vector.some(v => Math.fround(v) !== 0)) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
-    return Float32Array.from(vector);
+    if (!Array.isArray(vector) || vector.length < 2 || vector.length > 4096) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
+    // Array#some skips holes, but Float32Array.from turns them into NaN.
+    // Snapshot every element before validation so sparse direct-API inputs
+    // cannot publish an embedding that makes later retrieval fail.
+    const values = Array.from(vector);
+    if (values.some(v => !Number.isFinite(v) || !Number.isFinite(Math.fround(v))) ||
+        !values.some(v => Math.fround(v) !== 0)) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
+    return Float32Array.from(values);
   };
   const vector = mode === 'retrieve' ? validVector(input?.vector) : null;
   const k = input?.k ?? 1;

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-10-18T10:04:00Z",
+  "repository": "ruvnet/metaharness",
+  "draftPr": "https://github.com/ruvnet/metaharness/pull/416",
+  "draftCommit": "62cdc6984bec239a229dadff5737dc28b99b0b51",
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "package": "@metaharness/router",
+  "version": "0.4.0",
+  "sourcePath": "packages/router",
+  "scope": "Three-file guidance-only draft; no runtime, dependency, version or release-authority change",
+  "files": [
+    "docs/ecosystem/package-improvement-policy.md",
+    "packages/router/AGENTS.md",
+    "packages/router/package.json"
+  ],
+  "platform": {"os": "linux", "arch": "x64", "glibc": "2.39", "node": "24.19.0", "npm": "11.9.0"},
+  "tools": {"typescript": "5.9.3", "vitest": "2.1.9", "@types/node": "20.19.43", "@ruvector/tiny-dancer": "0.1.21", "nativeVersionFunction": "2.2.3"},
+  "checks": {
+    "baselineBuild": "passed",
+    "candidateBuild": "passed",
+    "baselineLint": "passed",
+    "candidateLint": "passed",
+    "baselinePackageTests": 34,
+    "candidatePackageTests": 34,
+    "testCaveat": "One unavailable-native unit case returns early when native peer is installed. Real native training tests executed. Fresh peer-absent consumers separately exercised rejection/fallback; do not describe the unit suite alone as all-branches or zero-skip native coverage.",
+    "freshConsumers": "Both baseline and candidate imported exports; selected expected k-NN winners; trained KRR, serialized, exited and restored in a new process; tested missing-native fallback/errors; separately installed pinned native peer, trained a real safetensors model, exited and loaded/routed in a new process.",
+    "jsConsumerOutputs": "byte-equivalent JSON after parsing/deep equality",
+    "nativeScope": "Five-dimensional synthetic fixture; native train/restart/route functionality, not model quality improvement or arbitrary-dimensional compatibility"
+  },
+  "pack": {
+    "baselineRegistryByteIdentical": true,
+    "baselineBytes": 21362,
+    "candidateBytes": 22643,
+    "deltaBytes": 1281,
+    "baselineUnpackedBytes": 72875,
+    "candidateUnpackedBytes": 75731,
+    "agentsBytes": 2839,
+    "baselineFiles": 19,
+    "candidateFiles": 20,
+    "retainedNonManifestFilesByteIdentical": 18,
+    "baselineSha256": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1",
+    "candidateSha256": "46e1af2bcb11abc5b9796d3cfcb44089b95cb04ab4830d50fd2996cd4ca5c332",
+    "baselineRegistryIntegrity": "sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==",
+    "candidateIntegrity": "sha512-gOAsqcYsZcgWknuh7+WD3PH6A9KcB48ga/3kto4qwAwGWWYEAYHo/ubIGl+npGGErJlSWLpSVfk6c+1NC385Aw=="
+  },
+  "rollback": {
+    "method": "Applied staged three-file patch in independent clean worktree, checked candidate tree, reversed patch with --index, checked exact baseline tree and clean git status",
+    "baselineTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "candidateTree": "d3d0bb970d0e7dcebdcfb07b10b78f04d0ff52a4",
+    "restoredTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "patchSha256": "e92c82d776ea9ce88fd7c015923669f6e1fee7035958907bc55eb90fb819b66b",
+    "limits": "Source rollback only; no npm publication occurred and no external effects to undo"
+  },
+  "failures": ["Initial fresh-consumer validation incorrectly expected nativeVersionFunction() to equal npm package version0.1.21. Observed native engine2.2.3. Corrected validation to independently check installed package0.1.21 and native engine2.2.3, then reran both consumers with new empty caches. Original failure log preserved in baseline-native-train.log."],
+  "limitations": [
+    "Guidance only, not new runtime integration coverage or performance gain",
+    "This source/pack is router0.4.0; it is not the existing Ruflo consumer pin0.3.2",
+    "Full workspace, Rust, WASM, native build, security and signed release gates remain required; no claim of passing those gates",
+    "Known upstream Cargo advisory failures are not remediated by this patch",
+    "No merge or npm publication"
+  ],
+  "sharedPolicySha256": "8998d86e3530ccb3eaf51e66c89a8314f048cc86f960fc3d323901687b91fdc3",
+  "agentsSha256": "2428f983e24b94bf644fcce78cb8936d9bf366395b9b8c8286661762f0f14af1",
+  "packageJsonSha256": "82e93b45e1111cf4b1baba8a124bc5f0416190421d8dc22cd8143ebf8d9b1926"
+}

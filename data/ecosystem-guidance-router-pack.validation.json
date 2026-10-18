@@ -1,0 +1,90 @@
+{
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "baselineRegistryByteIdentical": true,
+  "addedFiles": [
+    "package/AGENTS.md"
+  ],
+  "deletedFiles": [],
+  "identicalNonManifestFiles": 18,
+  "baselineBytes": 21362,
+  "candidateBytes": 22643,
+  "archives": {
+    "baseline": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1",
+    "candidate": "46e1af2bcb11abc5b9796d3cfcb44089b95cb04ab4830d50fd2996cd4ca5c332",
+    "registry": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1"
+  },
+  "retainedFiles": [
+    {
+      "path": "package/LICENSE",
+      "sha256": "09ed6717912f408da29e15b55170cd56c9658218a540b7c72e70909b9101274c"
+    },
+    {
+      "path": "package/README.md",
+      "sha256": "cd44d97299cae9c7a9c3ee306fdc1d9ea09bf7bc8e8141a0eb99d3c84b736787"
+    },
+    {
+      "path": "package/dist/calibration.d.ts",
+      "sha256": "49aaa4e92b9d04a3087991a1d32ab8ca2e49d484918022c6068ee52b00882e25"
+    },
+    {
+      "path": "package/dist/calibration.d.ts.map",
+      "sha256": "4549f93fb6044c9151f20bb249d1b7114cdf5d346c0ae049f934de97650f371f"
+    },
+    {
+      "path": "package/dist/calibration.js",
+      "sha256": "c761f93a40e28a4ebb1ddf10343e1eed132bb7d98b8d365e95d01b69749d2c34"
+    },
+    {
+      "path": "package/dist/calibration.js.map",
+      "sha256": "8b830ac82ce3642ea7b8ee3f3e6f170320a69fc5ecdaff669474c4b0483f1a00"
+    },
+    {
+      "path": "package/dist/index.d.ts",
+      "sha256": "5b5e07d5d944abf3ad8915408ef562358a0bea6ca5b8dcd9f5c546c545af3bbf"
+    },
+    {
+      "path": "package/dist/index.d.ts.map",
+      "sha256": "4647fa58d9f069df12e161ea44cc8466c844a1823f5d6dfcd7deb22802dad971"
+    },
+    {
+      "path": "package/dist/index.js",
+      "sha256": "478b138f348eed23726e2758bb890af319d28317e6ec014ac5f2cdae90a07b19"
+    },
+    {
+      "path": "package/dist/index.js.map",
+      "sha256": "b707e9a2807f7d3f1725f9fdf06bcbd6b2cb97a53efd4cd01bf21f3d1e66021a"
+    },
+    {
+      "path": "package/dist/native.d.ts",
+      "sha256": "61cd3bc83242a231d3380d99ac1b511f48a42e24cff388c51c4d330dcc7f5ae1"
+    },
+    {
+      "path": "package/dist/native.d.ts.map",
+      "sha256": "209d51c527db84072c9591e6218d092cfc2a0f5a26d336e3e3231f14ad5ec9ff"
+    },
+    {
+      "path": "package/dist/native.js",
+      "sha256": "1e3bb35ec9f034d976cdda316564ab58ef329fb4174e6f5a2186854ac9010e9e"
+    },
+    {
+      "path": "package/dist/native.js.map",
+      "sha256": "c655ef05e1d714f55f7488310686f0d1be8414ea2c7f441127ce47ef42041327"
+    },
+    {
+      "path": "package/dist/train.d.ts",
+      "sha256": "56e5462ada0eaf05a88adb0c3471f57d5cde2ac948e841acbfc858ec4ba11f34"
+    },
+    {
+      "path": "package/dist/train.d.ts.map",
+      "sha256": "3cf24cb0629df4e0cac9a4793bcc9856f6057462611df46113d47aa8b3e20911"
+    },
+    {
+      "path": "package/dist/train.js",
+      "sha256": "bd619513d495fd49120ef0100c19bebc52bcfd89eac4f3f9e6e68eade555bb8c"
+    },
+    {
+      "path": "package/dist/train.js.map",
+      "sha256": "4705dd19397648071be9a7547e3fc2ebed9735aa2c92036a912c88d828b74238"
+    }
+  ]
+}

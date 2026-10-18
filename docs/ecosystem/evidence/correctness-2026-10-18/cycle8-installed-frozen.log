@@ -1,0 +1,62 @@
+✔ real HarnessKernel executes, persists, restarts and consumes native vector-retrieved task output (1540.209427ms)
+ℹ {"firstPid":84,"secondPid":307,"firstMs":315.860514,"secondMs":386.512981,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"harness":"0.2.0","taskSuccess":true}
+✔ default-deny policy invokes no worker and never changes persisted memory (1436.019089ms)
+✔ failed fixed-oracle verification does not persist output or retry the local task (942.268699ms)
+✔ restart refuses absent or wrong-namespace results and invalid bounded inputs (1403.819385ms)
+✔ missing installed resolver, duplicate task writes and second-task oracle failures preserve state (1800.966849ms)
+✔ second-task policy denial may retrieve but invokes no worker and never writes memory (856.57176ms)
+✔ second-task wrong source digest rejects an otherwise correct result without writing (670.571944ms)
+✔ unqualified memory version is rejected before import or mutation using isolated metadata fixture (537.849993ms)
+✔ versioned starter completes two separate task processes and saved-result verification (976.493618ms)
+✔ real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay (4124.751252ms)
+✔ actual fixed held-out harness tasks restart and retrieve before real Weight EFT aggregation (4368.379268ms)
+ℹ {"elapsedMs":4363.407789,"datasetHash":"820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6","weightEftVersion":"0.1.2","summary":{"n":3,"cheapResolveRate":1,"escalationRate":0,"resolveRate":1,"costPerResolved":0,"totalCostUsd":0}}
+✔ real Weight EFT contamination guard rejects held-out training IDs before execution (244.728689ms)
+✔ fixed oracle rejects wrong output despite success, perfect quality and matching persisted self-report (151.336836ms)
+✔ actual kernel verification failure is not rescued by successful persisted evidence from another run (341.990023ms)
+✔ missing, duplicated or substituted held-out evidence cannot improve denominator (495.409373ms)
+✔ restart, persisted content, receipt and version evidence failures remain unresolved (1518.741795ms)
+✔ missing Weight EFT resolver fails closed rather than using fixture metrics (0.492671ms)
+✔ real two cycle ecosystem evaluation preserves inventory and produces source bound capability evidence (97036.831747ms)
+✔ separate stale reader cannot overwrite a completed newer writer (1548.332443ms)
+ℹ {"readerSnapshot":["before"],"retainedAfterWriter":["new","before"],"sourceBytesUnchangedByReader":true,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"}}
+✔ SIGKILL before-publish retains a complete retrievable database and fences subsequent writers (2724.464232ms)
+ℹ {"phase":"before-publish","signal":"SIGKILL","retainedKeys":["before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL after-publish retains a complete retrievable database and fences subsequent writers (1745.922904ms)
+ℹ {"phase":"after-publish","signal":"SIGKILL","retainedKeys":["new","before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL during update before-publish preserves a complete lifecycle state (1597.880309ms)
+ℹ {"mode":"update","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during update after-publish preserves a complete lifecycle state (1036.346459ms)
+ℹ {"mode":"update","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete before-publish preserves a complete lifecycle state (1105.687583ms)
+ℹ {"mode":"delete","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete after-publish preserves a complete lifecycle state (923.504045ms)
+ℹ {"mode":"delete","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ real memory persists across process exits and native RuVector retrieves only scoped saved content (2046.941796ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","node":"v24.19.0","writeMs":182.48850600000003,"restartRetrieveMs":149.185965,"repeatedRetrieveMs":171.886113,"databaseBytes":36864,"taskSuccess":true,"crashDurabilityTested":false}
+✔ memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution (2732.053106ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (5690.937241ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":141.72382100000002,"updateMs":229.69780999999998,"deleteMs":220.783716,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (915.500589ms)
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (1923.305915ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (1417.22161ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1208.926151ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (803.007901ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (4313.766488ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (2019.512195ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (2128.875879ms)
+✔ update and delete require existing state and never create a missing database (254.021209ms)
+✔ expired persisted keys remain protected from implicit replacement (603.609795ms)
+✔ versioned v2 starter completes six real operations in independent processes (1266.135243ms)
+{"package":"@metaharness/weight-eft@0.1.2","sftRows":1,"dpoRows":1,"heldOut":1,"planOnly":true,"escalationRateReduction":1}
+(node:1474) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ installed weight EFT exports real SFT/DPO, excludes holdout, plans and evaluates (92.660683ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97169.195539

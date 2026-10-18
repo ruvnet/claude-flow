@@ -1,0 +1,858 @@
+# Router guidance raw validation evidence
+
+Exact captured text; file SHA-256s bind each section. No node_modules, caches, model binaries or install directories included.
+
+## validation.json
+SHA-256: 53f54c97c3e067bb3f6b2087ba683a26b3d6fdc5fca68a4bfeebe7bd5cc852bd
+Bytes: 4369
+
+{
+  "schemaVersion": 1,
+  "observedAtUtc": "2026-10-18T10:04:00Z",
+  "repository": "ruvnet/metaharness",
+  "draftPr": "https://github.com/ruvnet/metaharness/pull/416",
+  "draftCommit": "62cdc6984bec239a229dadff5737dc28b99b0b51",
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "package": "@metaharness/router",
+  "version": "0.4.0",
+  "sourcePath": "packages/router",
+  "scope": "Three-file guidance-only draft; no runtime, dependency, version or release-authority change",
+  "files": [
+    "docs/ecosystem/package-improvement-policy.md",
+    "packages/router/AGENTS.md",
+    "packages/router/package.json"
+  ],
+  "platform": {"os": "linux", "arch": "x64", "glibc": "2.39", "node": "24.19.0", "npm": "11.9.0"},
+  "tools": {"typescript": "5.9.3", "vitest": "2.1.9", "@types/node": "20.19.43", "@ruvector/tiny-dancer": "0.1.21", "nativeVersionFunction": "2.2.3"},
+  "checks": {
+    "baselineBuild": "passed",
+    "candidateBuild": "passed",
+    "baselineLint": "passed",
+    "candidateLint": "passed",
+    "baselinePackageTests": 34,
+    "candidatePackageTests": 34,
+    "testCaveat": "One unavailable-native unit case returns early when native peer is installed. Real native training tests executed. Fresh peer-absent consumers separately exercised rejection/fallback; do not describe the unit suite alone as all-branches or zero-skip native coverage.",
+    "freshConsumers": "Both baseline and candidate imported exports; selected expected k-NN winners; trained KRR, serialized, exited and restored in a new process; tested missing-native fallback/errors; separately installed pinned native peer, trained a real safetensors model, exited and loaded/routed in a new process.",
+    "jsConsumerOutputs": "byte-equivalent JSON after parsing/deep equality",
+    "nativeScope": "Five-dimensional synthetic fixture; native train/restart/route functionality, not model quality improvement or arbitrary-dimensional compatibility"
+  },
+  "pack": {
+    "baselineRegistryByteIdentical": true,
+    "baselineBytes": 21362,
+    "candidateBytes": 22643,
+    "deltaBytes": 1281,
+    "baselineUnpackedBytes": 72875,
+    "candidateUnpackedBytes": 75731,
+    "agentsBytes": 2839,
+    "baselineFiles": 19,
+    "candidateFiles": 20,
+    "retainedNonManifestFilesByteIdentical": 18,
+    "baselineSha256": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1",
+    "candidateSha256": "46e1af2bcb11abc5b9796d3cfcb44089b95cb04ab4830d50fd2996cd4ca5c332",
+    "baselineRegistryIntegrity": "sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==",
+    "candidateIntegrity": "sha512-gOAsqcYsZcgWknuh7+WD3PH6A9KcB48ga/3kto4qwAwGWWYEAYHo/ubIGl+npGGErJlSWLpSVfk6c+1NC385Aw=="
+  },
+  "rollback": {
+    "method": "Applied staged three-file patch in independent clean worktree, checked candidate tree, reversed patch with --index, checked exact baseline tree and clean git status",
+    "baselineTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "candidateTree": "d3d0bb970d0e7dcebdcfb07b10b78f04d0ff52a4",
+    "restoredTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "patchSha256": "e92c82d776ea9ce88fd7c015923669f6e1fee7035958907bc55eb90fb819b66b",
+    "limits": "Source rollback only; no npm publication occurred and no external effects to undo"
+  },
+  "failures": ["Initial fresh-consumer validation incorrectly expected nativeVersionFunction() to equal npm package version0.1.21. Observed native engine2.2.3. Corrected validation to independently check installed package0.1.21 and native engine2.2.3, then reran both consumers with new empty caches. Original failure log preserved in baseline-native-train.log."],
+  "limitations": [
+    "Guidance only, not new runtime integration coverage or performance gain",
+    "This source/pack is router0.4.0; it is not the existing Ruflo consumer pin0.3.2",
+    "Full workspace, Rust, WASM, native build, security and signed release gates remain required; no claim of passing those gates",
+    "Known upstream Cargo advisory failures are not remediated by this patch",
+    "No merge or npm publication"
+  ],
+  "sharedPolicySha256": "8998d86e3530ccb3eaf51e66c89a8314f048cc86f960fc3d323901687b91fdc3",
+  "agentsSha256": "2428f983e24b94bf644fcce78cb8936d9bf366395b9b8c8286661762f0f14af1",
+  "packageJsonSha256": "82e93b45e1111cf4b1baba8a124bc5f0416190421d8dc22cd8143ebf8d9b1926"
+}
+
+
+## registry-metadata.json
+SHA-256: 69d6841323d6638f27dc8cf5c09b008d49eaace0448e96482ad86482206dd4f4
+Bytes: 709
+
+{
+  "name": "@metaharness/router",
+  "version": "0.4.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/metaharness.git"
+  },
+  "dist": {
+    "integrity": "sha512-VOfjHM7AMWwDH41AAMHOHFbH1r898xJqhqyE3G/r8OAxxrMgujX2SZsYkj/eXfBEmoPMhDVRkuO2abxvzCgEUA==",
+    "shasum": "0a3e61b2e9ba4e39e47b38d470ee5bfe66082bb0",
+    "tarball": "https://registry.npmjs.org/@metaharness/router/-/router-0.4.0.tgz",
+    "fileCount": 19,
+    "unpackedSize": 72875,
+    "signatures": [
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIQCHWXCDMm1sb1eOLoERvUKn9nV9gPsyUxZgPvcobsJfogIgU512isRINUJ/JuM0AyYyBUBJ6VSKsiY1DDEBxtLCNPI="
+      }
+    ]
+  }
+}
+
+
+## pack-comparison.json
+SHA-256: 20ef7ac09448fb40cfb410aa706f407ddf865ab923b6e400fc5aaddba9e77535
+Bytes: 3057
+
+{
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "baselineRegistryByteIdentical": true,
+  "addedFiles": [
+    "package/AGENTS.md"
+  ],
+  "deletedFiles": [],
+  "identicalNonManifestFiles": 18,
+  "baselineBytes": 21362,
+  "candidateBytes": 22643,
+  "archives": {
+    "baseline": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1",
+    "candidate": "46e1af2bcb11abc5b9796d3cfcb44089b95cb04ab4830d50fd2996cd4ca5c332",
+    "registry": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1"
+  },
+  "retainedFiles": [
+    {
+      "path": "package/LICENSE",
+      "sha256": "09ed6717912f408da29e15b55170cd56c9658218a540b7c72e70909b9101274c"
+    },
+    {
+      "path": "package/README.md",
+      "sha256": "cd44d97299cae9c7a9c3ee306fdc1d9ea09bf7bc8e8141a0eb99d3c84b736787"
+    },
+    {
+      "path": "package/dist/calibration.d.ts",
+      "sha256": "49aaa4e92b9d04a3087991a1d32ab8ca2e49d484918022c6068ee52b00882e25"
+    },
+    {
+      "path": "package/dist/calibration.d.ts.map",
+      "sha256": "4549f93fb6044c9151f20bb249d1b7114cdf5d346c0ae049f934de97650f371f"
+    },
+    {
+      "path": "package/dist/calibration.js",
+      "sha256": "c761f93a40e28a4ebb1ddf10343e1eed132bb7d98b8d365e95d01b69749d2c34"
+    },
+    {
+      "path": "package/dist/calibration.js.map",
+      "sha256": "8b830ac82ce3642ea7b8ee3f3e6f170320a69fc5ecdaff669474c4b0483f1a00"
+    },
+    {
+      "path": "package/dist/index.d.ts",
+      "sha256": "5b5e07d5d944abf3ad8915408ef562358a0bea6ca5b8dcd9f5c546c545af3bbf"
+    },
+    {
+      "path": "package/dist/index.d.ts.map",
+      "sha256": "4647fa58d9f069df12e161ea44cc8466c844a1823f5d6dfcd7deb22802dad971"
+    },
+    {
+      "path": "package/dist/index.js",
+      "sha256": "478b138f348eed23726e2758bb890af319d28317e6ec014ac5f2cdae90a07b19"
+    },
+    {
+      "path": "package/dist/index.js.map",
+      "sha256": "b707e9a2807f7d3f1725f9fdf06bcbd6b2cb97a53efd4cd01bf21f3d1e66021a"
+    },
+    {
+      "path": "package/dist/native.d.ts",
+      "sha256": "61cd3bc83242a231d3380d99ac1b511f48a42e24cff388c51c4d330dcc7f5ae1"
+    },
+    {
+      "path": "package/dist/native.d.ts.map",
+      "sha256": "209d51c527db84072c9591e6218d092cfc2a0f5a26d336e3e3231f14ad5ec9ff"
+    },
+    {
+      "path": "package/dist/native.js",
+      "sha256": "1e3bb35ec9f034d976cdda316564ab58ef329fb4174e6f5a2186854ac9010e9e"
+    },
+    {
+      "path": "package/dist/native.js.map",
+      "sha256": "c655ef05e1d714f55f7488310686f0d1be8414ea2c7f441127ce47ef42041327"
+    },
+    {
+      "path": "package/dist/train.d.ts",
+      "sha256": "56e5462ada0eaf05a88adb0c3471f57d5cde2ac948e841acbfc858ec4ba11f34"
+    },
+    {
+      "path": "package/dist/train.d.ts.map",
+      "sha256": "3cf24cb0629df4e0cac9a4793bcc9856f6057462611df46113d47aa8b3e20911"
+    },
+    {
+      "path": "package/dist/train.js",
+      "sha256": "bd619513d495fd49120ef0100c19bebc52bcfd89eac4f3f9e6e68eade555bb8c"
+    },
+    {
+      "path": "package/dist/train.js.map",
+      "sha256": "4705dd19397648071be9a7547e3fc2ebed9735aa2c92036a912c88d828b74238"
+    }
+  ]
+}
+
+
+## baseline-build.log
+SHA-256: 6bac0b62622c9d5edcc236b8a818223674b431cca99c8ec8284e56f08512fb23
+Bytes: 141
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 build
+> tsc
+
+
+
+## candidate-build.log
+SHA-256: 6bac0b62622c9d5edcc236b8a818223674b431cca99c8ec8284e56f08512fb23
+Bytes: 141
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 build
+> tsc
+
+
+
+## baseline-lint.log
+SHA-256: 7cea63cc4086ea6e76cadfee172978743731aab2b68fd5b5d411441602969762
+Bytes: 149
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 lint
+> tsc --noEmit
+
+
+
+## candidate-lint.log
+SHA-256: 7cea63cc4086ea6e76cadfee172978743731aab2b68fd5b5d411441602969762
+Bytes: 149
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 lint
+> tsc --noEmit
+
+
+
+## baseline-package-test.log
+SHA-256: 13fab298cda8cd599b409af95526d2d455cb688527c36344b103dc5ae8d89c6a
+Bytes: 5535
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 test
+> vitest run --maxWorkers=1 --minWorkers=1
+
+
+ RUN  v2.1.9 /workspace/scratch/1511111b1812/router-guidance-cycle8-baseline/packages/router
+
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 30, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/30: train_loss=0.6933, val_loss=0.6807, train_acc=0.5000, val_acc=0.5000
+Epoch 2/30: train_loss=0.6806, val_loss=0.6612, train_acc=1.0000, val_acc=1.0000
+Epoch 3/30: train_loss=0.6610, val_loss=0.6307, train_acc=1.0000, val_acc=1.0000
+Epoch 4/30: train_loss=0.6302, val_loss=0.5878, train_acc=1.0000, val_acc=1.0000
+Epoch 5/30: train_loss=0.5868, val_loss=0.5328, train_acc=1.0000, val_acc=1.0000
+Epoch 6/30: train_loss=0.5310, val_loss=0.4677, train_acc=1.0000, val_acc=1.0000
+Epoch 7/30: train_loss=0.4651, val_loss=0.3951, train_acc=1.0000, val_acc=1.0000
+Epoch 8/30: train_loss=0.3920, val_loss=0.3195, train_acc=1.0000, val_acc=1.0000
+Epoch 9/30: train_loss=0.3162, val_loss=0.2467, train_acc=1.0000, val_acc=1.0000
+Epoch 10/30: train_loss=0.2432, val_loss=0.1809, train_acc=1.0000, val_acc=1.0000
+Epoch 11/30: train_loss=0.1775, val_loss=0.1261, train_acc=1.0000, val_acc=1.0000
+Epoch 12/30: train_loss=0.1232, val_loss=0.0841, train_acc=1.0000, val_acc=1.0000
+Epoch 13/30: train_loss=0.0818, val_loss=0.0542, train_acc=1.0000, val_acc=1.0000
+Epoch 14/30: train_loss=0.0524, val_loss=0.0342, train_acc=1.0000, val_acc=1.0000
+Epoch 15/30: train_loss=0.0329, val_loss=0.0215, train_acc=1.0000, val_acc=1.0000
+Epoch 16/30: train_loss=0.0205, val_loss=0.0135, train_acc=1.0000, val_acc=1.0000
+Epoch 17/30: train_loss=0.0128, val_loss=0.0086, train_acc=1.0000, val_acc=1.0000
+Epoch 18/30: train_loss=0.0081, val_loss=0.0056, train_acc=1.0000, val_acc=1.0000
+Epoch 19/30: train_loss=0.0052, val_loss=0.0037, train_acc=1.0000, val_acc=1.0000
+Epoch 20/30: train_loss=0.0034, val_loss=0.0025, train_acc=1.0000, val_acc=1.0000
+Decaying learning rate to 0.025000
+Epoch 21/30: train_loss=0.0023, val_loss=0.0021, train_acc=1.0000, val_acc=1.0000
+Epoch 22/30: train_loss=0.0019, val_loss=0.0018, train_acc=1.0000, val_acc=1.0000
+Epoch 23/30: train_loss=0.0016, val_loss=0.0015, train_acc=1.0000, val_acc=1.0000
+Epoch 24/30: train_loss=0.0014, val_loss=0.0013, train_acc=1.0000, val_acc=1.0000
+Epoch 25/30: train_loss=0.0012, val_loss=0.0011, train_acc=1.0000, val_acc=1.0000
+Epoch 26/30: train_loss=0.0011, val_loss=0.0010, train_acc=1.0000, val_acc=1.0000
+Epoch 27/30: train_loss=0.0009, val_loss=0.0009, train_acc=1.0000, val_acc=1.0000
+Epoch 28/30: train_loss=0.0008, val_loss=0.0008, train_acc=1.0000, val_acc=1.0000
+Epoch 29/30: train_loss=0.0007, val_loss=0.0007, train_acc=1.0000, val_acc=1.0000
+Epoch 30/30: train_loss=0.0007, val_loss=0.0007, train_acc=1.0000, val_acc=1.0000
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 10, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/10: train_loss=0.6918, val_loss=0.7014, train_acc=0.5500, val_acc=0.2500
+Epoch 2/10: train_loss=0.6794, val_loss=0.7071, train_acc=0.5500, val_acc=0.2500
+Epoch 3/10: train_loss=0.6575, val_loss=0.7036, train_acc=0.5500, val_acc=0.2500
+Epoch 4/10: train_loss=0.6286, val_loss=0.6755, train_acc=0.5500, val_acc=0.2500
+Epoch 5/10: train_loss=0.5894, val_loss=0.6212, train_acc=1.0000, val_acc=1.0000
+Epoch 6/10: train_loss=0.5379, val_loss=0.5458, train_acc=1.0000, val_acc=1.0000
+Epoch 7/10: train_loss=0.4760, val_loss=0.4561, train_acc=1.0000, val_acc=1.0000
+Epoch 8/10: train_loss=0.4066, val_loss=0.3619, train_acc=1.0000, val_acc=1.0000
+Epoch 9/10: train_loss=0.3347, val_loss=0.2756, train_acc=1.0000, val_acc=1.0000
+Epoch 10/10: train_loss=0.2646, val_loss=0.2037, train_acc=1.0000, val_acc=1.0000
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 5, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/5: train_loss=0.6930, val_loss=0.6838, train_acc=0.5000, val_acc=0.5000
+Epoch 2/5: train_loss=0.6836, val_loss=0.6696, train_acc=1.0000, val_acc=1.0000
+Epoch 3/5: train_loss=0.6692, val_loss=0.6476, train_acc=1.0000, val_acc=1.0000
+Epoch 4/5: train_loss=0.6469, val_loss=0.6159, train_acc=1.0000, val_acc=1.0000
+Epoch 5/5: train_loss=0.6146, val_loss=0.5738, train_acc=1.0000, val_acc=1.0000
+ ✓ __tests__/native.test.ts (9 tests) 98ms
+ ✓ __tests__/calibration.test.ts (12 tests) 20ms
+ ✓ __tests__/router.test.ts (7 tests) 5ms
+ ✓ __tests__/train.test.ts (6 tests) 18ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  18:03:58
+   Duration  3.35s (transform 445ms, setup 0ms, collect 693ms, tests 142ms, environment 1ms, prepare 769ms)
+
+
+
+## candidate-package-test.log
+SHA-256: 088303c304ee8d53c54b118afcad11600a08c0dbb1b9e23077d8e009d62d2701
+Bytes: 5536
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> @metaharness/router@0.4.0 test
+> vitest run --maxWorkers=1 --minWorkers=1
+
+
+ RUN  v2.1.9 /workspace/scratch/1511111b1812/router-guidance-cycle8-candidate/packages/router
+
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 30, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/30: train_loss=0.6931, val_loss=0.7156, train_acc=0.6000, val_acc=0.0000
+Epoch 2/30: train_loss=0.6750, val_loss=0.7393, train_acc=0.6000, val_acc=0.0000
+Epoch 3/30: train_loss=0.6518, val_loss=0.7647, train_acc=0.6000, val_acc=0.0000
+Epoch 4/30: train_loss=0.6217, val_loss=0.7867, train_acc=0.6000, val_acc=0.0000
+Epoch 5/30: train_loss=0.5854, val_loss=0.7864, train_acc=0.6000, val_acc=0.0000
+Epoch 6/30: train_loss=0.5424, val_loss=0.7509, train_acc=0.6000, val_acc=0.0000
+Epoch 7/30: train_loss=0.4909, val_loss=0.6785, train_acc=1.0000, val_acc=1.0000
+Epoch 8/30: train_loss=0.4305, val_loss=0.5755, train_acc=1.0000, val_acc=1.0000
+Epoch 9/30: train_loss=0.3627, val_loss=0.4541, train_acc=1.0000, val_acc=1.0000
+Epoch 10/30: train_loss=0.2916, val_loss=0.3309, train_acc=1.0000, val_acc=1.0000
+Epoch 11/30: train_loss=0.2232, val_loss=0.2230, train_acc=1.0000, val_acc=1.0000
+Epoch 12/30: train_loss=0.1633, val_loss=0.1412, train_acc=1.0000, val_acc=1.0000
+Epoch 13/30: train_loss=0.1154, val_loss=0.0862, train_acc=1.0000, val_acc=1.0000
+Epoch 14/30: train_loss=0.0792, val_loss=0.0521, train_acc=1.0000, val_acc=1.0000
+Epoch 15/30: train_loss=0.0529, val_loss=0.0316, train_acc=1.0000, val_acc=1.0000
+Epoch 16/30: train_loss=0.0344, val_loss=0.0194, train_acc=1.0000, val_acc=1.0000
+Epoch 17/30: train_loss=0.0219, val_loss=0.0121, train_acc=1.0000, val_acc=1.0000
+Epoch 18/30: train_loss=0.0138, val_loss=0.0077, train_acc=1.0000, val_acc=1.0000
+Epoch 19/30: train_loss=0.0088, val_loss=0.0050, train_acc=1.0000, val_acc=1.0000
+Epoch 20/30: train_loss=0.0056, val_loss=0.0034, train_acc=1.0000, val_acc=1.0000
+Decaying learning rate to 0.025000
+Epoch 21/30: train_loss=0.0036, val_loss=0.0028, train_acc=1.0000, val_acc=1.0000
+Epoch 22/30: train_loss=0.0030, val_loss=0.0024, train_acc=1.0000, val_acc=1.0000
+Epoch 23/30: train_loss=0.0025, val_loss=0.0020, train_acc=1.0000, val_acc=1.0000
+Epoch 24/30: train_loss=0.0021, val_loss=0.0017, train_acc=1.0000, val_acc=1.0000
+Epoch 25/30: train_loss=0.0018, val_loss=0.0015, train_acc=1.0000, val_acc=1.0000
+Epoch 26/30: train_loss=0.0015, val_loss=0.0013, train_acc=1.0000, val_acc=1.0000
+Epoch 27/30: train_loss=0.0013, val_loss=0.0012, train_acc=1.0000, val_acc=1.0000
+Epoch 28/30: train_loss=0.0011, val_loss=0.0011, train_acc=1.0000, val_acc=1.0000
+Epoch 29/30: train_loss=0.0010, val_loss=0.0010, train_acc=1.0000, val_acc=1.0000
+Epoch 30/30: train_loss=0.0009, val_loss=0.0009, train_acc=1.0000, val_acc=1.0000
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 10, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/10: train_loss=0.6908, val_loss=0.6927, train_acc=0.5500, val_acc=0.2500
+Epoch 2/10: train_loss=0.6739, val_loss=0.6948, train_acc=0.5500, val_acc=0.2500
+Epoch 3/10: train_loss=0.6498, val_loss=0.6889, train_acc=0.5500, val_acc=0.2500
+Epoch 4/10: train_loss=0.6175, val_loss=0.6587, train_acc=0.5500, val_acc=0.2500
+Epoch 5/10: train_loss=0.5746, val_loss=0.6016, train_acc=1.0000, val_acc=1.0000
+Epoch 6/10: train_loss=0.5194, val_loss=0.5221, train_acc=1.0000, val_acc=1.0000
+Epoch 7/10: train_loss=0.4533, val_loss=0.4285, train_acc=1.0000, val_acc=1.0000
+Epoch 8/10: train_loss=0.3801, val_loss=0.3321, train_acc=1.0000, val_acc=1.0000
+Epoch 9/10: train_loss=0.3058, val_loss=0.2456, train_acc=1.0000, val_acc=1.0000
+Epoch 10/10: train_loss=0.2358, val_loss=0.1757, train_acc=1.0000, val_acc=1.0000
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 5, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/5: train_loss=0.6967, val_loss=0.7027, train_acc=0.5500, val_acc=0.2500
+Epoch 2/5: train_loss=0.6842, val_loss=0.7100, train_acc=0.5500, val_acc=0.2500
+Epoch 3/5: train_loss=0.6711, val_loss=0.7138, train_acc=0.5500, val_acc=0.2500
+Epoch 4/5: train_loss=0.6505, val_loss=0.7029, train_acc=0.5500, val_acc=0.2500
+Epoch 5/5: train_loss=0.6205, val_loss=0.6710, train_acc=0.5500, val_acc=0.2500
+ ✓ __tests__/native.test.ts (9 tests) 97ms
+ ✓ __tests__/calibration.test.ts (12 tests) 35ms
+ ✓ __tests__/router.test.ts (7 tests) 4ms
+ ✓ __tests__/train.test.ts (6 tests) 14ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  18:04:00
+   Duration  2.51s (transform 367ms, setup 0ms, collect 490ms, tests 150ms, environment 5ms, prepare 478ms)
+
+
+
+## initial-failed-native-version-assertion.log
+SHA-256: 504a30a02e2cdd95a03f1089948d0ccf39fa419b39534cb14a1528ab24e29041
+Bytes: 433
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+'2.2.3' !== '0.1.21'
+
+    at file:///workspace/scratch/1511111b1812/router-guidance-cycle8-evidence/baseline-consumer/[eval1]:1:311 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: '2.2.3',
+  expected: '0.1.21',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0
+
+
+## portable-validation.log
+SHA-256: b14abd57cba21ce2cbe16505c40f0a36813fc58271769142f1049b17ab310671
+Bytes: 221
+
+baseline and candidate fresh JS, absent-native, native train/restart/route passed; JS outputs identical
+{"outputDirectory":"/workspace/scratch/1511111b1812/router-guidance-cycle8-evidence/portable-rerun/consumer-4PA99o"}
+
+
+## consumer-validation.json
+SHA-256: 67e0d6475cdc2e9df0145a37f52a29b51a36a85cb9afbd6935f99cbf8761b0de
+Bytes: 5829
+
+{
+  "schemaVersion": 1,
+  "platform": "linux",
+  "arch": "x64",
+  "node": "v24.19.0",
+  "policy": "fresh per-consumer npm cache; ignore-scripts; no audit/fund; separately pinned optional native peer",
+  "receipts": {
+    "baseline": {
+      "archiveSha256": "d1d6af0bcb703992e227f8b57e253122c5d3766f3d3a3c2e17aa93edc0d556e1",
+      "js": {
+        "exports": [
+          "NativeRouter",
+          "Router",
+          "TrainedRouter",
+          "__resetNativeCache",
+          "brierScore",
+          "calibrationReport",
+          "cosine",
+          "expectedCalibrationError",
+          "fitKRR",
+          "isNativeRouterAvailable",
+          "nativeRouterVersion",
+          "reliabilityBins",
+          "resolveRouterBackend",
+          "solve",
+          "trainNativeRouter",
+          "trainRouter"
+        ],
+        "knn": [
+          {
+            "id": "cheap",
+            "costPerMTok": 3,
+            "predictedQuality": 0.9,
+            "metBar": true
+          },
+          {
+            "id": "strong",
+            "costPerMTok": 45,
+            "predictedQuality": 0.92,
+            "metBar": true
+          }
+        ],
+        "trained": {
+          "candidates": [
+            {
+              "id": "cheap",
+              "costPerMTok": 3,
+              "refEmbeddings": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0.95,
+                  0.05
+                ],
+                [
+                  0.9,
+                  0.1
+                ],
+                [
+                  0,
+                  1
+                ],
+                [
+                  0.05,
+                  0.95
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ],
+              "alpha": [
+                4.704495548494083,
+                0.3247622563346917,
+                -4.021584689462252,
+                2.4794199550192917,
+                0.06206932227097999,
+                -1.649244292865771
+              ]
+            },
+            {
+              "id": "strong",
+              "costPerMTok": 45,
+              "refEmbeddings": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0.95,
+                  0.05
+                ],
+                [
+                  0.9,
+                  0.1
+                ],
+                [
+                  0,
+                  1
+                ],
+                [
+                  0.05,
+                  0.95
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ],
+              "alpha": [
+                4.235180759637897,
+                1.7179018294756374,
+                -5.07696114249808,
+                4.5864263983372515,
+                -0.22368695286523507,
+                -3.037123082389048
+              ]
+            }
+          ]
+        },
+        "nativeAbsent": true
+      }
+    },
+    "candidate": {
+      "archiveSha256": "46e1af2bcb11abc5b9796d3cfcb44089b95cb04ab4830d50fd2996cd4ca5c332",
+      "js": {
+        "exports": [
+          "NativeRouter",
+          "Router",
+          "TrainedRouter",
+          "__resetNativeCache",
+          "brierScore",
+          "calibrationReport",
+          "cosine",
+          "expectedCalibrationError",
+          "fitKRR",
+          "isNativeRouterAvailable",
+          "nativeRouterVersion",
+          "reliabilityBins",
+          "resolveRouterBackend",
+          "solve",
+          "trainNativeRouter",
+          "trainRouter"
+        ],
+        "knn": [
+          {
+            "id": "cheap",
+            "costPerMTok": 3,
+            "predictedQuality": 0.9,
+            "metBar": true
+          },
+          {
+            "id": "strong",
+            "costPerMTok": 45,
+            "predictedQuality": 0.92,
+            "metBar": true
+          }
+        ],
+        "trained": {
+          "candidates": [
+            {
+              "id": "cheap",
+              "costPerMTok": 3,
+              "refEmbeddings": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0.95,
+                  0.05
+                ],
+                [
+                  0.9,
+                  0.1
+                ],
+                [
+                  0,
+                  1
+                ],
+                [
+                  0.05,
+                  0.95
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ],
+              "alpha": [
+                4.704495548494083,
+                0.3247622563346917,
+                -4.021584689462252,
+                2.4794199550192917,
+                0.06206932227097999,
+                -1.649244292865771
+              ]
+            },
+            {
+              "id": "strong",
+              "costPerMTok": 45,
+              "refEmbeddings": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  0.95,
+                  0.05
+                ],
+                [
+                  0.9,
+                  0.1
+                ],
+                [
+                  0,
+                  1
+                ],
+                [
+                  0.05,
+                  0.95
+                ],
+                [
+                  0.1,
+                  0.9
+                ]
+              ],
+              "alpha": [
+                4.235180759637897,
+                1.7179018294756374,
+                -5.07696114249808,
+                4.5864263983372515,
+                -0.22368695286523507,
+                -3.037123082389048
+              ]
+            }
+          ]
+        },
+        "nativeAbsent": true
+      }
+    }
+  }
+}
+
+
+## portable-baseline-install.log
+SHA-256: 0379744518744a669d414803a2ad584268ab158e64435472666210275def6857
+Bytes: 122
+
+
+added 1 package in 3s
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+
+## portable-baseline-consumer-js.log
+SHA-256: a8d520d986a753d5cb33512d03d1c8db5560b22c8588da27582d90c6a4794a2e
+Bytes: 938
+
+{"exports":["NativeRouter","Router","TrainedRouter","__resetNativeCache","brierScore","calibrationReport","cosine","expectedCalibrationError","fitKRR","isNativeRouterAvailable","nativeRouterVersion","reliabilityBins","resolveRouterBackend","solve","trainNativeRouter","trainRouter"],"knn":[{"id":"cheap","costPerMTok":3,"predictedQuality":0.9,"metBar":true},{"id":"strong","costPerMTok":45,"predictedQuality":0.92,"metBar":true}],"trained":{"candidates":[{"id":"cheap","costPerMTok":3,"refEmbeddings":[[1,0],[0.95,0.05],[0.9,0.1],[0,1],[0.05,0.95],[0.1,0.9]],"alpha":[4.704495548494083,0.3247622563346917,-4.021584689462252,2.4794199550192917,0.06206932227097999,-1.649244292865771]},{"id":"strong","costPerMTok":45,"refEmbeddings":[[1,0],[0.95,0.05],[0.9,0.1],[0,1],[0.05,0.95],[0.1,0.9]],"alpha":[4.235180759637897,1.7179018294756374,-5.07696114249808,4.5864263983372515,-0.22368695286523507,-3.037123082389048]}]},"nativeAbsent":true}
+
+
+## portable-baseline-consumer-reload.log
+SHA-256: 37d79a6e3dd51bac3a0c4976662439101f7a2efbb220e412a74b9551cfa689bc
+Bytes: 32
+
+fresh-process KRR reload passed
+
+
+## portable-baseline-native-install.log
+SHA-256: bbc3f846b0317ab146bb81895ace820d10003900e83fd015901dfa3b3d0bbf4e
+Bytes: 331
+
+
+added 2 packages in 7s
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+
+## portable-baseline-native-train.log
+SHA-256: 7b86e4958b44d7395e1663db5427ea1f34cd2ed37d25b2efcfb2cee2f50a91b5
+Bytes: 3071
+
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 30, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/30: train_loss=0.6983, val_loss=0.6870, train_acc=0.5000, val_acc=0.5000
+Epoch 2/30: train_loss=0.6869, val_loss=0.6744, train_acc=1.0000, val_acc=1.0000
+Epoch 3/30: train_loss=0.6741, val_loss=0.6548, train_acc=1.0000, val_acc=1.0000
+Epoch 4/30: train_loss=0.6541, val_loss=0.6255, train_acc=1.0000, val_acc=1.0000
+Epoch 5/30: train_loss=0.6242, val_loss=0.5854, train_acc=1.0000, val_acc=1.0000
+Epoch 6/30: train_loss=0.5834, val_loss=0.5351, train_acc=1.0000, val_acc=1.0000
+Epoch 7/30: train_loss=0.5325, val_loss=0.4762, train_acc=1.0000, val_acc=1.0000
+Epoch 8/30: train_loss=0.4730, val_loss=0.4107, train_acc=1.0000, val_acc=1.0000
+Epoch 9/30: train_loss=0.4067, val_loss=0.3417, train_acc=1.0000, val_acc=1.0000
+Epoch 10/30: train_loss=0.3368, val_loss=0.2729, train_acc=1.0000, val_acc=1.0000
+Epoch 11/30: train_loss=0.2677, val_loss=0.2085, train_acc=1.0000, val_acc=1.0000
+Epoch 12/30: train_loss=0.2034, val_loss=0.1523, train_acc=1.0000, val_acc=1.0000
+Epoch 13/30: train_loss=0.1477, val_loss=0.1066, train_acc=1.0000, val_acc=1.0000
+Epoch 14/30: train_loss=0.1028, val_loss=0.0720, train_acc=1.0000, val_acc=1.0000
+Epoch 15/30: train_loss=0.0690, val_loss=0.0474, train_acc=1.0000, val_acc=1.0000
+Epoch 16/30: train_loss=0.0452, val_loss=0.0308, train_acc=1.0000, val_acc=1.0000
+Epoch 17/30: train_loss=0.0291, val_loss=0.0199, train_acc=1.0000, val_acc=1.0000
+Epoch 18/30: train_loss=0.0187, val_loss=0.0129, train_acc=1.0000, val_acc=1.0000
+Epoch 19/30: train_loss=0.0121, val_loss=0.0085, train_acc=1.0000, val_acc=1.0000
+Epoch 20/30: train_loss=0.0079, val_loss=0.0056, train_acc=1.0000, val_acc=1.0000
+Decaying learning rate to 0.025000
+Epoch 21/30: train_loss=0.0053, val_loss=0.0047, train_acc=1.0000, val_acc=1.0000
+Epoch 22/30: train_loss=0.0043, val_loss=0.0039, train_acc=1.0000, val_acc=1.0000
+Epoch 23/30: train_loss=0.0036, val_loss=0.0033, train_acc=1.0000, val_acc=1.0000
+Epoch 24/30: train_loss=0.0031, val_loss=0.0028, train_acc=1.0000, val_acc=1.0000
+Epoch 25/30: train_loss=0.0026, val_loss=0.0024, train_acc=1.0000, val_acc=1.0000
+Epoch 26/30: train_loss=0.0023, val_loss=0.0021, train_acc=1.0000, val_acc=1.0000
+Epoch 27/30: train_loss=0.0020, val_loss=0.0019, train_acc=1.0000, val_acc=1.0000
+Epoch 28/30: train_loss=0.0017, val_loss=0.0017, train_acc=1.0000, val_acc=1.0000
+Epoch 29/30: train_loss=0.0016, val_loss=0.0015, train_acc=1.0000, val_acc=1.0000
+Epoch 30/30: train_loss=0.0014, val_loss=0.0014, train_acc=1.0000, val_acc=1.0000
+{"modelPath":"router.safetensors","epochsRun":30,"trainLoss":0.0013962941011413932,"trainAccuracy":1,"valAccuracy":1,"modelBytes":2268,"packageVersion":"0.1.21","nativeVersion":"2.2.3"}
+
+
+## portable-baseline-native-restart-route.log
+SHA-256: 0a7d3010bb1e80de9b06ef127d36650472f40f1666a71c82598638e4c157fea3
+Bytes: 141
+
+{"id":"cheap","confidence":0.7936747074127197,"uncertainty":0.41265058517456055,"useLightweight":false,"costPerMTok":1,"inferenceTimeUs":80}
+
+
+## portable-candidate-install.log
+SHA-256: e539179fd603faeeb84badd12a6a6054dd1bee7720edc31162c86b33dc941b2e
+Bytes: 330
+
+
+added 1 package in 4s
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+
+## portable-candidate-consumer-js.log
+SHA-256: a8d520d986a753d5cb33512d03d1c8db5560b22c8588da27582d90c6a4794a2e
+Bytes: 938
+
+{"exports":["NativeRouter","Router","TrainedRouter","__resetNativeCache","brierScore","calibrationReport","cosine","expectedCalibrationError","fitKRR","isNativeRouterAvailable","nativeRouterVersion","reliabilityBins","resolveRouterBackend","solve","trainNativeRouter","trainRouter"],"knn":[{"id":"cheap","costPerMTok":3,"predictedQuality":0.9,"metBar":true},{"id":"strong","costPerMTok":45,"predictedQuality":0.92,"metBar":true}],"trained":{"candidates":[{"id":"cheap","costPerMTok":3,"refEmbeddings":[[1,0],[0.95,0.05],[0.9,0.1],[0,1],[0.05,0.95],[0.1,0.9]],"alpha":[4.704495548494083,0.3247622563346917,-4.021584689462252,2.4794199550192917,0.06206932227097999,-1.649244292865771]},{"id":"strong","costPerMTok":45,"refEmbeddings":[[1,0],[0.95,0.05],[0.9,0.1],[0,1],[0.05,0.95],[0.1,0.9]],"alpha":[4.235180759637897,1.7179018294756374,-5.07696114249808,4.5864263983372515,-0.22368695286523507,-3.037123082389048]}]},"nativeAbsent":true}
+
+
+## portable-candidate-consumer-reload.log
+SHA-256: 37d79a6e3dd51bac3a0c4976662439101f7a2efbb220e412a74b9551cfa689bc
+Bytes: 32
+
+fresh-process KRR reload passed
+
+
+## portable-candidate-native-install.log
+SHA-256: fe1904db51542449a1d41cd8ab3c32b892eaa8b66985b7bb508595e026686b92
+Bytes: 331
+
+
+added 2 packages in 9s
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+
+## portable-candidate-native-train.log
+SHA-256: f7780ab114bf1d499fd3039a5b40e12f76f54b850174babd101fedd366904d9a
+Bytes: 3071
+
+Training FastGRNN model
+Train samples: 20, Val samples: 4
+Hyperparameters: TrainingConfig { learning_rate: 0.05, batch_size: 32, epochs: 30, validation_split: 0.2, early_stopping_patience: None, lr_decay: 0.5, lr_decay_step: 20, grad_clip: 5.0, adam_beta1: 0.9, adam_beta2: 0.999, adam_epsilon: 1e-8, l2_reg: 0.0, enable_distillation: false, distillation_temperature: 3.0, distillation_alpha: 0.5 }
+Epoch 1/30: train_loss=0.6940, val_loss=0.6809, train_acc=0.5000, val_acc=0.5000
+Epoch 2/30: train_loss=0.6806, val_loss=0.6621, train_acc=1.0000, val_acc=1.0000
+Epoch 3/30: train_loss=0.6611, val_loss=0.6341, train_acc=1.0000, val_acc=1.0000
+Epoch 4/30: train_loss=0.6321, val_loss=0.5956, train_acc=1.0000, val_acc=1.0000
+Epoch 5/30: train_loss=0.5922, val_loss=0.5468, train_acc=1.0000, val_acc=1.0000
+Epoch 6/30: train_loss=0.5417, val_loss=0.4889, train_acc=1.0000, val_acc=1.0000
+Epoch 7/30: train_loss=0.4820, val_loss=0.4237, train_acc=1.0000, val_acc=1.0000
+Epoch 8/30: train_loss=0.4152, val_loss=0.3541, train_acc=1.0000, val_acc=1.0000
+Epoch 9/30: train_loss=0.3444, val_loss=0.2838, train_acc=1.0000, val_acc=1.0000
+Epoch 10/30: train_loss=0.2737, val_loss=0.2173, train_acc=1.0000, val_acc=1.0000
+Epoch 11/30: train_loss=0.2074, val_loss=0.1587, train_acc=1.0000, val_acc=1.0000
+Epoch 12/30: train_loss=0.1497, val_loss=0.1107, train_acc=1.0000, val_acc=1.0000
+Epoch 13/30: train_loss=0.1032, val_loss=0.0743, train_acc=1.0000, val_acc=1.0000
+Epoch 14/30: train_loss=0.0684, val_loss=0.0485, train_acc=1.0000, val_acc=1.0000
+Epoch 15/30: train_loss=0.0441, val_loss=0.0311, train_acc=1.0000, val_acc=1.0000
+Epoch 16/30: train_loss=0.0280, val_loss=0.0198, train_acc=1.0000, val_acc=1.0000
+Epoch 17/30: train_loss=0.0176, val_loss=0.0127, train_acc=1.0000, val_acc=1.0000
+Epoch 18/30: train_loss=0.0112, val_loss=0.0082, train_acc=1.0000, val_acc=1.0000
+Epoch 19/30: train_loss=0.0072, val_loss=0.0054, train_acc=1.0000, val_acc=1.0000
+Epoch 20/30: train_loss=0.0047, val_loss=0.0036, train_acc=1.0000, val_acc=1.0000
+Decaying learning rate to 0.025000
+Epoch 21/30: train_loss=0.0031, val_loss=0.0030, train_acc=1.0000, val_acc=1.0000
+Epoch 22/30: train_loss=0.0026, val_loss=0.0025, train_acc=1.0000, val_acc=1.0000
+Epoch 23/30: train_loss=0.0021, val_loss=0.0021, train_acc=1.0000, val_acc=1.0000
+Epoch 24/30: train_loss=0.0018, val_loss=0.0018, train_acc=1.0000, val_acc=1.0000
+Epoch 25/30: train_loss=0.0016, val_loss=0.0016, train_acc=1.0000, val_acc=1.0000
+Epoch 26/30: train_loss=0.0014, val_loss=0.0014, train_acc=1.0000, val_acc=1.0000
+Epoch 27/30: train_loss=0.0012, val_loss=0.0012, train_acc=1.0000, val_acc=1.0000
+Epoch 28/30: train_loss=0.0011, val_loss=0.0011, train_acc=1.0000, val_acc=1.0000
+Epoch 29/30: train_loss=0.0009, val_loss=0.0010, train_acc=1.0000, val_acc=1.0000
+Epoch 30/30: train_loss=0.0009, val_loss=0.0009, train_acc=1.0000, val_acc=1.0000
+{"modelPath":"router.safetensors","epochsRun":30,"trainLoss":0.0008505661971867085,"trainAccuracy":1,"valAccuracy":1,"modelBytes":2268,"packageVersion":"0.1.21","nativeVersion":"2.2.3"}
+
+
+## portable-candidate-native-restart-route.log
+SHA-256: 1e2c90a37195def429b55f1d5240cd1edcdd23c7cf7aa91aefa0e47db4bd47d2
+Bytes: 140
+
+{"id":"cheap","confidence":0.8499072790145874,"uncertainty":0.3001854419708252,"useLightweight":false,"costPerMTok":1,"inferenceTimeUs":59}
+

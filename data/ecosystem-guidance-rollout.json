@@ -880,7 +880,26 @@
     },
     {
       "name": "@metaharness/router",
-      "status": "pending-source-repository-verification"
+      "status": "source-documented",
+      "stage": "draft-pr-source-documented-pack-verified",
+      "repository": "https://github.com/ruvnet/metaharness",
+      "registryRepositoryAlias": "https://github.com/ruvnet/agent-harness-generator",
+      "repositoryId": 1268611404,
+      "packagePath": "packages/router",
+      "guidance": "packages/router/AGENTS.md",
+      "sourceBaseCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+      "sourceCommit": "62cdc6984bec239a229dadff5737dc28b99b0b51",
+      "registryVersionInspected": "0.4.0",
+      "sourceVersionInspected": "0.4.0",
+      "pullRequest": "https://github.com/ruvnet/metaharness/pull/416",
+      "pullRequestState": "open-draft",
+      "npmArtifact": "unsigned-proposed-pack-verified-not-released",
+      "validation": "data/ecosystem-guidance-router.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": true,
+      "merged": false,
+      "released": false,
+      "nextAction": "Maintainer review and full repository/security/signed release gates. Build/lint and 34 source tests pass per variant; separate fresh consumers cover absent peer and real native train/restart/route. Pack +1281 bytes; existing nonmanifest files identical. Source router0.4.0 is distinct from Ruflo consumer0.3.2; this is guidance coverage, not a runtime capability gain."
     },
     {
       "name": "@metaharness/rvm",

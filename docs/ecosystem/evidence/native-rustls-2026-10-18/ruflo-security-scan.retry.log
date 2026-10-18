@@ -1,0 +1,15 @@
+
+Security Scan
+──────────────────────────────────────────────────
+... Scanning ....                                                 Scan complete
+
+No security issues found!
+
++------------- Scan Summary --------------+
+| Target: .                               |
+| Depth: deep                             |
+| Type: deps                              |
+|                                         |
+| Critical: 0  High: 0  Medium: 0  Low: 0 |
+| Total Issues: 0                         |
++-----------------------------------------+

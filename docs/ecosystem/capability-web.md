@@ -49,6 +49,7 @@ The ledger deduplicates equivalent source identities. Checks still execute every
 | Installed RuVector workflow | Integration |
 | Persistent scoped memory and native retrieval after process restart | Integration |
 | Local harness execution, persisted result retrieval and resumed task | Integration |
+| Fixed held-out task evaluation across harness, memory, native retrieval and Weight EFT | Integration |
 
 The current registry has ten checks covering 11 packages; 390 of 401 remain without registered coverage. Seven inventory packages have a registered integration check; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md), [agent-memory starter v1](persistent-agent-memory-v1.md), and [held-out evaluation starter v1](heldout-agent-memory-v1.md) document the real package compositions and their limits. Passing contracts alone do not establish runtime interoperability.
 
@@ -67,6 +68,8 @@ The persistent-memory check also runs a separate-process stale-reader race and S
 [Lifecycle starter v2](persistent-memory-v2.md) adds explicit ID-and-version-fenced update/delete, namespace-wide dimension/capacity checks and insert-only writes. The required check runs real restart, stale mutation, namespace, expired-key and SIGKILL regressions plus the six-process starter. The default two-cycle budget is now 120 seconds to fit the expanded suite; the 300-second hard maximum and failure gates are unchanged. This is a functional-test budget adjustment, not a performance improvement or weakened benchmark threshold.
 
 The ninth check runs the installed HarnessKernel with a bounded local arithmetic worker, persists only successfully verified results, exits, retrieves the first result through the native vector index, then executes a second task with it. Negative checks prove policy denial executes no worker and verification failure publishes no memory. This is deterministic task execution, not LLM reasoning, training improvement or an arbitrary-code sandbox. No consumer dependency is added to make the graph look connected.
+
+Direct memory API calls now reject sparse vector arrays before opening snapshots; writes, updates and retrieval queries share this validation. The identical baseline/candidate regressions verify database bytes remain unchanged and saved records remain retrievable. The JSON CLI already rejected the corresponding null elements. Candidate evaluation also forwards the two exact required harness fixture settings to both sides, without forwarding similarly named credential variables. These fixes deepen existing checks; package coverage is unchanged.
 
 Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the eighth through tenth capabilities have source/receipt tests but await a fresh visual browser pass.
 

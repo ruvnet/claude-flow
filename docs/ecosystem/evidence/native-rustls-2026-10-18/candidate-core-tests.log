@@ -1,0 +1,984 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-acorn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-rabitq-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/cognitum-gate-kernel/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-cli/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-typesafe-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-typesafe-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-tiny-dancer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-gnn-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-gnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-cnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-mincut-gated-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-hailo-cluster/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/examples/google-cloud/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/rvlite/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-dag-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-nervous-system-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-economy-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-learning-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-exotic-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-unified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-fpga-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-delta-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-domain-expansion-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-solver-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-solver-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-verified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-transformer-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/types/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/region/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/cap/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/proof/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/nucleus/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/shell/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/tests/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/benches/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/examples/cognitive_demo/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-consciousness-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-decompiler-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-entropy-ann/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: crates/ruvector-attention/Cargo.toml: file `/workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention/benches/attention_benchmarks.rs` found to be present in multiple build targets:
+  * `bin` target `bench_runner`
+  * `bench` target `attention_benchmarks`
+warning: `ruvector-attention` (manifest) generated 1 warning
+ Downloading crates ...
+  Downloaded anes v0.1.6
+  Downloaded allocator-api2 v0.2.21
+  Downloaded anndists v0.1.5
+  Downloaded anstream v1.0.0
+  Downloaded aho-corasick v1.1.4
+  Downloaded anyhow v1.0.104
+  Downloaded atomic-waker v1.1.2
+  Downloaded anstyle v1.0.14
+  Downloaded anstyle-parse v1.0.0
+  Downloaded anstyle-query v1.1.5
+  Downloaded bincode_derive v2.0.1
+  Downloaded block-buffer v0.10.4
+  Downloaded bytecheck v0.8.2
+  Downloaded cfg-if v1.0.4
+  Downloaded autocfg v1.5.1
+  Downloaded byteorder v1.5.0
+  Downloaded bincode v2.0.1
+  Downloaded bit-vec v0.8.0
+  Downloaded bitflags v1.3.2
+  Downloaded bit-set v0.8.0
+  Downloaded bytes v1.12.0
+  Downloaded bitflags v2.13.0
+  Downloaded bytecheck_derive v0.8.2
+  Downloaded cc v1.2.65
+  Downloaded base64 v0.22.1
+  Downloaded bincode v1.3.3
+  Downloaded cast v0.3.0
+  Downloaded cfg_aliases v0.2.1
+  Downloaded chacha20 v0.10.0
+  Downloaded ciborium-io v0.2.2
+  Downloaded clap_lex v1.1.0
+  Downloaded colorchoice v1.0.5
+  Downloaded cpu-time v1.0.0
+  Downloaded ciborium-ll v0.2.2
+  Downloaded chrono v0.4.45
+  Downloaded ciborium v0.2.2
+  Downloaded combine v4.6.7
+  Downloaded clap v4.5.60
+  Downloaded clap_builder v4.5.60
+  Downloaded crossbeam-deque v0.8.6
+  Downloaded crypto-common v0.1.7
+  Downloaded cpufeatures v0.2.17
+  Downloaded cpufeatures v0.3.0
+  Downloaded crossbeam-channel v0.5.15
+  Downloaded criterion-plot v0.5.0
+  Downloaded criterion v0.5.1
+  Downloaded crossbeam-queue v0.3.12
+  Downloaded crossbeam v0.8.4
+  Downloaded crossbeam-epoch v0.9.20
+  Downloaded crossbeam-utils v0.8.21
+  Downloaded displaydoc v0.2.6
+  Downloaded either v1.16.0
+  Downloaded enum-as-inner v0.6.1
+  Downloaded defmt v1.1.0
+  Downloaded defmt-macros v1.1.0
+  Downloaded defmt-parser v1.0.0
+  Downloaded digest v0.10.7
+  Downloaded downcast v0.11.0
+  Downloaded dashmap v6.2.1
+  Downloaded find-msvc-tools v0.1.9
+  Downloaded fnv v1.0.7
+  Downloaded form_urlencoded v1.2.2
+  Downloaded futures-io v0.3.32
+  Downloaded env_filter v1.0.1
+  Downloaded foldhash v0.1.5
+  Downloaded futures-channel v0.3.32
+  Downloaded fastrand v2.4.1
+  Downloaded fragile v2.1.0
+  Downloaded futures-core v0.3.32
+  Downloaded env_logger v0.11.10
+  Downloaded equivalent v1.0.2
+  Downloaded errno v0.3.14
+  Downloaded futures-sink v0.3.32
+  Downloaded futures-util v0.3.32
+  Downloaded hashbrown v0.17.1
+  Downloaded getrandom v0.2.17
+  Downloaded getrandom v0.4.3
+  Downloaded futures-task v0.3.32
+  Downloaded generic-array v0.14.7
+  Downloaded half v2.7.1
+  Downloaded getrandom v0.3.4
+  Downloaded hashbrown v0.15.5
+  Downloaded heck v0.5.0
+  Downloaded http-body v1.0.1
+  Downloaded http-body-util v0.1.3
+  Downloaded httparse v1.10.1
+  Downloaded hashbrown v0.14.5
+  Downloaded hashbrown v0.16.1
+  Downloaded http v1.4.2
+  Downloaded iana-time-zone v0.1.65
+  Downloaded hyper-rustls v0.27.9
+  Downloaded hyper-util v0.1.20
+  Downloaded icu_collections v2.2.0
+  Downloaded hyper v1.10.1
+  Downloaded icu_normalizer v2.2.0
+  Downloaded icu_provider v2.2.0
+  Downloaded icu_normalizer_data v2.2.0
+  Downloaded icu_properties v2.2.0
+  Downloaded icu_locale_core v2.2.0
+  Downloaded simsimd v5.9.11
+  Downloaded stable_deref_trait v1.2.1
+  Downloaded sync_wrapper v1.0.2
+  Downloaded synstructure v0.13.2
+  Downloaded icu_properties_data v2.2.0
+  Downloaded thiserror-impl v2.0.18
+  Downloaded tinyvec v1.11.0
+  Downloaded tinyvec_macros v0.1.1
+  Downloaded tower-layer v0.3.3
+  Downloaded tower-service v0.3.3
+  Downloaded unicode-normalization v0.1.25
+  Downloaded tracing v0.1.44
+  Downloaded version_check v0.9.5
+  Downloaded virtue v0.0.18
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded memchr v2.8.2
+  Downloaded wait-timeout v0.2.1
+  Downloaded ipnet v2.12.0
+  Downloaded is-terminal v0.4.17
+  Downloaded zerovec-derive v0.11.3
+  Downloaded zerocopy v0.8.52
+  Downloaded mmap-rs v0.6.1
+  Downloaded mockall v0.13.1
+  Downloaded mockall_derive v0.13.1
+  Downloaded once_cell v1.21.4
+  Downloaded oorandom v11.1.5
+  Downloaded plotters-svg v0.3.7
+  Downloaded quick-error v1.2.3
+  Downloaded ptr_meta v0.3.1
+  Downloaded ptr_meta_derive v0.3.1
+  Downloaded rand_pcg v0.10.2
+  Downloaded parking_lot v0.12.5
+  Downloaded potential_utf v0.1.5
+  Downloaded rayon-core v1.13.0
+  Downloaded redb v2.6.3
+  Downloaded proptest v1.11.0
+  Downloaded rkyv v0.8.18
+  Downloaded linux-raw-sys v0.12.1
+  Downloaded rustls v0.23.46
+  Downloaded rustix v1.1.4
+  Downloaded serde_core v1.0.228
+  Downloaded serde_derive v1.0.228
+  Downloaded shlex v2.0.1
+  Downloaded thread_local v1.1.9
+  Downloaded tokio-rustls v0.26.4
+  Downloaded simdutf8 v0.1.5
+  Downloaded termtree v0.5.1
+  Downloaded tracing-core v0.1.36
+  Downloaded try-lock v0.2.5
+  Downloaded writeable v0.6.3
+  Downloaded typenum v1.20.1
+  Downloaded unarray v0.1.4
+  Downloaded yoke v0.8.3
+  Downloaded itoa v1.0.18
+  Downloaded yoke-derive v0.8.2
+  Downloaded itertools v0.10.5
+  Downloaded jiff v0.2.29
+  Downloaded lazy_static v1.5.0
+  Downloaded munge v0.4.7
+  Downloaded parking_lot_core v0.9.12
+  Downloaded libc v0.2.186
+  Downloaded percent-encoding v2.3.2
+  Downloaded pin-project-lite v0.2.17
+  Downloaded pin-utils v0.1.0
+  Downloaded proc-macro2 v1.0.106
+  Downloaded rand v0.10.1
+  Downloaded rand_chacha v0.3.1
+  Downloaded rawpointer v0.2.1
+  Downloaded rayon v1.12.0
+  Downloaded regex v1.12.4
+  Downloaded rustc-hash v2.1.2
+  Downloaded rustls-pki-types v1.14.1
+  Downloaded slab v0.4.12
+  Downloaded tempfile v3.27.0
+  Downloaded sharded-slab v0.1.7
+  Downloaded tinystr v0.8.3
+  Downloaded unty v0.0.4
+  Downloaded tracing-attributes v0.1.31
+  Downloaded url v2.5.8
+  Downloaded tower-http v0.6.11
+  Downloaded litemap v0.8.2
+  Downloaded num_cpus v1.17.0
+  Downloaded predicates v3.1.4
+  Downloaded predicates-core v1.0.10
+  Downloaded zerofrom-derive v0.1.7
+  Downloaded zmij v1.0.21
+  Downloaded lock_api v0.4.14
+  Downloaded log v0.4.33
+  Downloaded lru-slab v0.1.2
+  Downloaded quote v1.0.46
+  Downloaded rand_chacha v0.9.0
+  Downloaded rand_distr v0.4.3
+  Downloaded thiserror v2.0.18
+  Downloaded rand_xorshift v0.4.0
+  Downloaded thiserror-impl v1.0.69
+  Downloaded rusty-fork v0.3.1
+  Downloaded ryu v1.0.23
+  Downloaded untrusted v0.9.0
+  Downloaded syn v2.0.118
+  Downloaded regex-automata v0.4.14
+  Downloaded utf8_iter v1.0.4
+  Downloaded idna_adapter v1.2.2
+  Downloaded zerofrom v0.1.8
+  Downloaded zeroize v1.9.0
+  Downloaded num-complex v0.4.6
+  Downloaded zerotrie v0.2.4
+  Downloaded num-integer v0.1.46
+  Downloaded num-traits v0.2.19
+  Downloaded plotters v0.3.7
+  Downloaded plotters-backend v0.3.7
+  Downloaded munge_macro v0.4.7
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded reqwest v0.12.28
+  Downloaded same-file v1.0.6
+  Downloaded scopeguard v1.2.0
+  Downloaded subtle v2.6.1
+  Downloaded walkdir v2.5.0
+  Downloaded zerovec v0.11.6
+  Downloaded tinytemplate v1.2.1
+  Downloaded zerocopy-derive v0.8.52
+  Downloaded tokio v1.52.3
+  Downloaded quinn v0.11.11
+  Downloaded quinn-proto v0.11.18
+  Downloaded quinn-udp v0.5.14
+  Downloaded rkyv_derive v0.8.18
+  Downloaded rustls-webpki v0.103.15
+  Downloaded sysctl v0.5.5
+  Downloaded want v0.3.1
+  Downloaded uuid v1.23.3
+  Downloaded nu-ansi-term v0.50.3
+  Downloaded webpki-roots v1.0.8
+  Downloaded rand_core v0.9.5
+  Downloaded syn v3.0.3
+  Downloaded predicates-tree v1.0.13
+  Downloaded serde_urlencoded v0.7.1
+  Downloaded ring v0.17.14
+  Downloaded utf8parse v0.2.2
+  Downloaded tower v0.5.3
+  Downloaded matrixmultiply v0.3.10
+  Downloaded ndarray v0.16.1
+  Downloaded proc-macro-error2 v2.0.1
+  Downloaded rancor v0.1.1
+  Downloaded rand v0.8.6
+  Downloaded smallvec v1.15.2
+  Downloaded memoffset v0.7.1
+  Downloaded rand_core v0.10.1
+  Downloaded sha2 v0.10.9
+  Downloaded proc-macro-error-attr2 v2.0.0
+  Downloaded rand_core v0.6.4
+  Downloaded serde_json v1.0.150
+  Downloaded mio v1.2.1
+  Downloaded serde v1.0.228
+  Downloaded rand v0.9.4
+  Downloaded tracing-subscriber v0.3.23
+  Downloaded nix v0.26.4
+  Downloaded regex-syntax v0.8.11
+  Downloaded matchers v0.2.0
+  Downloaded memmap2 v0.9.11
+  Downloaded rend v0.5.3
+  Downloaded socket2 v0.6.4
+  Downloaded tracing-log v0.2.0
+  Downloaded thiserror v1.0.69
+  Downloaded indexmap v2.12.1
+  Downloaded libm v0.2.16
+  Downloaded unicode-ident v1.0.24
+  Downloaded idna v1.1.0
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.46
+   Compiling libc v0.2.186
+   Compiling cfg-if v1.0.4
+   Compiling autocfg v1.5.1
+   Compiling memchr v2.8.2
+   Compiling serde_core v1.0.228
+   Compiling stable_deref_trait v1.2.1
+   Compiling once_cell v1.21.4
+   Compiling syn v2.0.118
+   Compiling bytes v1.12.0
+   Compiling smallvec v1.15.2
+   Compiling find-msvc-tools v0.1.9
+   Compiling zerocopy v0.8.52
+   Compiling crossbeam-utils v0.8.21
+   Compiling shlex v2.0.1
+   Compiling serde v1.0.228
+   Compiling libm v0.2.16
+   Compiling cc v1.2.65
+   Compiling num-traits v0.2.19
+   Compiling pin-project-lite v0.2.17
+   Compiling futures-core v0.3.32
+   Compiling itoa v1.0.18
+   Compiling getrandom v0.2.17
+   Compiling regex-syntax v0.8.11
+   Compiling aho-corasick v1.1.4
+   Compiling synstructure v0.13.2
+   Compiling anstyle v1.0.14
+   Compiling litemap v0.8.2
+   Compiling bitflags v2.13.0
+   Compiling crossbeam-epoch v0.9.20
+   Compiling writeable v0.6.3
+   Compiling regex-automata v0.4.14
+   Compiling ring v0.17.14
+   Compiling socket2 v0.6.4
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.3
+   Compiling zerofrom v0.1.8
+   Compiling displaydoc v0.2.6
+   Compiling serde_derive v1.0.228
+   Compiling yoke v0.8.3
+   Compiling zerovec v0.11.6
+   Compiling zerocopy-derive v0.8.52
+   Compiling tinystr v0.8.3
+   Compiling icu_locale_core v2.2.0
+   Compiling potential_utf v0.1.5
+   Compiling zerotrie v0.2.4
+   Compiling mio v1.2.1
+   Compiling icu_normalizer_data v2.2.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_properties_data v2.2.0
+   Compiling futures-sink v0.3.32
+   Compiling icu_collections v2.2.0
+   Compiling tokio v1.52.3
+   Compiling icu_provider v2.2.0
+   Compiling http v1.4.2
+   Compiling percent-encoding v2.3.2
+   Compiling version_check v0.9.5
+   Compiling log v0.4.33
+   Compiling zeroize v1.9.0
+   Compiling rustls-pki-types v1.14.1
+   Compiling generic-array v0.14.7
+   Compiling http-body v1.0.1
+   Compiling crossbeam-deque v0.8.6
+   Compiling tracing-core v0.1.36
+   Compiling ppv-lite86 v0.2.21
+   Compiling futures-task v0.3.32
+   Compiling untrusted v0.9.0
+   Compiling slab v0.4.12
+   Compiling rayon-core v1.13.0
+   Compiling httparse v1.10.1
+   Compiling futures-io v0.3.32
+   Compiling getrandom v0.3.4
+   Compiling getrandom v0.4.3
+   Compiling either v1.16.0
+   Compiling zmij v1.0.21
+   Compiling futures-util v0.3.32
+   Compiling icu_properties v2.2.0
+   Compiling icu_normalizer v2.2.0
+   Compiling regex v1.12.4
+   Compiling ptr_meta_derive v0.3.1
+   Compiling tracing-attributes v0.1.31
+   Compiling memoffset v0.7.1
+   Compiling parking_lot_core v0.9.12
+   Compiling same-file v1.0.6
+   Compiling utf8parse v0.2.2
+   Compiling typenum v1.20.1
+   Compiling try-lock v0.2.5
+   Compiling serde_json v1.0.150
+   Compiling tower-service v0.3.3
+   Compiling rustls v0.23.46
+   Compiling thiserror v1.0.69
+   Compiling want v0.3.1
+   Compiling anstyle-parse v1.0.0
+   Compiling walkdir v2.5.0
+   Compiling tracing v0.1.44
+   Compiling ptr_meta v0.3.1
+   Compiling idna_adapter v1.2.2
+   Compiling rustls-webpki v0.103.15
+   Compiling form_urlencoded v1.2.2
+   Compiling futures-channel v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling rand_core v0.6.4
+   Compiling scopeguard v1.2.0
+   Compiling atomic-waker v1.1.2
+   Compiling lazy_static v1.5.0
+   Compiling anstyle-query v1.1.5
+   Compiling rustix v1.1.4
+   Compiling anyhow v1.0.104
+   Compiling subtle v2.6.1
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling heck v0.5.0
+   Compiling colorchoice v1.0.5
+   Compiling anstream v1.0.0
+   Compiling enum-as-inner v0.6.1
+   Compiling hyper v1.10.1
+   Compiling lock_api v0.4.14
+   Compiling rand_chacha v0.3.1
+   Compiling rayon v1.12.0
+   Compiling rand_core v0.9.5
+   Compiling idna v1.1.0
+   Compiling rancor v0.1.1
+   Compiling env_filter v1.0.1
+   Compiling bytecheck_derive v0.8.2
+   Compiling sync_wrapper v1.0.2
+   Compiling matrixmultiply v0.3.10
+   Compiling bitflags v1.3.2
+   Compiling tower-layer v0.3.3
+   Compiling thiserror v2.0.18
+   Compiling byteorder v1.5.0
+   Compiling ipnet v2.12.0
+   Compiling jiff v0.2.29
+   Compiling simdutf8 v0.1.5
+   Compiling linux-raw-sys v0.12.1
+   Compiling pin-utils v0.1.0
+   Compiling equivalent v1.0.2
+   Compiling base64 v0.22.1
+   Compiling hyper-util v0.1.20
+   Compiling tokio-rustls v0.26.4
+   Compiling nix v0.26.4
+   Compiling bytecheck v0.8.2
+   Compiling sysctl v0.5.5
+   Compiling tower v0.5.3
+   Compiling url v2.5.8
+   Compiling env_logger v0.11.10
+   Compiling rand v0.8.6
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling half v2.7.1
+   Compiling webpki-roots v1.0.8
+   Compiling munge_macro v0.4.7
+   Compiling thiserror-impl v2.0.18
+   Compiling simsimd v5.9.11
+   Compiling cpu-time v1.0.0
+   Compiling num_cpus v1.17.0
+   Compiling combine v4.6.7
+   Compiling syn v3.0.3
+   Compiling virtue v0.0.18
+   Compiling plotters-backend v0.3.7
+   Compiling ryu v1.0.23
+   Compiling tinyvec_macros v0.1.1
+   Compiling allocator-api2 v0.2.21
+   Compiling fastrand v2.4.1
+   Compiling clap_lex v1.1.0
+   Compiling rawpointer v0.2.1
+   Compiling redb v2.6.3
+   Compiling ciborium-io v0.2.2
+   Compiling mockall_derive v0.13.1
+   Compiling hashbrown v0.16.1
+   Compiling predicates-core v1.0.10
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling indexmap v2.12.1
+   Compiling rkyv_derive v0.8.18
+   Compiling ciborium-ll v0.2.2
+   Compiling clap_builder v4.5.60
+   Compiling tempfile v3.27.0
+   Compiling serde_urlencoded v0.7.1
+   Compiling tinyvec v1.11.0
+   Compiling plotters-svg v0.3.7
+   Compiling bincode_derive v2.0.1
+   Compiling mmap-rs v0.6.1
+   Compiling anndists v0.1.5
+   Compiling munge v0.4.7
+   Compiling hyper-rustls v0.27.9
+   Compiling digest v0.10.7
+   Compiling tower-http v0.6.11
+   Compiling rend v0.5.3
+   Compiling parking_lot v0.12.5
+   Compiling itertools v0.10.5
+   Compiling http-body-util v0.1.3
+   Compiling bincode v1.3.3
+   Compiling num-complex v0.4.6
+   Compiling num-integer v0.1.46
+   Compiling crossbeam-channel v0.5.15
+   Compiling crossbeam-queue v0.3.12
+   Compiling wait-timeout v0.2.1
+   Compiling unty v0.0.4
+   Compiling fnv v1.0.7
+   Compiling cpufeatures v0.2.17
+   Compiling termtree v0.5.1
+   Compiling bit-vec v0.8.0
+   Compiling hashbrown v0.14.5
+   Compiling hashbrown v0.17.1
+   Compiling quick-error v1.2.3
+   Compiling cast v0.3.0
+   Compiling iana-time-zone v0.1.65
+   Compiling criterion-plot v0.5.0
+   Compiling chrono v0.4.45
+   Compiling rusty-fork v0.3.1
+   Compiling dashmap v6.2.1
+   Compiling rkyv v0.8.18
+   Compiling bit-set v0.8.0
+   Compiling predicates-tree v1.0.13
+   Compiling sha2 v0.10.9
+   Compiling bincode v2.0.1
+   Compiling crossbeam v0.8.4
+   Compiling ndarray v0.16.1
+   Compiling hnsw_rs v0.3.3 (/workspace/scratch/1511111b1812/ruvector-native-cycle8/patches/hnsw_rs)
+   Compiling reqwest v0.12.28
+   Compiling clap v4.5.60
+   Compiling ruvector-turboquant v2.3.0 (/workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-turboquant)
+   Compiling unicode-normalization v0.1.25
+   Compiling plotters v0.3.7
+   Compiling ciborium v0.2.2
+   Compiling predicates v3.1.4
+   Compiling rand_distr v0.4.3
+   Compiling tinytemplate v1.2.1
+   Compiling rand_chacha v0.9.0
+   Compiling rand_xorshift v0.4.0
+   Compiling rand v0.9.4
+   Compiling sharded-slab v0.1.7
+   Compiling uuid v1.23.3
+   Compiling tracing-log v0.2.0
+   Compiling matchers v0.2.0
+   Compiling fragile v2.1.0
+   Compiling is-terminal v0.4.17
+   Compiling memmap2 v0.9.11
+   Compiling thread_local v1.1.9
+   Compiling anes v0.1.6
+   Compiling unarray v0.1.4
+   Compiling downcast v0.11.0
+   Compiling nu-ansi-term v0.50.3
+   Compiling oorandom v11.1.5
+   Compiling mockall v0.13.1
+   Compiling criterion v0.5.1
+   Compiling proptest v1.11.0
+   Compiling tracing-subscriber v0.3.23
+   Compiling ruvector-core v2.4.0 (/workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-core)
+    Finished `test` profile [unoptimized] target(s) in 1m 15s
+     Running unittests src/lib.rs (/workspace/scratch/1511111b1812/native-toolchain-cycle8.Ete7rG/core-target/debug/deps/ruvector_core-2678476187ca462e)
+
+running 277 tests
+test advanced::hypergraph::tests::test_temporal_hyperedge ... ok
+test advanced::hypergraph::tests::test_hypergraph_index ... ok
+test advanced::hypergraph::tests::test_k_hop_neighbors ... ok
+test advanced::hypergraph::tests::test_hyperedge_creation ... ok
+test advanced::hypergraph::tests::test_causal_memory ... ok
+test advanced::learned_index::tests::test_hybrid_index ... ok
+test advanced::learned_index::tests::test_rmi_search ... ok
+test advanced::neural_hash::tests::test_hamming_distance ... ok
+test advanced::neural_hash::tests::test_deep_hash_encoding ... ok
+test advanced::neural_hash::tests::test_hash_index ... ok
+test advanced::neural_hash::tests::test_lsh_encoding ... ok
+test advanced::tda::tests::test_connected_components ... ok
+test advanced::tda::tests::test_mode_collapse_detection ... ok
+test advanced::tda::tests::test_quality_assessment ... ok
+test advanced::tda::tests::test_embedding_analysis ... ok
+test advanced_features::compaction::tests::bloom_filter_no_false_negatives ... ok
+test advanced_features::compaction::tests::lsm_auto_compaction_trigger ... ok
+test advanced::neural_hash::tests::test_compression_ratio ... ok
+test advanced_features::compaction::tests::bloom_filter_low_false_positive_rate ... ok
+test advanced_features::compaction::tests::lsm_empty_index ... ok
+test advanced_features::compaction::tests::lsm_delete_with_tombstone ... ok
+test advanced_features::compaction::tests::lsm_search_across_levels ... ok
+test advanced_features::compaction::tests::lsm_multi_level_compaction ... ok
+test advanced_features::compaction::tests::lsm_insert_and_search ... ok
+test advanced_features::compaction::tests::memtable_flush_produces_segment ... ok
+test advanced_features::compaction::tests::lsm_write_amplification_increases ... ok
+test advanced_features::compaction::tests::memtable_insert_and_len ... ok
+test advanced_features::compaction::tests::memtable_is_full ... ok
+test advanced_features::compaction::tests::segment_merge_dedup_keeps_latest ... ok
+test advanced_features::compaction::tests::memtable_search_returns_closest ... ok
+test advanced_features::compaction::tests::segment_merge_drops_tombstones ... ok
+test advanced_features::conformal_prediction::tests::test_calibration_stats ... ok
+test advanced_features::conformal_prediction::tests::test_conformal_config_validation ... ok
+test advanced_features::conformal_prediction::tests::test_conformal_calibration ... ok
+test advanced_features::conformal_prediction::tests::test_adaptive_top_k ... ok
+test advanced_features::conformal_prediction::tests::test_nonconformity_distance ... ok
+test advanced_features::conformal_prediction::tests::test_nonconformity_inverse_rank ... ok
+test advanced_features::conformal_prediction::tests::test_conformal_prediction ... ok
+test advanced_features::diskann::tests::build_graph_basic ... ok
+test advanced_features::diskann::tests::cache_hit_rate ... ok
+test advanced_features::diskann::tests::config_validation ... ok
+test advanced_features::diskann::tests::empty_dataset ... ok
+test advanced_features::compaction::tests::lsm_large_batch_insert ... ok
+test advanced_features::diskann::tests::io_stats_tracking ... ok
+test advanced_features::diskann::tests::disk_layout_roundtrip ... ok
+test advanced_features::diskann::tests::disk_search_sorted_results ... ok
+test advanced_features::diskann::tests::filtered_search ... ok
+test advanced_features::diskann::tests::medoid_selection ... ok
+test advanced_features::diskann::tests::page_cache_hits_and_misses ... ok
+test advanced_features::diskann::tests::single_vector ... ok
+test advanced_features::filtered_search::tests::test_filter_and ... ok
+test advanced_features::filtered_search::tests::test_filter_eq ... ok
+test advanced_features::filtered_search::tests::test_filter_in ... ok
+test advanced_features::filtered_search::tests::test_filter_or ... ok
+test advanced_features::filtered_search::tests::test_filter_range ... ok
+test advanced_features::filtered_search::tests::test_auto_strategy_selection ... ok
+test advanced_features::filtered_search::tests::test_selectivity_estimation ... ok
+test advanced_features::graph_rag::tests::test_add_relation_invalid_source ... ok
+test advanced_features::graph_rag::tests::test_community_detection ... ok
+test advanced_features::graph_rag::tests::test_cosine_similarity_identical ... ok
+test advanced_features::graph_rag::tests::test_cosine_similarity_orthogonal ... ok
+test advanced_features::graph_rag::tests::test_disconnected_components ... ok
+test advanced_features::graph_rag::tests::test_empty_graph ... ok
+test advanced_features::diskann::tests::search_accuracy ... ok
+test advanced_features::graph_rag::tests::test_global_search ... ok
+test advanced_features::graph_rag::tests::test_hybrid_search ... ok
+test advanced_features::graph_rag::tests::test_graph_construction ... ok
+test advanced_features::graph_rag::tests::test_local_search ... ok
+test advanced_features::graph_rag::tests::test_neighbor_retrieval_2hop ... ok
+test advanced_features::graph_rag::tests::test_neighbor_retrieval_1hop ... ok
+test advanced_features::graph_rag::tests::test_single_entity ... ok
+test advanced_features::hybrid_search::tests::test_bm25_candidate_retrieval ... ok
+test advanced_features::hybrid_search::tests::test_hybrid_search_initialization ... ok
+test advanced_features::hybrid_search::tests::test_bm25_indexing ... ok
+test advanced_features::hybrid_search::tests::test_bm25_scoring ... ok
+test advanced_features::hybrid_search::tests::test_normalize_minmax ... ok
+test advanced_features::hybrid_search::tests::test_tokenize ... ok
+test advanced_features::matryoshka::tests::test_config_validation_empty_dims ... ok
+test advanced_features::matryoshka::tests::test_cascade_search ... ok
+test advanced_features::matryoshka::tests::test_funnel_search ... ok
+test advanced_features::matryoshka::tests::test_insert_and_len ... ok
+test advanced_features::matryoshka::tests::test_config_validation_dim_exceeds_full ... ok
+test advanced_features::matryoshka::tests::test_insert_wrong_dimension_error ... ok
+test advanced_features::matryoshka::tests::test_search_at_full_dim ... ok
+test advanced_features::matryoshka::tests::test_dot_product_metric ... ok
+test advanced_features::matryoshka::tests::test_search_empty_index ... ok
+test advanced_features::matryoshka::tests::test_search_dim_exceeds_full_dim_error ... ok
+test advanced_features::matryoshka::tests::test_upsert_overwrites ... ok
+test advanced_features::matryoshka::tests::test_search_at_truncated_dim ... ok
+test advanced_features::matryoshka::tests::test_funnel_search_finds_correct_top_k ... ok
+test advanced_features::mmr::tests::test_mmr_config_validation ... ok
+test advanced_features::mmr::tests::test_mmr_pure_relevance ... ok
+test advanced_features::mmr::tests::test_mmr_reranking ... ok
+test advanced_features::multi_vector::tests::test_avgsim_scoring ... ok
+test advanced::learned_index::tests::test_linear_model ... ok
+test advanced_features::mmr::tests::test_mmr_pure_diversity ... ok
+test advanced_features::multi_vector::tests::test_dot_product_metric ... ok
+test advanced_features::mmr::tests::test_mmr_empty_candidates ... ok
+test advanced_features::multi_vector::tests::test_insert_and_len ... ok
+test advanced_features::multi_vector::tests::test_insert_dimension_mismatch_error ... ok
+test advanced::learned_index::tests::test_rmi_build ... ok
+test advanced_features::multi_vector::tests::test_insert_empty_embeddings_error ... ok
+test advanced_features::multi_vector::tests::test_maxsim_search_basic ... ok
+test advanced_features::multi_vector::tests::test_maxsim_multi_query_tokens ... ok
+test advanced_features::multi_vector::tests::test_search_empty_index ... ok
+test advanced_features::multi_vector::tests::test_search_empty_query_error ... ok
+test advanced_features::multi_vector::tests::test_search_with_scoring_override ... ok
+test advanced_features::multi_vector::tests::test_summax_scoring ... ok
+test advanced_features::opq::tests::test_config_validation ... ok
+test advanced_features::multi_vector::tests::test_metadata_preserved ... ok
+test advanced_features::multi_vector::tests::test_remove_document ... ok
+test advanced_features::multi_vector::tests::test_top_k_truncation ... ok
+test advanced_features::diskann::tests::robust_pruning_limits_degree ... ok
+test advanced_features::opq::tests::test_identity_rotation_baseline ... ok
+test advanced_features::opq::tests::test_adc_correctness ... ok
+test advanced_features::opq::tests::test_pq_encoding_roundtrip ... ok
+test advanced_features::opq::tests::test_rotation_orthogonality ... ok
+test advanced_features::opq::tests::test_dimension_mismatch_errors ... ok
+test advanced_features::opq::tests::test_rotation_preserves_norm ... ok
+test advanced_features::product_quantization::tests::test_lookup_table_creation ... ok
+test advanced_features::opq::tests::test_svd_correctness ... ok
+test advanced_features::product_quantization::tests::test_pq_config_default ... ok
+test advanced_features::opq::tests::test_quantization_error_reduction ... ok
+test advanced_features::product_quantization::tests::test_pq_training_and_encoding ... ok
+test advanced_features::opq::tests::test_search_accuracy ... ok
+test advanced_features::product_quantization::tests::test_enhanced_pq_creation ... ok
+test advanced_features::product_quantization::tests::test_compression_ratio ... ok
+test advanced_features::sparse_vector::tests::test_fusion_empty_inputs ... ok
+test advanced_features::sparse_vector::tests::test_dbsf_fusion ... ok
+test advanced_features::sparse_vector::tests::test_index_insert_and_search ... ok
+test advanced_features::sparse_vector::tests::test_index_empty_search ... ok
+test advanced_features::sparse_vector::tests::test_batch_search ... ok
+test advanced_features::sparse_vector::tests::test_index_single_result ... ok
+test advanced_features::sparse_vector::tests::test_index_remove ... ok
+test advanced_features::sparse_vector::tests::test_index_upsert_replaces_old_postings ... ok
+test advanced_features::sparse_vector::tests::test_linear_fusion ... ok
+test advanced_features::sparse_vector::tests::test_rrf_fusion_basic ... ok
+test advanced_features::opq::tests::test_opq_training_convergence ... ok
+test advanced_features::sparse_vector::tests::test_rrf_top_k_truncation ... ok
+test advanced_features::sparse_vector::tests::test_sparse_vector_dot_no_overlap ... ok
+test advanced_features::sparse_vector::tests::test_sparse_vector_empty ... ok
+test advanced_features::sparse_vector::tests::test_sparse_vector_new_sorts_and_deduplicates ... ok
+test advanced_features::sparse_vector::tests::test_rrf_with_disjoint_lists ... ok
+test arena::tests::test_arena_alloc ... ok
+test advanced_features::sparse_vector::tests::test_sparse_vector_dot_product ... ok
+test arena::tests::test_arena_multiple_allocs ... ok
+test arena::tests::test_arena_reset ... ok
+test arena::tests::test_batch_allocator_clear ... ok
+test arena::tests::test_batch_vector_allocator ... ok
+test arena::tests::test_cache_aligned_vec_from_slice ... ok
+test cache_optimized::tests::test_batch_distances ... ok
+test cache_optimized::tests::test_dimension_slice ... ok
+test cache_optimized::tests::test_soa_storage ... ok
+test distance::tests::test_cosine_distance ... ok
+test distance::tests::test_dimension_mismatch ... ok
+test distance::tests::test_dot_product_distance ... ok
+test distance::tests::test_euclidean_distance ... ok
+test distance::tests::test_manhattan_distance ... ok
+test embeddings::tests::cache_key_is_role_aware ... ok
+test embeddings::tests::canonical_identity_matches_cross_runtime_fixture ... ok
+test embeddings::tests::query_template_change_creates_a_new_space_and_read_only_access ... ok
+test arena::tests::test_cache_aligned_vec ... ok
+test embeddings::tests::test_api_embedding_openai ... ignored
+test embeddings::tests::test_hash_embedding_different_text ... ok
+test embeddings::tests::test_hash_embedding ... ok
+test encoding::codecs::tests::all_codecs_roundtrip_and_score ... ok
+test encoding::codecs::tests::f16_conversion_known_values ... ok
+test embeddings::tests::trait_object_preserves_explicit_roles_and_legacy_metric ... ok
+test encoding::codecs::tests::f16_roundtrip_relative_error ... ok
+test encoding::codecs::tests::manhattan_rejected_only_for_turbo4 ... ok
+test encoding::codecs::tests::turbo4_plane_matches_direct_codec ... ok
+test encoding::tests::provenance_roundtrips_serde ... ok
+test index::flat::tests::test_flat_index ... ok
+test index::flat::tests::test_flat_index_k_zero ... ok
+test index::flat::tests::test_flat_index_results_sorted ... ok
+test encoding::tests::encoded_len_matches_kind_table ... ok
+test index::flat_graph::tests::cosine_distance_ranks_by_angle_and_is_scale_free ... ok
+test index::flat_graph::tests::dot_product_ranks_by_largest_inner_product ... ok
+test index::flat_graph::tests::empty_single_and_small_graphs_do_not_panic ... ok
+test agenticdb::tests::test_update_q_value_preserves_entry ... ok
+test agenticdb::tests::test_skill_library ... ok
+test agenticdb::tests::test_causal_edge ... ok
+test index::hnsw::tests::test_dimension_mismatch ... ok
+test index::hnsw::tests::test_hnsw_batch_insert ... ok
+test index::hnsw::tests::test_hnsw_index_creation ... ok
+test index::hnsw::tests::test_hnsw_insert_and_search ... ok
+test agenticdb::tests::test_reflexion_episode ... ok
+test index::hnsw::tests::test_hnsw_serialization ... ok
+test index::flat_graph::tests::results_are_sorted_distances_are_true_and_ext_ids_are_returned ... ok
+test agenticdb::tests::test_auto_consolidate ... ok
+test agenticdb::tests::test_learning_session ... ok
+test index::turbo4::tests::cascade_serialization_roundtrip ... ok
+test index::turbo4::tests::empty_index_is_safe ... ok
+test index::turbo4::tests::easy_queries_do_not_escalate ... ok
+test index::turbo4::tests::manhattan_is_rejected ... ok
+test index::hnsw::tests::test_search_ef_overrides_the_configured_value ... ok
+test index::turbo4::tests::self_query_returns_self_first ... ok
+test index::turbo4::tests::serialization_roundtrip ... ok
+test integration::tests::test_cosine_similarity_identical ... ok
+test integration::tests::test_cosine_similarity_orthogonal ... ok
+test index::turbo4::tests::adaptive_escalation_follows_policy ... ok
+test integration::tests::test_normalize_unit_vector ... ok
+test integration::tests::test_normalize_zero_vector ... ok
+test index::turbo4::tests::cascade_recall_close_to_direct_mode ... ok
+test lockfree::tests::test_atomic_vector_pool ... ok
+test lockfree::tests::test_batch_processor ... ok
+test integration::tests::test_fann_adapter_store_and_retrieve ... ok
+test lockfree::tests::test_object_pool ... ok
+test lockfree::tests::test_stats_collector ... ok
+test lockfree::tests::test_lockfree_counter ... ok
+test lockfree::tests::test_vector_pool_reuse ... ok
+test pdx::tests::block_matches_reference_dot ... ok
+test pdx::tests::block_matches_reference_euclidean ... ok
+test integration::tests::test_semantic_search_adapter_roundtrip ... ok
+test pdx::tests::oversized_block_is_rejected - should panic ... ok
+test pdx::tests::partial_block_ignores_padding_lanes ... ok
+test pdx::tests::ragged_block_is_rejected - should panic ... ok
+test pdx::tests::single_vector_index_works ... ok
+test pdx::tests::undersized_output_is_rejected - should panic ... ok
+test quantization::tests::test_binary_compression_ratio ... ok
+test quantization::tests::test_binary_distance ... ok
+test quantization::tests::test_binary_distance_symmetry ... ok
+test quantization::tests::test_binary_fast_hamming ... ok
+test quantization::tests::test_binary_quantization ... ok
+test quantization::tests::test_binary_similarity ... ok
+test quantization::tests::test_int4_compression_ratio ... ok
+test pdx::tests::index_matches_reference_across_block_boundaries ... ok
+test quantization::tests::test_int4_quantization ... ok
+test quantization::tests::test_int4_distance_symmetry ... ok
+test quantization::tests::test_scalar_distance_different_scales ... ok
+test quantization::tests::test_scalar_distance_symmetry ... ok
+test quantization::tests::test_scalar_quantization ... ok
+test quantization::tests::test_scalar_quantization_roundtrip ... ok
+test simd_intrinsics::tests::test_batch_cosine_similarity ... ok
+test simd_intrinsics::tests::test_batch_dot_product ... ok
+test simd_intrinsics::tests::test_batch_euclidean ... ok
+test simd_intrinsics::tests::test_batch_owned_convenience ... ok
+test quantization::tests::test_int4_distance ... ok
+test quantization::tests::test_scalar_quantization_edge_cases ... ok
+test simd_intrinsics::tests::test_cosine_similarity_simd ... ok
+test simd_intrinsics::tests::test_cosine_similarity_orthogonal ... ok
+test simd_intrinsics::tests::test_dot_product_i8 ... ok
+test simd_intrinsics::tests::test_dot_product_i8_large ... ok
+test simd_intrinsics::tests::test_dot_product_large ... ok
+test simd_intrinsics::tests::test_dot_product_simd ... ok
+test simd_intrinsics::tests::test_euclidean_distance_large ... ok
+test simd_intrinsics::tests::test_euclidean_distance_simd ... ok
+test simd_intrinsics::tests::test_euclidean_distance_squared_i8 ... ok
+test simd_intrinsics::tests::test_euclidean_distance_squared_i8_large ... ok
+test simd_intrinsics::tests::test_legacy_avx2_aliases ... ok
+test simd_intrinsics::tests::test_manhattan_distance_simd ... ok
+test simd_intrinsics::tests::test_non_aligned_lengths ... ok
+test simd_intrinsics::tests::test_unrolled_vs_non_unrolled_consistency ... ok
+test storage::tests::reopening_after_the_last_handle_drops_preserves_data ... ok
+test index::turbo4::tests::recall_close_to_f32_hnsw_baseline ... ok
+test index::turbo4::tests::gaussian_worst_case_recall_floor ... ok
+test storage::tests::test_batch_insert ... ok
+test storage::tests::test_delete ... ok
+test storage_memory::tests::test_auto_id_generation ... ok
+test storage_memory::tests::test_batch_insert ... ok
+test storage_memory::tests::test_delete ... ok
+test storage_memory::tests::test_dimension_mismatch ... ok
+test storage_memory::tests::test_insert_and_get ... ok
+test tests::test_version ... ok
+test vector_db::tests::memory_url_selects_memory_backend_when_storage_is_compiled ... ok
+test storage::tests::test_insert_and_get ... ok
+test storage::tests::test_multiple_instances_same_path ... ok
+test vector_db::tests::test_insert_and_search ... ok
+test index::flat_graph::tests::many_searches_reuse_the_visited_list_across_epoch_wraparound ... ok
+test vector_db::tests::test_search_after_restart ... ok
+test vector_db::tests::test_vector_db_creation ... ok
+test vector_db::tests::test_turbo4_provenance_guard ... ok
+test vector_db::tests::test_turbo4_quantized_db ... ok
+test index::flat_graph::tests::recall_against_brute_force_and_graph_invariants ... ok
+test storage::tests::concurrently_dropping_two_handles_still_reaps_the_pool_entry ... ok
+test storage::tests::concurrent_drop_and_open_never_race_the_file_lock ... ok
+test index::flat_graph::tests::batch_build_keeps_recall_connectivity_and_is_deterministic ... ok
+
+test result: ok. 276 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 12.61s
+
+     Running tests/embeddings_role_test.rs (/workspace/scratch/1511111b1812/native-toolchain-cycle8.Ete7rG/core-target/debug/deps/embeddings_role_test-9bd55e3b8c9bc285)
+
+running 14 tests
+test embedding_space_id_golden_value_for_minilm ... ok
+test embedding_space_id_is_blind_to_the_crate_build_version ... ok
+test applied_prefix_matches_the_identitys_registered_template ... ok
+test registry_covers_advertised_models ... ok
+test identity_free_entry_points_construct ... ok
+test trait_object_preserves_both_roles_for_asymmetric_provider ... ok
+test unverifiable_prefix_policies_fail_closed ... ok
+test ingestion_paths_use_passage_role_only ... ok
+test query_unsupported_provider_errors_without_falling_back ... ok
+test prefix_applied_exactly_once_single_and_batch ... ok
+test corpus_without_a_stored_identity_is_adopted ... ok
+test reopening_a_corpus_with_a_different_same_dimension_model_is_rejected ... ok
+test deleting_the_sidecar_does_not_downgrade_the_identity_check ... ok
+test search_paths_use_query_role ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.39s
+
+     Running tests/embeddings_test.rs (/workspace/scratch/1511111b1812/native-toolchain-cycle8.Ete7rG/core-target/debug/deps/embeddings_test-df70a4c2e43e643c)
+
+running 9 tests
+test test_agenticdb_with_openai_embeddings ... ignored
+test test_api_embedding_openai ... ignored
+test test_dimension_mismatch_validation ... ok
+test api_embedding_rejects_unhonorable_prefix_policies_at_construction ... ok
+test test_hash_embedding_provider ... ok
+test api_embedding_sends_the_identitys_template_not_raw_text ... ok
+test test_api_embedding_provider_construction ... ok
+test test_agenticdb_with_hash_embeddings ... ok
+test test_agenticdb_with_custom_hash_provider ... ok
+
+test result: ok. 7 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.36s
+

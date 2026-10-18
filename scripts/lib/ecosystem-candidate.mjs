@@ -8,7 +8,7 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const executorBinding = async () => ({ candidate: hash(await readFile(new URL(import.meta.url))), evaluator: hash(await readFile(new URL('./ecosystem-rsi.mjs', import.meta.url))) });
 export const defaultInputs = { registryPath: 'data/ecosystem-capabilities.json', graphPath: 'data/npm-dependencies.latest.json', runtimePath: 'data/npm-runtime-relationships.latest.json', benchmarkPath: 'data/npm-download-benchmark.latest.json' };
 export const proposalId = finding => hash(JSON.stringify(finding));
-const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => ['PATH', 'SystemRoot', 'TEMP', 'TMP', 'TMPDIR', 'LANG'].includes(key) || /^RUFLO_(MEMORY|RUVECTOR|WEIGHT_EFT)_(REQUIRED|RESOLVE_FROM)$/.test(key)));
+const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => ['PATH', 'SystemRoot', 'TEMP', 'TMP', 'TMPDIR', 'LANG', 'RUFLO_REQUIRE_HARNESS', 'RUFLO_HARNESS_RESOLVE_FROM'].includes(key) || /^RUFLO_(MEMORY|RUVECTOR|WEIGHT_EFT)_(REQUIRED|RESOLVE_FROM)$/.test(key)));
 function git(root, args, { index, input } = {}) {
   return execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'core.fileMode=true', '-C', root, ...args], {
     input, encoding: 'utf8', timeout: 20000, maxBuffer: 4 * 1024 * 1024,

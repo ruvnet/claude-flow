@@ -1,0 +1,9 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm error code ECOMPROMISED
+npm error Lock compromised
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+npm error A complete log of this run can be found in: /workspace/scratch/1511111b1812/native-toolchain-cycle8.Ete7rG/npm-cache/_logs/2026-10-18T10_05_28_427Z-debug-0.log

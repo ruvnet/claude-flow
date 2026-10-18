@@ -1,0 +1,28 @@
+✖ candidate passes exact harness fixture settings to both sides without widening credential forwarding (907.982113ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1037.384474
+
+✖ failing tests:
+
+test at scripts/tests/ecosystem-candidate.test.mjs:103:1
+✖ candidate passes exact harness fixture settings to both sides without widening credential forwarding (907.982113ms)
+  AssertionError [ERR_ASSERTION]: [{"id":"check","status":"failed","exitCode":1,"durationMs":162.71747700000003,"output":"TAP version 13\n# Subtest: harness fixture\nnot ok 1 - harness fixture\n  ---\n  duration_ms: 1.578064\n  type: 'test'\n  location: '/tmp/candidate-contract-Lb35jS/repo/scripts/tests/check.test.mjs:1:95'\n  failureType: 'testCodeFailure'\n  error: |-\n    Expected values to be strictly equal:\n    \n    undefined !== '1'\n    \n  code: 'ERR_ASSERTION'\n  name: 'AssertionError'\n  expected: '1'\n  operator: 'strictEqual'\n  stack: |-\n    TestContext.<anonymous> (file:///tmp/candidate-contract-Lb35jS/repo/scripts/tests/check.test.mjs:1:130)\n    Test.runInAsyncScope (node:async_hooks:227:14)\n    Test.run (node:internal/test_runner/test:1382:25)\n    Test.start (node:internal/test_runner/test:1242:17)\n    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 0\n# fail 1\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 106.432854\n","outputTruncated":false}]
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-cycle8/scripts/tests/ecosystem-candidate.test.mjs:116:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

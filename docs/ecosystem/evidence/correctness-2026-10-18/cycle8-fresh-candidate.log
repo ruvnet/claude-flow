@@ -1,0 +1,29 @@
+✔ actual fixed held-out harness tasks restart and retrieve before real Weight EFT aggregation (2817.8362ms)
+ℹ {"elapsedMs":2815.086413,"datasetHash":"820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6","weightEftVersion":"0.1.2","summary":{"n":3,"cheapResolveRate":1,"escalationRate":0,"resolveRate":1,"costPerResolved":0,"totalCostUsd":0}}
+✔ real Weight EFT contamination guard rejects held-out training IDs before execution (235.634885ms)
+✔ fixed oracle rejects wrong output despite success, perfect quality and matching persisted self-report (81.37517ms)
+✔ actual kernel verification failure is not rescued by successful persisted evidence from another run (282.939466ms)
+✔ missing, duplicated or substituted held-out evidence cannot improve denominator (436.414129ms)
+✔ restart, persisted content, receipt and version evidence failures remain unresolved (913.795572ms)
+✔ missing Weight EFT resolver fails closed rather than using fixture metrics (1.008957ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (3784.844817ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":259.07865300000003,"updateMs":142.56910900000003,"deleteMs":107.392617,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (858.801905ms)
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (1575.730503ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (1425.915409ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1420.325416ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (1554.628039ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (3951.781381ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (1767.832451ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (2115.066928ms)
+✔ update and delete require existing state and never create a missing database (271.594721ms)
+✔ expired persisted keys remain protected from implicit replacement (609.065511ms)
+✔ versioned v2 starter completes six real operations in independent processes (1342.473891ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 20855.451823

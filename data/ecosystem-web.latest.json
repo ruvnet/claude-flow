@@ -1,14 +1,14 @@
 {
   "schema": "ruflo-ecosystem-web/v1",
-  "generatedAt": "2026-10-18T09:06:26.291Z",
+  "generatedAt": "2026-10-18T10:09:22.583Z",
   "provenance": {
     "verified": true,
     "semantics": "Local source identity verification, not signed authorship or runtime availability",
     "dependencySnapshotSha256": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
     "runtimeSnapshotSha256": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
     "registrySha256": "d4572eab6ed97873da78c15b8e25d91e0f595f5a21276bdb0e221b98dce486bb",
-    "sourceSha256": "5f09af721902107190fda8c19f88d69d721c6e4b4f933fdcd314dc009b7b61be",
-    "executionInputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95"
+    "sourceSha256": "7ab4c6fd7f416e1d4be3e681e394aedbc7d46385d02dab84af22f63247e62773",
+    "executionInputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209"
   },
   "capabilities": [
     {
@@ -106,18 +106,18 @@
     "requestedIterations": 2,
     "completedIterations": 2,
     "budgetMs": 120000,
-    "durationMs": 69730.218487,
+    "durationMs": 79644.574796,
     "history": [
       {
         "iteration": 1,
-        "inputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95",
+        "inputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209",
         "checksPassed": true,
         "uncoveredPackages": 390,
         "newSourceEvidence": true
       },
       {
         "iteration": 2,
-        "inputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95",
+        "inputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209",
         "checksPassed": true,
         "uncoveredPackages": 390,
         "newSourceEvidence": false
@@ -130,52 +130,52 @@
       {
         "id": "dependency-ownership",
         "status": "passed",
-        "durationMs": 486.76878299999953
+        "durationMs": 451.0557789999948
       },
       {
         "id": "graph-impact",
         "status": "passed",
-        "durationMs": 8430.543985999997
+        "durationMs": 8770.458450999999
       },
       {
         "id": "heldout-agent-evaluation",
         "status": "passed",
-        "durationMs": 3352.976935999999
+        "durationMs": 3250.0478839999996
       },
       {
         "id": "persistent-agent-memory",
         "status": "passed",
-        "durationMs": 5060.209864000004
+        "durationMs": 5689.775001999995
       },
       {
         "id": "persistent-memory-retrieval",
         "status": "passed",
-        "durationMs": 12654.129699000005
+        "durationMs": 16156.761374999995
       },
       {
         "id": "relationship-provenance",
         "status": "passed",
-        "durationMs": 148.3974259999959
+        "durationMs": 150.56369100000302
       },
       {
         "id": "ruvector-workflow",
         "status": "passed",
-        "durationMs": 2037.740340000004
+        "durationMs": 2080.2946720000036
       },
       {
         "id": "signed-publication",
         "status": "passed",
-        "durationMs": 803.8061149999994
+        "durationMs": 821.919750999994
       },
       {
         "id": "vector-mutations",
         "status": "passed",
-        "durationMs": 377.4058870000008
+        "durationMs": 358.5784899999999
       },
       {
         "id": "weight-eft-api",
         "status": "passed",
-        "durationMs": 200.93422999999893
+        "durationMs": 183.64083600000595
       }
     ],
     "gate": {
