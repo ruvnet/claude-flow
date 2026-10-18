@@ -2181,8 +2181,8 @@ Workers run automatically based on context, or dispatch manually via MCP tools.
 | **TestGaps** | `testgaps` | Test coverage analysis | Code changes without tests |
 
 ```bash
-npx ruflo@latest worker dispatch --trigger audit --context "./src"
-npx ruflo@latest worker status
+npx ruflo@latest hooks worker dispatch --trigger audit --context "./src"
+npx ruflo@latest hooks worker status
 ```
 
 </details>
