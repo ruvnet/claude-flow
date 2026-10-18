@@ -23,7 +23,7 @@ import { CLI_PREFIXES, type State } from './state'
 import type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
 
 import { checkpointPlan } from './mission-advisor-live'
-import { adoptLegacy, dismissLegacy, mcOf, saveLedger } from './mission-ledger'
+import { adoptLegacy, type AdoptResult, dismissLegacy, mcOf, saveLedger } from './mission-ledger'
 import { cancelSpec, createSpec, createWhy, dispatchSpec, isInflight, MAX_HANDOUTS, resultOf, setPaused } from './mission-specs'
 
 export { cancelSpec, createSpec, createWhy, dispatchSpec, resultOf, setPaused }
@@ -177,6 +177,14 @@ export function researchOf(state: State): ResearchDraft {
 
 export const setResearch = (state: State, patch: Partial<ResearchDraft>): void => void Object.assign(researchOf(state), patch)
 
+/** What Mission Control says after the person adopts one offered mission (#4254). */
+const ADOPT_SAYS: Record<AdoptResult, [string, boolean, string]> = {
+  adopted: ['adopted 1 mission', true, 'recorded under this project and removed from the old shared ledger'],
+  none: ['nothing to adopt', false, 'that mission is no longer offered here'],
+  full: ['not adopted', false, 'it is older than the 20 missions this project keeps, so the save would drop it; it stays offered'],
+  failed: ['not adopted', false, 'the store refused the write; the mission is still in the old shared ledger'],
+}
+
 const wired = new WeakMap<State, { host: Host; actions: MissionActions; research: () => void | Promise<void> }>()
 
 /** The host, actions and research start Mission Control was wired with, for the palette and the headless commands. */
@@ -307,12 +315,12 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       saveLedger(state, host)
       host.invalidate()
     },
-    adoptLegacy: () => {
-      void adoptLegacy(state, host).then(count => say(count === 0 ? 'nothing to adopt' : `adopted ${count} mission${count === 1 ? '' : 's'}`, count > 0, count === 0 ? 'no missions from before per-project storage are offered here' : 'recorded under this project and removed from the old shared ledger'))
+    adoptLegacy: id => {
+      void adoptLegacy(state, host, id).then(result => say(...ADOPT_SAYS[result]))
     },
-    dismissLegacy: () => {
-      dismissLegacy(state, host)
-      say('not this project\'s', true, 'the older missions stay in the shared ledger for the project they were made in')
+    dismissLegacy: id => {
+      dismissLegacy(state, host, id)
+      say('not this project\'s', true, `${id === undefined ? 'the older missions stay' : 'it stays'} in the shared ledger for the project ${id === undefined ? 'they were' : 'it was'} made in`)
     },
     next: () => {
       const mission = activeMission(state)

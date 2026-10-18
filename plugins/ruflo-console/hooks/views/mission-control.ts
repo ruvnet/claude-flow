@@ -223,13 +223,19 @@ const flowRows = (ctx: Ctx): RenderElement[] => wrap(FLOW, Math.max(20, ctx.colu
  */
 function legacyRows(ctx: Ctx, legacy: readonly MissionRecord[]): RenderElement[] {
   const n = legacy.length
-  const them = n === 1 ? 'it' : 'them'
+  // The offer can mix missions from several projects, so each one is adopted or turned away on its own row.
+  const offerRow = (m: MissionRecord) => row(ctx, [
+    text(ctx, `   ${m.id.slice(4, 10)}  ${clip(m.objective, Math.max(16, ctx.columns - 36))} `, { dimColor: true }),
+    button(ctx, `mc-legacy-adopt-${m.id}`, ' adopt ', () => ctx.act.mission.adoptLegacy(m.id)),
+    text(ctx, ' '),
+    button(ctx, `mc-legacy-dismiss-${m.id}`, ' not here ', () => ctx.act.mission.dismissLegacy(m.id)),
+  ], `mc-legacy-${m.id}`)
 
   return [
-    ...paragraph(ctx, ` ${n} mission${n === 1 ? '' : 's'} from before per-project storage, with no project recorded. Adopt ${them} only if ${n === 1 ? 'it was' : 'they were'} made in this project:`, { color: THEME.warn }),
-    ...legacy.slice(0, 5).map(m => text(ctx, `   ${m.id.slice(4, 10)}  ${clip(m.objective, Math.max(16, ctx.columns - 14))}`, { dimColor: true })),
+    ...paragraph(ctx, ` ${n} mission${n === 1 ? '' : 's'} from before per-project storage, with no project recorded. Adopt one only if it was made in this project:`, { color: THEME.warn }),
+    ...legacy.slice(0, 5).map(offerRow),
     ...(n > 5 ? [text(ctx, `   … and ${n - 5} more`, { dimColor: true })] : []),
-    row(ctx, [button(ctx, 'mc-legacy-adopt', ` adopt ${them} here `, () => ctx.act.mission.adoptLegacy()), text(ctx, ' '), button(ctx, 'mc-legacy-dismiss', ' not this project ', () => ctx.act.mission.dismissLegacy())], 'mc-legacy'),
+    ...(n > 1 ? [row(ctx, [text(ctx, '   '), button(ctx, 'mc-legacy-dismiss', ' none of these are this project\'s ', () => ctx.act.mission.dismissLegacy())], 'mc-legacy')] : []),
   ]
 }
 

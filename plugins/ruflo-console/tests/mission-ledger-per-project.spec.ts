@@ -101,7 +101,7 @@ describe('mission ledger per project (#4237)', () => {
     const host = storeHost(stored)
     const b = stateIn(B)
     await loadLedger(b, host)
-    expect(await adoptLegacy(b, host)).toBe(1)
+    expect(await adoptLegacy(b, host, ID_OLD)).toBe('adopted')
     expect(mcOf(b).missions.get(ID_OLD)?.cwd).toBe(B)
     expect(mcOf(b).legacy).toEqual([])
     expect(stored.get(LEDGER_KEY)).toEqual({ missions: [] })
@@ -185,8 +185,126 @@ describe('mission ledger per project (#4237)', () => {
     mcOf(state).legacy = [mission(ID_OLD, { objective: 'an old goal from somewhere' })]
     expect(words()).toContain('1 mission from before per-project storage')
     expect(words()).toContain('an old goal from somewhere')
-    ;(button('mc-legacy-adopt')?.props.onPress as () => void)()
-    ;(button('mc-legacy-dismiss')?.props.onPress as () => void)()
+    expect(button('mc-legacy-dismiss')).toBeUndefined()
+    ;(button(`mc-legacy-adopt-${ID_OLD}`)?.props.onPress as () => void)()
+    ;(button(`mc-legacy-dismiss-${ID_OLD}`)?.props.onPress as () => void)()
     expect(pressed).toEqual(['adoptLegacy', 'dismissLegacy'])
+
+    // Two or more: each has its own row, and one button turns them all away.
+    mcOf(state).legacy.push(mission(ID_A))
+    expect(button(`mc-legacy-adopt-${ID_A}`)).toBeDefined()
+    ;(button('mc-legacy-dismiss')?.props.onPress as () => void)()
+    expect(pressed).toEqual(['adoptLegacy', 'dismissLegacy', 'dismissLegacy'])
+  })
+})
+
+// From the review of #4276: each of these asserted the defect against c85c5f3; here they assert the fix.
+describe('mission ledger offers after review (#4254)', () => {
+  const hex = (n: number) => 'msn_' + n.toString(16).padStart(24, '0')
+  const idsAt = (stored: Map<string, unknown>, key: string): string[] => ((stored.get(key) as { missions?: MissionRecord[] } | undefined)?.missions ?? []).map(m => m.id)
+
+  it("adopting one mission leaves the others offered, in this project and in the projects they came from", async () => {
+    const fromA = hex(1), fromX = hex(2), fromY = hex(3)
+    const stored = new Map<string, unknown>([[LEDGER_KEY, { active: fromY, missions: [mission(fromA), mission(fromX), mission(fromY)] }]])
+    const host = storeHost(stored)
+    const a = stateIn(A)
+    await loadLedger(a, host)
+    expect(await adoptLegacy(a, host, fromA)).toBe('adopted')
+    expect(idsAt(stored, ledgerKeyOf(A))).toEqual([fromA])
+    expect(mcOf(a).legacy.map(m => m.id)).toEqual([fromX, fromY])
+
+    const x = stateIn('/home/me/project-x')
+    await loadLedger(x, host)
+    expect(mcOf(x).legacy.map(m => m.id)).toEqual([fromX, fromY])
+  })
+
+  it('dismissing one mission keeps the rest offered, across a reload', async () => {
+    const one = hex(1), two = hex(2)
+    const stored = new Map<string, unknown>([[LEDGER_KEY, { missions: [mission(one), mission(two)] }]])
+    const host = storeHost(stored)
+    const b = stateIn(B)
+    await loadLedger(b, host)
+    dismissLegacy(b, host, one)
+    await flush()
+    expect(mcOf(b).legacy.map(m => m.id)).toEqual([two])
+
+    const again = stateIn(B)
+    await loadLedger(again, host)
+    expect(mcOf(again).legacy.map(m => m.id)).toEqual([two])
+    expect(idsAt(stored, LEDGER_KEY)).toEqual([one, two])
+  })
+
+  it('an offer saved by the earlier 0.44.4 as one dismissal still covers the missions offered then', async () => {
+    const stored = new Map<string, unknown>([[ledgerKeyOf(B), { active: null, missions: [], legacyDismissed: true }], [LEDGER_KEY, { missions: [mission(ID_OLD)] }]])
+    const b = stateIn(B)
+    await loadLedger(b, storeHost(stored))
+    expect(mcOf(b).legacy).toEqual([])
+  })
+
+  it('refuses to adopt past the cap instead of losing the mission', async () => {
+    const own = Array.from({ length: 20 }, (_, i) => mission(hex(100 + i), { cwd: A, createdAtMs: 100 + i }))
+    const old = mission(hex(1), { createdAtMs: 1 })
+    const stored = new Map<string, unknown>([[ledgerKeyOf(A), { active: null, missions: own }], [LEDGER_KEY, { missions: [old] }]])
+    const host = storeHost(stored)
+    const a = stateIn(A)
+    await loadLedger(a, host)
+    expect(await adoptLegacy(a, host, old.id)).toBe('full')
+    expect(idsAt(stored, LEDGER_KEY)).toEqual([old.id])
+    expect(mcOf(a).legacy.map(m => m.id)).toEqual([old.id])
+    expect(mcOf(a).missions.size).toBe(20)
+  })
+
+  it('an offer held only in the project key is still offered after a save and reload', async () => {
+    const L = hex(7)
+    const stored = new Map<string, unknown>([[ledgerKeyOf(A), { active: null, missions: [mission(L)] }]])
+    const host = storeHost(stored)
+    const a = stateIn(A)
+    await loadLedger(a, host)
+    expect(mcOf(a).legacy.map(m => m.id)).toEqual([L])
+    saveLedger(a, host)
+    await flush()
+
+    const again = stateIn(A)
+    await loadLedger(again, host)
+    expect(mcOf(again).legacy.map(m => m.id)).toEqual([L])
+    expect(mcOf(again).missions.size).toBe(0)
+
+    // Adopted, it becomes this project's and stops being held as an offer.
+    expect(await adoptLegacy(again, host, L)).toBe('adopted')
+    const saved = stored.get(ledgerKeyOf(A)) as { missions: MissionRecord[]; offered?: MissionRecord[] }
+    expect(saved.missions.map(m => [m.id, m.cwd])).toEqual([[L, A]])
+    expect(saved.offered).toBeUndefined()
+  })
+
+  it('a failed project-key write prunes nothing from the shared key', async () => {
+    const id = hex(8)
+    const stored = new Map<string, unknown>([[LEDGER_KEY, { missions: [mission(id)] }]])
+    const base = storeHost(stored)
+    const host = { ...base, storeSet: async (k: string, v: unknown) => { if (k === ledgerKeyOf(A)) throw new Error('write failed'); return base.storeSet(k, v) } } as Host
+    const a = stateIn(A)
+    await loadLedger(a, host)
+    expect(await adoptLegacy(a, host, id)).toBe('failed')
+    expect(idsAt(stored, LEDGER_KEY)).toEqual([id])
+    expect(mcOf(a).legacy.map(m => m.id)).toEqual([id])
+    expect(mcOf(a).missions.size).toBe(0)
+  })
+
+  it('a failed write while claiming on load leaves the mission in the shared key', async () => {
+    const stored = new Map<string, unknown>([[LEDGER_KEY, { missions: [mission(ID_A, { cwd: A })] }]])
+    const base = storeHost(stored)
+    const host = { ...base, storeSet: async (k: string, v: unknown) => { if (k === ledgerKeyOf(A)) throw new Error('write failed'); return base.storeSet(k, v) } } as Host
+    await loadLedger(stateIn(A), host)
+    expect(idsAt(stored, LEDGER_KEY)).toEqual([ID_A])
+  })
+
+  it('a session that moves to another project drops the goal and plan made in the last one', async () => {
+    const host = storeHost(new Map())
+    const state = stateIn(A)
+    await loadLedger(state, host)
+    Object.assign(mcOf(state), { goal: 'add dark mode', planned: { nodes: [] } })
+    state.cwd = B
+    await loadLedger(state, host)
+    expect(mcOf(state).goal).toBe('')
+    expect(mcOf(state).planned).toBeNull()
   })
 })
