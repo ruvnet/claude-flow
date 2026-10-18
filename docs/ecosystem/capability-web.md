@@ -18,7 +18,9 @@ Install the pinned analysis dependency into a separate tooling directory. This d
 
 ```bash
 npm install --prefix /tmp/ruflo-ruvector-proof --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
-npm install --prefix /tmp/ruflo-memory-proof --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0
+npm install --prefix /tmp/ruflo-memory-proof --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0 @metaharness/harness@0.2.0
+RUFLO_REQUIRE_HARNESS=1 \
+RUFLO_HARNESS_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_MEMORY_REQUIRED=1 \
 RUFLO_MEMORY_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_RUVECTOR_REQUIRED=1 \
@@ -43,8 +45,9 @@ The ledger deduplicates equivalent source identities. Checks still execute every
 | Graph impact selection | Contract |
 | Installed RuVector workflow | Integration |
 | Persistent scoped memory and native retrieval after process restart | Integration |
+| Local harness execution, persisted result retrieval and resumed task | Integration |
 
-The current registry has eight checks covering 10 packages; 391 of 401 remain without registered coverage. Five inventory packages have a registered integration check, up from three; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md) documents the real package composition and its limits. Passing contracts alone do not establish runtime interoperability.
+The current registry has nine checks covering 11 packages; 390 of 401 remain without registered coverage. Six inventory packages have a registered integration check; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md) and [agent-memory starter v1](persistent-agent-memory-v1.md) document the real package compositions and their limits. Passing contracts alone do not establish runtime interoperability.
 
 The graph artifact measurement explains 43 previously isolated nodes, from 138 to 95, a 31.2 percent reduction. Its three required graph and runtime evidence checks pass. This makes the captured annotations ready for review; it does not create new runtime integrations or measure adoption. Global runtime promotion remains rejected.
 
@@ -60,7 +63,9 @@ The persistent-memory check also runs a separate-process stale-reader race and S
 
 [Lifecycle starter v2](persistent-memory-v2.md) adds explicit ID-and-version-fenced update/delete, namespace-wide dimension/capacity checks and insert-only writes. The required check runs real restart, stale mutation, namespace, expired-key and SIGKILL regressions plus the six-process starter. The default two-cycle budget is now 120 seconds to fit the expanded suite; the 300-second hard maximum and failure gates are unchanged. This is a functional-test budget adjustment, not a performance improvement or weakened benchmark threshold.
 
-Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the new eighth capability has source/receipt tests but awaits a fresh visual browser pass.
+The ninth check runs the installed HarnessKernel with a bounded local arithmetic worker, persists only successfully verified results, exits, retrieves the first result through the native vector index, then executes a second task with it. Negative checks prove policy denial executes no worker and verification failure publishes no memory. This is deterministic task execution, not LLM reasoning, training improvement or an arbitrary-code sandbox. No consumer dependency is added to make the graph look connected.
+
+Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the eighth and ninth capabilities have source/receipt tests but await a fresh visual browser pass.
 
 Next, register and execute one real cross package workflow at a time. Expand coverage based on successful tasks and compatibility evidence. No adoption telemetry is collected, and no increase in user adoption is claimed. Existing signing and release gates remain mandatory.
 

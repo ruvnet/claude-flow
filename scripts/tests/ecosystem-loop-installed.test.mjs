@@ -18,11 +18,11 @@ test('real two cycle ecosystem evaluation preserves inventory and produces sourc
     assert.equal(child.status,2,child.stdout+child.stderr); // Passing checks, explicitly incomplete coverage.
     const receipt=JSON.parse(await readFile(output));
     assert.equal(receipt.checksPassed,true);assert.equal(receipt.loop.completedIterations,2);
-    assert.equal(receipt.plan.affected.length,401);assert.equal(receipt.plan.uncoveredPackages.length,391);
+    assert.equal(receipt.plan.affected.length,401);assert.equal(receipt.plan.uncoveredPackages.length,390);
     assert.equal(receipt.ledger.length,1);assert.equal(receipt.loop.newSourceIdentities,1);
     assert.equal(receipt.artifactReview.status,'review-ready');assert.equal(receipt.artifactReview.baselineIsolates,138);assert.equal(receipt.artifactReview.candidateIsolates,95);
     assert.equal(receipt.artifactReview.runtimeCompatibilityEstablished,false);assert.equal(receipt.loop.automaticPromotion,false);
-    const web=await buildWebReceipt(receipt,process.cwd());assert.equal(web.capabilities.filter(c=>c.status==='passed').length,8);
+    const web=await buildWebReceipt(receipt,process.cwd());assert.equal(web.capabilities.filter(c=>c.status==='passed').length,9);
     assert.equal(web.proposals[0].kind,'measured-download-regression');assert.equal(web.proposals[0].additionalBytes,111971638);
     assert.deepEqual(await Promise.all(inputs.map(digest)),before);
   } finally {await rm(folder,{recursive:true,force:true});}

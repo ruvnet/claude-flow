@@ -46,7 +46,7 @@ async function validateRegistry(root, registry, names) {
   }
 }
 
-export async function createRsiPlan({ repoRoot, registryPath, graphPath, runtimePath, changed = [], maxChecks = 8, benchmarkPath = null }) {
+export async function createRsiPlan({ repoRoot, registryPath, graphPath, runtimePath, changed = [], maxChecks = 9, benchmarkPath = null }) {
   const root = await realpath(repoRoot);
   bounded(maxChecks, 64, 'checks');
   const registry = JSON.parse(await readFile(await contained(root, registryPath), 'utf8'));

@@ -3,6 +3,13 @@
   "semantics": "Registry entries describe bounded checks, not universal package interoperability. Availability requires a separate environment probe. Download events are not adoption.",
   "capabilities": [
     {
+      "id": "persistent-agent-memory",
+      "title": "Bounded local harness task execution with persisted native retrieval after restart",
+      "kind": "integration",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "checks": ["persistent-agent-memory"]
+    },
+    {
       "id": "persistent-memory-retrieval",
       "title": "Persisted scoped memory and native vector retrieval across process restart",
       "kind": "integration",
@@ -103,6 +110,12 @@
     }
   ],
   "checks": [
+    {
+      "id": "persistent-agent-memory",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "testFiles": ["scripts/tests/ecosystem-agent-memory.installed.test.mjs"],
+      "sourceFiles": ["scripts/lib/ecosystem-agent-memory-workflow.mjs", "scripts/examples/persistent-agent-memory-v1.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs"]
+    },
     {
       "id": "persistent-memory-retrieval",
       "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],

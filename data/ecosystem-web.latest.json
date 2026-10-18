@@ -1,16 +1,25 @@
 {
   "schema": "ruflo-ecosystem-web/v1",
-  "generatedAt": "2026-10-18T07:07:33.872Z",
+  "generatedAt": "2026-10-18T08:13:18.604Z",
   "provenance": {
     "verified": true,
     "semantics": "Local source identity verification, not signed authorship or runtime availability",
     "dependencySnapshotSha256": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
     "runtimeSnapshotSha256": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
-    "registrySha256": "374f3e07448d36f0682324ee475761630947d2a4a2e509c779b5a5cd98af5d07",
-    "sourceSha256": "76d1764006affc7ca1a1e334fef5da5e4f4b28b8adb61cf3360f1d73b4b18864",
-    "executionInputHash": "9ae4054abb93c8cda3fb5c5634e9b6b220b975a1633df75d5e93a972b76bf49a"
+    "registrySha256": "3c7075703f9812b41fc0f8c3a1f3fe755eebeae8bf1f237e03d9939b9cccfb14",
+    "sourceSha256": "5e2d88717ce64b0a11a4f5b85c4239693e59f8768ace9e7f09503209adcfeabe",
+    "executionInputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5"
   },
   "capabilities": [
+    {
+      "id": "persistent-agent-memory",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "persistent-agent-memory: passed"
+      ]
+    },
     {
       "id": "persistent-memory-retrieval",
       "kind": "integration",
@@ -88,20 +97,20 @@
     "requestedIterations": 2,
     "completedIterations": 2,
     "budgetMs": 120000,
-    "durationMs": 72018.59937099999,
+    "durationMs": 62570.746149000006,
     "history": [
       {
         "iteration": 1,
-        "inputHash": "9ae4054abb93c8cda3fb5c5634e9b6b220b975a1633df75d5e93a972b76bf49a",
+        "inputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5",
         "checksPassed": true,
-        "uncoveredPackages": 391,
+        "uncoveredPackages": 390,
         "newSourceEvidence": true
       },
       {
         "iteration": 2,
-        "inputHash": "9ae4054abb93c8cda3fb5c5634e9b6b220b975a1633df75d5e93a972b76bf49a",
+        "inputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5",
         "checksPassed": true,
-        "uncoveredPackages": 391,
+        "uncoveredPackages": 390,
         "newSourceEvidence": false
       }
     ],
@@ -112,42 +121,47 @@
       {
         "id": "dependency-ownership",
         "status": "passed",
-        "durationMs": 669.2371310000017
+        "durationMs": 559.391012
       },
       {
         "id": "graph-impact",
         "status": "passed",
-        "durationMs": 12506.881032999998
+        "durationMs": 9767.492026
+      },
+      {
+        "id": "persistent-agent-memory",
+        "status": "passed",
+        "durationMs": 5635.815035
       },
       {
         "id": "persistent-memory-retrieval",
         "status": "passed",
-        "durationMs": 16264.173532
+        "durationMs": 12118.818674000002
       },
       {
         "id": "relationship-provenance",
         "status": "passed",
-        "durationMs": 208.751483
+        "durationMs": 146.76832999999897
       },
       {
         "id": "ruvector-workflow",
         "status": "passed",
-        "durationMs": 2375.076476000002
+        "durationMs": 2032.9016059999994
       },
       {
         "id": "signed-publication",
         "status": "passed",
-        "durationMs": 920.6051819999993
+        "durationMs": 770.9471659999981
       },
       {
         "id": "vector-mutations",
         "status": "passed",
-        "durationMs": 446.4700860000012
+        "durationMs": 369.3782060000012
       },
       {
         "id": "weight-eft-api",
         "status": "passed",
-        "durationMs": 275.7524689999991
+        "durationMs": 203.9598760000008
       }
     ],
     "gate": {
@@ -259,7 +273,6 @@
       "@metaharness/flywheel",
       "@metaharness/gaming",
       "@metaharness/github-actions",
-      "@metaharness/harness",
       "@metaharness/hermes",
       "@metaharness/horizon",
       "@metaharness/host-claude-code",
@@ -560,7 +573,7 @@
       "wifi-densepose-sar-harness",
       "worldgraphs"
     ],
-    "registeredPackageCount": 10
+    "registeredPackageCount": 11
   },
   "proposals": [
     {

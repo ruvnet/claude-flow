@@ -897,7 +897,26 @@
     },
     {
       "name": "@metaharness/weight-eft",
-      "status": "pending-source-repository-verification"
+      "status": "source-documented",
+      "stage": "draft-pr-source-documented-pack-verified",
+      "repository": "https://github.com/ruvnet/metaharness",
+      "registryRepositoryAlias": "https://github.com/ruvnet/agent-harness-generator",
+      "repositoryId": 1268611404,
+      "packagePath": "packages/weight-eft",
+      "guidance": "packages/weight-eft/AGENTS.md",
+      "sourceBaseCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+      "sourceCommit": "c22009af121e9e0b04ba7bd7f20391e2389d142c",
+      "registryVersionInspected": "0.1.2",
+      "sourceVersionInspected": "0.1.2",
+      "pullRequest": "https://github.com/ruvnet/metaharness/pull/412",
+      "pullRequestState": "open-draft",
+      "npmArtifact": "unsigned-proposed-pack-verified-not-released",
+      "validation": "data/ecosystem-guidance-weight-eft.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": true,
+      "merged": false,
+      "released": false,
+      "nextAction": "Maintainer review and existing full workspace, Rust/WASM and signed release gates. Scoped build/lint and 48 tests pass; fresh local pack consumer exports and holdout guards pass. Shared policy is source-only, explicitly disclosed in bundled guidance. No training, publication or runtime-coverage gain."
     },
     {
       "name": "@metaharness/workspace-lens",

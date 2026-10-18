@@ -1,0 +1,442 @@
+{
+  "schema": "ruflo-guidance-validation/v1",
+  "createdAt": "2026-10-18T08:08:11.990Z",
+  "scope": "Documentation and npm files allowlist only; no runtime code or dependency changes",
+  "package": "@metaharness/weight-eft",
+  "version": "0.1.2",
+  "repository": "ruvnet/metaharness",
+  "registryRepositoryAlias": "ruvnet/agent-harness-generator",
+  "repositoryId": 1268611404,
+  "registryRepository": {
+    "url": "git+https://github.com/ruvnet/agent-harness-generator.git",
+    "directory": "packages/weight-eft"
+  },
+  "mappingSources": [
+    "https://registry.npmjs.org/@metaharness%2fweight-eft/0.1.2",
+    "https://api.github.com/repos/ruvnet/agent-harness-generator",
+    "https://api.github.com/repos/ruvnet/metaharness"
+  ],
+  "registryIntegrity": "sha512-2C6Ivgz1yJgRrklG0NqsNAjm+THyFsfX4DR2VyeqkLHJeR+LnVEOmzdUPQPp0yBJcXvoO9+du8R6HzZ4vDItrQ==",
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "baselineTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+  "candidateTree": "185c682bcf7b34790fe527ea2309046db56c1300",
+  "policy": {
+    "applicable": [
+      "CONTRIBUTING.md"
+    ],
+    "rootAgentsAbsent": true,
+    "sourceOnlySharedPolicy": "docs/ecosystem/package-improvement-policy.md",
+    "artifactHasEssentialConstraints": true
+  },
+  "platform": {
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "os": "linux",
+    "arch": "x64"
+  },
+  "tooling": {
+    "scriptPolicy": "npm install --ignore-scripts --no-audit --no-fund in isolated fixture",
+    "direct": {
+      "@types/node": {
+        "version": "20.19.43",
+        "integrity": "sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==",
+        "matchesRepositoryLock": true
+      },
+      "typescript": {
+        "version": "5.9.3",
+        "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+        "matchesRepositoryLock": true
+      },
+      "vitest": {
+        "version": "2.1.9",
+        "integrity": "sha512-MSmPM9REYqDGBI8439mA4mWhV5sKmDlBKWIYbA3lRb2PTHACE0mgKwA8yQ2xq9vxDTuk4iPrECBAEW2aoFXY0Q==",
+        "matchesRepositoryLock": true
+      }
+    },
+    "fixtureLockSha256": "a283d2527c652d60d96ce61710819cbdd306a64231d078d4d744577c561843f8",
+    "repositoryLockSha256": "043b1a6ac8454b18d2bf656eed881a5341ff21270d7c9d370c7a436e1614d8a0"
+  },
+  "commands": [
+    {
+      "command": "npm run build",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 952.71649
+    },
+    {
+      "command": "npm run lint",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 1109.9919610000002
+    },
+    {
+      "command": "npm test",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 995.111245,
+      "stdout": "\n> @metaharness/weight-eft@0.1.2 test\n> vitest run\n\n\n RUN  v2.1.9 /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft\n\n ✓ __tests__/eval.test.ts (4 tests) 3ms\n ✓ __tests__/genome.test.ts (6 tests) 6ms\n ✓ __tests__/reward-hack.test.ts (8 tests) 6ms\n ✓ __tests__/train.test.ts (9 tests) 10ms\n ✓ __tests__/reward-hack-response-content.test.ts (11 tests) 11ms\n ✓ __tests__/export.test.ts (10 tests) 9ms\n\n Test Files  6 passed (6)\n      Tests  48 passed (48)\n   Start at  16:08:06\n   Duration  419ms (transform 530ms, setup 0ms, collect 713ms, tests 45ms, environment 1ms, prepare 451ms)\n\n",
+      "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+    },
+    {
+      "command": "node scripts/healthcheck.mjs --json",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline",
+      "exitCode": 0,
+      "elapsedMs": 82.66168599999992,
+      "stdout": "{\n  \"results\": [\n    {\n      \"name\": \"version\",\n      \"tag\": \"PASS\",\n      \"detail\": \"all sources at 0.1.0\"\n    },\n    {\n      \"name\": \"plugin\",\n      \"tag\": \"PASS\",\n      \"detail\": \"14 skills, 13 commands\"\n    },\n    {\n      \"name\": \"codex\",\n      \"tag\": \"PASS\",\n      \"detail\": \"13 skills with skill.toml + README\"\n    },\n    {\n      \"name\": \"workflows\",\n      \"tag\": \"PASS\",\n      \"detail\": \"12 workflows, all script refs resolve\"\n    },\n    {\n      \"name\": \"pathguard\",\n      \"tag\": \"PASS\",\n      \"detail\": \"path-guard.mjs present (run separately for full scan)\"\n    },\n    {\n      \"name\": \"examples\",\n      \"tag\": \"PASS\",\n      \"detail\": \"2 runnable examples present\"\n    },\n    {\n      \"name\": \"catalogCount\",\n      \"tag\": \"PASS\",\n      \"detail\": \"20 templates in JSON + TS test + Rust test (in sync)\"\n    },\n    {\n      \"name\": \"pages\",\n      \"tag\": \"SKIP\",\n      \"detail\": \"opt-in (--probe-pages to enable)\"\n    }\n  ],\n  \"ok\": true\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/dev-toolkit.mjs --check-health",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline",
+      "exitCode": 0,
+      "elapsedMs": 78.18967499999962
+    },
+    {
+      "command": "npm pack --json --ignore-scripts --pack-destination /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/baseline",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 379.1220279999998
+    },
+    {
+      "command": "tar -tzf /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/baseline/metaharness-weight-eft-0.1.2.tgz",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline",
+      "exitCode": 0,
+      "elapsedMs": 5.074200000000019
+    },
+    {
+      "command": "node dist/cli.js status",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 57.64735000000019
+    },
+    {
+      "command": "npm run build",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 1279.2978509999998
+    },
+    {
+      "command": "npm run lint",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 1076.0013589999999
+    },
+    {
+      "command": "npm test",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 867.8141160000005,
+      "stdout": "\n> @metaharness/weight-eft@0.1.2 test\n> vitest run\n\n\n RUN  v2.1.9 /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft\n\n ✓ __tests__/eval.test.ts (4 tests) 3ms\n ✓ __tests__/reward-hack-response-content.test.ts (11 tests) 8ms\n ✓ __tests__/reward-hack.test.ts (8 tests) 8ms\n ✓ __tests__/train.test.ts (9 tests) 6ms\n ✓ __tests__/genome.test.ts (6 tests) 11ms\n ✓ __tests__/export.test.ts (10 tests) 12ms\n\n Test Files  6 passed (6)\n      Tests  48 passed (48)\n   Start at  16:08:10\n   Duration  379ms (transform 438ms, setup 0ms, collect 610ms, tests 48ms, environment 1ms, prepare 442ms)\n\n",
+      "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+    },
+    {
+      "command": "node scripts/healthcheck.mjs --json",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 99.54619099999945,
+      "stdout": "{\n  \"results\": [\n    {\n      \"name\": \"version\",\n      \"tag\": \"PASS\",\n      \"detail\": \"all sources at 0.1.0\"\n    },\n    {\n      \"name\": \"plugin\",\n      \"tag\": \"PASS\",\n      \"detail\": \"14 skills, 13 commands\"\n    },\n    {\n      \"name\": \"codex\",\n      \"tag\": \"PASS\",\n      \"detail\": \"13 skills with skill.toml + README\"\n    },\n    {\n      \"name\": \"workflows\",\n      \"tag\": \"PASS\",\n      \"detail\": \"12 workflows, all script refs resolve\"\n    },\n    {\n      \"name\": \"pathguard\",\n      \"tag\": \"PASS\",\n      \"detail\": \"path-guard.mjs present (run separately for full scan)\"\n    },\n    {\n      \"name\": \"examples\",\n      \"tag\": \"PASS\",\n      \"detail\": \"2 runnable examples present\"\n    },\n    {\n      \"name\": \"catalogCount\",\n      \"tag\": \"PASS\",\n      \"detail\": \"20 templates in JSON + TS test + Rust test (in sync)\"\n    },\n    {\n      \"name\": \"pages\",\n      \"tag\": \"SKIP\",\n      \"detail\": \"opt-in (--probe-pages to enable)\"\n    }\n  ],\n  \"ok\": true\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": "node scripts/dev-toolkit.mjs --check-health",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 83.99478199999976
+    },
+    {
+      "command": "npm pack --json --ignore-scripts --pack-destination /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/candidate",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 441.42508200000066
+    },
+    {
+      "command": "tar -tzf /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/candidate/metaharness-weight-eft-0.1.2.tgz",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 4.419235999999728
+    },
+    {
+      "command": "node dist/cli.js status",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate/packages/weight-eft",
+      "exitCode": 0,
+      "elapsedMs": 88.90841199999977
+    },
+    {
+      "command": "git add -- docs/ecosystem/package-improvement-policy.md packages/weight-eft/AGENTS.md packages/weight-eft/package.json",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 224.17322100000092
+    },
+    {
+      "command": "git write-tree",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 7.5242660000003525
+    },
+    {
+      "command": "git rev-parse e0dfd44da72b7adfb7c57fdd42d124be58ed7086^{tree}",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 3.2432880000014848
+    },
+    {
+      "command": "git diff --cached --binary e0dfd44da72b7adfb7c57fdd42d124be58ed7086 -- docs/ecosystem/package-improvement-policy.md packages/weight-eft/AGENTS.md packages/weight-eft/package.json",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 3.9961010000006354
+    },
+    {
+      "command": "git read-tree 185c682bcf7b34790fe527ea2309046db56c1300",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 8.17632599999888
+    },
+    {
+      "command": "git apply --cached --reverse --check /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/weight-eft-guidance.patch",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 3.2363270000005286
+    },
+    {
+      "command": "git apply --cached --reverse /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/weight-eft-guidance.patch",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 4.779066999999486
+    },
+    {
+      "command": "git write-tree",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 5.019808999999441
+    },
+    {
+      "command": "npm --version",
+      "cwd": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-candidate",
+      "exitCode": 0,
+      "elapsedMs": 103.25711099999899
+    }
+  ],
+  "packs": {
+    "baseline": {
+      "id": "@metaharness/weight-eft@0.1.2",
+      "name": "@metaharness/weight-eft",
+      "version": "0.1.2",
+      "size": 35235,
+      "unpackedSize": 115755,
+      "shasum": "57ff308bfb9716fb9bf7a5a832f9c2317cf2afb3",
+      "integrity": "sha512-61CaO99ESf5tuVFvzMCttRhNvFmsC6d/6VAlim/raMlEYMq/FGfUHj2pUC5LzhehYfKH89P2s68MnqetjXPwOA==",
+      "filename": "metaharness-weight-eft-0.1.2.tgz",
+      "entryCount": 35,
+      "bundled": [],
+      "sha256": "8906601df7d664367ecbfd5eeb249c64416bcdb27eaec9c8d9d9e4ba5dbee631",
+      "fileHashes": {
+        "package/LICENSE": "09ed6717912f408da29e15b55170cd56c9658218a540b7c72e70909b9101274c",
+        "package/dist/cli.js": "30225ee87e20db43a3c7ee66bb67e66980117b7392082eea6e603b5e2ca444b0",
+        "package/dist/eval.js": "f9494d4c46ecf6b69da4bd0fbfe338081b302528e5cac1e58d3d87026f7b48e6",
+        "package/dist/export.js": "b5688b9d8baac880ec2734b22e800f7f450ed0086b06a95134064c0d1ea5b6d2",
+        "package/dist/genome.js": "1868f599cb4cc539850996ca742f97482f6c7a1f968cf84c7cebadcafd721d8c",
+        "package/dist/index.js": "4d6866df10304fd4b4e022716874fd38676ed36742a76db1d1b244a2be00652b",
+        "package/dist/reward-hack.js": "419bdcb7c0f4bea3c253c5aae6aac8a455af1a79f57482816b55946755963a97",
+        "package/dist/train.js": "c072c02ea948b0b48f8f09ce51ba75a23cf308235df3411738262487f0404268",
+        "package/dist/types.js": "16b603a30498e1b183780e681cd3b167192383e754ab5741c66721a3623274b0",
+        "package/package.json": "b8d139924950c0dd8c0ab468092cd7e849235bdef843770c9fe20d00d5be9122",
+        "package/dist/cli.d.ts.map": "8ecdad3a580b877ca6863199f22040be9c6522251721c727e738478ec48e770e",
+        "package/dist/cli.js.map": "c2857f3b51119e2f8cd0e021c3ac4cfe1c7999dbdc43a24ae27532e641aceabd",
+        "package/dist/eval.d.ts.map": "b8924b6be098d0b8cc106bf24239fc5c7b96163207f43b4165f0062adcbf1be3",
+        "package/dist/eval.js.map": "bb9c61c847c43d3bc179860d93dcab7d24837a2b9d67105f5ce32a87b365147e",
+        "package/dist/export.d.ts.map": "e8508cbb14384805cb0b1402591e47225324b39820884439da170eda7f9c56be",
+        "package/dist/export.js.map": "ed59e817f605e23fbccc479c700cf3329b85d56aa469198451f7e8b7606801b4",
+        "package/dist/genome.d.ts.map": "bb7bc2fd291d43517cea0acbd24f047e394693951e976255db8676f120d577d4",
+        "package/dist/genome.js.map": "940b8992c1437351ad7d36de2e545af8384e1062fa1121f92b308c3923c34e4d",
+        "package/dist/index.d.ts.map": "12f86abbb067667b3e6657fd7e486987bc3b3a1ba363833a564ada3c4beb623a",
+        "package/dist/index.js.map": "0eec82c6157fc855f97adfc5a76d3233cb75d2e1ca3d05bb828703b239702d4b",
+        "package/dist/reward-hack.d.ts.map": "0c21a92ca39e9703a58e170af3a754f5be1eb2634e02170d0083d3de3584d661",
+        "package/dist/reward-hack.js.map": "70a58c7e36136a354b9df5d4c7132c297c089ce8318fc13707ec7e25a9d1eb14",
+        "package/dist/train.d.ts.map": "8422c6e366dd976bf279823720bb899d711f08fa098b82ca650a549d5b6d9ee0",
+        "package/dist/train.js.map": "4a4c8d2b10bb9660688de877af8a0a5ba7f571ae84f2d6593863cc2919251f24",
+        "package/dist/types.d.ts.map": "386507991dbabbdf8f8f743e464774bdfad76690b0fb5d4e3b2012944434d49a",
+        "package/dist/types.js.map": "ce85bf3482b0f7546bee8e111374057453e817436fb87bee7fdc03c10cb1899e",
+        "package/README.md": "d1d6979e6217386906455ad468e7746a040e4941a2cbcdeda0f3e2c5d450821d",
+        "package/dist/cli.d.ts": "2b33b11815ce57de677276f13269835abbabb21e54aa78c1bb356cb758276e95",
+        "package/dist/eval.d.ts": "9d2e6372f3017bdee55895847a21c475c0c01315aae2e96479db1ca12531609b",
+        "package/dist/export.d.ts": "454f9828399e400af90cdb93ac8f2e1af0e459f569edb95d84710f1ed72c0690",
+        "package/dist/genome.d.ts": "ef6d0409d178aff49513b333cac2eb90e98a4c1da36f7bfc0047de690eeb4d3f",
+        "package/dist/index.d.ts": "8490d2a671b8372a2b03cd89f2d72516b503c1558f471d0313c5fa2924ca6a1d",
+        "package/dist/reward-hack.d.ts": "8e51e17144895e5a99d60dfa4c1c94f87dabec264d241cd79989c0adb90179f0",
+        "package/dist/train.d.ts": "a84697d323f0502c7f4627413c79a4b6298abb5734c81549d4e9677ddf971b26",
+        "package/dist/types.d.ts": "98dd8477a6d7630ae4150707a94dbc60e1762e0cc7bffeba97bc1edffa244020"
+      }
+    },
+    "candidate": {
+      "id": "@metaharness/weight-eft@0.1.2",
+      "name": "@metaharness/weight-eft",
+      "version": "0.1.2",
+      "size": 36411,
+      "unpackedSize": 118438,
+      "shasum": "d443285f2cf7211e1190a0cf48e900c3cf97f065",
+      "integrity": "sha512-02FogbwiqwMKU//kY5DrbAQlHN4hhwzoi53LkTH5GUeT/LEMXymU++Bw66X7TwGOp0XaoE6WIxz5xwXYyYhmdw==",
+      "filename": "metaharness-weight-eft-0.1.2.tgz",
+      "entryCount": 36,
+      "bundled": [],
+      "sha256": "3efd3eb75a572c86eaddb01603d8566736e8de78a2e93003719749068b2258f4",
+      "fileHashes": {
+        "package/LICENSE": "09ed6717912f408da29e15b55170cd56c9658218a540b7c72e70909b9101274c",
+        "package/dist/cli.js": "30225ee87e20db43a3c7ee66bb67e66980117b7392082eea6e603b5e2ca444b0",
+        "package/dist/eval.js": "f9494d4c46ecf6b69da4bd0fbfe338081b302528e5cac1e58d3d87026f7b48e6",
+        "package/dist/export.js": "b5688b9d8baac880ec2734b22e800f7f450ed0086b06a95134064c0d1ea5b6d2",
+        "package/dist/genome.js": "1868f599cb4cc539850996ca742f97482f6c7a1f968cf84c7cebadcafd721d8c",
+        "package/dist/index.js": "4d6866df10304fd4b4e022716874fd38676ed36742a76db1d1b244a2be00652b",
+        "package/dist/reward-hack.js": "419bdcb7c0f4bea3c253c5aae6aac8a455af1a79f57482816b55946755963a97",
+        "package/dist/train.js": "c072c02ea948b0b48f8f09ce51ba75a23cf308235df3411738262487f0404268",
+        "package/dist/types.js": "16b603a30498e1b183780e681cd3b167192383e754ab5741c66721a3623274b0",
+        "package/package.json": "3ce336d25ea00b85cb1c756f62b9588dbd4c6edeec72da761f00117ba14eeb1b",
+        "package/dist/cli.d.ts.map": "8ecdad3a580b877ca6863199f22040be9c6522251721c727e738478ec48e770e",
+        "package/dist/cli.js.map": "c2857f3b51119e2f8cd0e021c3ac4cfe1c7999dbdc43a24ae27532e641aceabd",
+        "package/dist/eval.d.ts.map": "b8924b6be098d0b8cc106bf24239fc5c7b96163207f43b4165f0062adcbf1be3",
+        "package/dist/eval.js.map": "bb9c61c847c43d3bc179860d93dcab7d24837a2b9d67105f5ce32a87b365147e",
+        "package/dist/export.d.ts.map": "e8508cbb14384805cb0b1402591e47225324b39820884439da170eda7f9c56be",
+        "package/dist/export.js.map": "ed59e817f605e23fbccc479c700cf3329b85d56aa469198451f7e8b7606801b4",
+        "package/dist/genome.d.ts.map": "bb7bc2fd291d43517cea0acbd24f047e394693951e976255db8676f120d577d4",
+        "package/dist/genome.js.map": "940b8992c1437351ad7d36de2e545af8384e1062fa1121f92b308c3923c34e4d",
+        "package/dist/index.d.ts.map": "12f86abbb067667b3e6657fd7e486987bc3b3a1ba363833a564ada3c4beb623a",
+        "package/dist/index.js.map": "0eec82c6157fc855f97adfc5a76d3233cb75d2e1ca3d05bb828703b239702d4b",
+        "package/dist/reward-hack.d.ts.map": "0c21a92ca39e9703a58e170af3a754f5be1eb2634e02170d0083d3de3584d661",
+        "package/dist/reward-hack.js.map": "70a58c7e36136a354b9df5d4c7132c297c089ce8318fc13707ec7e25a9d1eb14",
+        "package/dist/train.d.ts.map": "8422c6e366dd976bf279823720bb899d711f08fa098b82ca650a549d5b6d9ee0",
+        "package/dist/train.js.map": "4a4c8d2b10bb9660688de877af8a0a5ba7f571ae84f2d6593863cc2919251f24",
+        "package/dist/types.d.ts.map": "386507991dbabbdf8f8f743e464774bdfad76690b0fb5d4e3b2012944434d49a",
+        "package/dist/types.js.map": "ce85bf3482b0f7546bee8e111374057453e817436fb87bee7fdc03c10cb1899e",
+        "package/AGENTS.md": "54bd4cc994135cd13f021d3f8e6e79d8db4b21cfd815e6f7f725e2eaf1e3c12e",
+        "package/README.md": "d1d6979e6217386906455ad468e7746a040e4941a2cbcdeda0f3e2c5d450821d",
+        "package/dist/cli.d.ts": "2b33b11815ce57de677276f13269835abbabb21e54aa78c1bb356cb758276e95",
+        "package/dist/eval.d.ts": "9d2e6372f3017bdee55895847a21c475c0c01315aae2e96479db1ca12531609b",
+        "package/dist/export.d.ts": "454f9828399e400af90cdb93ac8f2e1af0e459f569edb95d84710f1ed72c0690",
+        "package/dist/genome.d.ts": "ef6d0409d178aff49513b333cac2eb90e98a4c1da36f7bfc0047de690eeb4d3f",
+        "package/dist/index.d.ts": "8490d2a671b8372a2b03cd89f2d72516b503c1558f471d0313c5fa2924ca6a1d",
+        "package/dist/reward-hack.d.ts": "8e51e17144895e5a99d60dfa4c1c94f87dabec264d241cd79989c0adb90179f0",
+        "package/dist/train.d.ts": "a84697d323f0502c7f4627413c79a4b6298abb5734c81549d4e9677ddf971b26",
+        "package/dist/types.d.ts": "98dd8477a6d7630ae4150707a94dbc60e1762e0cc7bffeba97bc1edffa244020"
+      }
+    }
+  },
+  "packComparison": {
+    "compressedBytesBefore": 35235,
+    "compressedBytesAfter": 36411,
+    "deltaBytes": 1176,
+    "unchangedNonmanifestFileCount": 34,
+    "changed": [
+      "package/package.json"
+    ],
+    "added": [
+      "package/AGENTS.md"
+    ]
+  },
+  "sources": {
+    "docs/ecosystem/package-improvement-policy.md": "8998d86e3530ccb3eaf51e66c89a8314f048cc86f960fc3d323901687b91fdc3",
+    "packages/weight-eft/AGENTS.md": "54bd4cc994135cd13f021d3f8e6e79d8db4b21cfd815e6f7f725e2eaf1e3c12e",
+    "packages/weight-eft/package.json": "3ce336d25ea00b85cb1c756f62b9588dbd4c6edeec72da761f00117ba14eeb1b"
+  },
+  "validation": {
+    "baselineTests": 48,
+    "candidateTests": 48,
+    "testFiles": 6,
+    "testSkips": 0,
+    "build": true,
+    "lint": true,
+    "healthcheck": "7 PASS, 1 opt-in live Pages probe SKIP; not a functional-test skip",
+    "runtimeContentUnchanged": true
+  },
+  "rollback": {
+    "patchPath": "/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/weight-eft-guidance.patch",
+    "patchSha256": "4281d42ba5298bd09d29eb0ee68ce4743e4becc266e86543beb43ec2706b6e03",
+    "reversePatchRestoresTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "exactMatch": true
+  },
+  "limitations": [
+    "Source package build/lint/tests and local unsigned packs only, not release validation.",
+    "Full repository Rust/WASM/workspace and signed release gates not run; remain authoritative.",
+    "No actual GPU training, model inference, paid compute, publication or security advisory clearance.",
+    "No performance, adoption, runtime integration coverage or download-count gain claimed.",
+    "Shared policy exists in source only; bundled AGENTS.md explicitly documents this and repeats essential constraints."
+  ],
+  "disposition": "draft PR submitted; unsigned source pack verified; not released",
+  "freshPackConsumers": {
+    "baseline": {
+      "consumerDirectory": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-9SSAyQ",
+      "commands": [
+        {
+          "command": "npm install --ignore-scripts --no-audit --no-fund --cache /workspace/scratch/1511111b1812/weight-eft-pack-consumer-9SSAyQ/empty-cache /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/baseline/metaharness-weight-eft-0.1.2.tgz",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-9SSAyQ",
+          "exitCode": 0,
+          "elapsedMs": 496.809137,
+          "stdout": "\nadded 1 package in 388ms\n",
+          "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+        },
+        {
+          "command": "node --input-type=module -e import assert from 'node:assert/strict'; import fs from 'node:fs'; import {exportTrainingData,assertTrainEvalDisjoint} from '@metaharness/weight-eft'; const archive=JSON.parse(fs.readFileSync(\"/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft/__tests__/fixtures/mock-archive.json\")); const all=exportTrainingData(archive,{evalHoldout:[]}); assert.equal(all.report.sftRows,3); assert.equal(all.report.dpoRows,1); const guarded=exportTrainingData(archive,{evalHoldout:['django__django-15252']});assert.equal(guarded.report.excludedByHoldout,2);assert(!guarded.report.sftInstanceIds.includes('django__django-15252'));assert.throws(()=>assertTrainEvalDisjoint(archive,['astropy__astropy-14182']),/contamination guard/i);console.log(JSON.stringify({sftRows:all.report.sftRows,dpoRows:all.report.dpoRows,excludedByHoldout:guarded.report.excludedByHoldout,guard:true}));",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-9SSAyQ",
+          "exitCode": 0,
+          "elapsedMs": 78.45051799999999,
+          "stdout": "{\"sftRows\":3,\"dpoRows\":1,\"excludedByHoldout\":2,\"guard\":true}\n",
+          "stderr": ""
+        },
+        {
+          "command": "node node_modules/@metaharness/weight-eft/dist/cli.js status",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-9SSAyQ",
+          "exitCode": 0,
+          "elapsedMs": 77.63135199999999,
+          "stdout": "@metaharness/weight-eft — evolutionary fine-tuning (ADR-198)\n\nTHESIS: distill the archive into the open cheap tier (GLM/Qwen) via LoRA so\nthe cost-cascade escalates to a frontier model LESS often. Cost-Pareto axis,\nNOT the frontier ceiling — a 7-14B tune will not crack the hard tail.\n\nDATA RECIPE:\n  SFT = ALL gold-resolved trajectories (cheap-own AND frontier-escalation;\n        frontier successes for off-policy-safe DISTILLATION).\n  DPO = ON-POLICY cheap-vs-cheap pairs ONLY (chosen=resolved, rejected=failed,\n        same model + same instance). No frontier-chosen pairs (off-policy).\n\nGUARDS:\n  - Contamination: strict train/eval instance-ID disjointness (throws on overlap).\n  - Long-context: drop/truncate over-budget trajectories, always reported.\n  - Tool-call fidelity: tool_calls preserved (never stringified).\n\nTRAIN: GPU-gated. Dry-run (plan) unless --train AND a GPU/endpoint is detected.\n       Target 7-14B (Qwen2.5-Coder-7B / GLM-4-9B), NOT 32B.\n\nSubcommands: export | train | eval | status\n",
+          "stderr": ""
+        }
+      ],
+      "smoke": {
+        "sftRows": 3,
+        "dpoRows": 1,
+        "excludedByHoldout": 2,
+        "guard": true
+      },
+      "installedGuidance": false,
+      "packageVersion": "0.1.2"
+    },
+    "candidate": {
+      "consumerDirectory": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-6k0Vvp",
+      "commands": [
+        {
+          "command": "npm install --ignore-scripts --no-audit --no-fund --cache /workspace/scratch/1511111b1812/weight-eft-pack-consumer-6k0Vvp/empty-cache /workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-evidence/candidate/metaharness-weight-eft-0.1.2.tgz",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-6k0Vvp",
+          "exitCode": 0,
+          "elapsedMs": 446.64884900000004,
+          "stdout": "\nadded 1 package in 338ms\n",
+          "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+        },
+        {
+          "command": "node --input-type=module -e import assert from 'node:assert/strict'; import fs from 'node:fs'; import {exportTrainingData,assertTrainEvalDisjoint} from '@metaharness/weight-eft'; const archive=JSON.parse(fs.readFileSync(\"/workspace/scratch/1511111b1812/weight-eft-guidance-cycle6-baseline/packages/weight-eft/__tests__/fixtures/mock-archive.json\")); const all=exportTrainingData(archive,{evalHoldout:[]}); assert.equal(all.report.sftRows,3); assert.equal(all.report.dpoRows,1); const guarded=exportTrainingData(archive,{evalHoldout:['django__django-15252']});assert.equal(guarded.report.excludedByHoldout,2);assert(!guarded.report.sftInstanceIds.includes('django__django-15252'));assert.throws(()=>assertTrainEvalDisjoint(archive,['astropy__astropy-14182']),/contamination guard/i);console.log(JSON.stringify({sftRows:all.report.sftRows,dpoRows:all.report.dpoRows,excludedByHoldout:guarded.report.excludedByHoldout,guard:true}));",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-6k0Vvp",
+          "exitCode": 0,
+          "elapsedMs": 89.6337880000001,
+          "stdout": "{\"sftRows\":3,\"dpoRows\":1,\"excludedByHoldout\":2,\"guard\":true}\n",
+          "stderr": ""
+        },
+        {
+          "command": "node node_modules/@metaharness/weight-eft/dist/cli.js status",
+          "cwd": "/workspace/scratch/1511111b1812/weight-eft-pack-consumer-6k0Vvp",
+          "exitCode": 0,
+          "elapsedMs": 69.43703400000004,
+          "stdout": "@metaharness/weight-eft — evolutionary fine-tuning (ADR-198)\n\nTHESIS: distill the archive into the open cheap tier (GLM/Qwen) via LoRA so\nthe cost-cascade escalates to a frontier model LESS often. Cost-Pareto axis,\nNOT the frontier ceiling — a 7-14B tune will not crack the hard tail.\n\nDATA RECIPE:\n  SFT = ALL gold-resolved trajectories (cheap-own AND frontier-escalation;\n        frontier successes for off-policy-safe DISTILLATION).\n  DPO = ON-POLICY cheap-vs-cheap pairs ONLY (chosen=resolved, rejected=failed,\n        same model + same instance). No frontier-chosen pairs (off-policy).\n\nGUARDS:\n  - Contamination: strict train/eval instance-ID disjointness (throws on overlap).\n  - Long-context: drop/truncate over-budget trajectories, always reported.\n  - Tool-call fidelity: tool_calls preserved (never stringified).\n\nTRAIN: GPU-gated. Dry-run (plan) unless --train AND a GPU/endpoint is detected.\n       Target 7-14B (Qwen2.5-Coder-7B / GLM-4-9B), NOT 32B.\n\nSubcommands: export | train | eval | status\n",
+          "stderr": ""
+        }
+      ],
+      "smoke": {
+        "sftRows": 3,
+        "dpoRows": 1,
+        "excludedByHoldout": 2,
+        "guard": true
+      },
+      "installedGuidance": true,
+      "packageVersion": "0.1.2"
+    }
+  },
+  "pullRequest": "https://github.com/ruvnet/metaharness/pull/412",
+  "submittedCommit": "c22009af121e9e0b04ba7bd7f20391e2389d142c",
+  "clockNote": "Raw executor wall clock differs from orchestration UTC; durations use monotonic clocks."
+}
