@@ -14,7 +14,9 @@
 <sub>Created by <a href="https://github.com/ruvnet">Reuven Cohen · rUv</a>. <a href="docs/harness-origins.md">The origin story, illustrated · dated commits and prior context</a>.</sub>
 
 <p align="center">
-<a href="data/npm-downloads.latest.json"><img src="docs/assets/readme/badges/downloads.svg?v=mobile-readable-3" width="300" alt="Ecosystem npm downloads: 12.52M over 12 months through October 4, 2026"></a>
+<a href="data/npm-downloads.latest.json"><img src="docs/assets/readme/badges/downloads.svg?v=20261017-97022120" width="440" alt="Ecosystem npm downloads: 97,022,120 observed events across 399 packages, October 13, 2025 through October 12, 2026; verified October 17, 2026"></a>
+<br>
+<sub><strong>97,022,120 npm download events</strong> · 399 of 401 ecosystem packages measured · 365 days through October 12, 2026.<br>Verified October 17. Includes CI and reinstalls; reporting gaps remain. <a href="data/npm-downloads.latest.json">Counts, coverage and sources</a>.<br>The previous badge covered six selected packages; this refresh uses the full measured ecosystem cohort.</sub>
 <br>
 <a href="https://github.com/ruvnet/claude-flow"><img src="docs/assets/readme/badges/claude.svg?v=mobile-readable-3" width="300" alt="Claude Code"></a>
 <a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="docs/assets/readme/badges/codex.svg?v=mobile-readable-3" width="300" alt="Codex Plugin"></a>
