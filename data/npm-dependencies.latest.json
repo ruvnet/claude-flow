@@ -1,6 +1,7 @@
 {
   "schema": "ruflo-ecosystem-dependency-graph/v1",
-  "capturedAt": "2026-10-18T00:58:03.732Z",
+  "capturedAt": "2026-10-18T01:04:09.655Z",
+  "cycleSemantics": "Package-name graph of captured latest manifests; ranges are not resolved and cycles do not prove a resolved installation cycle.",
   "source": "Public npm registry latest manifests, pinned to captured versions; metadata only. Ranges are declarations, not resolved installations.",
   "counts": {
     "inventory": 401,
@@ -20366,15 +20367,15 @@
     }
   ],
   "missing": [],
-  "hardCycles": [
+  "hardDeclarationCycles": [
     [
       "strange-loops",
       "sublinear-time-solver"
     ]
   ],
-  "hardDependenciesAcyclic": false,
+  "hardDeclarationGraphAcyclic": false,
   "metadataComplete": true,
-  "releaseReady": false,
+  "graphPlanAvailable": false,
   "releaseOrder": null,
   "reverseImpact": {
     "@agentic-robotics/cli": [
