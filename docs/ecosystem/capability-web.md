@@ -19,6 +19,9 @@ Install the pinned analysis dependency into a separate tooling directory. This d
 ```bash
 npm install --prefix /tmp/ruflo-ruvector-proof --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
 npm install --prefix /tmp/ruflo-memory-proof --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0 @metaharness/harness@0.2.0
+npm install --prefix /tmp/ruflo-weight-proof --ignore-scripts --no-audit --no-fund --save-exact @metaharness/weight-eft@0.1.2
+RUFLO_WEIGHT_EFT_REQUIRED=1 \
+RUFLO_WEIGHT_EFT_RESOLVE_FROM=/tmp/ruflo-weight-proof/package.json \
 RUFLO_REQUIRE_HARNESS=1 \
 RUFLO_HARNESS_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_MEMORY_REQUIRED=1 \
@@ -47,7 +50,7 @@ The ledger deduplicates equivalent source identities. Checks still execute every
 | Persistent scoped memory and native retrieval after process restart | Integration |
 | Local harness execution, persisted result retrieval and resumed task | Integration |
 
-The current registry has nine checks covering 11 packages; 390 of 401 remain without registered coverage. Six inventory packages have a registered integration check; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md) and [agent-memory starter v1](persistent-agent-memory-v1.md) document the real package compositions and their limits. Passing contracts alone do not establish runtime interoperability.
+The current registry has ten checks covering 11 packages; 390 of 401 remain without registered coverage. Seven inventory packages have a registered integration check; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md), [agent-memory starter v1](persistent-agent-memory-v1.md), and [held-out evaluation starter v1](heldout-agent-memory-v1.md) document the real package compositions and their limits. Passing contracts alone do not establish runtime interoperability.
 
 The graph artifact measurement explains 43 previously isolated nodes, from 138 to 95, a 31.2 percent reduction. Its three required graph and runtime evidence checks pass. This makes the captured annotations ready for review; it does not create new runtime integrations or measure adoption. Global runtime promotion remains rejected.
 
@@ -65,7 +68,7 @@ The persistent-memory check also runs a separate-process stale-reader race and S
 
 The ninth check runs the installed HarnessKernel with a bounded local arithmetic worker, persists only successfully verified results, exits, retrieves the first result through the native vector index, then executes a second task with it. Negative checks prove policy denial executes no worker and verification failure publishes no memory. This is deterministic task execution, not LLM reasoning, training improvement or an arbitrary-code sandbox. No consumer dependency is added to make the graph look connected.
 
-Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the eighth and ninth capabilities have source/receipt tests but await a fresh visual browser pass.
+Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the eighth through tenth capabilities have source/receipt tests but await a fresh visual browser pass.
 
 Next, register and execute one real cross package workflow at a time. Expand coverage based on successful tasks and compatibility evidence. No adoption telemetry is collected, and no increase in user adoption is claimed. Existing signing and release gates remain mandatory.
 

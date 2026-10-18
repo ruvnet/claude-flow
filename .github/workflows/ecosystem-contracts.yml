@@ -69,4 +69,6 @@ jobs:
           RUFLO_MEMORY_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
           RUFLO_REQUIRE_HARNESS: '1'
           RUFLO_HARNESS_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
-        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-agent-memory.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs
+          RUFLO_WEIGHT_EFT_REQUIRED: '1'
+          RUFLO_WEIGHT_EFT_RESOLVE_FROM: ${{ runner.temp }}/weight-eft-proof/package.json
+        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-agent-memory.installed.test.mjs scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs

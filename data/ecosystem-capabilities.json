@@ -3,6 +3,13 @@
   "semantics": "Registry entries describe bounded checks, not universal package interoperability. Availability requires a separate environment probe. Download events are not adoption.",
   "capabilities": [
     {
+      "id": "heldout-agent-evaluation",
+      "title": "Fixed held-out local task evaluation across harness, memory, native retrieval and Weight EFT",
+      "kind": "integration",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core", "@metaharness/weight-eft"],
+      "checks": ["heldout-agent-evaluation"]
+    },
+    {
       "id": "persistent-agent-memory",
       "title": "Bounded local harness task execution with persisted native retrieval after restart",
       "kind": "integration",
@@ -110,6 +117,12 @@
     }
   ],
   "checks": [
+    {
+      "id": "heldout-agent-evaluation",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core", "@metaharness/weight-eft"],
+      "testFiles": ["scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs"],
+      "sourceFiles": ["scripts/lib/ecosystem-heldout-evaluation.mjs", "scripts/examples/heldout-agent-memory-v1.mjs", "scripts/lib/ecosystem-agent-memory-workflow.mjs", "scripts/examples/persistent-agent-memory-v1.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs"]
+    },
     {
       "id": "persistent-agent-memory",
       "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core"],

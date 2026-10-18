@@ -761,7 +761,26 @@
     },
     {
       "name": "@metaharness/harness",
-      "status": "pending-source-repository-verification"
+      "status": "source-documented",
+      "stage": "draft-pr-source-documented-pack-verified",
+      "repository": "https://github.com/ruvnet/metaharness",
+      "registryRepositoryAlias": "https://github.com/ruvnet/agent-harness-generator",
+      "repositoryId": 1268611404,
+      "packagePath": "packages/harness",
+      "guidance": "packages/harness/AGENTS.md",
+      "sourceBaseCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+      "sourceCommit": "78e6e2ee92c7eb5311e703396d349ac0f470d335",
+      "registryVersionInspected": "0.2.0",
+      "sourceVersionInspected": "0.2.0",
+      "pullRequest": "https://github.com/ruvnet/metaharness/pull/415",
+      "pullRequestState": "open-draft",
+      "npmArtifact": "unsigned-proposed-pack-verified-not-released",
+      "validation": "data/ecosystem-guidance-harness.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": true,
+      "merged": false,
+      "released": false,
+      "nextAction": "Maintainer review and existing full workspace, Rust/WASM/native, security and signed release gates. Scoped build/lint and 62 tests pass on baseline and candidate; fresh local pack consumers pass actual kernel, policy and receipt checks. Shared policy matches draft PR412. Existing advisory gate failures remain unresolved; no publication."
     },
     {
       "name": "@metaharness/hermes",
