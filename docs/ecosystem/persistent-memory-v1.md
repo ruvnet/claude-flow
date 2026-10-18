@@ -14,7 +14,7 @@ npm install --prefix "$proof_dir" --ignore-scripts --no-audit --no-fund --save-e
   @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0
 export RUFLO_MEMORY_RESOLVE_FROM="$proof_dir/package.json"
 export RUFLO_MEMORY_REQUIRED=1
-node --test scripts/tests/ecosystem-memory-installed.test.mjs
+node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-snapshot.test.mjs
 
 printf '%s' '{"records":[{"key":"release-check","content":"Keep signed release gates enabled","vector":[1,0,0]}]}' |
   node scripts/ecosystem-memory.mjs write "$proof_dir/memory.sqlite" demo
@@ -29,7 +29,17 @@ For the complete umbrella consumer, point `RUFLO_MEMORY_RESOLVE_FROM` at its pac
 
 The integration test creates unpredictable content in the parent, passes it only to the writer, waits for successful exit, then starts readers without that content or its ID. It verifies persisted content and IDs, vector ranking against a distractor, exclusion of a closer vector in another namespace, repeated restart, an empty namespace, corrupt/missing state, invalid vector dimensions, missing resolution and rejection of nonnative fallback. A missing required dependency fails instead of becoming a passing skip.
 
-This is a trusted-local, single-writer starter, not an arbitrary-file service or multi-tenant authorization boundary. Keep the database directory private. Writes append records; use unique keys. Limits are 1 MiB CLI input, 1,000 records per batch/scoped index, 4,096 dimensions and 64 MiB database on retrieval. No crash-atomic persistence, concurrent writer safety, encryption, deletion workflow, native-index persistence or cross-platform cleanup guarantee is established. Supplied three-dimensional fixture vectors test plumbing and ranking, not natural-language embedding quality. Native cleanup is locally verified only on Linux.
+This is a trusted-local POSIX starter, not an arbitrary-file service or multi-tenant authorization boundary. Keep the database directory private and require every writer to use this wrapper. Writes append records; use unique keys. Limits are 1 MiB CLI input, 1,000 records per batch/scoped index, 4,096 dimensions and 64 MiB database on read and write. Windows is explicitly unsupported by this snapshot protocol. No encryption, deletion workflow, native-index persistence or network-filesystem guarantee is established. Supplied fixture vectors test plumbing and ranking, not natural-language embedding quality. Native cleanup is locally verified only on Linux.
+
+### Atomic snapshot safety revision
+
+The published SQL/WASM backend persists on shutdown, even after a read. A stale reader could therefore overwrite a newer writer. The starter now gives readers private disposable snapshots. A writer acquires an adjacent exclusive lock, updates a same-filesystem private snapshot, closes the backend, validates and syncs the complete export, then atomically replaces the authoritative file and syncs its parent directory. Publication rechecks ownership and the five-minute lease. This changes the consumer composition, not installed package source or dependencies.
+
+The identical separate-process reproducer fails on baseline `039927ac4c953ff61e8c61738d3d5cc63dfb0595` and passes after the fix. Real-package tests kill writers with SIGKILL immediately before and after replacement: a fresh process retrieves the old complete state before replacement and the new complete state afterward. Competing writers are rejected. These are process-interruption tests, **not power-loss durability tests**. Older writers that bypass the wrapper are not coordinated.
+
+An interrupted writer deliberately leaves `<database>.writer.lock` and may leave a `.ruflo-memory-stage-*` directory. Never steal a lock just because its expiry passed. Stop writers, inspect `owner.json`, establish that the owning process is dead, preserve the authoritative database, verify retrieval, then remove only that confirmed stale lock and its identified staging artifact. An error saying `committed` means replacement already happened: inspect saved state before retrying an append. Cleanup errors do not imply rollback. Tests recover only after observing child-process exit in their own temporary directory.
+
+Current lock metadata does not record the staging path. Preserve any orphan stage whose ownership cannot be established; do not infer ownership from a similar filename or age.
 
 ## Retention and rollback
 
@@ -50,4 +60,4 @@ The earlier 109,377,313-byte saving (20.947%) is retained, not counted as a seco
 
 The new capability is `persistent-memory-retrieval`. All three inventory packages were already covered by contracts: total package coverage remains 10/401, while integration-covered packages increase from 3 to 5 and registered checks from 7 to 8. `sql.js` is outside the captured ecosystem inventory; its real use is recorded without changing that inventory.
 
-Rollback removes this starter, its registry entry and the CI memory step; preserve consumer SQLite files. Package dependency declarations and release authority are unchanged. Next: crash-safe persistence, update/delete consistency and actual agent execution against retrieved memory, each with independent acceptance evidence.
+Rollback removes this starter, its registry entry and the CI memory step; preserve consumer SQLite files. Reverting just the safety revision restores the previous workflow and registry/CI files and removes the new helper/tests, with writers stopped. This is source rollback, not data rollback, and reintroduces the stale-reader defect. Package dependency declarations and release authority are unchanged. Next: update/delete consistency and actual agent execution against retrieved memory, each with independent acceptance evidence. [Snapshot safety validation](../../data/ecosystem-memory-atomic.validation.json) records newer checks separately from the fixed payload and restart baselines.

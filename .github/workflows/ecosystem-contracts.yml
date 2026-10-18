@@ -28,6 +28,7 @@ jobs:
           scripts/tests/ecosystem-dependency-graph.test.mjs
           scripts/tests/ecosystem-connectivity.test.mjs
           scripts/tests/ecosystem-candidate.test.mjs
+          scripts/tests/ecosystem-memory-snapshot.test.mjs
           scripts/tests/ecosystem-rsi.test.mjs
           scripts/tests/ecosystem-loop.test.mjs
           scripts/tests/ecosystem-explorer.test.mjs
@@ -66,4 +67,4 @@ jobs:
           RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
           RUFLO_MEMORY_REQUIRED: '1'
           RUFLO_MEMORY_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
-        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs
+        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs

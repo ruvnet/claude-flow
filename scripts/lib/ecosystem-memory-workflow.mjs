@@ -1,13 +1,15 @@
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { readFile, stat, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, mkdtemp, rm } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
+import { withMemorySnapshot } from './ecosystem-memory-snapshot.mjs';
 
 // Bounded, single-writer consumer composition. SQLite is authoritative; the
 // native index is rebuilt from persisted, namespace-scoped embeddings each time.
-// This does not assert crash durability or native memory -> RuVector integration.
-export async function memoryWorkflow({ mode, databasePath, namespace, input, resolveFrom }) {
+// Snapshot isolation prevents reader shutdown from overwriting newer commits.
+// Atomic replacement is not a power-loss or native package durability guarantee.
+export async function memoryWorkflow({ mode, databasePath, namespace, input, resolveFrom, checkpoint }) {
   if (!['write', 'retrieve'].includes(mode)) throw new Error('Expected write or retrieve');
   if (typeof namespace !== 'string' || !namespace.trim()) throw new Error('Namespace required');
   if (!resolveFrom) throw new Error('RUFLO_MEMORY_RESOLVE_FROM required');
@@ -31,13 +33,9 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
         !vector.some(v => Math.fround(v) !== 0)) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
     return Float32Array.from(vector);
   };
-  const path = resolve(databasePath);
-  if (mode === 'retrieve') {
-    const info = await stat(path);
-    if (!info.isFile()) throw new Error('Persisted database required');
-    if (info.size > 64 * 1024 * 1024) throw new Error('Starter database exceeds 64 MiB');
-    if ((await readFile(path)).subarray(0, 16).toString() !== 'SQLite format 3\0') throw new Error('Invalid SQLite database');
-  }
+  const vector = mode === 'retrieve' ? validVector(input?.vector) : null;
+  const k = input?.k ?? 1;
+  if (mode === 'retrieve' && (!Number.isInteger(k) || k < 1 || k > 100)) throw new Error('k must be 1..100');
   let entriesToWrite;
   if (mode === 'write') {
     if (!Array.isArray(input?.records) || !input.records.length || input.records.length > 1000) throw new Error('Expected 1..1000 records');
@@ -49,7 +47,8 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
     if (new Set(entriesToWrite.map(e => e.key)).size !== entriesToWrite.length) throw new Error('Duplicate record keys');
     if (new Set(entriesToWrite.map(e => e.embedding.length)).size !== 1) throw new Error('Mixed vector dimensions');
   }
-  const memory = new SqlJsBackend({ databasePath: path, autoPersistInterval: 0,
+  return withMemorySnapshot({ databasePath, write: mode === 'write', checkpoint }, async workingPath => {
+  const memory = new SqlJsBackend({ databasePath: workingPath, autoPersistInterval: 0,
     wasmPath: memoryRequire.resolve('sql.js/dist/sql-wasm.wasm') });
   let folder;
   await memory.initialize();
@@ -59,9 +58,6 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
       await memory.persist();
       return { mode, versions, implementation: 'native', written: entriesToWrite.length, ids: entriesToWrite.map(e => e.id) };
     }
-    const vector = validVector(input.vector);
-    const k = input.k ?? 1;
-    if (!Number.isInteger(k) || k < 1 || k > 100) throw new Error('k must be 1..100');
     const entries = await memory.query({ type: 'hybrid', namespace, limit: 1001 });
     if (entries.length > 1000) throw new Error('Starter index limit exceeded; use a paginated production adapter');
     if (entries.some(e => !e.embedding || e.embedding.length !== vector.length)) throw new Error('Persisted embedding dimensions do not match query');
@@ -82,7 +78,8 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
     }
     return { mode, versions, implementation: 'native', indexed: entries.length, results };
   } finally {
-    await memory.shutdown();
-    if (folder) await rm(folder, { recursive: true, force: true });
+    try { await memory.shutdown(); }
+    finally { if (folder) await rm(folder, { recursive: true, force: true }); }
   }
+  });
 }
