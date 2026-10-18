@@ -83,7 +83,7 @@
       "durationMs": 74795.915025
     },
     "collector": {
-      "command": "python3 -m unittest discover -s scripts/tests -p \"test_*.py\"",
+      "command": "python3 scripts/tests/runtime-relationships.test.py",
       "tests": 15,
       "passed": 15,
       "exitCode": 0
