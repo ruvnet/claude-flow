@@ -1,0 +1,67 @@
+✔ real HarnessKernel executes, persists, restarts and consumes native vector-retrieved task output (1104.542979ms)
+ℹ {"firstPid":80,"secondPid":332,"firstMs":278.433308,"secondMs":333.397,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"harness":"0.2.0","taskSuccess":true}
+✔ default-deny policy invokes no worker and never changes persisted memory (846.387364ms)
+✔ failed fixed-oracle verification does not persist output or retry the local task (721.306724ms)
+✔ restart refuses absent or wrong-namespace results and invalid bounded inputs (1181.308493ms)
+✔ missing installed resolver, duplicate task writes and second-task oracle failures preserve state (1186.05726ms)
+✔ second-task policy denial may retrieve but invokes no worker and never writes memory (709.995628ms)
+✔ second-task wrong source digest rejects an otherwise correct result without writing (690.490203ms)
+✔ unqualified memory version is rejected before import or mutation using isolated metadata fixture (527.862343ms)
+✔ versioned starter completes two separate task processes and saved-result verification (897.541637ms)
+✔ real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay (3234.204238ms)
+✔ actual fixed held-out harness tasks restart and retrieve before real Weight EFT aggregation (3371.546514ms)
+ℹ {"elapsedMs":3368.6471340000003,"datasetHash":"820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6","weightEftVersion":"0.1.2","summary":{"n":3,"cheapResolveRate":1,"escalationRate":0,"resolveRate":1,"costPerResolved":0,"totalCostUsd":0}}
+✔ real Weight EFT contamination guard rejects held-out training IDs before execution (190.276933ms)
+✔ fixed oracle rejects wrong output despite success, perfect quality and matching persisted self-report (75.387797ms)
+✔ actual kernel verification failure is not rescued by successful persisted evidence from another run (299.76482ms)
+✔ missing, duplicated or substituted held-out evidence cannot improve denominator (426.042825ms)
+✔ restart, persisted content, receipt and version evidence failures remain unresolved (792.128278ms)
+✔ missing Weight EFT resolver fails closed rather than using fixture metrics (0.512491ms)
+✔ real two cycle ecosystem evaluation preserves inventory and produces source bound capability evidence (99083.374536ms)
+✔ separate stale reader cannot overwrite a completed newer writer (1251.041987ms)
+ℹ {"readerSnapshot":["before"],"retainedAfterWriter":["new","before"],"sourceBytesUnchangedByReader":true,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"}}
+✔ SIGKILL before-publish retains a complete retrievable database and fences subsequent writers (1925.336528ms)
+ℹ {"phase":"before-publish","signal":"SIGKILL","retainedKeys":["before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL after-publish retains a complete retrievable database and fences subsequent writers (1409.028274ms)
+ℹ {"phase":"after-publish","signal":"SIGKILL","retainedKeys":["new","before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL during update before-publish preserves a complete lifecycle state (1020.88279ms)
+ℹ {"mode":"update","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during update after-publish preserves a complete lifecycle state (1005.056391ms)
+ℹ {"mode":"update","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete before-publish preserves a complete lifecycle state (954.267358ms)
+ℹ {"mode":"delete","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete after-publish preserves a complete lifecycle state (905.745241ms)
+ℹ {"mode":"delete","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ real memory persists across process exits and native RuVector retrieves only scoped saved content (1280.558149ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","node":"v24.19.0","writeMs":145.006225,"restartRetrieveMs":105.69575699999999,"repeatedRetrieveMs":112.97966299999999,"databaseBytes":36864,"taskSuccess":true,"crashDurabilityTested":false}
+✔ memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution (1948.858663ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (4240.058332ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":131.69297,"updateMs":255.696504,"deleteMs":132.159022,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (687.803902ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (1420.315891ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (1297.032114ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (1207.003271ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (1174.405035ms)
+✔ native projection keeps zero, Float32 underflow and overflow rejected without changing saved state (1801.786023ms)
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (1537.781931ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (1318.92589ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1236.669508ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (798.769889ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (3358.193643ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (1703.766703ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (1615.262076ms)
+✔ update and delete require existing state and never create a missing database (275.938068ms)
+✔ expired persisted keys remain protected from implicit replacement (693.997323ms)
+✔ versioned v2 starter completes six real operations in independent processes (1545.274798ms)
+{"package":"@metaharness/weight-eft@0.1.2","sftRows":1,"dpoRows":1,"heldOut":1,"planOnly":true,"escalationRateReduction":1}
+(node:1589) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ installed weight EFT exports real SFT/DPO, excludes holdout, plans and evaluates (102.9873ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 45
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 99219.180038

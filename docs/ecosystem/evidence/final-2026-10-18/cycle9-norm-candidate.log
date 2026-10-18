@@ -1,0 +1,13 @@
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (1373.278377ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (1310.218923ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (998.242976ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (1073.470685ms)
+✔ native projection keeps zero, Float32 underflow and overflow rejected without changing saved state (1446.690859ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6401.475907

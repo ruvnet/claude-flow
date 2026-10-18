@@ -1,0 +1,18 @@
+{
+  "label": "validated-baseline-install",
+  "cmd": [
+    "npm",
+    "install",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/empty-cache",
+    "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/metaharness-turn-credit-0.1.0.tgz"
+  ],
+  "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+  "code": 0,
+  "elapsedMs": 474,
+  "stdout": "\nadded 1 package in 367ms\n",
+  "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+}

@@ -1,0 +1,50 @@
+✔ separate stale reader cannot overwrite a completed newer writer (1097.380468ms)
+ℹ {"readerSnapshot":["before"],"retainedAfterWriter":["new","before"],"sourceBytesUnchangedByReader":true,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"}}
+✔ SIGKILL before-publish retains a complete retrievable database and fences subsequent writers (1737.389535ms)
+ℹ {"phase":"before-publish","signal":"SIGKILL","retainedKeys":["before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL after-publish retains a complete retrievable database and fences subsequent writers (1403.277609ms)
+ℹ {"phase":"after-publish","signal":"SIGKILL","retainedKeys":["new","before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL during update before-publish preserves a complete lifecycle state (896.02055ms)
+ℹ {"mode":"update","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during update after-publish preserves a complete lifecycle state (985.088854ms)
+ℹ {"mode":"update","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete before-publish preserves a complete lifecycle state (1065.869892ms)
+ℹ {"mode":"delete","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete after-publish preserves a complete lifecycle state (1152.191364ms)
+ℹ {"mode":"delete","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ real memory persists across process exits and native RuVector retrieves only scoped saved content (1218.138202ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","node":"v24.19.0","writeMs":95.184416,"restartRetrieveMs":130.440544,"repeatedRetrieveMs":113.19050899999999,"databaseBytes":36864,"taskSuccess":true,"crashDurabilityTested":false}
+✔ memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution (1909.563263ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (3679.486518ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":112.53034099999999,"updateMs":102.33168500000001,"deleteMs":107.72555100000001,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (711.716257ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (1183.395884ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (1467.534333ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (1382.700669ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (1325.146711ms)
+✔ native projection keeps zero, Float32 underflow and overflow rejected without changing saved state (1562.801058ms)
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (1119.694432ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (1243.272656ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1207.63933ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (800.274843ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (3380.349146ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (1523.455244ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (1671.430359ms)
+✔ update and delete require existing state and never create a missing database (193.075288ms)
+✔ expired persisted keys remain protected from implicit replacement (472.60686ms)
+✔ versioned v2 starter completes six real operations in independent processes (1154.458164ms)
+✔ reader snapshot is private and discards backend persistence (14.524166ms)
+✔ required existing writer state is not synthesized on a missing path (7.942446ms)
+✔ writer atomically replaces complete content, restricts permissions and releases ownership (14.379944ms)
+✔ operation and pre-publication failures preserve original bytes and release lock (14.627852ms)
+✔ concurrent and expired writer leases are not stolen (13.456761ms)
+✔ post-publication and cleanup errors disclose committed state (17.857234ms)
+✔ symlinks, FIFOs, corrupt sources and invalid final exports fail closed (15.805648ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 24202.958002

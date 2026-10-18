@@ -1,0 +1,13 @@
+{
+  "label": "validated-candidate-lint",
+  "cmd": [
+    "npm",
+    "run",
+    "lint"
+  ],
+  "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+  "code": 0,
+  "elapsedMs": 1279,
+  "stdout": "\n> @metaharness/turn-credit@0.1.0 lint\n> tsc --noEmit\n\n",
+  "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n"
+}

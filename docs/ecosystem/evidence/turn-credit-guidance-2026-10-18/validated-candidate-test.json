@@ -1,0 +1,19 @@
+{
+  "label": "validated-candidate-test",
+  "cmd": [
+    "npm",
+    "test",
+    "--",
+    "--root",
+    "../..",
+    "packages/turn-credit/__tests__/turn-credit.test.ts",
+    "--maxWorkers=1",
+    "--minWorkers=1",
+    "--no-cache"
+  ],
+  "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+  "code": 0,
+  "elapsedMs": 902,
+  "stdout": "\n> @metaharness/turn-credit@0.1.0 test\n> vitest run --root ../.. packages/turn-credit/__tests__/turn-credit.test.ts --maxWorkers=1 --minWorkers=1 --no-cache\n\n\n RUN  v2.1.9 /dev/shm/turn-credit-cycle9.aAzq6X/candidate\n\n ✓ packages/turn-credit/__tests__/turn-credit.test.ts (20 tests) 18ms\n\n Test Files  1 passed (1)\n      Tests  20 passed (20)\n   Start at  19:07:11\n   Duration  405ms (transform 139ms, setup 0ms, collect 157ms, tests 18ms, environment 0ms, prepare 71ms)\n\n",
+  "stderr": "npm warn Unknown env config \"http-proxy\". This will stop working in the next major version of npm.\n\u001b[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001b[39m\n"
+}

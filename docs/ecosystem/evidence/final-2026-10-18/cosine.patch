@@ -1,0 +1,82 @@
+diff --git a/scripts/lib/ecosystem-memory-workflow.mjs b/scripts/lib/ecosystem-memory-workflow.mjs
+index 721585e4f..775762939 100644
+--- a/scripts/lib/ecosystem-memory-workflow.mjs
++++ b/scripts/lib/ecosystem-memory-workflow.mjs
+@@ -37,6 +37,14 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
+         !values.some(v => Math.fround(v) !== 0)) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
+     return Float32Array.from(values);
+   };
++  // Cosine is scale-invariant, but the pinned native distance implementation
++  // can underflow/overflow when it squares finite Float32 components. Normalize
++  // only the disposable native projection/query using a stable double-precision
++  // norm; keep authoritative stored embeddings unchanged.
++  const nativeCosineVector = vector => {
++    const norm = Math.hypot(...vector);
++    return Float32Array.from(vector, value => value / norm);
++  };
+   const vector = mode === 'retrieve' ? validVector(input?.vector) : null;
+   const k = input?.k ?? 1;
+   if (mode === 'retrieve' && (!Number.isInteger(k) || k < 1 || k > 100)) throw new Error('k must be 1..100');
+@@ -118,9 +126,9 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
+     folder = await mkdtemp(join(tmpdir(), 'ruflo-memory-index-'));
+     const index = new ruvector.VectorDb({ dimensions: vector.length, distanceMetric: 'Cosine',
+       storagePath: join(folder, 'index.db'), hnswConfig: { m: 16, efConstruction: 100, efSearch: 100, maxElements: 1000 } });
+-    for (const entry of entries) await index.insert({ id: entry.id, vector: entry.embedding });
++    for (const entry of entries) await index.insert({ id: entry.id, vector: nativeCosineVector(entry.embedding) });
+     if (await index.len() !== entries.length) throw new Error('Vector insertion count mismatch');
+-    const hits = entries.length ? await index.search({ vector, k: Math.min(k, entries.length) }) : [];
++    const hits = entries.length ? await index.search({ vector: nativeCosineVector(vector), k: Math.min(k, entries.length) }) : [];
+     const allowed = new Set(entries.map(e => e.id));
+     const results = [];
+     for (const hit of hits) {
+diff --git a/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs b/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs
+index 0fba9e14b..eaa00bf90 100644
+--- a/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs
++++ b/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs
+@@ -68,6 +68,46 @@ test('cross-batch dimensional mismatch rejects before publishing and preserves r
+   assert.deepEqual(read(database).results.map(r => r.key), ['original']);
+ });
+ 
++for (const scale of [1e-30, 1e30, 1e-45, 3.4e38]) {
++  test(`native cosine retrieval preserves scale invariance across restart and update at ${scale}`, { skip }, async t => {
++    const database = await fixture(t);
++    passed(child('write', database, 'project-a', { records: [
++      record('orthogonal', [0, scale, 0]), record('identical', [scale, 0, 0]),
++    ] }));
++    const before = await readFile(database);
++    for (const query of [[scale, 0, 0], [1, 0, 0]]) {
++      const results = read(database, 'project-a', query, 2).results;
++      const identical = results.find(r => r.key === 'identical');
++      const orthogonal = results.find(r => r.key === 'orthogonal');
++      assert.ok(Math.abs(identical.score) < 1e-6, `identical cosine distance must be zero, got ${identical.score}`);
++      assert.ok(Math.abs(orthogonal.score - 1) < 1e-6, `orthogonal cosine distance must be one, got ${orthogonal.score}`);
++      assert.equal(results[0].key, 'identical');
++    }
++    assert.deepEqual(await readFile(database), before, 'projection must not rewrite authoritative embeddings');
++    const original = read(database, 'project-a', [1, 0, 0], 2).results[0];
++    passed(child('update', database, 'project-a', { records: [{ ...record('identical', [0, 0, scale]), ...fence(original) }] }));
++    const updated = read(database, 'project-a', [0, 0, scale], 2).results;
++    assert.equal(updated[0].key, 'identical'); assert.equal(updated[0].id, original.id);
++    assert.equal(updated[0].version, original.version + 1);
++    assert.ok(Math.abs(updated[0].score) < 1e-6);
++    assert.ok(Math.abs(updated[1].score - 1) < 1e-6);
++  });
++}
++
++test('native projection keeps zero, Float32 underflow and overflow rejected without changing saved state', { skip }, async t => {
++  const database = await fixture(t);
++  passed(child('write', database, 'project-a', { records: [record('original')] }));
++  const original = read(database).results[0], before = await readFile(database);
++  for (const vector of [[0, 0, 0], [1e-50, 0, 0], [1e40, 0, 0]]) {
++    await rejectedUnchanged(database, 'write', 'project-a', { records: [record('invalid', vector)] }, /finite nonzero vector/);
++    await rejectedUnchanged(database, 'update', 'project-a', { records: [{ ...record('original', vector), ...fence(original) }] }, /finite nonzero vector/);
++    const retrieval = child('retrieve', database, 'project-a', { vector });
++    assert.equal(retrieval.status, 1); assert.match(retrieval.stderr, /finite nonzero vector/);
++  }
++  assert.deepEqual(await readFile(database), before);
++  assert.deepEqual(read(database).results[0], original);
++});
++
+ for (const mode of ['write', 'update', 'retrieve']) {
+   test(`direct API rejects sparse ${mode} vectors before opening state and preserves saved records`, { skip }, async t => {
+     const database = await fixture(t);

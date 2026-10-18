@@ -923,7 +923,25 @@
     },
     {
       "name": "@metaharness/turn-credit",
-      "status": "pending-source-repository-verification"
+      "status": "source-documented",
+      "stage": "draft-pr-source-documented-pack-verified",
+      "repository": "https://github.com/ruvnet/metaharness",
+      "repositoryId": 1268611404,
+      "packagePath": "packages/turn-credit",
+      "guidance": "packages/turn-credit/AGENTS.md",
+      "sourceBaseCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+      "sourceCommit": "a0729b921f30950fa116175ff5e3f7e42bb2c788",
+      "registryVersionInspected": "0.1.0",
+      "sourceVersionInspected": "0.1.0",
+      "pullRequest": "https://github.com/ruvnet/metaharness/pull/417",
+      "pullRequestState": "open-draft",
+      "npmArtifact": "unsigned-proposed-pack-verified-not-released",
+      "validation": "data/ecosystem-guidance-turn-credit.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": true,
+      "merged": false,
+      "released": false,
+      "nextAction": "Maintainer review and full repository/security/signed release gates. Paired build/lint and 20 tests pass; fresh ESM and exported CLI dispatch consumers survive process exit/restart. Pack +1330 bytes; 33 old nonmanifest files identical. Guidance only, no new runtime integration or model-training claim."
     },
     {
       "name": "@metaharness/vertical-base",

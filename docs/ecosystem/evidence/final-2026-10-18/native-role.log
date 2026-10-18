@@ -1,0 +1,19 @@
+
+running 14 tests
+test applied_prefix_matches_the_identitys_registered_template ... ok
+test corpus_without_a_stored_identity_is_adopted ... ok
+test embedding_space_id_golden_value_for_minilm ... ok
+test embedding_space_id_is_blind_to_the_crate_build_version ... ok
+test deleting_the_sidecar_does_not_downgrade_the_identity_check ... ok
+test identity_free_entry_points_construct ... ok
+test ingestion_paths_use_passage_role_only ... ok
+test prefix_applied_exactly_once_single_and_batch ... ok
+test registry_covers_advertised_models ... ok
+test query_unsupported_provider_errors_without_falling_back ... ok
+test reopening_a_corpus_with_a_different_same_dimension_model_is_rejected ... ok
+test trait_object_preserves_both_roles_for_asymmetric_provider ... ok
+test unverifiable_prefix_policies_fail_closed ... ok
+test search_paths_use_query_role ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.58s
+

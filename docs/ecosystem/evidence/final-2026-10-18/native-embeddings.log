@@ -1,0 +1,14 @@
+
+running 9 tests
+test api_embedding_rejects_unhonorable_prefix_policies_at_construction ... ok
+test api_embedding_sends_the_identitys_template_not_raw_text ... ok
+test test_agenticdb_with_hash_embeddings ... ok
+test test_agenticdb_with_openai_embeddings ... ignored
+test test_api_embedding_openai ... ignored
+test test_api_embedding_provider_construction ... ok
+test test_dimension_mismatch_validation ... ok
+test test_hash_embedding_provider ... ok
+test test_agenticdb_with_custom_hash_provider ... ok
+
+test result: ok. 7 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.30s
+

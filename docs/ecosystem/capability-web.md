@@ -76,3 +76,9 @@ Prior browser validation covered 401 rendered nodes, the original seven capabili
 Next, register and execute one real cross package workflow at a time. Expand coverage based on successful tasks and compatibility evidence. No adoption telemetry is collected, and no increase in user adoption is claimed. Existing signing and release gates remain mandatory.
 
 [ADR 493](../../v3/docs/adr/ADR-493-ecosystem-capability-web-and-rsi.md) records the architecture and trust boundaries.
+
+## Final bounded pilot handoff — October 18, 2026
+
+Extreme finite Float32 magnitudes now receive stable unit normalization only at native cosine index/query boundaries. Saved embeddings remain unchanged. Five new regressions exercise restart/update ranking and invalid-vector rejection; the prior source fails four of them. Full installed coverage is 45 passing tests, but the registry still covers only 11 packages through 10 checks. No new package coverage, semantic-quality or speed claim follows from this fix.
+
+The earlier payload saving remains 109377313 bytes (20.9471%) in a fresh paired install. The proposal queue's original regression is a fixed reference, not a claim that this saving is still unimplemented. Local guidance remains 54 roots/40 inventory names; ecosystem source documentation including draft PRs is 45/401. See [the final handoff](final-pilot-2026-10-18.md) for retained improvements, measurements, pending security/release gates and the concrete guidance queue. Automatic promotion remains disabled and the original bounded pilot is not extended.

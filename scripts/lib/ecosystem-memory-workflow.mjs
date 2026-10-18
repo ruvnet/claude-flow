@@ -37,6 +37,14 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
         !values.some(v => Math.fround(v) !== 0)) throw new Error('Expected finite nonzero vector, dimensions 2..4096');
     return Float32Array.from(values);
   };
+  // Cosine is scale-invariant, but the pinned native distance implementation
+  // can underflow/overflow when it squares finite Float32 components. Normalize
+  // only the disposable native projection/query using a stable double-precision
+  // norm; keep authoritative stored embeddings unchanged.
+  const nativeCosineVector = vector => {
+    const norm = Math.hypot(...vector);
+    return Float32Array.from(vector, value => value / norm);
+  };
   const vector = mode === 'retrieve' ? validVector(input?.vector) : null;
   const k = input?.k ?? 1;
   if (mode === 'retrieve' && (!Number.isInteger(k) || k < 1 || k > 100)) throw new Error('k must be 1..100');
@@ -118,9 +126,9 @@ export async function memoryWorkflow({ mode, databasePath, namespace, input, res
     folder = await mkdtemp(join(tmpdir(), 'ruflo-memory-index-'));
     const index = new ruvector.VectorDb({ dimensions: vector.length, distanceMetric: 'Cosine',
       storagePath: join(folder, 'index.db'), hnswConfig: { m: 16, efConstruction: 100, efSearch: 100, maxElements: 1000 } });
-    for (const entry of entries) await index.insert({ id: entry.id, vector: entry.embedding });
+    for (const entry of entries) await index.insert({ id: entry.id, vector: nativeCosineVector(entry.embedding) });
     if (await index.len() !== entries.length) throw new Error('Vector insertion count mismatch');
-    const hits = entries.length ? await index.search({ vector, k: Math.min(k, entries.length) }) : [];
+    const hits = entries.length ? await index.search({ vector: nativeCosineVector(vector), k: Math.min(k, entries.length) }) : [];
     const allowed = new Set(entries.map(e => e.id));
     const results = [];
     for (const hit of hits) {

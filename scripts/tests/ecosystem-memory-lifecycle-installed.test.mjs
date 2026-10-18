@@ -68,6 +68,46 @@ test('cross-batch dimensional mismatch rejects before publishing and preserves r
   assert.deepEqual(read(database).results.map(r => r.key), ['original']);
 });
 
+for (const scale of [1e-30, 1e30, 1e-45, 3.4e38]) {
+  test(`native cosine retrieval preserves scale invariance across restart and update at ${scale}`, { skip }, async t => {
+    const database = await fixture(t);
+    passed(child('write', database, 'project-a', { records: [
+      record('orthogonal', [0, scale, 0]), record('identical', [scale, 0, 0]),
+    ] }));
+    const before = await readFile(database);
+    for (const query of [[scale, 0, 0], [1, 0, 0]]) {
+      const results = read(database, 'project-a', query, 2).results;
+      const identical = results.find(r => r.key === 'identical');
+      const orthogonal = results.find(r => r.key === 'orthogonal');
+      assert.ok(Math.abs(identical.score) < 1e-6, `identical cosine distance must be zero, got ${identical.score}`);
+      assert.ok(Math.abs(orthogonal.score - 1) < 1e-6, `orthogonal cosine distance must be one, got ${orthogonal.score}`);
+      assert.equal(results[0].key, 'identical');
+    }
+    assert.deepEqual(await readFile(database), before, 'projection must not rewrite authoritative embeddings');
+    const original = read(database, 'project-a', [1, 0, 0], 2).results[0];
+    passed(child('update', database, 'project-a', { records: [{ ...record('identical', [0, 0, scale]), ...fence(original) }] }));
+    const updated = read(database, 'project-a', [0, 0, scale], 2).results;
+    assert.equal(updated[0].key, 'identical'); assert.equal(updated[0].id, original.id);
+    assert.equal(updated[0].version, original.version + 1);
+    assert.ok(Math.abs(updated[0].score) < 1e-6);
+    assert.ok(Math.abs(updated[1].score - 1) < 1e-6);
+  });
+}
+
+test('native projection keeps zero, Float32 underflow and overflow rejected without changing saved state', { skip }, async t => {
+  const database = await fixture(t);
+  passed(child('write', database, 'project-a', { records: [record('original')] }));
+  const original = read(database).results[0], before = await readFile(database);
+  for (const vector of [[0, 0, 0], [1e-50, 0, 0], [1e40, 0, 0]]) {
+    await rejectedUnchanged(database, 'write', 'project-a', { records: [record('invalid', vector)] }, /finite nonzero vector/);
+    await rejectedUnchanged(database, 'update', 'project-a', { records: [{ ...record('original', vector), ...fence(original) }] }, /finite nonzero vector/);
+    const retrieval = child('retrieve', database, 'project-a', { vector });
+    assert.equal(retrieval.status, 1); assert.match(retrieval.stderr, /finite nonzero vector/);
+  }
+  assert.deepEqual(await readFile(database), before);
+  assert.deepEqual(read(database).results[0], original);
+});
+
 for (const mode of ['write', 'update', 'retrieve']) {
   test(`direct API rejects sparse ${mode} vectors before opening state and preserves saved records`, { skip }, async t => {
     const database = await fixture(t);
