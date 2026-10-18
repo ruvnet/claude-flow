@@ -2,10 +2,10 @@ name: Ecosystem dependency contracts
 
 on:
   pull_request:
-    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', '.github/workflows/ecosystem-contracts.yml']
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', '.github/workflows/ecosystem-contracts.yml']
   push:
     branches: [main]
-    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', '.github/workflows/ecosystem-contracts.yml']
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', '.github/workflows/ecosystem-contracts.yml']
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,9 @@ jobs:
         run: >-
           node --test
           scripts/tests/ecosystem-dependency-graph.test.mjs
+          scripts/tests/ecosystem-connectivity.test.mjs
+          scripts/tests/ecosystem-ruvector.test.mjs
+          scripts/tests/ecosystem-runtime-relationships.test.mjs
           scripts/tests/ecosystem-runtime-contract.test.mjs
           scripts/tests/root-publish-capability-parity.test.mjs
           scripts/tests/ruvector-native-adapter.test.mjs
@@ -41,3 +44,12 @@ jobs:
           RUFLO_WEIGHT_EFT_REQUIRED: '1'
           RUFLO_WEIGHT_EFT_RESOLVE_FROM: ${{ runner.temp }}/weight-eft-proof/package.json
         run: node --test scripts/tests/weight-eft-installed.test.mjs
+      - name: Check runtime evidence collector without executing downloaded code
+        run: python3 scripts/tests/runtime-relationships.test.py
+      - name: Install pinned RuVector graph engine without native addons or lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/ruvector-proof" --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
+      - name: Verify real RuVector graph analysis and runtime impact end to end
+        env:
+          RUFLO_RUVECTOR_REQUIRED: '1'
+          RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
+        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs
