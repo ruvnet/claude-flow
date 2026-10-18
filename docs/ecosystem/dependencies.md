@@ -37,3 +37,5 @@ The graph's `reverseImpact` identifies consumers affected by a required dependen
 For example, the latest manifests of `strange-loops` and `sublinear-time-solver` point at each other's package names, but their ranges target different major versions. That is useful architecture evidence, not proof of an npm installation cycle.
 
 [Design, release gates and acceptance checks](../../v3/docs/adr/ADR-492-ecosystem-dependency-contracts.md).
+
+[Validation results and remaining release gates](dependency-validation.md).
