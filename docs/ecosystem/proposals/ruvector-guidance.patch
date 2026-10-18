@@ -1,0 +1,148 @@
+diff --git a/docs/development/package-improvement-policy.md b/docs/development/package-improvement-policy.md
+new file mode 100644
+index 0000000..686d17e
+--- /dev/null
++++ b/docs/development/package-improvement-policy.md
+@@ -0,0 +1,39 @@
++# Bounded package improvement
++
++This policy supplements, and does not replace, repository instructions in
++`CLAUDE.md` and `docs/development/CONTRIBUTING.md`. It grants no release authority.
++
++1. Verify the package name, source directory, version, public API, dependency
++   ranges, supported platforms and consumer before changing source. Keep unknowns
++   explicit; registry versions and current source versions may differ.
++2. Use one owner and an isolated worktree with an expiring lease. Record the
++   source commit, fixed reference and last accepted baseline. Respect the agreed
++   time, retry, compute and external-write budgets.
++3. Choose a real defect or measured bottleneck. Correctness fixes require an
++   executable reproducer; quantitative optimization claims require at least a
++   10% measured improvement and zero applicable regressions. Compare identical
++   cache, script, platform and dependency-version policies.
++4. Test actual public consumer behavior, not only contracts or graph annotations.
++   Persistence claims require write, process exit, restart and retrieval. Distinguish
++   graceful restart from crash durability, and mocked from native execution.
++5. Preserve acceptance tests and independent evaluation. Record raw results,
++   source and artifact hashes, failures, rollback instructions and later retained
++   revalidation. An unchanged pass is not a new improvement.
++6. Submit a narrow reviewable PR. Existing maintainer review, CI, signing and
++   release gates remain authoritative. Never auto-merge, publish or bypass gates
++   as a consequence of a passing loop. Never manufacture dependencies or downloads.
++7. Record validated, non-sensitive findings in the authorized project memory and
++   verify retrieval. Memory is evidence to recheck, not execution authority.
++
++## Packaging guidance
++
++Keep package-specific `AGENTS.md` beside its manifest and preserve existing
++instructions. Track source-documented, pack-verified and released states
++separately. Inspect `npm pack --ignore-scripts --json` contents and compressed /
++unpacked sizes before claiming guidance inclusion. This inspection skips build
++hooks and is not a release or runtime validation. A package with missing generated
++entry points must not be represented as a usable release artifact.
++
++Document supported build and test commands per package. Do not edit installed
++`node_modules` as source, silently upgrade native dependencies or introduce new
++services or credentials. Keep an operator stop control and use bounded retries.
+diff --git a/npm/packages/core/AGENTS.md b/npm/packages/core/AGENTS.md
+new file mode 100644
+index 0000000..647aaf4
+--- /dev/null
++++ b/npm/packages/core/AGENTS.md
+@@ -0,0 +1,32 @@
++# @ruvector/core package guidance
++
++Source: `npm/packages/core` in `ruvnet/RuVector`. Maintainer metadata is the
++`author` and issue tracker in `package.json`; do not infer release authority.
++
++Follow the checked-in [shared improvement policy](../../../docs/development/package-improvement-policy.md)
++and repository `CLAUDE.md` / contribution policy. In an npm artifact, consult the
++same policy in the package's source repository at the release commit; the relative
++link above is repository-relative and does not imply that policy is bundled.
++
++## Package contract
++
++- CommonJS entry: `index.js`; declarations: `index.d.ts`; Node requirement:
++  `>=18.0.0` in the inspected manifest.
++- Preserve native loading and the `VectorDB` / `VectorDb` compatibility alias.
++- Platform binaries are optional dependencies. Preserve the exact five declared
++  Linux, macOS and Windows package/version mappings; test each affected target.
++- Consumers pass vectors and search parameters to the native database and receive
++  identifiers / similarity results. Do not replace native tests with mocked passes.
++
++## Validation and rollback
++
++From this package directory, `npm test` runs `node test.js` against a real native
++module. `npm run build:napi` requires the Rust workspace and NAPI build tooling.
++Run applicable native and downstream consumer regressions after code changes.
++`npm pack --ignore-scripts --json` checks guidance inclusion and size only; it does
++not establish that a native binary is installed or that all platforms work.
++
++Record exact source/dependency versions and platform. Persistence changes require
++a separate process-restart consumer test. Keep a baseline and reverse patch or
++revert commit; rollback must preserve stored consumer data. Never run
++`publish:platforms` or `npm publish` without explicit release authority.
+diff --git a/npm/packages/core/package.json b/npm/packages/core/package.json
+index 263c0b3..fc592ee 100644
+--- a/npm/packages/core/package.json
++++ b/npm/packages/core/package.json
+@@ -19,6 +19,7 @@
+     "node": ">=18.0.0"
+   },
+   "files": [
++    "AGENTS.md",
+     "index.js",
+     "index.d.ts",
+     "README.md"
+diff --git a/npm/packages/ruvector/AGENTS.md b/npm/packages/ruvector/AGENTS.md
+new file mode 100644
+index 0000000..c3cfc28
+--- /dev/null
++++ b/npm/packages/ruvector/AGENTS.md
+@@ -0,0 +1,35 @@
++# ruvector package guidance
++
++Source: `npm/packages/ruvector` in `ruvnet/RuVector`. Maintainer metadata is the
++`author` and issue tracker in `package.json`; do not infer release authority.
++
++Follow the checked-in [shared improvement policy](../../../docs/development/package-improvement-policy.md)
++and repository `CLAUDE.md` / contribution policy. In an npm artifact, consult the
++same policy in the package's source repository at the release commit; the relative
++link above is repository-relative and does not imply that policy is bundled.
++
++## Package contract
++
++- JavaScript/declaration entries are `dist/index.js` and `dist/index.d.ts`; the
++  `ruvector` executable is `bin/cli.js`. The inspected source requires Node >=20.
++- Preserve the documented vector database API, CLI behavior, native backend
++  loading and optional-backend fallbacks. Keep required, optional and peer
++  dependency relationships explicit; do not add edges merely to connect a graph.
++- Source 0.3.3 and an installed 0.2.41 consumer are different versions. Passing
++  tests against one does not validate the other.
++
++## Validation and rollback
++
++From this package directory, run `npm run build`, `npm run verify-dist` and
++`npm test` with installed, recorded dependencies. The test script covers native
++integration, backend fallback, CLI/database/MCP workflows and cleanup/security
++boundaries; do not weaken tests or omit failing applicable checks.
++
++`npm pack --ignore-scripts --json` is only an artifact-inclusion / size inspection.
++It deliberately skips prepack: a source checkout without generated `dist/` is not
++a validated release. Preserve the existing prepack and prepublish verification.
++
++Record source hashes, exact dependency versions, platform, controlled-cache
++consumer measurements and reverse-patch / revert rollback. Persistence changes
++require write, exit, restart and retrieval without sacrificing existing data.
++Do not auto-publish, merge or bypass existing signing and release gates.
+diff --git a/npm/packages/ruvector/package.json b/npm/packages/ruvector/package.json
+index 402d997..375aa51 100644
+--- a/npm/packages/ruvector/package.json
++++ b/npm/packages/ruvector/package.json
+@@ -99,6 +99,7 @@
+     "typescript": "^5.9.3"
+   },
+   "files": [
++    "AGENTS.md",
+     "bin/",
+     "dist/",
+     "src/decompiler/",

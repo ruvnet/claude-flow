@@ -27,6 +27,7 @@ jobs:
           node --test
           scripts/tests/ecosystem-dependency-graph.test.mjs
           scripts/tests/ecosystem-connectivity.test.mjs
+          scripts/tests/ecosystem-candidate.test.mjs
           scripts/tests/ecosystem-rsi.test.mjs
           scripts/tests/ecosystem-loop.test.mjs
           scripts/tests/ecosystem-explorer.test.mjs

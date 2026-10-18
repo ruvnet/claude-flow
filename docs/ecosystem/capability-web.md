@@ -23,7 +23,7 @@ RUFLO_MEMORY_REQUIRED=1 \
 RUFLO_MEMORY_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
 RUFLO_RUVECTOR_REQUIRED=1 \
 RUFLO_RUVECTOR_RESOLVE_FROM=/tmp/ruflo-ruvector-proof/package.json \
-node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 30000
+node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 60000
 node scripts/build-ecosystem-web.mjs
 ```
 
@@ -49,6 +49,8 @@ The current registry has eight checks covering 10 packages; 391 of 401 remain wi
 The graph artifact measurement explains 43 previously isolated nodes, from 138 to 95, a 31.2 percent reduction. Its three required graph and runtime evidence checks pass. This makes the captured annotations ready for review; it does not create new runtime integrations or measure adoption. Global runtime promotion remains rejected.
 
 The ranked queue includes the measured umbrella payload increase of 111,971,638 bytes, floating runtime selectors and remaining isolates. These are proposed work, not completed fixes. No npm download totals, dependency declarations or consumer versions are modified by the loop.
+
+An explicit executor can now turn one current proposal into an isolated, leased candidate worktree with a narrow file allowlist, paired baseline/candidate checks, an exact source patch and a reverse-patch rollback proof. [Candidate work and review](candidate-work.md) explains the separate CLI. It emits a manual PR handoff; the observation loop still never edits or promotes candidates automatically.
 
 ## Validation and next work
 

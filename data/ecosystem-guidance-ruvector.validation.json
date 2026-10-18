@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-18",
+  "repository": "https://github.com/ruvnet/RuVector",
+  "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+  "baseTree": "8be0adf1fdea9753031e8d5020332c50a3c13a03",
+  "state": "proposed-patch-upstream-build-blocked",
+  "pullRequest": null,
+  "released": false,
+  "sourceChangesCommitted": false,
+  "policyRead": [
+    "CLAUDE.md (244 lines)",
+    "docs/development/CONTRIBUTING.md (583 lines)"
+  ],
+  "environment": {
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "linux",
+    "arch": "x64",
+    "installPolicy": "No dependencies installed; build attempts use existing tooling.",
+    "packPolicy": "npm pack --ignore-scripts --json; unsigned local source fixtures, no build hooks or publication."
+  },
+  "files": [
+    "docs/development/package-improvement-policy.md",
+    "npm/packages/core/AGENTS.md",
+    "npm/packages/core/package.json",
+    "npm/packages/ruvector/AGENTS.md",
+    "npm/packages/ruvector/package.json"
+  ],
+  "packages": [
+    {
+      "name": "@ruvector/core",
+      "sourceVersion": "0.1.33",
+      "registryVersionInspected": "0.1.33",
+      "packagePath": "npm/packages/core",
+      "baseline": {
+        "compressedBytes": 4528,
+        "unpackedBytes": 11684,
+        "sha256": "fd399542672be486b7a0cac804805ef2191a458ab9185e191d87e86556e94262"
+      },
+      "candidate": {
+        "compressedBytes": 5349,
+        "unpackedBytes": 13519,
+        "sha256": "a1d1c03533cbd10594b83c10478c0864b50eed36dc9221c41e509452ba026d93",
+        "guidanceBytes": 1818
+      },
+      "compressedDeltaBytes": 821,
+      "identicalExistingNonManifestFiles": 3,
+      "guidancePackInclusionVerified": true,
+      "build": {
+        "command": "npm run build:napi",
+        "exitCode": 127,
+        "error": "sh: 1: napi: not found"
+      }
+    },
+    {
+      "name": "ruvector",
+      "sourceVersion": "0.3.3",
+      "registryVersionInspected": "0.2.41",
+      "packagePath": "npm/packages/ruvector",
+      "baseline": {
+        "compressedBytes": 689341,
+        "unpackedBytes": 2288471,
+        "sha256": "683601a532469caabbd9edac51b3eed9406e41096ed72b34745d804f32129c99"
+      },
+      "candidate": {
+        "compressedBytes": 690295,
+        "unpackedBytes": 2290456,
+        "sha256": "267c07dc07a0519e84d7ab2b97f9d75d7bd0a0ce154f298193c0ee86582c5580",
+        "guidanceBytes": 1968
+      },
+      "compressedDeltaBytes": 954,
+      "identicalExistingNonManifestFiles": 29,
+      "guidancePackInclusionVerified": true,
+      "build": {
+        "command": "npm run build",
+        "exitCode": 127,
+        "error": "sh: 1: tsc: not found"
+      }
+    }
+  ],
+  "validation": [
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    },
+    {
+      "command": "npm pack --ignore-scripts --json --pack-destination <isolated-output-dir>",
+      "cwd": "Each package directory, baseline then patched source",
+      "result": "passed; AGENTS.md included; existing nonmanifest contents byte-identical; only files allowlist changed in manifests."
+    },
+    {
+      "command": "NODE_PATH=<existing-consumer>/node_modules node npm/packages/core/test.js",
+      "result": "passed; native insert/search/count and VectorDB/VectorDb alias",
+      "nativePackage": "ruvector-core-linux-x64-gnu@0.1.31",
+      "limitation": "Reuses existing installed native dependency, not a fresh installation or cross-platform validation."
+    },
+    {
+      "command": "node npm/packages/ruvector/scripts/verify-dist.js",
+      "exitCode": 1,
+      "result": "failed: 15 generated dist files referenced by bin/cli.js absent."
+    }
+  ],
+  "limitations": [
+    "Packaging evidence establishes guidance inclusion only, not full build/runtime/release acceptance.",
+    "RuVector0.3.3 source is not the validated pinned0.2.41 consumer.",
+    "Existing upstream instruction requires a successful build before commit; no upstream commit or PR created.",
+    "Shared policy is checked in at repository docs/development/package-improvement-policy.md, not bundled in either artifact."
+  ],
+  "nextAction": "Use an authorized fully provisioned upstream build environment, run both documented builds and applicable regressions, then open a narrowly scoped draft PR; do not bypass build or release gates.",
+  "rollback": "Apply proposed patch in reverse before commit, or revert the eventual guidance-only commit; dependency/runtime contents are unchanged."
+}

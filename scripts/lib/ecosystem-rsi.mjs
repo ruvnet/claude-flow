@@ -81,10 +81,10 @@ export async function createRsiPlan({ repoRoot, registryPath, graphPath, runtime
   return { ...plan, inputHash: hash(JSON.stringify(plan)) };
 }
 
-function runCheck(root, check, timeoutMs) {
+function runCheck(root, check, timeoutMs, suppliedEnvironment = process.env) {
   return new Promise(resolve => {
     const started = performance.now(); let output = '', truncated = false, timedOut = false, finished = false;
-    const environment = { ...process.env, NODE_OPTIONS: '', NODE_PATH: '' };
+    const environment = { ...suppliedEnvironment, NODE_OPTIONS: '', NODE_PATH: '' };
     delete environment.NODE_TEST_CONTEXT;
     const child = spawn(process.execPath, ['--test', '--test-reporter=tap', ...check.testFiles], { cwd: root, shell: false, detached: process.platform !== 'win32', env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
     const append = chunk => { const text = chunk.toString(); if (output.length + text.length > 16384) { truncated = true; try { if (process.platform !== 'win32') process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); } catch {} } output = (output + text).slice(0, 16384); };
@@ -107,7 +107,7 @@ export function assessRsiCandidate(execution, objective) {
   return { status: 'rejected', reason: 'Caller supplied objective is not trusted measurement evidence; source-bound measurement runner required', promotionAllowed: false };
 }
 
-export async function evaluateRsiPlan(plan, { repoRoot, maxDurationMs = 30000, ledger = [], objective = null } = {}) {
+export async function evaluateRsiPlan(plan, { repoRoot, maxDurationMs = 30000, ledger = [], objective = null, environment = process.env } = {}) {
   const root = await realpath(repoRoot); bounded(maxDurationMs, 300000, 'duration');
   if (plan?.schema !== 'ruflo-ecosystem-rsi-plan/v1') throw new Error('Invalid RSI plan');
   const { inputHash, ...body } = plan;
@@ -119,7 +119,7 @@ export async function evaluateRsiPlan(plan, { repoRoot, maxDurationMs = 30000, l
   for (const check of current.selectedChecks) {
     const remaining = Math.floor(maxDurationMs - (performance.now() - start));
     if (remaining < 1) { results.push({ id: check.id, status: 'timedout', exitCode: null, durationMs: 0, output: 'Total evaluation budget exhausted', outputTruncated: false }); break; }
-    results.push(await runCheck(root, check, remaining));
+    results.push(await runCheck(root, check, remaining, environment));
   }
   // Recheck after execution so tests cannot silently alter bound candidate sources.
   const after = await binding(root, Object.keys(current.sourceBinding.files));

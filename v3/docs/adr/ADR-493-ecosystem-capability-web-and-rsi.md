@@ -95,3 +95,15 @@ The overnight pilot remains nine hourly runs, October 17 at 23:00 through Octobe
 Seven day acceptance target: at least two independently measured retained improvements, earlier gains preserved, and fixed consumer workflows passing. Report inconclusive experiments honestly. Never equate repeated passes, additional graph edges or downloads with compounding improvement.
 
 [Shared package policy](../../../docs/ecosystem/package-improvement-policy.md), [rollout inventory](../../../data/ecosystem-guidance-rollout.json), and [core memory decision](https://github.com/ruvnet/core-memory/issues/186).
+
+## Isolated candidate handoff extension
+
+Specification: connect a current proposal to bounded, explicit executor work without granting proposal text execution authority or letting a candidate weaken its evaluator. Inputs are a clean expected base commit, current proposal hash, external destination and 1–20 exact allowed files. The existing loop remains observational. This extension does not implement an autonomous code generator.
+
+Architecture: an atomic expiring lease coordinates each base/proposal pair; a detached worktree isolates edits. The evaluator uses the baseline registry and immutable controls, checks actual disk bytes and executable modes against the baseline tree, and constructs a candidate tree with an isolated Git index. Hidden index flags, staged additions, out-of-scope edits and candidate source movement fail closed. Both baseline and candidate execute the same selected registered checks. An isolated reverse patch must reconstruct the exact baseline tree.
+
+Refinement: independent review reproduced hidden assume-unchanged tests, staged-addition omission and stale-lease cleanup failure. The implementation now directly hashes tracked files, includes index-only additions, rejects hidden index flags and validates lease ownership separately from evaluation freshness. Seventeen focused tests cover these failures and the failing-baseline/passing-candidate path. Submodules are explicitly unsupported in this first version.
+
+Completion boundary: outputs are a source-bound patch, paired check receipts and manual PR text. Passing checks means review required, never improvement established or promotion allowed. A source rollback proof does not roll back database state. A trusted local executor is required; restricted environment forwarding, worktree isolation and child timeouts are not an OS sandbox. Crash-left coordination guards require operator inspection, not blind lease stealing. The check budget excludes some filesystem/Git overhead, and the outer run budget remains authoritative.
+
+The payload and restart workflow remain retained baselines, not new gains on each rerun. This extension adds no dependencies, telemetry, merges or release authority. [Exact commands and recovery](../../../docs/ecosystem/candidate-work.md).

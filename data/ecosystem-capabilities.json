@@ -77,7 +77,7 @@
     },
     {
       "id": "graph-impact",
-      "title": "Dependency impact and cycle planning",
+      "title": "Dependency impact, cycle planning and isolated candidate review",
       "kind": "contract",
       "packages": [
         "ruflo",
@@ -196,10 +196,13 @@
         "metaharness"
       ],
       "testFiles": [
-        "scripts/tests/ecosystem-connectivity.test.mjs"
+        "scripts/tests/ecosystem-connectivity.test.mjs",
+        "scripts/tests/ecosystem-candidate.test.mjs"
       ],
       "sourceFiles": [
-        "scripts/lib/ecosystem-connectivity.mjs"
+        "scripts/lib/ecosystem-connectivity.mjs",
+        "scripts/lib/ecosystem-candidate.mjs",
+        "scripts/ecosystem-candidate.mjs"
       ]
     },
     {

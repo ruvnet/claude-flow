@@ -1154,7 +1154,7 @@
     {
       "name": "@ruvector/core",
       "status": "pending",
-      "stage": "source-repository-verified",
+      "stage": "proposed-guidance-pack-verified-build-blocked",
       "repository": "https://github.com/ruvnet/RuVector",
       "packagePath": "npm/packages/core",
       "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
@@ -1163,7 +1163,11 @@
       "sourceVersionInspected": "0.1.33",
       "pullRequest": null,
       "npmArtifact": "unverified",
-      "nextAction": "Read upstream ancestor/package policy, preserve existing guidance, then group source and pack-inclusion changes with ruvector in one narrowly scoped PR."
+      "proposedPatch": "docs/ecosystem/proposals/ruvector-guidance.patch",
+      "validation": "data/ecosystem-guidance-ruvector.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": false,
+      "nextAction": "Provision the authorized upstream build environment; build:napi currently fails because napi is unavailable. Preserve successful build-before-commit policy, then open a grouped draft PR with ruvector. Pack inclusion is verified only for the unsigned proposed fixture."
     },
     {
       "name": "@ruvector/diskann",
@@ -1880,7 +1884,7 @@
     {
       "name": "ruvector",
       "status": "pending",
-      "stage": "source-repository-verified",
+      "stage": "proposed-guidance-pack-verified-build-blocked",
       "repository": "https://github.com/ruvnet/RuVector",
       "packagePath": "npm/packages/ruvector",
       "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
@@ -1889,7 +1893,11 @@
       "sourceVersionInspected": "0.3.3",
       "pullRequest": null,
       "npmArtifact": "unverified",
-      "nextAction": "Source version differs from the pinned runtime proof; do not claim 0.3.3 compatibility. Read upstream policy and open grouped guidance PR with @ruvector/core."
+      "proposedPatch": "docs/ecosystem/proposals/ruvector-guidance.patch",
+      "validation": "data/ecosystem-guidance-ruvector.validation.json",
+      "proposedGuidancePackInclusionVerified": true,
+      "sourceDocumentedUpstream": false,
+      "nextAction": "Use a provisioned upstream build environment: tsc is unavailable and 15 dist files are absent. Respect successful build-before-commit policy, then open grouped draft PR with @ruvector/core. Source 0.3.3 is not the pinned 0.2.41 runtime proof; fixture pack inclusion is not release validation."
     },
     {
       "name": "ruvector-attention-unified-wasm",

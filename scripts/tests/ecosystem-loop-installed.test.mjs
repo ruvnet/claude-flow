@@ -14,7 +14,7 @@ test('real two cycle ecosystem evaluation preserves inventory and produces sourc
   const before=await Promise.all(inputs.map(digest));
   try {
     const output=join(folder,'result.json'),ledger=join(folder,'ledger.json');
-    const child=spawnSync(process.execPath,['scripts/ecosystem-loop.mjs','--iterations','2','--max-duration-ms','30000','--output',output,'--ledger',ledger],{encoding:'utf8',timeout:40000,env:{...process.env,NODE_TEST_CONTEXT:''}});
+    const child=spawnSync(process.execPath,['scripts/ecosystem-loop.mjs','--iterations','2','--max-duration-ms','60000','--output',output,'--ledger',ledger],{encoding:'utf8',timeout:75000,env:{...process.env,NODE_TEST_CONTEXT:''}});
     assert.equal(child.status,2,child.stdout+child.stderr); // Passing checks, explicitly incomplete coverage.
     const receipt=JSON.parse(await readFile(output));
     assert.equal(receipt.checksPassed,true);assert.equal(receipt.loop.completedIterations,2);

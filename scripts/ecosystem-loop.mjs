@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createRsiPlan, evaluateRsiPlan } from './lib/ecosystem-rsi.mjs';
 
 export async function runEcosystemLoop(options) {
-  const iterations = options.iterations ?? 2, maxDurationMs = options.maxDurationMs ?? 30000;
+  const iterations = options.iterations ?? 2, maxDurationMs = options.maxDurationMs ?? 60000;
   if (!Number.isInteger(iterations) || iterations < 1 || iterations > 5) throw new Error('Iterations must be 1..5');
   if (!Number.isInteger(maxDurationMs) || maxDurationMs < 1 || maxDurationMs > 300000) throw new Error('Total duration must be 1..300000 milliseconds');
   let ledger = options.ledger ?? [];

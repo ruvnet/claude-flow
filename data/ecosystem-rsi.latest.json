@@ -10,7 +10,7 @@
     },
     "sourceBinding": {
       "files": {
-        "data/ecosystem-capabilities.json": "17bae16d780794d6349f0181ed343eab49726deff968286ade1c4b838533516f",
+        "data/ecosystem-capabilities.json": "f7be5c8924094f5709c321a764bb74175e4a7efc6c6fbc5a1fb4f4ffb30242e6",
         "data/npm-dependencies.latest.json": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
         "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
         "data/npm-runtime-relationships.latest.json": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
@@ -19,14 +19,16 @@
         "ruflo/package.json": "e5642b73aa37bfc968ecab5ac699237ae09f40b82c9bb891db2afafceb093744",
         "scripts/analyze-ecosystem.mjs": "669dcb56f67f93c11e888d6b7725893412429dc0801c1fe3c9558a2865b77984",
         "scripts/build-ecosystem-web.mjs": "a2938563a8ab1c9e5342f94b5c1904bd1a5e039072ef05c41b82d904d162f335",
-        "scripts/ecosystem-loop.mjs": "bcaee0ee3d2053eb218ad7967d19edda3928bf0a50a1b619f8b35c8568868d4f",
+        "scripts/ecosystem-candidate.mjs": "cda5f277db28cb364bc78fa7289c70c2c5b0bfb1fad7aa42b9a2cab0b75be072",
+        "scripts/ecosystem-loop.mjs": "5e8dc141c003821c1aaac21a3699bf020189c2a46ec9ba620a9a56b344392ab2",
         "scripts/ecosystem-memory.mjs": "46e264ca9ac7e72d9d6c7319a3969ea6ccd79b0cd019d4b43f202cf9fe83c796",
         "scripts/ecosystem-rsi.mjs": "b176e1f8c9aa55245f1a6d7a798fec4616ca8b62e01a66b765c3f06ec27230a7",
         "scripts/lib/codex-mod-runtime.mjs": "1de438abf18ff59490d621142fc2f119c1fd36473684931c999c7475749ac168",
+        "scripts/lib/ecosystem-candidate.mjs": "6b7acfea2b3ce9a36e8193d6777e7871195470458f94db3d4d5703acba9c83cf",
         "scripts/lib/ecosystem-connectivity.mjs": "eebec4fb50d4b407459ee40f2c727538c39c5018492a10f2b98f37ca946a43e5",
         "scripts/lib/ecosystem-dependency-graph.mjs": "f7f20f65c2c7d9a27f4b33ec084cdb8b53388f35ba2d8533659c719b2a973128",
         "scripts/lib/ecosystem-memory-workflow.mjs": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65",
-        "scripts/lib/ecosystem-rsi.mjs": "fc49cb75d4f4a083414c3a03221e79e8c0d6ab3c64805a162fec1e1bd253d211",
+        "scripts/lib/ecosystem-rsi.mjs": "7262aa86512b59cc88908cd216497cb4fc333cc413731d50effdc794a56bbf66",
         "scripts/lib/ecosystem-runtime-relationships.mjs": "d4c7e5f73caf720e5dcf1bfbb6f54d6b67c468669860cd19c87551507fa1b522",
         "scripts/lib/ecosystem-ruvector.mjs": "a55f64311595ff91325cdfb20c2ba4771916e4ec93e6bdca8fddea5b52bc601c",
         "scripts/lib/guard-probe-corpus.mjs": "63354015f6ee1452d8394175974a9db83a6caf3cd5ab84fe97210820c3b04822",
@@ -35,6 +37,7 @@
         "scripts/lib/prepare-scoped-cli.mjs": "e060dd1f5dde433ff9a740eb30046f0bebe4ac09718cd11daf96ce1dd05590d5",
         "scripts/prepare-root-publish.mjs": "78e84ecadaa207d26f37faa02b3099bb2aafd7d2a1b7a25ffb4c8318cfad0711",
         "scripts/tests/ecosystem-analysis-installed.test.mjs": "3e3a43a17dd2ff61475826d9fe72c86e81c876f988089587bed94092fb4b3ac8",
+        "scripts/tests/ecosystem-candidate.test.mjs": "9e65afc7b4d3ac91378b2cf66535969f8dc7e7bbc7671d627f696aca5fcef4d9",
         "scripts/tests/ecosystem-connectivity.test.mjs": "6e759a64cc41db1a008318e4e1c0aad5752eca9128865d5351f6123e723a9b7e",
         "scripts/tests/ecosystem-memory-installed.test.mjs": "af267327e028afcaf4f9daa77e4208df499a7343ed196435a774d7ead7bcd98b",
         "scripts/tests/ecosystem-runtime-contract.test.mjs": "74191605a60b7707708cf9575629c7034e4e6f1a5a7e2898ed10cbeac10529c4",
@@ -49,7 +52,7 @@
         "v3/@claude-flow/cli/src/ruvector/vector-db.ts": "d33b2acfabbbafe642798528708cb52bd2d2fe566e9dee3e27a04bee92f8782b",
         "v3/@claude-flow/cli/src/services/weight-eft.ts": "7a2dccd4ffd12f63884798348a5510a5ed7cd3f2e79392e7099320bb3c979692"
       },
-      "sha256": "41a51781d4253951d23ce079916851eb75396297e580e7bb2ec4ef49c7eb7fb8"
+      "sha256": "c04d2c9ab940b514e89350fab09ea2a69280d2a56911cc8faf7f58e2977715b4"
     },
     "changed": [],
     "affected": [
@@ -1816,6 +1819,7 @@
           "ruvector"
         ],
         "testFiles": [
+          "scripts/tests/ecosystem-candidate.test.mjs",
           "scripts/tests/ecosystem-connectivity.test.mjs"
         ]
       },
@@ -2675,72 +2679,72 @@
     "maxChecks": 8,
     "finiteCycles": 1,
     "promotionAllowed": false,
-    "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff"
+    "inputHash": "0d70778eb0b46d44127b32e4258085ac268295826f81e4a6442adbb1c6a37739"
   },
-  "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
+  "inputHash": "0d70778eb0b46d44127b32e4258085ac268295826f81e4a6442adbb1c6a37739",
   "results": [
     {
       "id": "dependency-ownership",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 492.90468299999975,
-      "output": "TAP version 13\n# Subtest: package.json: extensions have explicit dependency ownership and isolated resolution\nok 1 - package.json: extensions have explicit dependency ownership and isolated resolution\n  ---\n  duration_ms: 77.404148\n  type: 'test'\n  ...\n# Subtest: v3/@claude-flow/cli/package.json: extensions have explicit dependency ownership and isolated resolution\nok 2 - v3/@claude-flow/cli/package.json: extensions have explicit dependency ownership and isolated resolution\n  ---\n  duration_ms: 71.737935\n  type: 'test'\n  ...\n# Subtest: CLI native extensions match the existing umbrella compatibility minima\nok 3 - CLI native extensions match the existing umbrella compatibility minima\n  ---\n  duration_ms: 0.582446\n  type: 'test'\n  ...\n# (node:596) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: umbrella SLIM is an exact optional peer without an automatic installation edge\nok 4 - umbrella SLIM is an exact optional peer without an automatic installation edge\n  ---\n  duration_ms: 5.825484\n  type: 'test'\n  ...\n# Subtest: actual SLIM runtime detection preserves absent, explicit installation and broken import behavior\nok 5 - actual SLIM runtime detection preserves absent, explicit installation and broken import behavior\n  ---\n  duration_ms: 313.023359\n  type: 'test'\n  ...\n# Subtest: linked MCP retains its compatible Express major despite root overrides\nok 6 - linked MCP retains its compatible Express major despite root overrides\n  ---\n  duration_ms: 5.524797\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 418.333318\n",
+      "durationMs": 513.5712109999986,
+      "output": "TAP version 13\n# Subtest: package.json: extensions have explicit dependency ownership and isolated resolution\nok 1 - package.json: extensions have explicit dependency ownership and isolated resolution\n  ---\n  duration_ms: 83.926675\n  type: 'test'\n  ...\n# Subtest: v3/@claude-flow/cli/package.json: extensions have explicit dependency ownership and isolated resolution\nok 2 - v3/@claude-flow/cli/package.json: extensions have explicit dependency ownership and isolated resolution\n  ---\n  duration_ms: 116.671167\n  type: 'test'\n  ...\n# Subtest: CLI native extensions match the existing umbrella compatibility minima\nok 3 - CLI native extensions match the existing umbrella compatibility minima\n  ---\n  duration_ms: 0.558186\n  type: 'test'\n  ...\n# (node:2246) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: umbrella SLIM is an exact optional peer without an automatic installation edge\nok 4 - umbrella SLIM is an exact optional peer without an automatic installation edge\n  ---\n  duration_ms: 5.781147\n  type: 'test'\n  ...\n# Subtest: actual SLIM runtime detection preserves absent, explicit installation and broken import behavior\nok 5 - actual SLIM runtime detection preserves absent, explicit installation and broken import behavior\n  ---\n  duration_ms: 327.370503\n  type: 'test'\n  ...\n# Subtest: linked MCP retains its compatible Express major despite root overrides\nok 6 - linked MCP retains its compatible Express major despite root overrides\n  ---\n  duration_ms: 4.89775\n  type: 'test'\n  ...\n1..6\n# tests 6\n# suites 0\n# pass 6\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 435.124993\n",
       "outputTruncated": false
     },
     {
       "id": "graph-impact",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 229.6194919999998,
-      "output": "TAP version 13\n# Subtest: chain separates product entry, foundation, true isolate and root reachability\nok 1 - chain separates product entry, foundation, true isolate and root reachability\n  ---\n  duration_ms: 2.293703\n  type: 'test'\n  ...\n# Subtest: optional and both peer kinds affect capabilities only\nok 2 - optional and both peer kinds affect capabilities only\n  ---\n  duration_ms: 0.696116\n  type: 'test'\n  ...\n# Subtest: cycles form SCC groups and prevent graph readiness, without claiming install cycles\nok 3 - cycles form SCC groups and prevent graph readiness, without claiming install cycles\n  ---\n  duration_ms: 0.349794\n  type: 'test'\n  ...\n# Subtest: diamond batches independent consumers together; SCC cross edges remain separate\nok 4 - diamond batches independent consumers together; SCC cross edges remain separate\n  ---\n  duration_ms: 0.294918\n  type: 'test'\n  ...\n# Subtest: missing metadata prevents readiness even outside affected set\nok 5 - missing metadata prevents readiness even outside affected set\n  ---\n  duration_ms: 0.19958\n  type: 'test'\n  ...\n# Subtest: external declarations ignored explicitly and self loops remain cycles\nok 6 - external declarations ignored explicitly and self loops remain cycles\n  ---\n  duration_ms: 0.172686\n  type: 'test'\n  ...\n# Subtest: ordering and duplicate declarations do not change topology or plans\nok 7 - ordering and duplicate declarations do not change topology or plans\n  ---\n  duration_ms: 1.305771\n  type: 'test'\n  ...\n# Subtest: reject malformed identities, status and endpoint flags\nok 8 - reject malformed identities, status and endpoint flags\n  ---\n  duration_ms: 1.033539\n  type: 'test'\n  ...\n# Subtest: cached traversal equals independent naive scan for generated graphs and every seed\nok 9 - cached traversal equals independent naive scan for generated graphs and every seed\n  ---\n  duration_ms: 73.291988\n  type: 'test'\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 167.30896\n",
+      "durationMs": 9463.032684999998,
+      "output": "TAP version 13\n# Subtest: real isolated candidate fixes failing baseline check and exact reverse patch restores base tree\nok 1 - real isolated candidate fixes failing baseline check and exact reverse patch restores base tree\n  ---\n  duration_ms: 804.35325\n  type: 'test'\n  ...\n# Subtest: rejects stale base, dirty source, unknown proposal, unsafe/control paths and no-op candidates\nok 2 - rejects stale base, dirty source, unknown proposal, unsafe/control paths and no-op candidates\n  ---\n  duration_ms: 411.470849\n  type: 'test'\n  ...\n# Subtest: atomic lease blocks duplicate writers and fences a replaced owner\nok 3 - atomic lease blocks duplicate writers and fences a replaced owner\n  ---\n  duration_ms: 233.993984\n  type: 'test'\n  ...\n# Subtest: expired lease cannot evaluate or be silently stolen; owner can explicitly release\nok 4 - expired lease cannot evaluate or be silently stolen; owner can explicitly release\n  ---\n  duration_ms: 1260.796498\n  type: 'test'\n  ...\n# Subtest: rejects out-of-scope files, test changes, symbolic links and ignored executable inputs\nok 5 - rejects out-of-scope files, test changes, symbolic links and ignored executable inputs\n  ---\n  duration_ms: 533.150921\n  type: 'test'\n  ...\n# Subtest: forged state, source movement and candidate commits invalidate evaluation\nok 6 - forged state, source movement and candidate commits invalidate evaluation\n  ---\n  duration_ms: 170.983258\n  type: 'test'\n  ...\n# Subtest: detects candidate changes outside source binding during execution\nok 7 - detects candidate changes outside source binding during execution\n  ---\n  duration_ms: 585.143577\n  type: 'test'\n  ...\n# Subtest: failed checks never become successful review evidence\nok 8 - failed checks never become successful review evidence\n  ---\n  duration_ms: 580.258364\n  type: 'test'\n  ...\n# Subtest: skipped checks never become successful review evidence\nok 9 - skipped checks never become successful review evidence\n  ---\n  duration_ms: 586.682281\n  type: 'test'\n  ...\n# Subtest: timed out checks never become successful review evidence\nok 10 - timed out checks never become successful review evidence\n  ---\n  duration_ms: 1282.970599\n  type: 'test'\n  ...\n# Subtest: test subprocess does not inherit unrelated credential environment\nok 11 - test subprocess does not inherit unrelated credential environment\n  ---\n  duration_ms: 519.079704\n  type: 'test'\n  ...\n# Subtest: hidden protected test with --assume-unchanged is rejected before execution\nok 12 - hidden protected test with --assume-unchanged is rejected before execution\n  ---\n  duration_ms: 189.177094\n  type: 'test'\n  ...\n# Subtest: hidden protected test with --skip-worktree is rejected before execution\nok 13 - hidden protected test with --skip-worktree is rejected before execution\n  ---\n  duration_ms: 193.479443\n  type: 'test'\n  ...\n# Subtest: actual bytes and executable modes bind protected source independently of Git stat settings\nok 14 - actual bytes and executable modes bind protected source independently of Git stat settings\n  ---\n  duration_ms: 316.395047\n  type: 'test'\n  ...\n# Subtest: owner can release after stale source or committed candidate, without discarding work\nok 15 - owner can release after stale source or committed candidate, without discarding work\n  ---\n  duration_ms: 272.482036\n  type: 'test'\n  ...\n# Subtest: precreated review artifact symlinks are not overwritten\nok 16 - precreated review artifact symlinks are not overwritten\n  ---\n  duration_ms: 570.509501\n  type: 'test'\n  ...\n# Subtest: staged additions cannot evade scope and allowed staged additions bind to candidate tree\nok 17 - staged additions cannot evade scope and allowed staged additions bind to candidate tree\n  ---\n  duration_ms: 794.357194\n  type: 'test'\n  ...\n# Subtest: chain separates product entry, foundation, true isolate and root reachability\nok 18 - chain separates product entry, foundation, true isolate and root reachability\n  ---\n  duration_ms: 3.53261\n  type: 'test'\n  ...\n# Subtest: optional and both peer kinds affect capabilities only\nok 19 - optional and both peer kinds affect capabilities only\n  ---\n  duration_ms: 0.849844\n  type: 'test'\n  ...\n# Subtest: cycles form SCC groups and prevent graph readiness, without claiming install cycles\nok 20 - cycles form SCC groups and prevent graph readiness, without claiming install cycles\n  ---\n  duration_ms: 0.393872\n  type: 'test'\n  ...\n# Subtest: diamond batches independent consumers together; SCC cross edges remain separate\nok 21 - diamond batches independent consumers together; SCC cross edges remain separate\n  ---\n  duration_ms: 0.427026\n  type: 'test'\n  ...\n# Subtest: missing metadata prevents readiness even outside affected set\nok 22 - missing metadata prevents readiness even outside affected set\n  ---\n  duration_ms: 0.346657\n  type: 'test'\n  ...\n# Subtest: external declarations ignored explicitly and self loops remain cycles\nok 23 - external declarations ignored explicitly and self loops remain cycles\n  ---\n  duration_ms: 0.256143\n  type: 'test'\n  ...\n# Subtest: ordering and duplicate declarations do not change topology or plans\nok 24 - ordering and duplicate declarations do not change topology or plans\n  ---\n  duration_ms: 1.333299\n  type: 'test'\n  ...\n# Subtest: reject malformed identities, status and endpoint flags\nok 25 - reject malformed identities, status and endpoint flags\n  ---\n  duration_ms: 0.972166\n  type: 'test'\n  ...\n# Subtest: cached traversal equals independent naive scan for generated graphs and every seed\nok 26 - cached traversal equals independent naive scan for generated graphs and every seed\n  ---\n  duration_ms: 116.189318\n  type: 'test'\n  ...\n1..26\n# tests 26\n# suites 0\n# pass 26\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 9395.366487\n",
       "outputTruncated": false
     },
     {
       "id": "persistent-memory-retrieval",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 2715.7635210000008,
-      "output": "TAP version 13\n# Subtest: real memory persists across process exits and native RuVector retrieves only scoped saved content\nok 1 - real memory persists across process exits and native RuVector retrieves only scoped saved content\n  ---\n  duration_ms: 981.829321\n  type: 'test'\n  ...\n# {\"versions\":{\"memory\":\"3.0.5\",\"ruvector\":\"0.2.41\",\"core\":\"0.1.33\",\"sqljs\":\"1.15.0\"},\"platform\":\"linux\",\"arch\":\"x64\",\"node\":\"v24.19.0\",\"writeMs\":83.157699,\"restartRetrieveMs\":100.72161799999999,\"repeatedRetrieveMs\":88.237221,\"databaseBytes\":36864,\"taskSuccess\":true,\"crashDurabilityTested\":false}\n# Subtest: memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution\nok 2 - memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution\n  ---\n  duration_ms: 1587.687269\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2652.97467\n",
+      "durationMs": 2425.323571000001,
+      "output": "TAP version 13\n# Subtest: real memory persists across process exits and native RuVector retrieves only scoped saved content\nok 1 - real memory persists across process exits and native RuVector retrieves only scoped saved content\n  ---\n  duration_ms: 922.396934\n  type: 'test'\n  ...\n# {\"versions\":{\"memory\":\"3.0.5\",\"ruvector\":\"0.2.41\",\"core\":\"0.1.33\",\"sqljs\":\"1.15.0\"},\"platform\":\"linux\",\"arch\":\"x64\",\"node\":\"v24.19.0\",\"writeMs\":71.480061,\"restartRetrieveMs\":79.48125999999999,\"repeatedRetrieveMs\":87.548731,\"databaseBytes\":36864,\"taskSuccess\":true,\"crashDurabilityTested\":false}\n# Subtest: memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution\nok 2 - memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution\n  ---\n  duration_ms: 1343.74298\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2361.217254\n",
       "outputTruncated": false
     },
     {
       "id": "relationship-provenance",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 162.02968399999918,
-      "output": "TAP version 13\n# Subtest: runtime evidence expands consumer checks without changing required installs or source graph\nok 1 - runtime evidence expands consumer checks without changing required installs or source graph\n  ---\n  duration_ms: 2.592376\n  type: 'test'\n  ...\n# Subtest: reject stale, mismatched, missing and duplicate runtime provenance\nok 2 - reject stale, mismatched, missing and duplicate runtime provenance\n  ---\n  duration_ms: 0.550447\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 94.079974\n",
+      "durationMs": 156.09783699999753,
+      "output": "TAP version 13\n# Subtest: runtime evidence expands consumer checks without changing required installs or source graph\nok 1 - runtime evidence expands consumer checks without changing required installs or source graph\n  ---\n  duration_ms: 2.613397\n  type: 'test'\n  ...\n# Subtest: reject stale, mismatched, missing and duplicate runtime provenance\nok 2 - reject stale, mismatched, missing and duplicate runtime provenance\n  ---\n  duration_ms: 0.526388\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 89.755322\n",
       "outputTruncated": false
     },
     {
       "id": "ruvector-workflow",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 2210.659211,
-      "output": "TAP version 13\n# Subtest: real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay\nok 1 - real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay\n  ---\n  duration_ms: 2054.265713\n  type: 'test'\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2135.368429\n",
+      "durationMs": 2083.4105149999996,
+      "output": "TAP version 13\n# Subtest: real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay\nok 1 - real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay\n  ---\n  duration_ms: 1926.14866\n  type: 'test'\n  ...\n1..1\n# tests 1\n# suites 0\n# pass 1\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 2014.082142\n",
       "outputTruncated": false
     },
     {
       "id": "signed-publication",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 845.423057,
-      "output": "TAP version 13\n# [verify-helpers] ok — 5 helpers match signed manifest @ 1.0.0\n# Subtest: root verifies prepared plugins, catalog, runtime bundles and real signed helpers without a signer\nok 1 - root verifies prepared plugins, catalog, runtime bundles and real signed helpers without a signer\n  ---\n  duration_ms: 135.799973\n  type: 'test'\n  ...\n# Subtest: root refuses source drift, including untracked source without a HEAD commit\nok 2 - root refuses source drift, including untracked source without a HEAD commit\n  ---\n  duration_ms: 41.582651\n  type: 'test'\n  ...\n# Subtest: root also refuses dirty tracked source while the git index stays unchanged\nok 3 - root also refuses dirty tracked source while the git index stays unchanged\n  ---\n  duration_ms: 68.544184\n  type: 'test'\n  ...\n# Subtest: root refuses staged TUI, MetaHarness and catalog tampering\nok 4 - root refuses staged TUI, MetaHarness and catalog tampering\n  ---\n  duration_ms: 157.265077\n  type: 'test'\n  ...\n# [verify-helpers] hash drift for router.cjs\n#   manifest: 2d30db0fc0abf7dbf49665a21fde549a4bf00d0a476641c52e39aaeac3e73ac1\n#   on disk:  d121be3103007b41edf96f8262925f8c7d61894afe9a041843b631f69445bc57\n#   → re-run sign-helpers.mjs\n# Subtest: a rewritten receipt cannot bypass actual signed helper verification\nok 5 - a rewritten receipt cannot bypass actual signed helper verification\n  ---\n  duration_ms: 134.516598\n  type: 'test'\n  ...\n# Subtest: missing preparation receipt fails closed\nok 6 - missing preparation receipt fails closed\n  ---\n  duration_ms: 44.864693\n  type: 'test'\n  ...\n# Subtest: missing staged capability cannot receive a preparation receipt\nok 7 - missing staged capability cannot receive a preparation receipt\n  ---\n  duration_ms: 48.363325\n  type: 'test'\n  ...\n# Subtest: stale embedded runtime bytes are rejected even though node_modules is excluded from source\nok 8 - stale embedded runtime bytes are rejected even though node_modules is excluded from source\n  ---\n  duration_ms: 46.043986\n  type: 'test'\n  ...\n# Subtest: root only verifies; canonical CLI writes its receipt after signing and verification\nok 9 - root only verifies; canonical CLI writes its receipt after signing and verification\n  ---\n  duration_ms: 6.703568\n  type: 'test'\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 773.437085\n",
+      "durationMs": 1051.7305479999995,
+      "output": "TAP version 13\n# [verify-helpers] ok — 5 helpers match signed manifest @ 1.0.0\n# Subtest: root verifies prepared plugins, catalog, runtime bundles and real signed helpers without a signer\nok 1 - root verifies prepared plugins, catalog, runtime bundles and real signed helpers without a signer\n  ---\n  duration_ms: 174.631556\n  type: 'test'\n  ...\n# Subtest: root refuses source drift, including untracked source without a HEAD commit\nok 2 - root refuses source drift, including untracked source without a HEAD commit\n  ---\n  duration_ms: 64.380476\n  type: 'test'\n  ...\n# Subtest: root also refuses dirty tracked source while the git index stays unchanged\nok 3 - root also refuses dirty tracked source while the git index stays unchanged\n  ---\n  duration_ms: 87.121976\n  type: 'test'\n  ...\n# Subtest: root refuses staged TUI, MetaHarness and catalog tampering\nok 4 - root refuses staged TUI, MetaHarness and catalog tampering\n  ---\n  duration_ms: 205.441132\n  type: 'test'\n  ...\n# [verify-helpers] hash drift for router.cjs\n#   manifest: 2d30db0fc0abf7dbf49665a21fde549a4bf00d0a476641c52e39aaeac3e73ac1\n#   on disk:  d121be3103007b41edf96f8262925f8c7d61894afe9a041843b631f69445bc57\n#   → re-run sign-helpers.mjs\n# Subtest: a rewritten receipt cannot bypass actual signed helper verification\nok 5 - a rewritten receipt cannot bypass actual signed helper verification\n  ---\n  duration_ms: 156.10289\n  type: 'test'\n  ...\n# Subtest: missing preparation receipt fails closed\nok 6 - missing preparation receipt fails closed\n  ---\n  duration_ms: 52.770552\n  type: 'test'\n  ...\n# Subtest: missing staged capability cannot receive a preparation receipt\nok 7 - missing staged capability cannot receive a preparation receipt\n  ---\n  duration_ms: 82.293607\n  type: 'test'\n  ...\n# Subtest: stale embedded runtime bytes are rejected even though node_modules is excluded from source\nok 8 - stale embedded runtime bytes are rejected even though node_modules is excluded from source\n  ---\n  duration_ms: 70.227011\n  type: 'test'\n  ...\n# Subtest: root only verifies; canonical CLI writes its receipt after signing and verification\nok 9 - root only verifies; canonical CLI writes its receipt after signing and verification\n  ---\n  duration_ms: 1.574881\n  type: 'test'\n  ...\n1..9\n# tests 9\n# suites 0\n# pass 9\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 983.525573\n",
       "outputTruncated": false
     },
     {
       "id": "vector-mutations",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 433.2143560000004,
-      "output": "TAP version 13\n# (node:1121) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: native async mutations complete before callers continue; errors propagate\nok 1 - native async mutations complete before callers continue; errors propagate\n  ---\n  duration_ms: 172.290211\n  type: 'test'\n  ...\n# Subtest: missing native package retains working JS mutations and clear\nok 2 - missing native package retains working JS mutations and clear\n  ---\n  duration_ms: 87.305232\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 352.13165\n",
+      "durationMs": 448.74897000000055,
+      "output": "TAP version 13\n# (node:4421) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: native async mutations complete before callers continue; errors propagate\nok 1 - native async mutations complete before callers continue; errors propagate\n  ---\n  duration_ms: 201.990261\n  type: 'test'\n  ...\n# Subtest: missing native package retains working JS mutations and clear\nok 2 - missing native package retains working JS mutations and clear\n  ---\n  duration_ms: 70.70209\n  type: 'test'\n  ...\n1..2\n# tests 2\n# suites 0\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 368.385253\n",
       "outputTruncated": false
     },
     {
       "id": "weight-eft-api",
       "status": "passed",
       "exitCode": 0,
-      "durationMs": 263.97581099999843,
-      "output": "TAP version 13\n# (node:1152) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: selects complete ESM namespace or CJS default surface\nok 1 - selects complete ESM namespace or CJS default surface\n  ---\n  duration_ms: 1.073251\n  type: 'test'\n  ...\n# Subtest: rejects each partial or incompatible surface before export, plan or eval runs\nok 2 - rejects each partial or incompatible surface before export, plan or eval runs\n  ---\n  duration_ms: 0.677806\n  type: 'test'\n  ...\n# Subtest: absence and load failures degrade cleanly at entry points\nok 3 - absence and load failures degrade cleanly at entry points\n  ---\n  duration_ms: 1.7009\n  type: 'test'\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 179.807155\n",
+      "durationMs": 215.44610799999646,
+      "output": "TAP version 13\n# (node:4452) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time\n# (Use `node --trace-warnings ...` to show where the warning was created)\n# Subtest: selects complete ESM namespace or CJS default surface\nok 1 - selects complete ESM namespace or CJS default surface\n  ---\n  duration_ms: 0.826798\n  type: 'test'\n  ...\n# Subtest: rejects each partial or incompatible surface before export, plan or eval runs\nok 2 - rejects each partial or incompatible surface before export, plan or eval runs\n  ---\n  duration_ms: 0.856279\n  type: 'test'\n  ...\n# Subtest: absence and load failures degrade cleanly at entry points\nok 3 - absence and load failures degrade cleanly at entry points\n  ---\n  duration_ms: 0.965964\n  type: 'test'\n  ...\n1..3\n# tests 3\n# suites 0\n# pass 3\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 151.17038\n",
       "outputTruncated": false
     }
   ],
@@ -4484,24 +4488,106 @@
       "successfulChecks": 8,
       "complete": false,
       "adoptionScore": null
+    },
+    {
+      "inputHash": "1f87eddda074ceec4c602f4a76eb5be7fee31dae0fa569c35344f8b1d1210a21",
+      "sourceSha256": "2ba6f22d02bcbe450815063323faf6c8c2a19b4d18f546edf337eb784b82e404",
+      "checks": [
+        {
+          "id": "dependency-ownership",
+          "status": "passed"
+        },
+        {
+          "id": "graph-impact",
+          "status": "passed"
+        },
+        {
+          "id": "persistent-memory-retrieval",
+          "status": "passed"
+        },
+        {
+          "id": "relationship-provenance",
+          "status": "passed"
+        },
+        {
+          "id": "ruvector-workflow",
+          "status": "passed"
+        },
+        {
+          "id": "signed-publication",
+          "status": "passed"
+        },
+        {
+          "id": "vector-mutations",
+          "status": "passed"
+        },
+        {
+          "id": "weight-eft-api",
+          "status": "passed"
+        }
+      ],
+      "successfulChecks": 8,
+      "complete": false,
+      "adoptionScore": null
+    },
+    {
+      "inputHash": "0d70778eb0b46d44127b32e4258085ac268295826f81e4a6442adbb1c6a37739",
+      "sourceSha256": "c04d2c9ab940b514e89350fab09ea2a69280d2a56911cc8faf7f58e2977715b4",
+      "checks": [
+        {
+          "id": "dependency-ownership",
+          "status": "passed"
+        },
+        {
+          "id": "graph-impact",
+          "status": "passed"
+        },
+        {
+          "id": "persistent-memory-retrieval",
+          "status": "passed"
+        },
+        {
+          "id": "relationship-provenance",
+          "status": "passed"
+        },
+        {
+          "id": "ruvector-workflow",
+          "status": "passed"
+        },
+        {
+          "id": "signed-publication",
+          "status": "passed"
+        },
+        {
+          "id": "vector-mutations",
+          "status": "passed"
+        },
+        {
+          "id": "weight-eft-api",
+          "status": "passed"
+        }
+      ],
+      "successfulChecks": 8,
+      "complete": false,
+      "adoptionScore": null
     }
   ],
   "loop": {
     "requestedIterations": 2,
     "completedIterations": 2,
     "budgetMs": 60000,
-    "durationMs": 14987.526085,
+    "durationMs": 33798.590110000005,
     "history": [
       {
         "iteration": 1,
-        "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
+        "inputHash": "0d70778eb0b46d44127b32e4258085ac268295826f81e4a6442adbb1c6a37739",
         "checksPassed": true,
         "uncoveredPackages": 391,
         "newSourceEvidence": true
       },
       {
         "iteration": 2,
-        "inputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
+        "inputHash": "0d70778eb0b46d44127b32e4258085ac268295826f81e4a6442adbb1c6a37739",
         "checksPassed": true,
         "uncoveredPackages": 391,
         "newSourceEvidence": false
