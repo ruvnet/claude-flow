@@ -113,6 +113,7 @@
     "js-yaml": ">=4.3.0",
     "hono": ">=4.13.2",
     "@ruvector/rvf-wasm": "0.1.5",
+    "@ruvector/rvf": "0.3.4",
     "@hono/node-server": ">=2.1.1",
     "flatted": ">=3.4.0",
     "tar": ">=7.5.11",
