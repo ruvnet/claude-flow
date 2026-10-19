@@ -363,6 +363,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       return;
     }
 
+    // Detach from the domain pool before cancelling. cancelTask() releases a
+    // pool-owned agent and drains that domain's queue, which must not hand a
+    // new task to an agent that is being removed.
+    await this.detachAgentFromDomain(agentId);
+
     // Cancel any assigned tasks
     if (agent.currentTask) {
       await this.cancelTask(agent.currentTask.id);
@@ -377,6 +382,25 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     this.state.agents.delete(agentId);
 
     this.emitEvent('agent.left', { agentId });
+  }
+
+  /**
+   * Remove a domain agent from its pool and domain map. This is deliberately
+   * separate from unregisterAgent(): cancellation/release paths use the
+   * domain map, so teardown must revoke pool membership first to prevent a
+   * released slot from being re-acquired for the same agent.
+   */
+  private async detachAgentFromDomain(agentId: string): Promise<void> {
+    const domain = this.agentDomainMap.get(agentId);
+    if (!domain) {
+      return;
+    }
+
+    const pool = this.domainPools.get(domain);
+    if (pool) {
+      await pool.remove(agentId);
+    }
+    this.agentDomainMap.delete(agentId);
   }
 
   getAgent(agentId: string): AgentState | undefined {
@@ -1879,6 +1903,10 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       };
     }
 
+    // Detach before the grace period so the pool cannot hand this agent a new
+    // domain task while termination is pending.
+    await this.detachAgentFromDomain(agentId);
+
     // If agent has active tasks and not forcing, wait or reassign
     let tasksReassigned = 0;
     if (agent.currentTask && !options?.force) {
@@ -1897,10 +1925,8 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       }
     }
 
-    // Remove from domain tracking
-    this.agentDomainMap.delete(agentId);
-
-    // Unregister the agent
+    // Unregister the agent; unregisterAgent() is also idempotent for the
+    // domain detach above.
     await this.unregisterAgent(agentId);
 
     this.emitEvent('agent.left', {
