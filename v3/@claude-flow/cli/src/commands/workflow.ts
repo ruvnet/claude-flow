@@ -138,6 +138,13 @@ const runCommand: Command = {
         },
       });
 
+      const runError = toolError(result);
+      if (runError || !result.metrics) {
+        spinner.fail('Workflow failed');
+        output.printError(`Workflow error: ${runError ?? 'workflow_run returned no workflow summary'}`);
+        return { success: false, exitCode: 1 };
+      }
+
       if (dryRun) {
         spinner.succeed('Workflow validated successfully');
       } else {
@@ -327,18 +334,25 @@ const listCommand: Command = {
     try {
       const result = await callMCPTool<{
         workflows: Array<{
-          id: string;
-          template: string;
+          workflowId: string;
+          name: string;
           status: string;
-          startedAt: string;
+          stepCount: number;
+          createdAt: string;
           completedAt?: string;
-          progress: number;
         }>;
         total: number;
+        error?: string;
       }>('workflow_list', {
         status: status || 'all',
         limit,
       });
+
+      const listError = toolError(result);
+      if (listError || !Array.isArray(result.workflows)) {
+        output.printError(`Failed to list workflows: ${listError ?? 'workflow_list returned no workflows'}`);
+        return { success: false, exitCode: 1 };
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
@@ -356,13 +370,19 @@ const listCommand: Command = {
 
       output.printTable({
         columns: [
-          { key: 'id', header: 'ID', width: 15 },
-          { key: 'template', header: 'Template', width: 15 },
+          { key: 'id', header: 'ID', width: 30 },
+          { key: 'name', header: 'Name', width: 24 },
           { key: 'status', header: 'Status', width: 12, format: formatStageStatus },
-          { key: 'progress', header: 'Progress', width: 10, align: 'right', format: (v) => `${v}%` },
-          { key: 'startedAt', header: 'Started', width: 20, format: (v) => new Date(String(v)).toLocaleString() }
+          { key: 'steps', header: 'Steps', width: 6, align: 'right' },
+          { key: 'createdAt', header: 'Created', width: 20, format: (v) => new Date(String(v)).toLocaleString() }
         ],
-        data: result.workflows
+        data: result.workflows.map(w => ({
+          id: w.workflowId,
+          name: w.name,
+          status: w.status,
+          steps: w.stepCount,
+          createdAt: w.createdAt,
+        }))
       });
 
       output.writeln();
@@ -403,55 +423,58 @@ const statusCommand: Command = {
 
     try {
       const result = await callMCPTool<{
-        id: string;
-        template: string;
+        workflowId: string;
+        name: string;
         status: string;
         progress: number;
-        stages: Array<{
-          name: string;
-          status: string;
-          startedAt?: string;
-          completedAt?: string;
-          agents: string[];
-          output?: string;
-        }>;
-        metrics: {
-          duration: number;
-          tokensUsed: number;
-          agentsSpawned: number;
-        };
+        currentStep: number;
+        totalSteps: number;
+        completedSteps: number;
+        startedAt?: string;
+        completedAt?: string;
+        steps?: Array<{ stepId: string; name: string; type: string; status: string }>;
+        error?: string;
       }>('workflow_status', {
         workflowId,
+        verbose: true,
       });
+
+      const statusError = toolError(result);
+      if (statusError) {
+        output.printError(`Failed to get status: ${statusError}`);
+        return { success: false, exitCode: 1 };
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(result);
         return { success: true, data: result };
       }
 
+      const started = result.startedAt ? Date.parse(result.startedAt) : NaN;
+      const ended = result.completedAt ? Date.parse(result.completedAt) : Date.now();
+
       output.writeln();
       output.printBox(
         [
-          `ID: ${result.id}`,
-          `Template: ${result.template}`,
+          `ID: ${result.workflowId}`,
+          `Name: ${result.name}`,
           `Status: ${formatStageStatus(result.status)}`,
-          `Progress: ${result.progress}%`,
-          `Duration: ${(result.metrics.duration / 1000).toFixed(1)}s`,
-          `Tokens: ${result.metrics.tokensUsed.toLocaleString()}`,
-          `Agents: ${result.metrics.agentsSpawned}`
+          `Progress: ${Math.round(result.progress)}% (${result.completedSteps}/${result.totalSteps} steps)`,
+          ...(Number.isNaN(started) ? [] : [`Duration: ${((ended - started) / 1000).toFixed(1)}s`]),
+          ...(result.error ? [`Error: ${result.error}`] : []),
         ].join('\n'),
         'Workflow Status'
       );
 
       output.writeln();
-      output.writeln(output.bold('Stage Progress'));
+      output.writeln(output.bold('Step Progress'));
       output.printTable({
         columns: [
-          { key: 'name', header: 'Stage', width: 20 },
+          { key: 'name', header: 'Step', width: 24 },
+          { key: 'type', header: 'Type', width: 10 },
           { key: 'status', header: 'Status', width: 12, format: formatStageStatus },
-          { key: 'agents', header: 'Agents', width: 25, format: (v) => Array.isArray(v) ? v.length.toString() : '0' }
         ],
-        data: result.stages
+        data: result.steps ?? []
       });
 
       return { success: true, data: result };
@@ -505,10 +528,17 @@ const stopCommand: Command = {
         workflowId: string;
         stopped: boolean;
         stoppedAt: string;
+        error?: string;
       }>('workflow_stop', {
         workflowId,
         graceful: !force,
       });
+
+      const stopError = toolError(result);
+      if (stopError || result.stopped !== true) {
+        output.printError(`Failed to stop workflow: ${stopError ?? 'the workflow was not stopped'}`);
+        return { success: false, exitCode: 1 };
+      }
 
       output.printSuccess(`Workflow ${workflowId} stopped`);
 
@@ -678,6 +708,17 @@ export const workflowCommand: Command = {
 };
 
 // Helper functions
+/**
+ * The workflow MCP tools report failure as `{ error }` (or `{ success: false, error }`)
+ * instead of throwing, so a command that reads the result without checking it prints
+ * a false success or crashes on a field the error result does not have.
+ */
+function toolError(result: unknown): string | undefined {
+  const r = result as { error?: unknown } | undefined | null;
+  if (!r) return 'the workflow tool returned no result';
+  return typeof r.error === 'string' && r.error.length > 0 ? r.error : undefined;
+}
+
 function formatStageStatus(status: unknown): string {
   const statusStr = String(status);
   switch (statusStr) {

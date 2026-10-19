@@ -34,7 +34,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { execFileSync } from 'child_process';
-import { getMemoryRoot } from './memory-initializer.js';
+import { resolveDbPath } from './memory-initializer.js';
 import { encodeEmbedding } from './embedding-quantization.js';
 import { loadBetterSqlite3 } from './shared-sqlite.js';
 import { isEncryptedBlob } from '../encryption/vault.js';
@@ -134,13 +134,15 @@ function warnRfe1EncryptedOnce(dbPath: string): void {
 }
 
 /**
- * True iff the memory.db bridge at `customDbPath` (or the default location)
- * is currently RFE1-encrypted-at-rest. Callers that receive `null` from
- * getBridgeDb()/insertGraphEdge() can use this to avoid recommending the
- * destructive `memory init` command for this specific, non-corrupt case.
+ * True iff the memory.db bridge at `customDbPath` — or, when omitted, the
+ * path `resolveDbPath()` resolves from the `CLAUDE_FLOW_DB_PATH` env binding
+ * / memory root default (#4291) — is currently RFE1-encrypted-at-rest.
+ * Callers that receive `null` from getBridgeDb()/insertGraphEdge() can use
+ * this to avoid recommending the destructive `memory init` command for this
+ * specific, non-corrupt case.
  */
 export function isBridgeDbEncryptedAtRest(customDbPath?: string): boolean {
-  const dbPath = customDbPath ?? path.join(getMemoryRoot(), 'memory.db');
+  const dbPath = resolveDbPath(customDbPath);
   return fs.existsSync(dbPath) && isRfe1EncryptedAtRest(dbPath);
 }
 
@@ -224,9 +226,19 @@ export function releaseBridgeDb(dbPath?: string): boolean {
  * #2431 fix: better-sqlite3 + WAL mode replaces sql.js + whole-file
  * writeFileSync. Eliminates the dual-write race that corrupted memory.db
  * when called alongside the memory bridge's better-sqlite3 writer.
+ *
+ * #4291 fix: the file is resolved via `resolveDbPath()` — the project's one
+ * documented path-priority rule (explicit `customDbPath` argument wins, then
+ * the `CLAUDE_FLOW_DB_PATH` env binding, then the plain `memory.db` default
+ * under the memory root) — instead of a local `customDbPath ?? <default>`
+ * expression that silently ignored `CLAUDE_FLOW_DB_PATH`. A caller that
+ * explicitly selected a store via that env var no longer gets answers read
+ * from a different, unselected database file. When the resolved file is
+ * missing (and `createIfMissing` is false) or encrypted at rest, this
+ * refuses (returns null) rather than falling back to any other store.
  */
 export async function getBridgeDb(customDbPath?: string, opts?: { createIfMissing?: boolean }): Promise<any | null> {
-  const dbPath = customDbPath ?? path.join(getMemoryRoot(), 'memory.db');
+  const dbPath = resolveDbPath(customDbPath);
   const createIfMissing = opts?.createIfMissing === true;
 
   if (_db && _dbPath === dbPath) { armIdleRelease(); return _db; }

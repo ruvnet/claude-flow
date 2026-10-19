@@ -1913,6 +1913,10 @@ export class WorkerDaemon extends EventEmitter {
         rotatedAway: r.rotatedAway?.length ?? 0,
         gcsUri: r.gcsUri,
         skipped: r.skipped,
+        // Which method actually completed (per-store detail is in `backups`);
+        // migration tooling should require 'native-online-backup', not a
+        // blanket `backedUp: true` — see #4287.
+        method: r.method,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

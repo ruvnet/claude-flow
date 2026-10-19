@@ -27,7 +27,7 @@ import { askSeraphina } from './seraphina.mjs';
 import { privacyPage, termsPage, supportPage } from './public-pages.mjs';
 import { fenceUntrusted, untrustedToolResult } from './untrusted.mjs';
 import { createGithubQuery, errorPayload } from './github-query.mjs';
-import { protectedResourceMetadata, challengeHeader, verifyAccessToken, hasScope, SCOPE_READ, SCOPE_PUBLISH } from './oauth.mjs';
+import { protectedResourceMetadata, challengeHeader, verifyAccessToken, hasScope, SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE } from './oauth.mjs';
 import { createHash } from 'node:crypto';
 import { registrationFromEnv, RegistrationError } from './registration.mjs';
 
@@ -439,7 +439,7 @@ export function createGateway({ relay, keyFile, port, registration, github: gith
       return res.end(JSON.stringify({ service: 'ruflo-x-gateway', version: VERSION, mcp: '/mcp', publicMcp: '/chatgpt/mcp', claudeMcp: '/claude/mcp',
         registration: enrollment.info(), pages: { privacy: '/privacy', terms: '/terms', support: '/support' }, ws: ['/', '/relay'], relay: RELAY, canonicalRelay: RELAY, legacyRelay: LEGACY_RELAY, authNote: 'When connecting via wss://x.ruv.io, sign the NIP-42 AUTH `relay` tag with canonicalRelay (the relay verifies it strictly).', gatewayPubkey: pubkey, resources: ['ruv://federation/registry', 'ruv://federation/onboarding', 'ruv://swarm/roster', 'ruv://claims/board', 'ruv://swarm/channels'],
         authorization: { type: 'oauth2', issuer: OAUTH_ISSUER, clientId: OAUTH_CLIENT_ID || null,
-          scopes: [SCOPE_READ, SCOPE_PUBLISH], protectedResourceMetadata: prmUrl('/chatgpt/mcp') } })); }
+          scopes: [SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE], protectedResourceMetadata: prmUrl('/chatgpt/mcp') } })); }
     // ---- OpenAI app-review surface ----
     // /.well-known/openai-apps-challenge proves domain control. The value lives
     // ONLY in the environment (secret manager in production): it is never
@@ -473,7 +473,7 @@ export function createGateway({ relay, keyFile, port, registration, github: gith
         ...registryDoc(mcpPath), service: 'ruflo-x-gateway', version: VERSION,
         protocol: 'mcp', transport: 'streamable-http', endpoint: `${PUBLIC_URL}${mcpPath}`, methods: ['POST'],
         authorization: { type: 'oauth2', issuer: OAUTH_ISSUER, clientId: OAUTH_CLIENT_ID || null,
-          scopes: [SCOPE_READ, SCOPE_PUBLISH], protectedResourceMetadata: prmUrl(mcpPath) },
+          scopes: [SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE], protectedResourceMetadata: prmUrl(mcpPath) },
       }));
     }
     // Legacy /mcp keeps the full surface, including the admin-argument tools that
