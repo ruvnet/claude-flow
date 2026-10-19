@@ -64,10 +64,10 @@ export type AnchorAssessment =
 export type AnchorWriter = (file: string, value: unknown) => Promise<void>;
 export type StreamingAnchorWriter = (file: string, value: AtomicJsonSource) => Promise<void>;
 
-const LOG_FILE = 'ledger-anchors.json';
-const MIRROR_FILE = 'ledger-anchor-head.json';
+export const ANCHOR_LOG_FILE = 'ledger-anchors.json';
+export const ANCHOR_MIRROR_FILE = 'ledger-anchor-head.json';
 
-export const anchorLogPath = (projectRoot: string): string => join(resolve(projectRoot), '.claude-flow', 'policy', LOG_FILE);
+export const anchorLogPath = (projectRoot: string): string => join(resolve(projectRoot), '.claude-flow', 'policy', ANCHOR_LOG_FILE);
 
 /**
  * The home directory trust material lives under: $HOME when it is an absolute path, else the account's home. An empty or relative
@@ -100,7 +100,7 @@ export function policyTrustRoot(): string {
 
 function mirrorPath(projectRoot: string): string {
   const id = createHash('sha256').update(realpathSync(projectRoot)).digest('hex');
-  return join(policyTrustRoot(), id, MIRROR_FILE);
+  return join(policyTrustRoot(), id, ANCHOR_MIRROR_FILE);
 }
 
 // Duplicated from policy-runtime.ts's RECEIPT_ARCHIVE_FILE rather than

@@ -218,6 +218,28 @@ const FLOW = 'research → create (ADRs, SOP) → build → test → validate �
 const flowRows = (ctx: Ctx): RenderElement[] => wrap(FLOW, Math.max(20, ctx.columns - 4)).map((line, i) => text(ctx, `${i === 0 ? ' ' : '   '}${line}`, { dimColor: true }))
 
 /**
+ * Missions saved before the ledger was kept per project that name no project (#4254). They are listed as an offer and are not this
+ * project's (not picked, not handed to Claude, not in the prompt) until the person adopts them here or says they belong elsewhere.
+ */
+function legacyRows(ctx: Ctx, legacy: readonly MissionRecord[]): RenderElement[] {
+  const n = legacy.length
+  // The offer can mix missions from several projects, so each one is adopted or turned away on its own row.
+  const offerRow = (m: MissionRecord) => row(ctx, [
+    text(ctx, `   ${m.id.slice(4, 10)}  ${clip(m.objective, Math.max(16, ctx.columns - 36))} `, { dimColor: true }),
+    button(ctx, `mc-legacy-adopt-${m.id}`, ' adopt ', () => ctx.act.mission.adoptLegacy(m.id)),
+    text(ctx, ' '),
+    button(ctx, `mc-legacy-dismiss-${m.id}`, ' not here ', () => ctx.act.mission.dismissLegacy(m.id)),
+  ], `mc-legacy-${m.id}`)
+
+  return [
+    ...paragraph(ctx, ` ${n} mission${n === 1 ? '' : 's'} from before per-project storage, with no project recorded. Adopt one only if it was made in this project:`, { color: THEME.warn }),
+    ...legacy.slice(0, 5).map(offerRow),
+    ...(n > 5 ? [text(ctx, `   … and ${n - 5} more`, { dimColor: true })] : []),
+    ...(n > 1 ? [row(ctx, [text(ctx, '   '), button(ctx, 'mc-legacy-dismiss', ' none of these are this project\'s ', () => ctx.act.mission.dismissLegacy())], 'mc-legacy')] : []),
+  ]
+}
+
+/**
  * Mission Control: a goal becomes a SPARC plan found by a goal-oriented planner, the plan a governed mission and a ruflo
  * task per node, and the Claude session does the work one task at a time with its result recorded in the task store
  * (the one authority for status). Tabs: Plan, Tasks, Agents, Evidence, Record. Asks first before anything that writes a
@@ -237,6 +259,8 @@ export function missionControlView(ctx: Ctx): RenderElement {
   rows.push(...launchRows(ctx), ...researchStartRows(ctx))
 
   if (mc.missions.size > 1) rows.push(row(ctx, [...mc.missions.values()].slice(-6).map(candidate => chip(ctx, `mc-pick-${candidate.id}`, candidate.id.slice(4, 10), candidate.id === mc.active, () => ctx.act.mission.select(candidate.id))), 'mc-picker'))
+
+  if (mc.legacy.length > 0) rows.push(...legacyRows(ctx, mc.legacy))
 
   if (mission !== null) rows.push(...controlRows(ctx, mission))
 
