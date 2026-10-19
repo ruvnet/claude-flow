@@ -2408,16 +2408,20 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
         console.log('Loading agentic-flow ReasoningBank embedding model...');
       }
 
+      // #3113: register a callable, like the ruvector branch below —
+      // generateLocalEmbedding() only invokes function models. The bundled
+      // model is all-MiniLM-L6-v2 (384-dim, per agentic-flow's
+      // getEmbeddingDimensions()).
       embeddingModelState = {
         loaded: true,
-        model: { embed: reasoningBank.computeEmbedding },
+        model: (text: string) => reasoningBank.computeEmbedding(text),
         tokenizer: null,
-        dimensions: 768
+        dimensions: 384
       };
 
       return {
         success: true,
-        dimensions: 768,
+        dimensions: 384,
         modelName: 'agentic-flow/reasoningbank',
         loadTime: Date.now() - startTime
       };
@@ -2570,10 +2574,13 @@ export async function generateLocalEmbedding(text: string): Promise<{
   if (state.model && typeof (state.model as any) === 'function') {
     try {
       const output = await (state.model as any)(text, { pooling: 'mean', normalize: true });
-      // Handle both @xenova/transformers (output.data) and ruvector (plain array) formats
+      // Handle @xenova/transformers (output.data), ruvector (plain array) and
+      // typed-array (ReasoningBank Float32Array, #3114) formats. DataView is an
+      // ArrayBuffer view without an iterator (Array.from gives []), so exclude it.
       const embedding = output?.data
         ? Array.from(output.data as Float32Array)
-        : Array.isArray(output) ? output : null;
+        : Array.isArray(output) ? output
+        : ArrayBuffer.isView(output) && !(output instanceof DataView) ? Array.from(output as Float32Array) : null;
       if (embedding) {
         return {
           embedding,
