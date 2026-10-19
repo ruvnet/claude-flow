@@ -95,3 +95,98 @@ correct in what they decide; these are the places where the code is more specifi
    `policy-anchor-log-missing`; only `--establish-anchor` rebuilds the log, and only when the receipts still agree with the mirror.
 
 Nothing in the threat model (section 3) is contradicted: the mirror and log are under the same user's control, so the stated limit stands.
+
+## Update 2026-10-14: format 2 writer fence and bounded full audit
+
+Policy state format 2 prevents older format-1 writers from silently rewriting a
+retained ledger using obsolete archive/durability rules. The current loader accepts
+existing format-1 state, including pruned history. The engine preserves its rules,
+approvals, budgets, usage, receipt payloads/signatures and anchors, and writes format
+2 on the next state publication. Unknown future versions fail closed. This is a
+state-format migration, not receipt re-signing or signing-key rotation.
+
+Before rolling out a format-2 writer, stop older MCP servers and other policy
+writers for the project. Older released CLI loaders reject format 2 with
+`unsupported-policy-state-version:2`; do not restart them against migrated state.
+A binary rollback by restoring an exact pre-migration backup is supported only
+when an operator verifies that no receipts, approval uses, budget consumption or
+other acknowledged semantic changes occurred after that backup, and all writers
+are stopped. The state, archive and project/external trust anchors must be restored
+as the exact matching set. Restoring an older snapshot after acknowledged changes
+would discard authority history and could permit replay; that rollback is not
+supported. Keep a compatible writer and fix forward, or require an operator-approved
+data-preserving migration plan. There is no automatic downgrade, history rewrite
+or deletion path. These instructions do not authorize live backups, restores or
+filesystem changes.
+
+`policy verify --full` captures a checked, nofollow regular archive descriptor,
+its byte boundary, the hot state and signing configuration under the writer lock.
+It releases the lock before reading the historical prefix in 64 KiB chunks. Later
+appends are outside that audit snapshot; replacing its pathname does not replace
+the pinned descriptor. Truncation, short reads, invalid UTF-8, unterminated records
+and authentication/canonical duplicate conflicts fail verification explicitly.
+
+Memory scales with one bounded record and its parsed/canonical representations
+plus the retained hot state; canonical finite-number formatting can expand beyond
+the raw JSON input length. This is not a fixed RSS ceiling for every record. A private 0700
+scratch directory holds a 0600 disk index; it addresses only the snapshot's claimed
+sequences and is removed after success or failure. Every physical record is
+authenticated before deduplication. Duplicate checks reread and compare the entire
+canonical receipt, including signature and key ID. A receipt digest in the index
+detects changes to that observed canonical record; it does not replace exact
+canonical duplicate comparison. Unclaimed staging extras are authenticated and
+compared in separate numeric scratch files, never enormous sparse offsets.
+
+The default audit record limit is 16 MiB. Set
+`CLAUDE_FLOW_POLICY_AUDIT_MAX_RECORD_BYTES` to an integer from 1024 through 67108864
+to change the bound; invalid configuration and larger records fail with an explicit
+error, without skipping or truncating ledger bytes. This is a new full-audit
+compatibility limit and also bounds the archive-tip preflight. The audit byte
+limit and `CLAUDE_FLOW_POLICY_LEDGER_RETENTION` are operator process-level settings
+shared by CLI and long-lived MCP writers, not per-request flags. The retention
+window defaults to 2,000 receipts; pruning preserves the authenticated archive.
+Neither setting changes policy rules, budgets, approvals or receipt verification.
+Complete records
+use strict UTF-8. An incomplete EOF fragment is preserved by preflight so the
+writer can recover only its exact verified-state byte prefix; full audit rejects
+that incomplete snapshot. Legacy anchor JSON is streamed without changing its
+version-1 format or historical hash/mirror checks; each bounded JSON value is
+limited to 16 MiB of encoded UTF-8. Temporary-disk or descriptor failures also fail
+the audit. Anchor verification CPU and atomic log-rewrite I/O still scale with the
+number of anchors under the writer lock; bounded memory does not eliminate that
+separate mature-ledger contention limit.
+The default hot-path check remains tip-based, with the existing disclosed historical
+interior coverage limit. This protocol requires neither a full historical array nor
+a history-sized in-memory map, and makes no new guarantee against full local write
+access or platforms lacking directory fsync.
+
+
+### Local synthetic measurement, 2026-10-14
+
+The final bounded candidate was compared with the integrated pre-streaming
+source on the same shared Linux host using Node 24.21.0, 170,000 synthetic
+unsigned receipts, 2,000 retained receipts, a 209,900,711-byte archive and
+170,000 authenticated anchor entries. These are local measurements, not
+production capacity guarantees. The first write starts from an 84,632,655-byte
+pretty legacy anchor log. A priming transaction produces each writer's own
+format: the baseline remains pretty (84,633,165 bytes), while the candidate
+writes compact JSON (70,895,073 bytes). All prior entries remain authenticated.
+
+| Actual transaction | Baseline | Bounded candidate |
+| --- | --- | --- |
+| First legacy-log write, elapsed | 2.488 s | 3.341 s |
+| First write, process peak RSS | 636.5 MiB | 124.1 MiB |
+| Subsequent single write, elapsed | 1.795 s | 1.812 s |
+| Subsequent write, process peak RSS | 637.9 MiB | 141.2 MiB |
+| First-write simultaneous clients 1 / 4 / 16, successful returns | 1 / 3 / 2 | 1 / 3 / 2 |
+| Primed simultaneous clients 1 / 4 / 16, successful returns | 1 / 3 / 2 | 1 / 3 / 3 |
+
+The remaining clients failed with the existing policy-state lock timeout.
+Anchor validation CPU and complete atomic anchor-log rewrites remain
+O(anchor count) under the writer lock. This inherited mature-ledger contention
+issue remains unresolved under #3164; bounded full-audit memory does not make
+sixteen concurrent writers reliable. Shared-host load affects these timings;
+an earlier loaded run measured a 7.170-second first candidate write and
+4.399-second primed write. Its process RSS was additionally affected by the
+benchmark controller's inherited JSON-generation allocation, so that run is
+not used for the memory comparison above.

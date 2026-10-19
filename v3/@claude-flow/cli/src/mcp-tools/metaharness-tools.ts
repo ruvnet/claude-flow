@@ -384,7 +384,7 @@ export const metaharnessTools: MCPTool[] = [
   },
   // ───────────────────────────────────────────────────────────────────────
   // ADR-153 — @metaharness/darwin integration (3 tools).
-  // Backed by the separate `@metaharness/darwin@~0.10.2` npm package, NOT
+  // Backed by the separate `@metaharness/darwin@~0.12.0` npm package, NOT
   // the umbrella `metaharness`. Plugin scripts shell out via _darwin.mjs.
   // Same {success, data, degraded, exitCode} contract.
   // ───────────────────────────────────────────────────────────────────────
