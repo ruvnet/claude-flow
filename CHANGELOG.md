@@ -5,6 +5,18 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.57.1] - 2026-10-19
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.57.1. `@claude-flow/cli-core` 3.7.4 (#4229, #4230) was published earlier and is pinned exactly.
+
+### Security
+
+- `DENYLISTED_ENV_NAMES` now blocks the credential/command-hijack and interpreter-flag-injection vars that 2026-09-21's env-sanitizer fix missed: `GIT_ASKPASS`, `GIT_PROXY_COMMAND`, `GIT_CONFIG_NOSYSTEM`, `PERL5OPT`, `RUBYOPT`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `PYTHONHOME`, `CLASSPATH`, `PYTHONSTARTUP`, plus git's numbered `GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)` family via a new regex (`cli-core` 3.7.4, #4229, #4230).
+
+### Fixed
+
+- `all-plugins-smoke`: the adr/ddd/sparc codex-mod native hook bundles are rebuilt, clearing the native-bundle-drift failure that had been hitting every push to `main`; `scripts/build-codex-mod-hooks.mjs` also no longer hard-fails on Windows, where `execFileSync` can't invoke a `.cmd` shim directly (#4266, #4277, @uyg7x).
+
 ## [3.57.0] - 2026-10-17
 
 Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.57.0. A batch of community and dream-cycle fixes (#4210-#4252) plus a policy-ledger integrity fix (#3892). No standalone leaf republish needed this round.

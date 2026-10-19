@@ -639,19 +639,19 @@ The `@claude-flow/codex` package now includes built-in dual-mode orchestration:
 
 ```bash
 # List available collaboration templates
-npx claude-flow-codex dual templates
+npx @claude-flow/codex dual templates
 
 # Run a feature development swarm
-npx claude-flow-codex dual run --template feature --task "Add user authentication"
+npx @claude-flow/codex dual run --template feature --task "Add user authentication"
 
 # Run a security audit swarm
-npx claude-flow-codex dual run --template security --task "src/auth/"
+npx @claude-flow/codex dual run --template security --task "src/auth/"
 
 # Run a refactoring swarm
-npx claude-flow-codex dual run --template refactor --task "src/legacy/"
+npx @claude-flow/codex dual run --template refactor --task "src/legacy/"
 
 # Check collaboration status
-npx claude-flow-codex dual status
+npx @claude-flow/codex dual status
 ```
 
 ### Codex Loop Runner
@@ -660,15 +660,15 @@ Codex does not expose Claude Code's `ScheduleWakeup`, so `@claude-flow/codex` pr
 
 ```bash
 # Run Codex repeatedly until it creates .codex/loop/default.complete or reaches 10 iterations
-npx claude-flow-codex loop run "Fix failing tests and create the completion marker when done"
+npx @claude-flow/codex loop run "Fix failing tests and create the completion marker when done"
 
 # Use command mode for recurring Ruflo workers or custom scripts
-npx claude-flow-codex loop run --name testgaps --interval 270 --max-iterations 0 \
+npx @claude-flow/codex loop run --name testgaps --interval 270 --max-iterations 0 \
   --command "npx claude-flow hooks worker dispatch --trigger testgaps"
 
 # Inspect or stop a loop from another terminal
-npx claude-flow-codex loop status --name testgaps
-npx claude-flow-codex loop stop --name testgaps
+npx @claude-flow/codex loop status --name testgaps
+npx @claude-flow/codex loop stop --name testgaps
 ```
 
 Loop state is stored in `.codex/loop/<name>.json`; `loop stop` writes `.codex/loop/<name>.stop`, which the runner observes between iterations.

@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli-core",
-  "version": "3.7.3",
+  "version": "3.7.4",
   "description": "Lightweight core CLI surface for Claude Flow — memory + hooks commands only. Designed to load fast on cold npx cache (<5s) so plugin skills don't race the 30s MCP-startup timeout. The full @claude-flow/cli metapackage lazy-loads everything else on top of this core.",
   "type": "module",
   "main": "dist/src/index.js",
