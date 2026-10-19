@@ -47,7 +47,9 @@
     "!.claude/scheduled_tasks.lock",
     "!.claude/sessions/**",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "v3/@claude-flow/cli/plugins/**",
+    "v3/@claude-flow/cli/.claude/**"
   ],
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -93,11 +95,18 @@
     "toml": "^3.0.0",
     "ws": ">=8.21.0",
     "yaml": "^2.8.0",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "sql.js": "^1.13.0"
   },
   "optionalDependencies": {
-    "@napi-rs/keyring": "1.3.0",
+    "@claude-flow/memory": "3.0.5",
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
+    "@metaharness/darwin": "~0.12.0",
+    "@metaharness/flywheel": "~0.1.10",
+    "@metaharness/radio": "~0.1.0",
+    "@metaharness/turn-credit": "~0.1.0",
+    "@metaharness/weight-eft": "0.1.2",
+    "@napi-rs/keyring": "1.3.0",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
     "@ruvector/router": "^0.1.31",
@@ -105,7 +114,9 @@
     "@ruvector/sona": "^0.1.5",
     "agentdb": "^3.0.0-alpha.20",
     "agentic-flow": "^2.0.14",
-    "better-sqlite3": "12.9.0"
+    "better-sqlite3": "12.9.0",
+    "nostr-tools": "^2.7.0",
+    "ruvector": "^0.2.27"
   },
   "overrides": {
     "ruvector": "^0.2.27",
@@ -222,5 +233,13 @@
   "directories": {
     "doc": "docs",
     "test": "tests"
+  },
+  "peerDependencies": {
+    "@agntcy/slim-bindings": "2.0.0-alpha.5"
+  },
+  "peerDependenciesMeta": {
+    "@agntcy/slim-bindings": {
+      "optional": true
+    }
   }
 }

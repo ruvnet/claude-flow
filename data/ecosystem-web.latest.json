@@ -1,0 +1,1549 @@
+{
+  "schema": "ruflo-ecosystem-web/v1",
+  "generatedAt": "2026-10-18T11:08:37.090Z",
+  "provenance": {
+    "verified": true,
+    "semantics": "Local source identity verification, not signed authorship or runtime availability",
+    "dependencySnapshotSha256": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
+    "runtimeSnapshotSha256": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
+    "registrySha256": "d4572eab6ed97873da78c15b8e25d91e0f595f5a21276bdb0e221b98dce486bb",
+    "sourceSha256": "ff70a1475b07bb7eaf2d6f486068ab0ee3ed12d3d637238c558236098666a3e4",
+    "executionInputHash": "359a1b6e8f346ad7ae36f5090d5efc5adb6f989868517408956f75c994131857"
+  },
+  "capabilities": [
+    {
+      "id": "heldout-agent-evaluation",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "heldout-agent-evaluation: passed"
+      ]
+    },
+    {
+      "id": "persistent-agent-memory",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "persistent-agent-memory: passed"
+      ]
+    },
+    {
+      "id": "persistent-memory-retrieval",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "persistent-memory-retrieval: passed"
+      ]
+    },
+    {
+      "id": "dependency-ownership",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "dependency-ownership: passed"
+      ]
+    },
+    {
+      "id": "vector-mutations",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "vector-mutations: passed"
+      ]
+    },
+    {
+      "id": "weight-eft-api",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "weight-eft-api: passed"
+      ]
+    },
+    {
+      "id": "signed-publication",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "signed-publication: passed"
+      ]
+    },
+    {
+      "id": "relationship-provenance",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "relationship-provenance: passed"
+      ]
+    },
+    {
+      "id": "graph-impact",
+      "kind": "contract",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "graph-impact: passed"
+      ]
+    },
+    {
+      "id": "ruvector-workflow",
+      "kind": "integration",
+      "status": "passed",
+      "availability": "not-probed",
+      "evidence": [
+        "ruvector-workflow: passed"
+      ]
+    }
+  ],
+  "cycle": {
+    "requestedIterations": 2,
+    "completedIterations": 2,
+    "budgetMs": 240000,
+    "durationMs": 93736.485017,
+    "history": [
+      {
+        "iteration": 1,
+        "inputHash": "359a1b6e8f346ad7ae36f5090d5efc5adb6f989868517408956f75c994131857",
+        "checksPassed": true,
+        "uncoveredPackages": 390,
+        "newSourceEvidence": true
+      },
+      {
+        "iteration": 2,
+        "inputHash": "359a1b6e8f346ad7ae36f5090d5efc5adb6f989868517408956f75c994131857",
+        "checksPassed": true,
+        "uncoveredPackages": 390,
+        "newSourceEvidence": false
+      }
+    ],
+    "newSourceIdentities": 1,
+    "adoptionMeasured": false,
+    "automaticPromotion": false,
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed",
+        "durationMs": 488.6890549999953
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed",
+        "durationMs": 10423.640851999997
+      },
+      {
+        "id": "heldout-agent-evaluation",
+        "status": "passed",
+        "durationMs": 3493.9314529999974
+      },
+      {
+        "id": "persistent-agent-memory",
+        "status": "passed",
+        "durationMs": 5672.968818000001
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed",
+        "durationMs": 21840.217921999996
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed",
+        "durationMs": 163.01453200000105
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed",
+        "durationMs": 1834.6182160000026
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed",
+        "durationMs": 648.7028149999969
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed",
+        "durationMs": 350.8471909999935
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed",
+        "durationMs": 182.00614599999972
+      }
+    ],
+    "gate": {
+      "status": "rejected",
+      "reason": "Registered checks passed; affected package coverage remains incomplete"
+    },
+    "artifactReview": {
+      "status": "review-ready",
+      "scope": "relationship evidence only",
+      "promotionAllowed": false,
+      "baselineIsolates": 138,
+      "candidateIsolates": 95,
+      "improvementPercent": 31.159420289855074,
+      "thresholdPercent": 10,
+      "measurement": "Unexplained graph isolates reduced by source evidenced runtime annotations",
+      "runtimeCompatibilityEstablished": false,
+      "newlyDiscoveredThisCycle": false
+    },
+    "affectedPackages": 401,
+    "uncoveredPackages": [
+      "@agentic-robotics/cli",
+      "@agentic-robotics/core",
+      "@agentic-robotics/linux-x64-gnu",
+      "@agentic-robotics/mcp",
+      "@agentic-robotics/self-learning",
+      "@agentics.org/agentic-mcp",
+      "@agentics.org/sparc2",
+      "@claude-flow/aidefence",
+      "@claude-flow/browser",
+      "@claude-flow/claims",
+      "@claude-flow/cli-core",
+      "@claude-flow/codex",
+      "@claude-flow/deployment",
+      "@claude-flow/embeddings",
+      "@claude-flow/guidance",
+      "@claude-flow/hooks",
+      "@claude-flow/integration",
+      "@claude-flow/mcp",
+      "@claude-flow/neural",
+      "@claude-flow/performance",
+      "@claude-flow/plugin-agent-federation",
+      "@claude-flow/plugin-agentic-qe",
+      "@claude-flow/plugin-code-intelligence",
+      "@claude-flow/plugin-cognitive-kernel",
+      "@claude-flow/plugin-financial-risk",
+      "@claude-flow/plugin-gastown-bridge",
+      "@claude-flow/plugin-healthcare-clinical",
+      "@claude-flow/plugin-hyperbolic-reasoning",
+      "@claude-flow/plugin-iot-cognitum",
+      "@claude-flow/plugin-legal-contracts",
+      "@claude-flow/plugin-neural-coordination",
+      "@claude-flow/plugin-perf-optimizer",
+      "@claude-flow/plugin-prime-radiant",
+      "@claude-flow/plugin-quantum-optimizer",
+      "@claude-flow/plugin-test-intelligence",
+      "@claude-flow/plugins",
+      "@claude-flow/providers",
+      "@claude-flow/security",
+      "@claude-flow/shared",
+      "@claude-flow/swarm",
+      "@claude-flow/teammate-plugin",
+      "@claude-flow/testing",
+      "@claude-flow/watermark",
+      "@cognitum-one/sdk",
+      "@cognitum/freetokens",
+      "@cognitum/gate",
+      "@cognitum/ruos",
+      "@dream-machine/compile",
+      "@dream-machine/ledger",
+      "@dream-machine/memory",
+      "@dream-machine/schedule",
+      "@dream-machine/witness",
+      "@foxruv/cf-doctor",
+      "@foxruv/e2b-runner",
+      "@foxruv/iris",
+      "@foxruv/iris-agentic-synth",
+      "@foxruv/iris-core",
+      "@foxruv/iris-ultrathink",
+      "@foxruv/nova-medicina",
+      "@metaharness/agntcy",
+      "@metaharness/avo",
+      "@metaharness/aws-finops",
+      "@metaharness/claude-code",
+      "@metaharness/codex",
+      "@metaharness/coding",
+      "@metaharness/copilot",
+      "@metaharness/darwin",
+      "@metaharness/devops",
+      "@metaharness/education",
+      "@metaharness/example-ads",
+      "@metaharness/example-aws",
+      "@metaharness/example-azure",
+      "@metaharness/example-bio",
+      "@metaharness/example-datadog",
+      "@metaharness/example-fhir",
+      "@metaharness/example-gcp",
+      "@metaharness/example-github",
+      "@metaharness/example-huggingface",
+      "@metaharness/example-iot",
+      "@metaharness/example-nasa",
+      "@metaharness/example-pinecone",
+      "@metaharness/example-qiskit",
+      "@metaharness/example-slack",
+      "@metaharness/example-stripe",
+      "@metaharness/example-supabase",
+      "@metaharness/example-twilio",
+      "@metaharness/example-web3",
+      "@metaharness/field-memory",
+      "@metaharness/flywheel",
+      "@metaharness/gaming",
+      "@metaharness/github-actions",
+      "@metaharness/hermes",
+      "@metaharness/horizon",
+      "@metaharness/host-claude-code",
+      "@metaharness/host-codex",
+      "@metaharness/host-copilot",
+      "@metaharness/host-github-actions",
+      "@metaharness/host-hermes",
+      "@metaharness/host-openclaw",
+      "@metaharness/host-opencode",
+      "@metaharness/host-pi-dev",
+      "@metaharness/host-prime-agent",
+      "@metaharness/host-rvm",
+      "@metaharness/jujutsu",
+      "@metaharness/kernel",
+      "@metaharness/legal",
+      "@metaharness/oo-agents",
+      "@metaharness/openclaw",
+      "@metaharness/opencode",
+      "@metaharness/pi-dev",
+      "@metaharness/projects",
+      "@metaharness/radio",
+      "@metaharness/redblue",
+      "@metaharness/repo-maintainer",
+      "@metaharness/research",
+      "@metaharness/router",
+      "@metaharness/rvm",
+      "@metaharness/sales",
+      "@metaharness/sdk",
+      "@metaharness/support",
+      "@metaharness/trading",
+      "@metaharness/turn-credit",
+      "@metaharness/vertical-base",
+      "@metaharness/vertical-trading",
+      "@metaharness/workspace-lens",
+      "@metaharness/workspace-probe",
+      "@neural-trader/agentic-accounting-agents",
+      "@neural-trader/agentic-accounting-cli",
+      "@neural-trader/agentic-accounting-core",
+      "@neural-trader/agentic-accounting-mcp",
+      "@neural-trader/agentic-accounting-rust-core",
+      "@neural-trader/agentic-accounting-types",
+      "@neural-trader/backend",
+      "@neural-trader/backtesting",
+      "@neural-trader/benchoptimizer",
+      "@neural-trader/brokers",
+      "@neural-trader/core",
+      "@neural-trader/e2b-strategies",
+      "@neural-trader/example-dynamic-pricing",
+      "@neural-trader/example-energy-forecasting",
+      "@neural-trader/example-energy-grid-optimization",
+      "@neural-trader/example-evolutionary-game-theory",
+      "@neural-trader/example-healthcare-optimization",
+      "@neural-trader/example-logistics-optimization",
+      "@neural-trader/example-market-microstructure",
+      "@neural-trader/example-neuromorphic-computing",
+      "@neural-trader/example-portfolio-optimization",
+      "@neural-trader/example-quantum-optimization",
+      "@neural-trader/example-supply-chain-prediction",
+      "@neural-trader/execution",
+      "@neural-trader/features",
+      "@neural-trader/market-data",
+      "@neural-trader/mcp",
+      "@neural-trader/mcp-protocol",
+      "@neural-trader/neural",
+      "@neural-trader/neuro-divergent",
+      "@neural-trader/news-trading",
+      "@neural-trader/portfolio",
+      "@neural-trader/prediction-markets",
+      "@neural-trader/predictor",
+      "@neural-trader/risk",
+      "@neural-trader/sports-betting",
+      "@neural-trader/strategies",
+      "@neural-trader/syndicate",
+      "@qudag/cli",
+      "@qudag/mcp-sse",
+      "@qudag/mcp-stdio",
+      "@qudag/napi-core",
+      "@ruv/rash",
+      "@ruv/rvcsi",
+      "@ruv/sparc-ui",
+      "@ruvector/acorn-wasm",
+      "@ruvector/agentic-integration",
+      "@ruvector/agentic-synth",
+      "@ruvector/agentic-synth-examples",
+      "@ruvector/attention",
+      "@ruvector/attention-darwin-arm64",
+      "@ruvector/attention-darwin-x64",
+      "@ruvector/attention-linux-arm64-gnu",
+      "@ruvector/attention-linux-x64-gnu",
+      "@ruvector/attention-unified-wasm",
+      "@ruvector/attention-wasm",
+      "@ruvector/attention-win32-x64-msvc",
+      "@ruvector/burst-scaling",
+      "@ruvector/cli",
+      "@ruvector/cluster",
+      "@ruvector/cnn",
+      "@ruvector/diskann",
+      "@ruvector/diskann-darwin-arm64",
+      "@ruvector/diskann-darwin-x64",
+      "@ruvector/diskann-linux-arm64-gnu",
+      "@ruvector/diskann-linux-x64-gnu",
+      "@ruvector/diskann-win32-x64-msvc",
+      "@ruvector/economy-wasm",
+      "@ruvector/edge",
+      "@ruvector/edge-full",
+      "@ruvector/edge-net",
+      "@ruvector/emergent-time",
+      "@ruvector/exotic-wasm",
+      "@ruvector/gnn",
+      "@ruvector/gnn-darwin-arm64",
+      "@ruvector/gnn-darwin-x64",
+      "@ruvector/gnn-linux-arm64-gnu",
+      "@ruvector/gnn-linux-arm64-musl",
+      "@ruvector/gnn-linux-x64-gnu",
+      "@ruvector/gnn-linux-x64-musl",
+      "@ruvector/gnn-wasm",
+      "@ruvector/gnn-win32-x64-msvc",
+      "@ruvector/graph-data-generator",
+      "@ruvector/graph-node",
+      "@ruvector/graph-node-darwin-arm64",
+      "@ruvector/graph-node-darwin-x64",
+      "@ruvector/graph-node-linux-arm64-gnu",
+      "@ruvector/graph-node-linux-x64-gnu",
+      "@ruvector/graph-node-win32-x64-msvc",
+      "@ruvector/graph-transformer",
+      "@ruvector/graph-transformer-darwin-arm64",
+      "@ruvector/graph-transformer-darwin-x64",
+      "@ruvector/graph-transformer-linux-arm64-gnu",
+      "@ruvector/graph-transformer-linux-arm64-musl",
+      "@ruvector/graph-transformer-linux-x64-gnu",
+      "@ruvector/graph-transformer-linux-x64-musl",
+      "@ruvector/graph-transformer-win32-x64-msvc",
+      "@ruvector/graph-wasm",
+      "@ruvector/kge-darwin-arm64",
+      "@ruvector/kge-darwin-x64",
+      "@ruvector/kge-linux-arm64-gnu",
+      "@ruvector/kge-linux-x64-gnu",
+      "@ruvector/kge-win32-x64-msvc",
+      "@ruvector/learning-wasm",
+      "@ruvector/math-wasm",
+      "@ruvector/mincut-wasm",
+      "@ruvector/nervous-system-wasm",
+      "@ruvector/neural-trader-wasm",
+      "@ruvector/node",
+      "@ruvector/node-darwin-arm64",
+      "@ruvector/node-darwin-x64",
+      "@ruvector/node-linux-arm64-gnu",
+      "@ruvector/node-linux-x64-gnu",
+      "@ruvector/node-win32-x64-msvc",
+      "@ruvector/ospipe",
+      "@ruvector/ospipe-wasm",
+      "@ruvector/pi-brain",
+      "@ruvector/postgres-cli",
+      "@ruvector/rabitq-wasm",
+      "@ruvector/raft",
+      "@ruvector/replication",
+      "@ruvector/router",
+      "@ruvector/router-darwin-arm64",
+      "@ruvector/router-darwin-x64",
+      "@ruvector/router-linux-arm64-gnu",
+      "@ruvector/router-linux-x64-gnu",
+      "@ruvector/router-wasm",
+      "@ruvector/router-win32-x64-msvc",
+      "@ruvector/rudag",
+      "@ruvector/ruqu",
+      "@ruvector/ruqu-wasm",
+      "@ruvector/ruvector-consciousness-wasm",
+      "@ruvector/ruvllm",
+      "@ruvector/ruvllm-cli",
+      "@ruvector/ruvllm-darwin-arm64",
+      "@ruvector/ruvllm-darwin-x64",
+      "@ruvector/ruvllm-linux-arm64-gnu",
+      "@ruvector/ruvllm-linux-x64-gnu",
+      "@ruvector/ruvllm-wasm",
+      "@ruvector/ruvllm-win32-x64-msvc",
+      "@ruvector/rvagent-wasm",
+      "@ruvector/rvdna",
+      "@ruvector/rvf",
+      "@ruvector/rvf-mcp-server",
+      "@ruvector/rvf-node",
+      "@ruvector/rvf-node-darwin-arm64",
+      "@ruvector/rvf-node-darwin-x64",
+      "@ruvector/rvf-node-linux-arm64-gnu",
+      "@ruvector/rvf-node-linux-x64-gnu",
+      "@ruvector/rvf-node-win32-x64-msvc",
+      "@ruvector/rvf-solver",
+      "@ruvector/rvf-wasm",
+      "@ruvector/rvforge",
+      "@ruvector/rvlite",
+      "@ruvector/scipix",
+      "@ruvector/server",
+      "@ruvector/sona-darwin-arm64",
+      "@ruvector/sona-darwin-x64",
+      "@ruvector/sona-linux-arm64-gnu",
+      "@ruvector/sona-linux-x64-gnu",
+      "@ruvector/sona-linux-x64-musl",
+      "@ruvector/sona-win32-arm64-msvc",
+      "@ruvector/sona-win32-x64-msvc",
+      "@ruvector/spiking-neural",
+      "@ruvector/tiny-dancer",
+      "@ruvector/tiny-dancer-darwin-arm64",
+      "@ruvector/tiny-dancer-darwin-x64",
+      "@ruvector/tiny-dancer-linux-arm64-gnu",
+      "@ruvector/tiny-dancer-linux-arm64-musl",
+      "@ruvector/tiny-dancer-linux-x64-gnu",
+      "@ruvector/tiny-dancer-linux-x64-musl",
+      "@ruvector/tiny-dancer-wasm",
+      "@ruvector/tiny-dancer-win32-arm64-msvc",
+      "@ruvector/tiny-dancer-win32-x64-msvc",
+      "@ruvector/typesafe",
+      "@ruvector/typesafe-darwin-arm64",
+      "@ruvector/typesafe-darwin-x64",
+      "@ruvector/typesafe-linux-arm64-gnu",
+      "@ruvector/typesafe-linux-x64-gnu",
+      "@ruvector/typesafe-win32-x64-msvc",
+      "@ruvector/wasm",
+      "@ruvector/wasm-unified",
+      "@ruvnet/agent-harness-generator",
+      "@ruvnet/bmssp",
+      "@ruvnet/open-claude-code",
+      "@ruvnet/ruvector-verified-wasm",
+      "@ruvnet/ruview",
+      "@ruvnet/ruview-kernel",
+      "@ruvnet/ruvn",
+      "@ruvnet/rvagent",
+      "@ruvnet/site-harness",
+      "@ruvnet/strange-loop",
+      "agent-booster",
+      "agentbbs",
+      "agentdb",
+      "agentic-flow",
+      "agentic-jujutsu",
+      "agentic-payments",
+      "agentic-robotics",
+      "agenticow",
+      "agentics-hackathon",
+      "agenticsjs",
+      "ai-text-watermark",
+      "aidefence",
+      "aidefense",
+      "bmssp-wasm",
+      "claude-flow-v3",
+      "cogmusic",
+      "consciousness-explorer",
+      "create-sparc",
+      "cuda-wasm",
+      "dream-machine",
+      "dspy.ts",
+      "flow-nexus",
+      "goalie",
+      "homecore",
+      "lean-agentic",
+      "llm-stream-reformat",
+      "midstreamer",
+      "neural-trader",
+      "prime-radiant-advanced-wasm",
+      "psycho-symbolic-integration",
+      "psycho-symbolic-reasoner",
+      "qudag",
+      "radio-moe",
+      "readme-proof",
+      "research-swarm",
+      "rucelium-harness",
+      "ruflo-graph-intelligence",
+      "rulake-wasm",
+      "rupixel",
+      "ruv-swarm",
+      "ruvbot",
+      "ruvdrone",
+      "ruvector-attention-unified-wasm",
+      "ruvector-attention-wasm",
+      "ruvector-core",
+      "ruvector-core-darwin-arm64",
+      "ruvector-core-darwin-x64",
+      "ruvector-core-linux-arm64-gnu",
+      "ruvector-core-linux-x64-gnu",
+      "ruvector-core-win32-x64-msvc",
+      "ruvector-extensions",
+      "ruvector-gnn-wasm",
+      "ruvector-graph-transformer-wasm",
+      "ruvector-math-wasm",
+      "ruvector-mragent",
+      "ruvector-onnx-embeddings-wasm",
+      "ruvector-sona",
+      "ruvector-wasm",
+      "ruvi",
+      "ruvllm-esp32",
+      "ruvneural",
+      "rvlite",
+      "spiking-neural",
+      "strange-loops",
+      "strange-loops-mcp",
+      "sublinear-time-solver",
+      "symbolic-scribe-harness",
+      "temporal-lead-solver",
+      "temporal-neural-solver",
+      "vscode-remote-mcp",
+      "wifi-densepose-sar-harness",
+      "worldgraphs"
+    ],
+    "registeredPackageCount": 11
+  },
+  "proposals": [
+    {
+      "kind": "measured-download-regression",
+      "packages": [
+        "claude-flow"
+      ],
+      "priority": 100,
+      "additionalBytes": 111971638,
+      "increasePercent": 27.3,
+      "reason": "Captured bundle preserving benchmark; remeasure after a proposed change.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/claude-code",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/codex",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/coding",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/copilot",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/devops",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/education",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-ads",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-aws",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-azure",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-bio",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-datadog",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-fhir",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-gcp",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-github",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-huggingface",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-iot",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-nasa",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-pinecone",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-qiskit",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-slack",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-stripe",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-supabase",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-twilio",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/example-web3",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/gaming",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/github-actions",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/hermes",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/legal",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/openclaw",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/opencode",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/pi-dev",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/repo-maintainer",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/research",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/rvm",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/sales",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/support",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@metaharness/trading",
+        "metaharness"
+      ],
+      "priority": 90,
+      "selector": "latest",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@ruvector/kge",
+        "@ruvector/kge-darwin-arm64"
+      ],
+      "priority": 90,
+      "selector": "unversioned runtime require",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@ruvector/kge",
+        "@ruvector/kge-darwin-x64"
+      ],
+      "priority": 90,
+      "selector": "unversioned runtime require",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@ruvector/kge",
+        "@ruvector/kge-linux-arm64-gnu"
+      ],
+      "priority": 90,
+      "selector": "unversioned runtime require",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@ruvector/kge",
+        "@ruvector/kge-linux-x64-gnu"
+      ],
+      "priority": 90,
+      "selector": "unversioned runtime require",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "floating-runtime-selector",
+      "packages": [
+        "@ruvector/kge",
+        "@ruvector/kge-win32-x64-msvc"
+      ],
+      "priority": 90,
+      "selector": "unversioned runtime require",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unavailable-optional-peer",
+      "packages": [
+        "@claude-flow/plugin-cognitive-kernel",
+        "@claude-flow/plugin-financial-risk",
+        "@claude-flow/plugin-hyperbolic-reasoning",
+        "@claude-flow/plugin-neural-coordination",
+        "@claude-flow/plugin-quantum-optimizer",
+        "@claude-flow/plugin-test-intelligence"
+      ],
+      "target": "@claude-flow/ruvector-upstream",
+      "priority": 85,
+      "checkedAt": "2026-10-18T01:29:42.010337+00:00",
+      "reason": "Registry returned 404 at capture time; not a default installation failure.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@agentics.org/agentic-mcp"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@agentics.org/sparc2"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@claude-flow/plugin-cognitive-kernel"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@claude-flow/plugin-neural-coordination"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@claude-flow/plugin-perf-optimizer"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@claude-flow/plugin-test-intelligence"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@cognitum/freetokens"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@cognitum/ruos"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@dream-machine/ledger"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@dream-machine/witness"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@foxruv/cf-doctor"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@metaharness/agntcy"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@metaharness/aws-finops"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@metaharness/field-memory"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@metaharness/projects"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@neural-trader/backend"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@neural-trader/benchoptimizer"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@neural-trader/example-neuromorphic-computing"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@neural-trader/neuro-divergent"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@neural-trader/syndicate"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruv/rash"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruv/rvcsi"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruv/sparc-ui"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/acorn-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/agentic-integration"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/attention-unified-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/burst-scaling"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/cli"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/cluster"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/cnn"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/economy-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/graph-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/math-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/nervous-system-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/neural-trader-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/node-darwin-arm64"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/node-darwin-x64"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/node-linux-arm64-gnu"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/node-linux-x64-gnu"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/node-win32-x64-msvc"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ospipe-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ospipe"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/postgres-cli"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/raft"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/replication"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/router-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/rudag"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ruqu-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ruvector-consciousness-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ruvllm-cli"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/ruvllm-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/rvagent-wasm"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/rvdna"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/rvforge"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/rvlite"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    },
+    {
+      "kind": "unexplained-isolate",
+      "packages": [
+        "@ruvector/scipix"
+      ],
+      "priority": 60,
+      "reason": "No captured internal relationship; standalone intent needs evidence.",
+      "nextAction": "Review source evidence, propose a bounded patch, rerun registered checks and source-bound measurement before adoption"
+    }
+  ],
+  "adoption": {
+    "measured": false,
+    "reason": "No usage telemetry collected; downloads are not unique users."
+  }
+}

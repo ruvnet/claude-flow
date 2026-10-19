@@ -1,0 +1,11 @@
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (2922.067788ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (2759.698026ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1981.523674ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7788.714751

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "package": "@metaharness/harness",
+  "version": "0.2.0",
+  "sourceCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "repository": "https://github.com/ruvnet/metaharness",
+  "directory": "packages/harness",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "arch": "x64",
+  "npm": "11.9.0",
+  "scriptPolicy": "--ignore-scripts --no-audit --no-fund; independent empty consumer caches",
+  "baseline": {
+    "compressedBytes": 31577,
+    "sha256": "7d1a594978a49b9ceeb49c1f6216b84be9f060afefc7bcc2e22e91fe50ba283e",
+    "files": 47
+  },
+  "candidate": {
+    "compressedBytes": 32948,
+    "sha256": "1efecb750a73bd88b440b38a990ad5c93938e1760db2ccde967ee94a1a0eaeef",
+    "files": 48
+  },
+  "newFiles": [
+    "AGENTS.md"
+  ],
+  "guidanceBytes": 3005,
+  "unchangedPriorNonManifestFiles": 46,
+  "testsPerSource": {
+    "files": 9,
+    "passed": 62,
+    "skipped": 0
+  },
+  "consumers": {
+    "baseline": {
+      "installMs": 400,
+      "installOutput": "added 1 package in 301ms",
+      "result": {
+        "passed": [
+          "esm-import",
+          "deterministic-arithmetic",
+          "receipt-replay",
+          "denied-worker-not-called",
+          "receipt-tamper-rejected"
+        ],
+        "workerCalls": 2
+      }
+    },
+    "candidate": {
+      "installMs": 370,
+      "installOutput": "added 1 package in 283ms",
+      "result": {
+        "passed": [
+          "esm-import",
+          "deterministic-arithmetic",
+          "receipt-replay",
+          "denied-worker-not-called",
+          "receipt-tamper-rejected"
+        ],
+        "workerCalls": 2
+      }
+    }
+  },
+  "limitations": [
+    "Unsigned local packs, not release acceptance",
+    "No full workspace Rust/WASM/native or multi-platform release validation",
+    "Existing published advisory security gate failure is not remediated",
+    "Local tarball install times are not npm network download benchmarks"
+  ],
+  "rollback": "Before release, revert only the new package AGENTS.md and package.json files entry; remove shared policy only if no other package references it. No runtime or stored data changes.",
+  "compressedDeltaBytes": 1371,
+  "pullRequest": "https://github.com/ruvnet/metaharness/pull/415",
+  "candidateCommit": "78e6e2ee92c7eb5311e703396d349ac0f470d335",
+  "candidateTree": "85d8ddb275c4b36f6b2b5302991ef8dc5654da5c",
+  "commands": [
+    "npm run build",
+    "npm run lint",
+    "vitest run packages/harness/__tests__ --maxWorkers=1 --minWorkers=1",
+    "npm pack --ignore-scripts --json",
+    "node docs/ecosystem/proposals/harness-guidance-pack-validation.mjs <evidence-dir>"
+  ],
+  "guidanceSha256": "75adf7ce203e625353aec7bd0550b647d137548b8d9a708894cd1c120e8a2cd7",
+  "sharedPolicySha256": "8998d86e3530ccb3eaf51e66c89a8314f048cc86f960fc3d323901687b91fdc3",
+  "toolchain": {
+    "typescript": "5.9.3",
+    "vitest": "2.1.9",
+    "typesNode": "20.19.43",
+    "lockSha256": "a283d2527c652d60d96ce61710819cbdd306a64231d078d4d744577c561843f8"
+  }
+}

@@ -1,0 +1,71 @@
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (504.588975ms)
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (474.410388ms)
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (415.681518ms)
+✖ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (420.549816ms)
+✔ native projection keeps zero, Float32 underflow and overflow rejected without changing saved state (1491.523022ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3415.706887
+
+✖ failing tests:
+
+test at scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:72:3
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (504.588975ms)
+  AssertionError [ERR_ASSERTION]: identical cosine distance must be zero, got 1
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-review-cycle9/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:82:14)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:72:3
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (474.410388ms)
+  AssertionError [ERR_ASSERTION]: identical cosine distance must be zero, got 1
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-review-cycle9/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:82:14)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:72:3
+✖ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (415.681518ms)
+  AssertionError [ERR_ASSERTION]: identical cosine distance must be zero, got 1
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-review-cycle9/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:82:14)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:72:3
+✖ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (420.549816ms)
+  AssertionError [ERR_ASSERTION]: identical cosine distance must be zero, got 1
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-review-cycle9/scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs:82:14)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

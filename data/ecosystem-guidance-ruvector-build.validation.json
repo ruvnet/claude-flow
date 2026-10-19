@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-18",
+  "repository": "https://github.com/ruvnet/RuVector",
+  "sourceCommit": "46d816ddc4c2a8a06cd3613534a79b1d557d858b",
+  "remoteVerified": "git fetch origin main; HEAD and origin/main both match sourceCommit",
+  "baseTree": "8be0adf1fdea9753031e8d5020332c50a3c13a03",
+  "candidatePatch": "docs/ecosystem/proposals/ruvector-guidance.patch",
+  "candidatePatchSha256": "bb35a3c2e7a1bc3e5880656993254b05a5bde20b7edb0a6b28cb2823e5f675ab",
+  "candidateChanges": "The same five-file guidance-only patch from the previous cycle; no product source changes.",
+  "state": "proposed-patch-native-build-and-full-tests-blocked",
+  "pullRequest": null,
+  "released": false,
+  "sourceChangesCommitted": false,
+  "environment": {
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "linux",
+    "arch": "x64",
+    "toolingInstallPolicy": "Isolated npm prefix, exact versions, --ignore-scripts --no-audit --no-fund; @ruvector/core additionally --omit=optional.",
+    "toolingVersions": {"typescript": "5.9.3", "@types/node": "20.19.43", "@napi-rs/cli": "2.18.4", "@ruvector/core": "0.1.33"},
+    "toolingSource": "Three dev-tool versions come from npm/package-lock.json at sourceCommit; @ruvector/core is the inspected source and registry version and satisfies ^0.1.25.",
+    "runtimePolicy": "NODE_PATH points to the existing cycle-2 candidate consumer. This is not a fresh full upstream dependency installation.",
+    "nativeRuntime": "ruvector-core-linux-x64-gnu@0.1.31",
+    "rustToolchain": "cargo and rustc absent in this local executor; native source build remains blocked."
+  },
+  "policyRead": ["CLAUDE.md", "docs/development/CONTRIBUTING.md", "proposed shared package improvement policy", "both proposed package AGENTS.md"],
+  "validation": [
+    {
+      "command": "PATH=<tooling>/node_modules/.bin:$PATH timeout 180 npm run build --prefix npm/packages/ruvector",
+      "baselineExitCode": 0,
+      "candidateExitCode": 0,
+      "attemptsPerVariant": 2,
+      "firstAttempt": "TS2307 at src/workers/native-worker.ts(79,31): @ruvector/core absent. One retry after installing exact @ruvector/core@0.1.33 passed.",
+      "result": "TypeScript compilation and ONNX asset copy pass for baseline and candidate."
+    },
+    {
+      "command": "npm run verify-dist --prefix npm/packages/ruvector",
+      "baselineExitCode": 0,
+      "candidateExitCode": 0,
+      "result": "verify-dist: 15 dist path(s) present."
+    },
+    {
+      "command": "PATH=<tooling>/node_modules/.bin:$PATH timeout 60 npm run build:napi --prefix npm/packages/core",
+      "baselineExitCode": 1,
+      "candidateExitCode": 1,
+      "attemptsPerVariant": 1,
+      "result": "NAPI CLI resolves, then cargo metadata fails: /bin/sh: 1: cargo: not found. No native build success claimed."
+    },
+    {
+      "command": "NODE_PATH=<cycle2-candidate>/node_modules timeout 120 npm test --prefix npm/packages/ruvector",
+      "baselineExitCode": 1,
+      "candidateExitCode": 1,
+      "attemptsPerVariant": 1,
+      "result": "Both pass package integration and backend fallback, then MinCut fallback passes with two capability tests explicitly skipped. Both stop at test/metaharness-sdk.js:9, AssertionError: all pinned MetaHarness dependencies must load from the published SDK surface. Nine optional package capabilities report unavailable. Remaining chained tests do not run.",
+      "limitations": "Existing consumer dependencies do not constitute a fully provisioned source-0.3.3 test environment; this result does not establish a product regression or zero applicable regressions."
+    },
+    {
+      "command": "NODE_PATH=<cycle2-candidate>/node_modules npm test --prefix npm/packages/core",
+      "baselineExitCode": 0,
+      "candidateExitCode": 0,
+      "result": "Real native create, insert, search and count pass on linux-x64 using existing installed binary, not newly built native code."
+    },
+    {"command": "git diff --check", "result": "passed"}
+  ],
+  "generatedDist": {
+    "filesPerVariant": 129,
+    "identical": true,
+    "baselineAndCandidateSha256": "f5d1e347285d374e54eb1c2ee1d009009e47ade7b20fd15345fefb04e0ce93a6",
+    "hashMethod": "Recursive localeCompare-sorted directory entries; array of [relative path, SHA256(file bytes)], SHA256(JSON.stringify(array))."
+  },
+  "builtRuvectorPack": {
+    "command": "npm pack --ignore-scripts --json --pack-destination <isolated-output-dir>",
+    "version": "0.3.3",
+    "baseline": {"compressedBytes": 3209601, "unpackedBytes": 10568135, "entryCount": 159, "sha256": "03aed22b238d89c0c50620587889845bb331a911f198cece47b062d162db0da0"},
+    "candidate": {"compressedBytes": 3210622, "unpackedBytes": 10570120, "entryCount": 160, "sha256": "6f4238a9a81ba1c4a96ff25bc4536c170739f31124858347a9a125d9f5ccbde8", "guidanceBytes": 1968},
+    "compressedDeltaBytes": 1021,
+    "unpackedDeltaBytes": 1985,
+    "existingNonManifestFilesByteIdentical": 158,
+    "changedExistingFiles": ["package/package.json"],
+    "addedFiles": ["package/AGENTS.md"],
+    "removedFiles": [],
+    "guidancePackInclusionVerified": true,
+    "limitations": "These unsigned local artifacts contain generated dist, but full tests and native-source build are not accepted; packing skipped hooks after explicit successful JS build and verify-dist. This is not release validation."
+  },
+  "priorCorePackEvidence": "Unchanged guidance patch: core baseline4528B, candidate5349B, delta821B. See ecosystem-guidance-ruvector.validation.json for previous artifact hashes. No new core pack claim in this cycle.",
+  "rollback": "Reverse the preserved guidance patch before any commit; runtime/dependency ranges and generated dist are unchanged. Worktrees and evidence retained for inspection.",
+  "nextAction": "Use an existing authorized Rust-capable environment with the complete workspace for core native build, and install a recorded source-compatible full optional dependency fixture for ruvector0.3.3 tests. Do not open upstream guidance PR or claim source-documented coverage until applicable gates pass."
+}

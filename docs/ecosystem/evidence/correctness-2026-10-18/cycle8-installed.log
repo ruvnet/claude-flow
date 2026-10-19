@@ -1,0 +1,80 @@
+✔ real HarnessKernel executes, persists, restarts and consumes native vector-retrieved task output (2476.236598ms)
+ℹ {"firstPid":92,"secondPid":320,"firstMs":666.119787,"secondMs":673.004372,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"harness":"0.2.0","taskSuccess":true}
+✔ default-deny policy invokes no worker and never changes persisted memory (715.401121ms)
+✔ failed fixed-oracle verification does not persist output or retry the local task (737.601073ms)
+✔ restart refuses absent or wrong-namespace results and invalid bounded inputs (1341.868131ms)
+✔ missing installed resolver, duplicate task writes and second-task oracle failures preserve state (1220.287294ms)
+✔ second-task policy denial may retrieve but invokes no worker and never writes memory (697.354266ms)
+✔ second-task wrong source digest rejects an otherwise correct result without writing (703.455789ms)
+✔ unqualified memory version is rejected before import or mutation using isolated metadata fixture (728.415223ms)
+✔ versioned starter completes two separate task processes and saved-result verification (982.036947ms)
+✔ real pinned RuVector CLI verifies all cuts and 802 impact queries, including runtime overlay (4634.766559ms)
+✔ actual fixed held-out harness tasks restart and retrieve before real Weight EFT aggregation (4788.383425ms)
+ℹ {"elapsedMs":4773.652660000001,"datasetHash":"820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6","weightEftVersion":"0.1.2","summary":{"n":3,"cheapResolveRate":1,"escalationRate":0,"resolveRate":1,"costPerResolved":0,"totalCostUsd":0}}
+✔ real Weight EFT contamination guard rejects held-out training IDs before execution (172.779962ms)
+✔ fixed oracle rejects wrong output despite success, perfect quality and matching persisted self-report (183.676074ms)
+✔ actual kernel verification failure is not rescued by successful persisted evidence from another run (289.255803ms)
+✔ missing, duplicated or substituted held-out evidence cannot improve denominator (418.929785ms)
+✔ restart, persisted content, receipt and version evidence failures remain unresolved (877.324479ms)
+✔ missing Weight EFT resolver fails closed rather than using fixture metrics (0.383857ms)
+✖ real two cycle ecosystem evaluation preserves inventory and produces source bound capability evidence (111337.425329ms)
+✔ separate stale reader cannot overwrite a completed newer writer (2628.760725ms)
+ℹ {"readerSnapshot":["before"],"retainedAfterWriter":["new","before"],"sourceBytesUnchangedByReader":true,"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"}}
+✔ SIGKILL before-publish retains a complete retrievable database and fences subsequent writers (1804.155425ms)
+ℹ {"phase":"before-publish","signal":"SIGKILL","retainedKeys":["before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL after-publish retains a complete retrievable database and fences subsequent writers (1436.522636ms)
+ℹ {"phase":"after-publish","signal":"SIGKILL","retainedKeys":["new","before"],"competingWriterRejected":true,"staleLeaseNotStolen":true,"powerLossTested":false}
+✔ SIGKILL during update before-publish preserves a complete lifecycle state (1034.787378ms)
+ℹ {"mode":"update","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during update after-publish preserves a complete lifecycle state (999.878585ms)
+ℹ {"mode":"update","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete before-publish preserves a complete lifecycle state (1323.241947ms)
+ℹ {"mode":"delete","phase":"before-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ SIGKILL during delete after-publish preserves a complete lifecycle state (1009.372305ms)
+ℹ {"mode":"delete","phase":"after-publish","signal":"SIGKILL","staleLeaseFenced":true,"powerLossTested":false}
+✔ real memory persists across process exits and native RuVector retrieves only scoped saved content (2324.885059ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","node":"v24.19.0","writeMs":436.701503,"restartRetrieveMs":331.882153,"repeatedRetrieveMs":162.39646,"databaseBytes":36864,"taskSuccess":true,"crashDurabilityTested":false}
+✔ memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution (1810.923284ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (5415.372141ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":190.67727399999998,"updateMs":202.54923399999998,"deleteMs":136.535341,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (703.212986ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (912.872442ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (4121.387787ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (1847.671233ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (2534.426549ms)
+✔ update and delete require existing state and never create a missing database (261.766935ms)
+✔ expired persisted keys remain protected from implicit replacement (654.653551ms)
+✔ versioned v2 starter completes six real operations in independent processes (1597.32558ms)
+{"package":"@metaharness/weight-eft@0.1.2","sftRows":1,"dpoRows":1,"heldOut":1,"planOnly":true,"escalationRateReduction":1}
+(node:1612) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ installed weight EFT exports real SFT/DPO, excludes holdout, plans and evaluates (86.332797ms)
+ℹ tests 37
+ℹ suites 0
+ℹ pass 36
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 112477.296806
+
+✖ failing tests:
+
+test at scripts/tests/ecosystem-loop-installed.test.mjs:10:1
+✖ real two cycle ecosystem evaluation preserves inventory and produces source bound capability evidence (111337.425329ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'unmeasured'
+  - 'review-ready'
+  
+      at TestContext.<anonymous> (file:///workspace/scratch/1511111b1812/ruflo-cycle8/scripts/tests/ecosystem-loop-installed.test.mjs:23:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'unmeasured',
+    expected: 'review-ready',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

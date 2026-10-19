@@ -1,0 +1,173 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-acorn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-rabitq-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/cognitum-gate-kernel/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-cli/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-router-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-typesafe-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-typesafe-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-tiny-dancer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-gnn-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-gnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-cnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-mincut-gated-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-hailo-cluster/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/examples/google-cloud/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/rvlite/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-dag-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-nervous-system-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-economy-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-learning-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-exotic-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention-unified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-fpga-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-delta-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-domain-expansion-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-solver-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-solver-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-verified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-graph-transformer-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/types/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/region/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/cap/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/proof/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/nucleus/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/crates/shell/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/tests/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/benches/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvix/examples/cognitive_demo/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-consciousness-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-decompiler-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-entropy-ann/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-native-cycle8/Cargo.toml
+warning: crates/ruvector-attention/Cargo.toml: file `/workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-attention/benches/attention_benchmarks.rs` found to be present in multiple build targets:
+  * `bin` target `bench_runner`
+  * `bench` target `attention_benchmarks`
+warning: `ruvector-attention` (manifest) generated 1 warning
+   Compiling zerocopy v0.8.52
+   Compiling regex-syntax v0.8.11
+   Compiling bitflags v2.13.0
+   Compiling tracing-core v0.1.36
+   Compiling either v1.16.0
+   Compiling rayon v1.12.0
+   Compiling tracing v0.1.44
+   Compiling hyper-util v0.1.20
+   Compiling regex-automata v0.4.14
+   Compiling sysctl v0.5.5
+   Compiling mmap-rs v0.6.1
+   Compiling hyper-rustls v0.27.9
+   Compiling tower-http v0.6.11
+   Compiling reqwest v0.12.28
+   Compiling regex v1.12.4
+   Compiling ppv-lite86 v0.2.21
+   Compiling env_filter v1.0.1
+   Compiling env_logger v0.11.10
+   Compiling rand_chacha v0.3.1
+   Compiling anndists v0.1.5
+   Compiling rand v0.8.6
+   Compiling rand_distr v0.4.3
+   Compiling hnsw_rs v0.3.3 (/workspace/scratch/1511111b1812/ruvector-native-cycle8/patches/hnsw_rs)
+   Compiling ruvector-core v2.4.0 (/workspace/scratch/1511111b1812/ruvector-native-cycle8/crates/ruvector-core)
+    Finished `dev` profile [unoptimized] target(s) in 16.26s

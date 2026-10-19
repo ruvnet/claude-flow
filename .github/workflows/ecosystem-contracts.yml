@@ -1,0 +1,74 @@
+name: Ecosystem dependency contracts
+
+on:
+  pull_request:
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', 'data/ecosystem-*.json', 'docs/ecosystem/explorer/**', '.github/workflows/ecosystem-contracts.yml']
+  push:
+    branches: [main]
+    paths: ['package.json', 'package-lock.json', 'ruflo/package.json', 'v3/**', 'scripts/**', 'data/npm-*.json', 'data/ecosystem-*.json', 'docs/ecosystem/explorer/**', '.github/workflows/ecosystem-contracts.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Check dependency and artifact contracts without installing packages
+        run: >-
+          node --test
+          scripts/tests/ecosystem-dependency-graph.test.mjs
+          scripts/tests/ecosystem-connectivity.test.mjs
+          scripts/tests/ecosystem-candidate.test.mjs
+          scripts/tests/ecosystem-memory-snapshot.test.mjs
+          scripts/tests/ecosystem-rsi.test.mjs
+          scripts/tests/ecosystem-loop.test.mjs
+          scripts/tests/ecosystem-explorer.test.mjs
+          scripts/tests/ecosystem-ruvector.test.mjs
+          scripts/tests/ecosystem-runtime-relationships.test.mjs
+          scripts/tests/ecosystem-runtime-contract.test.mjs
+          scripts/tests/slim-opt-in.test.mjs
+          scripts/tests/root-publish-capability-parity.test.mjs
+          scripts/tests/ruvector-native-adapter.test.mjs
+          scripts/tests/weight-eft-api-contract.test.mjs
+          scripts/tests/keychain-optional-binding.test.mjs
+          scripts/__tests__/stage-internal-runtime-bundles.test.mjs
+      - run: node scripts/audit-umbrella-version-lockstep.mjs
+      - run: node scripts/audit-package-dep-overlap.mjs
+      - name: Install pinned Weight EFT integration without lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/weight-eft-proof" --ignore-scripts --no-audit --no-fund --save-exact @metaharness/weight-eft@0.1.2
+      - name: Exercise real Weight EFT export, holdout, plan and evaluation
+        env:
+          RUFLO_WEIGHT_EFT_REQUIRED: '1'
+          RUFLO_WEIGHT_EFT_RESOLVE_FROM: ${{ runner.temp }}/weight-eft-proof/package.json
+        run: node --test scripts/tests/weight-eft-installed.test.mjs
+      - name: Check runtime evidence collector without executing downloaded code
+        run: python3 scripts/tests/runtime-relationships.test.py
+      - name: Install pinned RuVector graph engine without native addons or lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/ruvector-proof" --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
+      - name: Verify real RuVector graph analysis and runtime impact end to end
+        env:
+          RUFLO_RUVECTOR_REQUIRED: '1'
+          RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
+        run: node --test scripts/tests/ecosystem-analysis-installed.test.mjs
+      - name: Install pinned memory and native vector consumer without lifecycle scripts
+        run: npm install --prefix "$RUNNER_TEMP/memory-proof" --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0 @metaharness/harness@0.2.0
+      - name: Verify persistent memory across process restart and two complete registered check cycles
+        env:
+          RUFLO_RUVECTOR_REQUIRED: '1'
+          RUFLO_RUVECTOR_RESOLVE_FROM: ${{ runner.temp }}/ruvector-proof/package.json
+          RUFLO_MEMORY_REQUIRED: '1'
+          RUFLO_MEMORY_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
+          RUFLO_REQUIRE_HARNESS: '1'
+          RUFLO_HARNESS_RESOLVE_FROM: ${{ runner.temp }}/memory-proof/package.json
+          RUFLO_WEIGHT_EFT_REQUIRED: '1'
+          RUFLO_WEIGHT_EFT_RESOLVE_FROM: ${{ runner.temp }}/weight-eft-proof/package.json
+        run: node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-agent-memory.installed.test.mjs scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs

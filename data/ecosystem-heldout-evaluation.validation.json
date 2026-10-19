@@ -1,0 +1,770 @@
+{
+  "schema": "ruflo-heldout-evaluation-validation/v1",
+  "observedDate": "2026-10-18",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "pullRequest": "https://github.com/ruvnet/ruflo/pull/4264",
+  "baseCommit": "cbe75332a0479c4216cb9df4123500c57610b8f1",
+  "disposition": "review-ready executable integration; unsigned fixtures, not release acceptance",
+  "sourceFilesSha256": {
+    ".github/workflows/ecosystem-contracts.yml": "b5a67dcbbd37db46d296aaea3087d7a5060905c71f5e14793ab8a2cae651cc91",
+    "data/ecosystem-capabilities.json": "d4572eab6ed97873da78c15b8e25d91e0f595f5a21276bdb0e221b98dce486bb",
+    "data/ecosystem-guidance-harness.validation.json": "5dbbcaab7075770c3b94a53579be94fb04d3800ea3828c9206330b3745ae3cba",
+    "data/ecosystem-guidance-rollout.json": "8c6d6a60f91a5c71bb785e6b73cb984bc1c27770aeaea93308e15439c716097a",
+    "data/ecosystem-rsi.latest.json": "abd03c346157023928cea05bd51077ef75d6532631fbaee6d0d36de04170fd36",
+    "data/ecosystem-rsi.ledger.json": "1a0a0ea62aa12fb8467d79150602f60d947e8640752c78d0fff93d33b988ed16",
+    "data/ecosystem-web.latest.json": "63f3332be8fdb6076c3e708cfa776f6d527f1e5bb81a4328f1d2623cb02fef99",
+    "docs/ecosystem/capability-web.md": "f15cf31e16050f4b824716859a75d488d233fae182fc0ec12420c2f7292e2b2a",
+    "docs/ecosystem/heldout-agent-memory-v1.md": "7efb98bfc979b9dcebc853ad94bba7dbdf5a859c8caf9eceddeb06fad4027194",
+    "docs/ecosystem/proposals/harness-guidance-pack-validation.mjs": "4d76074c8dc4164860de1b7189ab4dafc2fb04cf0aacc56e6c07a9a605cb8341",
+    "scripts/examples/heldout-agent-memory-v1.mjs": "4b034f239a0c0d83bc4ab85da44d078971a9e1aac7dbbd4b04c05f52979046d6",
+    "scripts/lib/ecosystem-heldout-evaluation.mjs": "340a6f89572c117a911ad55f0f2fb4688a46c59f490f7b30dfed62187c7d2f47",
+    "scripts/lib/ecosystem-rsi.mjs": "16acd5c3bc78e9c0eab813a61255717d5ae49d6a753c94f8896c28f41ee445b8",
+    "scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs": "683286f4349ef8d6bea1125777fc78775d877c496a46f7e1cca0ae50f389e0a9",
+    "scripts/tests/ecosystem-loop-installed.test.mjs": "8960e18e5d4a53fe7b8bb8f7e504d51fe8b085b39041709c3eefdcb02e75cad9",
+    "v3/docs/adr/ADR-493-ecosystem-capability-web-and-rsi.md": "52671340353cba056dd0684e03af7578546b5d89341de7297cc308b0e39c6439"
+  },
+  "fixedAndLastAcceptedReferences": {
+    "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+    "data/npm-slim-opt-in.latest.json": "537ec1cf4b6d8056bbf0afd4e2b4c6afc4522d737cc4ce631e3ab6a1f6845315",
+    "data/ecosystem-memory-restart.validation.json": "b987d7a8c2bfbd3b99d9411e3b1b1e4e7d51e5203292ea105f6a07004e6fe16c",
+    "data/ecosystem-memory-atomic.validation.json": "7d993bd1deeff2d3105cb3806abedba2c3ecf3cd300c2661c55aea6f842498da",
+    "data/ecosystem-memory-lifecycle.validation.json": "64194322057ae898da29d15eff4be599bcb4617116f8af349a4025e42ac391fe",
+    "data/ecosystem-agent-memory.validation.json": "2f5ffc0f859d0e1ee875920a1afd9728db1cb1a5b1f0dea2c786027e3fd3c557"
+  },
+  "newImprovement": {
+    "kind": "executable-capability",
+    "description": "fixed public task holdout across actual harness, persistence, native retrieval and Weight EFT aggregation",
+    "newInstalledTests": 7,
+    "trainedModel": false,
+    "quantitativeOptimizationClaimed": false,
+    "automaticPromotion": false
+  },
+  "validation": {
+    "contracts": {
+      "command": "node --test scripts/tests/ecosystem-dependency-graph.test.mjs scripts/tests/ecosystem-connectivity.test.mjs scripts/tests/ecosystem-candidate.test.mjs scripts/tests/ecosystem-memory-snapshot.test.mjs scripts/tests/ecosystem-rsi.test.mjs scripts/tests/ecosystem-loop.test.mjs scripts/tests/ecosystem-explorer.test.mjs scripts/tests/ecosystem-ruvector.test.mjs scripts/tests/ecosystem-runtime-relationships.test.mjs scripts/tests/ecosystem-runtime-contract.test.mjs scripts/tests/slim-opt-in.test.mjs scripts/tests/root-publish-capability-parity.test.mjs scripts/tests/ruvector-native-adapter.test.mjs scripts/tests/weight-eft-api-contract.test.mjs scripts/tests/keychain-optional-binding.test.mjs scripts/__tests__/stage-internal-runtime-bundles.test.mjs",
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 8974.657796
+    },
+    "collector": {
+      "command": "python3 scripts/tests/runtime-relationships.test.py",
+      "passed": 15,
+      "failed": 0
+    },
+    "audits": {
+      "commands": [
+        "node scripts/audit-umbrella-version-lockstep.mjs",
+        "node scripts/audit-package-dep-overlap.mjs"
+      ],
+      "exitCode": 0
+    },
+    "retainedInstalled": {
+      "command": "node --test scripts/tests/weight-eft-installed.test.mjs scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-agent-memory.installed.test.mjs",
+      "passed": 29,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 16136.311489
+    },
+    "heldoutAndLoop": {
+      "command": "node --test scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 66385.849643
+    },
+    "independentReview": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 3874.509808,
+      "requiredMissingResolverProbe": {
+        "exitCode": 1,
+        "failed": 1,
+        "skipped": 0
+      },
+      "refinements": [
+        "Literal fixed dataset hash pinned",
+        "Malformed and null evidence negatives",
+        "Actual verification failure writes no database"
+      ]
+    },
+    "loop": {
+      "command": "node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 120000",
+      "exitCode": 2,
+      "reason": "checks passed with incomplete ecosystem coverage",
+      "inputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95",
+      "sourceHash": "5f09af721902107190fda8c19f88d69d721c6e4b4f933fdcd314dc009b7b61be",
+      "requestedIterations": 2,
+      "completedIterations": 2,
+      "budgetMs": 120000,
+      "durationMs": 69730.218487,
+      "history": [
+        {
+          "iteration": 1,
+          "inputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95",
+          "checksPassed": true,
+          "uncoveredPackages": 390,
+          "newSourceEvidence": true
+        },
+        {
+          "iteration": 2,
+          "inputHash": "3346f1fae5e163630cb9a480a2505cea97b7c63c667598601e94bf6956780b95",
+          "checksPassed": true,
+          "uncoveredPackages": 390,
+          "newSourceEvidence": false
+        }
+      ],
+      "newSourceIdentities": 1,
+      "adoptionMeasured": false,
+      "automaticPromotion": false,
+      "checks": [
+        {
+          "id": "dependency-ownership",
+          "status": "passed",
+          "durationMs": 486.76878299999953
+        },
+        {
+          "id": "graph-impact",
+          "status": "passed",
+          "durationMs": 8430.543985999997
+        },
+        {
+          "id": "heldout-agent-evaluation",
+          "status": "passed",
+          "durationMs": 3352.976935999999
+        },
+        {
+          "id": "persistent-agent-memory",
+          "status": "passed",
+          "durationMs": 5060.209864000004
+        },
+        {
+          "id": "persistent-memory-retrieval",
+          "status": "passed",
+          "durationMs": 12654.129699000005
+        },
+        {
+          "id": "relationship-provenance",
+          "status": "passed",
+          "durationMs": 148.3974259999959
+        },
+        {
+          "id": "ruvector-workflow",
+          "status": "passed",
+          "durationMs": 2037.740340000004
+        },
+        {
+          "id": "signed-publication",
+          "status": "passed",
+          "durationMs": 803.8061149999994
+        },
+        {
+          "id": "vector-mutations",
+          "status": "passed",
+          "durationMs": 377.4058870000008
+        },
+        {
+          "id": "weight-eft-api",
+          "status": "passed",
+          "durationMs": 200.93422999999893
+        }
+      ]
+    },
+    "environment": {
+      "node": "v24.19.0",
+      "npm": "11.9.0",
+      "platform": "linux",
+      "arch": "x64",
+      "lifecycleScripts": false,
+      "requiredFlags": [
+        "RUFLO_RUVECTOR_REQUIRED=1",
+        "RUFLO_MEMORY_REQUIRED=1",
+        "RUFLO_REQUIRE_HARNESS=1",
+        "RUFLO_WEIGHT_EFT_REQUIRED=1"
+      ],
+      "fixtureLockSha256": "8e2cb5163ec17cab14626a712f4394f14eac4087fe6f99a9b7744ab9e1a3e261",
+      "fixtureDescription": "Separate explicitly pinned tool fixture; fresh umbrella consumers measured separately",
+      "exactDirectPackages": {
+        "node_modules/@claude-flow/memory": {
+          "version": "3.0.5",
+          "resolved": "https://registry.npmjs.org/@claude-flow/memory/-/memory-3.0.5.tgz",
+          "integrity": "sha512-eSInpPJmopVRy1EwZ7sETgvLeR7uqLw7SxZO+30IpnyHtICB4JEjIoPJlLdQjo6L6jQXyGL56B4LJsdkfvCFuA=="
+        },
+        "node_modules/@metaharness/harness": {
+          "version": "0.2.0",
+          "resolved": "https://registry.npmjs.org/@metaharness/harness/-/harness-0.2.0.tgz",
+          "integrity": "sha512-j/NLHqgPNre4qTTExvjCjh4/HgmhnVZPSQUfj06dyrlkpXCMFJ2abdPrl5yuFfzBMU0wnfFnFY2qQHQnBlAreg=="
+        },
+        "node_modules/@metaharness/weight-eft": {
+          "version": "0.1.2",
+          "resolved": "https://registry.npmjs.org/@metaharness/weight-eft/-/weight-eft-0.1.2.tgz",
+          "integrity": "sha512-2C6Ivgz1yJgRrklG0NqsNAjm+THyFsfX4DR2VyeqkLHJeR+LnVEOmzdUPQPp0yBJcXvoO9+du8R6HzZ4vDItrQ=="
+        },
+        "node_modules/@ruvector/core": {
+          "version": "0.1.33",
+          "resolved": "https://registry.npmjs.org/@ruvector/core/-/core-0.1.33.tgz",
+          "integrity": "sha512-IoZoJsYXvJO5TckaKELUn012Aj9SSDDIfCiiNo3gx+y6OFeLoHwprd/2JzZ3afOvEQDQTUwaHNR6b5lsGCvbcw=="
+        },
+        "node_modules/ruvector": {
+          "version": "0.2.41",
+          "resolved": "https://registry.npmjs.org/ruvector/-/ruvector-0.2.41.tgz",
+          "integrity": "sha512-6ox6kcONkFxKhOv6yAp6FKonn+WlNQ8t0tnK9xsOJKkQEru1psptGrObPA57VenaZ7pToEUvvgiLJYLc9uukIg=="
+        },
+        "node_modules/sql.js": {
+          "version": "1.15.0",
+          "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.15.0.tgz",
+          "integrity": "sha512-54VT5h9/VGlLaQan5pX/Zx8k6Vbykwl5hRUtl4h4+VYnaZCTraUs4P1i2WLz21O6oPVp6Gvg+d1OyPo01ZG5ig=="
+        }
+      }
+    }
+  },
+  "retainedPayload": {
+    "command": "python3 scripts/benchmarks/npm-slim-opt-in.py --archive claude-flow-3.57.0.tgz --baseline-manifest baseline-package.json --output NEW_DIRECTORY",
+    "archiveSha256": "cfcff015c86393cbd1b1a8577300bae2bab435f17017ef34bfb5b7092e34d1af",
+    "baselineManifestSha256": "8d544c227f396b74e6128f0ecc9e9e4358261e53c57b33801972a95689c84385",
+    "candidateManifestSha256": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+    "runs": [
+      {
+        "variant": "baseline",
+        "exitCode": 0,
+        "seconds": 58.154,
+        "cachedTarballBytes": 522159201,
+        "tarballCount": 548,
+        "fixtureSha256": "4921eff85781a6996804960712d88077947e26566d20f5754892901ae9a12b13",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "7a470c138d4a39d7d5ad1883e41a73cae40beedba9577b1d4f0d964ab9ca9188",
+        "slimPackages": [
+          "node_modules/@agntcy/slim-bindings",
+          "node_modules/@agntcy/slim-bindings-darwin-arm64",
+          "node_modules/@agntcy/slim-bindings-darwin-x64",
+          "node_modules/@agntcy/slim-bindings-linux-arm64-gnu",
+          "node_modules/@agntcy/slim-bindings-linux-x64-gnu",
+          "node_modules/@agntcy/slim-bindings-win32-arm64-msvc",
+          "node_modules/@agntcy/slim-bindings-win32-x64-msvc",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-arm64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-x64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-win32-x64-gnu"
+        ],
+        "fixedTarballsIntegrityAndSizeMatches": 548
+      },
+      {
+        "variant": "candidate",
+        "exitCode": 0,
+        "seconds": 49.343,
+        "cachedTarballBytes": 412781888,
+        "tarballCount": 538,
+        "fixtureSha256": "36e7373366a6d0629d5f0dd2bc2ed8b150ba0ee354935a064936b14cd801979d",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "8ea3fcb0df329d6a91c988137686932dfe4c549183c91316545dc872135fdd80",
+        "slimPackages": [],
+        "fixedTarballsIntegrityAndSizeMatches": 538
+      }
+    ],
+    "savedBytes": 109377313,
+    "reductionPercent": 20.947119727188337,
+    "addedTarballs": 0,
+    "elapsedDeltaSeconds": -8.811,
+    "metric": "unique cached npm registry tarball payload, not full wire bytes; metadata, headers and retries excluded",
+    "cachePolicy": "fresh independent empty npm cache per variant; identical --ignore-scripts --no-audit --no-fund",
+    "newGain": false,
+    "latencyImprovementClaimed": false,
+    "releaseValidation": false
+  },
+  "freshConsumerWorkflows": {
+    "memoryLifecycle": {
+      "baseline": {
+        "starter": "persistent-memory-lifecycle-v2",
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "taskSuccess": true,
+        "operations": 6,
+        "steps": [
+          {
+            "mode": "write",
+            "pid": 17,
+            "elapsedMs": 91.379276
+          },
+          {
+            "mode": "retrieve",
+            "pid": 37,
+            "elapsedMs": 75.826269
+          },
+          {
+            "mode": "update",
+            "pid": 58,
+            "elapsedMs": 67.385683
+          },
+          {
+            "mode": "retrieve",
+            "pid": 78,
+            "elapsedMs": 75.836389
+          },
+          {
+            "mode": "delete",
+            "pid": 99,
+            "elapsedMs": 64.471269
+          },
+          {
+            "mode": "retrieve",
+            "pid": 119,
+            "elapsedMs": 105.997113
+          }
+        ],
+        "generatedSemanticEmbeddings": false,
+        "secureErasure": false
+      },
+      "candidate": {
+        "starter": "persistent-memory-lifecycle-v2",
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "taskSuccess": true,
+        "operations": 6,
+        "steps": [
+          {
+            "mode": "write",
+            "pid": 152,
+            "elapsedMs": 84.007815
+          },
+          {
+            "mode": "retrieve",
+            "pid": 172,
+            "elapsedMs": 103.827505
+          },
+          {
+            "mode": "update",
+            "pid": 193,
+            "elapsedMs": 75.89263899999999
+          },
+          {
+            "mode": "retrieve",
+            "pid": 213,
+            "elapsedMs": 87.11310500000002
+          },
+          {
+            "mode": "delete",
+            "pid": 234,
+            "elapsedMs": 72.642615
+          },
+          {
+            "mode": "retrieve",
+            "pid": 254,
+            "elapsedMs": 73.411241
+          }
+        ],
+        "generatedSemanticEmbeddings": false,
+        "secureErasure": false
+      }
+    },
+    "heldout": {
+      "baseline": {
+        "accepted": true,
+        "datasetHash": "820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6",
+        "evidenceDigest": "b701cf258aba40c0091e10e7b1bfa259271477745ab681be61a691d539cb0315",
+        "summary": {
+          "n": 3,
+          "cheapResolveRate": 1,
+          "escalationRate": 0,
+          "resolveRate": 1,
+          "costPerResolved": 0,
+          "totalCostUsd": 0
+        },
+        "elapsedMs": 1882.669891,
+        "trainingPerformed": false,
+        "modelImprovementClaimed": false,
+        "promotionAllowed": false,
+        "evidenceAuthenticated": false,
+        "cases": [
+          {
+            "instanceId": "local-holdout-zero-v1",
+            "first": {
+              "pid": 233,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 0,
+                "inputDigest": "2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052"
+              },
+              "consumerInputDigest": "21f3afa5463d4131b72d71f33eb3b9dc7702ff6885c1c5b565aef94fb5e41e14",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 261,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 0,
+                "inputDigest": "2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052",
+                "sourceRecord": {
+                  "id": "mem_mvdln1k6_ciib2w1x",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "53c20ce85359763fa08d62c1f795c189036ade790e605a47a680e4529f209777",
+              "retrievedRecord": {
+                "id": "mem_mvdln1k6_ciib2w1x",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln1tg_kupqfkpu",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":0,\"inputDigest\":\"2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052\",\"sourceRecord\":{\"id\":\"mem_mvdln1k6_ciib2w1x\",\"version\":1}}",
+              "namespace": "local-holdout-zero-v1",
+              "version": 1,
+              "score": 0
+            }
+          },
+          {
+            "instanceId": "local-holdout-mixed-v1",
+            "first": {
+              "pid": 299,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 3224,
+                "inputDigest": "40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78"
+              },
+              "consumerInputDigest": "f43bf71f1ba47149fc6bbd6d5f93b063ec4ae8126d7509dc2a3fe1d9e942db99",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 327,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 3197,
+                "inputDigest": "40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78",
+                "sourceRecord": {
+                  "id": "mem_mvdln21z_yw0m9m99",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "722551a2f841b034ea55420f09b432e34d406ed027224f24ae1467b5991d459a",
+              "retrievedRecord": {
+                "id": "mem_mvdln21z_yw0m9m99",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln2bg_o329fvy5",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":3197,\"inputDigest\":\"40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78\",\"sourceRecord\":{\"id\":\"mem_mvdln21z_yw0m9m99\",\"version\":1}}",
+              "namespace": "local-holdout-mixed-v1",
+              "version": 1,
+              "score": 0
+            }
+          },
+          {
+            "instanceId": "local-holdout-boundary-v1",
+            "first": {
+              "pid": 356,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 29997,
+                "inputDigest": "385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e"
+              },
+              "consumerInputDigest": "94e1d6a1ca599e516985c99e7f00b8d47c9c428f7b60a2c663fb1e86c6a2a19f",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 384,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 19998,
+                "inputDigest": "385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e",
+                "sourceRecord": {
+                  "id": "mem_mvdln2hw_cwz78e1a",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "684b4d35f26102528f914d68af08bf5d032f41d7e38781bcd05f06938e35fe1e",
+              "retrievedRecord": {
+                "id": "mem_mvdln2hw_cwz78e1a",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln2qh_k5ulyz98",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":19998,\"inputDigest\":\"385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e\",\"sourceRecord\":{\"id\":\"mem_mvdln2hw_cwz78e1a\",\"version\":1}}",
+              "namespace": "local-holdout-boundary-v1",
+              "version": 1,
+              "score": 0
+            }
+          }
+        ]
+      },
+      "candidate": {
+        "accepted": true,
+        "datasetHash": "820f73a8ebe7718b708bd1020ef0697f930b067a6f50558670588ff2c31129e6",
+        "evidenceDigest": "682fa8182a48978cdf848190e9c3477d21300ead096dffa6cecaefab22b0b5ca",
+        "summary": {
+          "n": 3,
+          "cheapResolveRate": 1,
+          "escalationRate": 0,
+          "resolveRate": 1,
+          "costPerResolved": 0,
+          "totalCostUsd": 0
+        },
+        "elapsedMs": 1792.040629,
+        "trainingPerformed": false,
+        "modelImprovementClaimed": false,
+        "promotionAllowed": false,
+        "evidenceAuthenticated": false,
+        "cases": [
+          {
+            "instanceId": "local-holdout-zero-v1",
+            "first": {
+              "pid": 25,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 0,
+                "inputDigest": "2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052"
+              },
+              "consumerInputDigest": "21f3afa5463d4131b72d71f33eb3b9dc7702ff6885c1c5b565aef94fb5e41e14",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 53,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 0,
+                "inputDigest": "2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052",
+                "sourceRecord": {
+                  "id": "mem_mvdln04a_guh5ll5h",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "53c20ce85359763fa08d62c1f795c189036ade790e605a47a680e4529f209777",
+              "retrievedRecord": {
+                "id": "mem_mvdln04a_guh5ll5h",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln0c4_uf0fave2",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":0,\"inputDigest\":\"2a08979e8002252124e861b2816490b04fe03b6b779f9287fb7c25652bbc4052\",\"sourceRecord\":{\"id\":\"mem_mvdln04a_guh5ll5h\",\"version\":1}}",
+              "namespace": "local-holdout-zero-v1",
+              "version": 1,
+              "score": 0
+            }
+          },
+          {
+            "instanceId": "local-holdout-mixed-v1",
+            "first": {
+              "pid": 91,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 3224,
+                "inputDigest": "40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78"
+              },
+              "consumerInputDigest": "f43bf71f1ba47149fc6bbd6d5f93b063ec4ae8126d7509dc2a3fe1d9e942db99",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 119,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 3197,
+                "inputDigest": "40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78",
+                "sourceRecord": {
+                  "id": "mem_mvdln0jx_gcphc0zc",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "722551a2f841b034ea55420f09b432e34d406ed027224f24ae1467b5991d459a",
+              "retrievedRecord": {
+                "id": "mem_mvdln0jx_gcphc0zc",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln0so_2bjve77n",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":3197,\"inputDigest\":\"40d099124d29cf34282ad571e067dbe66faa92549c2ef161e0d83f126ae37c78\",\"sourceRecord\":{\"id\":\"mem_mvdln0jx_gcphc0zc\",\"version\":1}}",
+              "namespace": "local-holdout-mixed-v1",
+              "version": 1,
+              "score": 0
+            }
+          },
+          {
+            "instanceId": "local-holdout-boundary-v1",
+            "first": {
+              "pid": 148,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-sum-v1",
+                "total": 29997,
+                "inputDigest": "385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e"
+              },
+              "consumerInputDigest": "94e1d6a1ca599e516985c99e7f00b8d47c9c428f7b60a2c663fb1e86c6a2a19f",
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "second": {
+              "pid": 176,
+              "taskSuccess": true,
+              "result": {
+                "type": "bounded-local-remaining-v1",
+                "value": 19998,
+                "inputDigest": "385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e",
+                "sourceRecord": {
+                  "id": "mem_mvdln0yz_z3n1tit8",
+                  "version": 1
+                }
+              },
+              "consumerInputDigest": "684b4d35f26102528f914d68af08bf5d032f41d7e38781bcd05f06938e35fe1e",
+              "retrievedRecord": {
+                "id": "mem_mvdln0yz_z3n1tit8",
+                "version": 1,
+                "key": "first-result"
+              },
+              "versions": {
+                "memory": "3.0.5",
+                "ruvector": "0.2.41",
+                "core": "0.1.33",
+                "sqljs": "1.15.0"
+              }
+            },
+            "persisted": {
+              "id": "mem_mvdln186_oqjlt86k",
+              "key": "second-result",
+              "content": "{\"type\":\"bounded-local-remaining-v1\",\"value\":19998,\"inputDigest\":\"385fff782f29e3371d57747ddd307252c3a4e2c97e2112db138934a0bbd8945e\",\"sourceRecord\":{\"id\":\"mem_mvdln0yz_z3n1tit8\",\"version\":1}}",
+              "namespace": "local-holdout-boundary-v1",
+              "version": 1,
+              "score": 0
+            }
+          }
+        ]
+      }
+    },
+    "harnessSource": "Separate fresh packed harness baseline and guidance candidate0.2.0, not installed into umbrella benchmark; umbrella still resolves harness0.1.0. Pack31577/32948bytes are excluded from umbrella payload metric."
+  },
+  "coverage": {
+    "inventory": 401,
+    "registeredChecksBefore": 9,
+    "registeredChecksAfter": 10,
+    "registeredPackagesBefore": 11,
+    "registeredPackagesAfter": 11,
+    "uncoveredPackages": 390,
+    "integrationRegisteredBefore": 6,
+    "integrationRegisteredAfter": 7,
+    "sourceEvidencedRuntimeLinks": 42,
+    "remainingIsolates": 95,
+    "guidance": {
+      "localRoots": 54,
+      "localInventoryPackages": 40,
+      "ecosystemSourceDocumentedIncludingDrafts": 43,
+      "packVerifiedUpstreamDrafts": 3,
+      "pending": 358,
+      "pendingVerifiedMappings": 4,
+      "pendingSourceVerification": 354,
+      "releasedThisCycle": 0
+    }
+  },
+  "guidance": {
+    "pullRequest": "https://github.com/ruvnet/metaharness/pull/415",
+    "commit": "78e6e2ee92c7eb5311e703396d349ac0f470d335",
+    "evidence": "data/ecosystem-guidance-harness.validation.json",
+    "packRevalidation": "node docs/ecosystem/proposals/harness-guidance-pack-validation.mjs EVIDENCE_DIRECTORY"
+  },
+  "rollback": {
+    "method": "reverse staged binary patch in isolated temporary Git index",
+    "baselineTree": "4f8a6e98bef2919830061d148a7de9bee80e569f",
+    "candidateTreeBeforeThisReceipt": "cb5b028507bb43224feb9c0e14a95afd5686ba75",
+    "restoredTree": "4f8a6e98bef2919830061d148a7de9bee80e569f",
+    "patchSha256": "71b9ce36f2094ad6df3e8b216f0eea06da04b6dad85ddd387a197698f2e1e309",
+    "limits": "Source reversal does not undo external effects or consumer data; this new evaluator uses only disposable databases."
+  },
+  "remainingGates": [
+    "Signed published artifact validation remains pending; unsigned local repacks are not final release validation.",
+    "Existing RuVector1227 and MetaHarness412 public Cargo advisory gates are unresolved; no suppression or remediation claimed. New guidance415 CI pending at evidence preparation.",
+    "Cargo toolchain unavailable on PATH on three existing desktops; no resolver update or real Rust rescan completed.",
+    "Holdout is public fixed local arithmetic; no model training, semantic embedding quality, generalized intelligence or seven-day compounding proof.",
+    "Supplied evidence and training IDs are unauthenticated; consistency/disjoint-ID checks are not provenance or content-leakage proofs.",
+    "390 inventory packages remain without registered checks; 358 without source guidance."
+  ],
+  "nextAction": "Revalidate retained gains; pursue resolver-generated native dependency remediation and independent real security rescans on authorized Cargo-capable tooling before release. Extend task evaluation only with independently specified outcomes and explicit training authority."
+}

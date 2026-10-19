@@ -1,0 +1,361 @@
+{
+  "schema": "ruflo-correctness-native-validation/v1",
+  "observedDate": "2026-10-18",
+  "baseCommit": "da709de5bd1b88c15399128d16fd004c1b7fc046",
+  "pullRequest": "https://github.com/ruvnet/ruflo/pull/4264",
+  "disposition": "review-ready source candidates; no merge, publication or release acceptance",
+  "sourceFilesSha256": {
+    "data/ecosystem-guidance-rollout.json": "e83ff54acfc0c161250b0de41a5225e4dc4206a42b64bcd4dbf456aba1a67214",
+    "data/ecosystem-guidance-router-pack.validation.json": "20ef7ac09448fb40cfb410aa706f407ddf865ab923b6e400fc5aaddba9e77535",
+    "data/ecosystem-guidance-router.validation.json": "53f54c97c3e067bb3f6b2087ba683a26b3d6fdc5fca68a4bfeebe7bd5cc852bd",
+    "data/ecosystem-rsi.latest.json": "d3283117c77401eb64e046c464d2599ac8a2ac17776ffa41818b7dc31871dc48",
+    "data/ecosystem-rsi.ledger.json": "7c80f208ef1366c577fdc7e8293b5b13a9d98f5d5fdc16a9acfb80068a11bb6b",
+    "data/ecosystem-web.latest.json": "fccb81933beb1d464fd376d60fcf3564e2842c2df72686ce7be9b2e9e2643b29",
+    "docs/ecosystem/capability-web.md": "bd4d84a7b401ec91cc1ab48ec2a6117b8774aa22ab71b78c24d243ff5867fbc6",
+    "docs/ecosystem/evidence/correctness-2026-10-18/baseline-rerun.log": "81ffc5cdc707a69d00e5a9cd776a94eafdcea59fe0b8d1f3c2117bc41947840e",
+    "docs/ecosystem/evidence/correctness-2026-10-18/candidate-rerun.log": "ba7fda4eb2e4a563cf24e36591138dd121038915b16c1cfca0631b585f921b62",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-contracts-final.log": "79a67c3837db08f7a9066d330963d6aaf83103ad60682978d59c492dd39ff1ad",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-fresh-baseline.log": "7648a6f75eda2e936cceb40b6b9d79cf873555d35bd42db0ef061a9eb6395f3f",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-fresh-candidate.log": "e0ad89388c60812787eefe2dc96d7c00e3fc022161ab6ffb024637606e4fa00d",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-harness-env-baseline.log": "91910732bae63b812faeacaf0a52976a9a4ba2d74c063ac027de427e76a572f1",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-harness-env-candidate.log": "3bd964a12a3880cfae94ac8c615ce8ffcda2dd8ed4a3507dfb82807a296ba0d9",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-installed-frozen.log": "59c9743a47be06748e0dbd7516e958235cfec09c9b841142a12bac05071ca6b8",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-installed.log": "907afc4b43d921e97ff02eb91ea8bf00e487b435f6c73b8180f5ea6a8ee66fc2",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-loop.log": "3866f7992ba99178c6c7dd90dfb74bd846b45606527b784fe93116ce009d448e",
+    "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-root-sparse.log": "02fc7b87e385ccbdd59edcba24c1b69f0157525fd6698f7e5119b583a7c66a96",
+    "docs/ecosystem/evidence/correctness-2026-10-18/sparse-reproducer.md": "173c8a6eb52c903a88f57cd2508f742b78e80d935029c6a5cadde6ac5909e016",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/README.md": "02913fc73ceb55c554a536165eacafb9cd8cb91d2e347905b0a1a4a2cb65aa7e",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/baseline-audit.json": "958ab3038f24b877a0a9a7426f6830b62d01c92bd68283fcb312dbe3cc299e26",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/baseline-core-tests.log": "4c35eb814f6428288dbab0c6be66a235aaf35dec89a80424258c85e239c87544",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/candidate-audit.json": "c6d2c87d4d8d9c04ffb45b8455805b62fbd2e02ce2c532e18c5f65ce2258c087",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/candidate-core-build.log": "d550520e1f8a98777476af46273b2bcf728cf84c7d5b9b820bc87777ac90b34b",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/candidate-core-tests.log": "438445480c276936bea0c20665c9fa7ca948fa2b0af4396b57e0024f96e84d23",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/core-rustls-tree.log": "0c90ce4223ab21181bcf0ac6996ed9563bb76b54946cf8e713562ccbe7b569b6",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/native-remediation-receipt.json": "b94a9b1b6db120dc83a89467438bf2b572aabede84c982753f9de39d1c9d204f",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/ruflo-security-scan.log": "479441ecdb32c6d2fc07682754eccb61f9ef6e2a95419a75d29cd9ebd900156e",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/ruflo-security-scan.retry.log": "d2120d957ba37ff0e1d32b95f3675685e0aec2bec2c9639db8829caf02f85864",
+    "docs/ecosystem/evidence/native-rustls-2026-10-18/verify-native-remediation.mjs": "b790228aa33f2efba23ffc8bade6b1f74f9538feff0a1fa727b5095545e9d5e5",
+    "docs/ecosystem/evidence/router-guidance-2026-10-18.txt": "1b40f1cd21c2929cf0b0f4323436186b8bd4c06fdb719220d6552d9eadbd5199",
+    "docs/ecosystem/proposals/router-guidance-pack-compare.mjs": "87307695d8d6b38fd875232837c4269524e439da992d386de1fb98e1dfdcc819",
+    "docs/ecosystem/proposals/router-guidance-validation.md": "78690d8ea68d99c4e6c0a68d7909f2274a76f484d4a4cf7ff852d9514e2a7a6d",
+    "docs/ecosystem/proposals/router-guidance-validation.mjs": "0e339d70e79566a855ded5b28b61774bfbd520e415faf79c368fe28c1a4f9afc",
+    "docs/ecosystem/proposals/router-guidance.patch": "e92c82d776ea9ce88fd7c015923669f6e1fee7035958907bc55eb90fb819b66b",
+    "docs/ecosystem/validation-2026-10-18-correctness-native.md": "119ad1856f93533b28579540f60f2a52760f9034fe6a9eec1e2018836fe20f8d",
+    "scripts/lib/ecosystem-candidate.mjs": "b3016fb5b18d2eec22ccb712d614340849981388b8ac7316ecaf04887512393b",
+    "scripts/lib/ecosystem-memory-workflow.mjs": "2e5fe5055d8e0c0f7d7ab6e02bb371cd1a8f2224d8245584973b73d4e099eac1",
+    "scripts/tests/ecosystem-candidate.test.mjs": "73c3a604280e7f8650decafc527432a40a7608bcb69ddd3d924d597de79d33f7",
+    "scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs": "89c54c281d4756cab8e2b9ad796d28f6a7c7744770790056c197e8182ef8a73f",
+    "v3/docs/adr/ADR-493-ecosystem-capability-web-and-rsi.md": "f422ed53231eb8969092fa71a1deff274bc5fe707a695d6c1309c57c5c035a63"
+  },
+  "fixedAndLastAcceptedReferences": {
+    "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+    "data/npm-slim-opt-in.latest.json": "537ec1cf4b6d8056bbf0afd4e2b4c6afc4522d737cc4ce631e3ab6a1f6845315",
+    "data/ecosystem-memory-restart.validation.json": "b987d7a8c2bfbd3b99d9411e3b1b1e4e7d51e5203292ea105f6a07004e6fe16c",
+    "data/ecosystem-memory-atomic.validation.json": "7d993bd1deeff2d3105cb3806abedba2c3ecf3cd300c2661c55aea6f842498da",
+    "data/ecosystem-memory-lifecycle.validation.json": "64194322057ae898da29d15eff4be599bcb4617116f8af349a4025e42ac391fe",
+    "data/ecosystem-agent-memory.validation.json": "2f5ffc0f859d0e1ee875920a1afd9728db1cb1a5b1f0dea2c786027e3fd3c557",
+    "data/ecosystem-heldout-evaluation.validation.json": "ceba12ba5b495444b4d49c2e9de272f3a5a6826d90a69bcb4ac0f5e816805527"
+  },
+  "changes": [
+    {
+      "kind": "correctness",
+      "scope": "direct memory API sparse vector rejection before state access",
+      "baselineWorkflowSha256": "8f8fa87a461842fdbd3348da1a5e15a1da6578226e0a4970a8e66659edc921fc",
+      "candidateWorkflowSha256": "2e5fe5055d8e0c0f7d7ab6e02bb371cd1a8f2224d8245584973b73d4e099eac1",
+      "baseline": {
+        "passed": 0,
+        "failed": 3,
+        "skipped": 0,
+        "durationMs": 1320.270188,
+        "raw": "docs/ecosystem/evidence/correctness-2026-10-18/baseline-rerun.log",
+        "sha256": "81ffc5cdc707a69d00e5a9cd776a94eafdcea59fe0b8d1f3c2117bc41947840e"
+      },
+      "candidate": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 3466.628009,
+        "raw": "docs/ecosystem/evidence/correctness-2026-10-18/candidate-rerun.log",
+        "sha256": "ba7fda4eb2e4a563cf24e36591138dd121038915b16c1cfca0631b585f921b62"
+      },
+      "rootIndependent": {
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 7788.714751,
+        "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-root-sparse.log",
+        "sha256": "02fc7b87e385ccbdd59edcba24c1b69f0157525fd6698f7e5119b583a7c66a96"
+      },
+      "reproducerCommand": "env -u NODE_TEST_CONTEXT RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<qualified-fixture>/package.json node --test --test-name-pattern='direct API rejects sparse' scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs",
+      "method": "Identical assertions, workflow import alone redirected to baseline. Captured logs are fresh reruns; original streamed runs were not fabricated as saved artifacts."
+    },
+    {
+      "kind": "correctness",
+      "scope": "exact required harness fixture environment forwarded to both candidate evaluators; credential-like neighbors excluded",
+      "baseline": {
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "durationMs": 1037.384474,
+        "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-harness-env-baseline.log",
+        "sha256": "91910732bae63b812faeacaf0a52976a9a4ba2d74c063ac027de427e76a572f1"
+      },
+      "candidate": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0,
+        "durationMs": 22998.778614,
+        "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-harness-env-candidate.log",
+        "sha256": "3bd964a12a3880cfae94ac8c615ce8ffcda2dd8ed4a3507dfb82807a296ba0d9"
+      },
+      "command": "node --test scripts/tests/ecosystem-candidate.test.mjs"
+    }
+  ],
+  "validation": {
+    "platform": {
+      "os": "Linux",
+      "arch": "x64",
+      "node": "24.19.0",
+      "npm": "11.9.0"
+    },
+    "contracts": {
+      "command": "node --test scripts/tests/ecosystem-dependency-graph.test.mjs scripts/tests/ecosystem-connectivity.test.mjs scripts/tests/ecosystem-candidate.test.mjs scripts/tests/ecosystem-memory-snapshot.test.mjs scripts/tests/ecosystem-rsi.test.mjs scripts/tests/ecosystem-loop.test.mjs scripts/tests/ecosystem-explorer.test.mjs scripts/tests/ecosystem-ruvector.test.mjs scripts/tests/ecosystem-runtime-relationships.test.mjs scripts/tests/ecosystem-runtime-contract.test.mjs scripts/tests/slim-opt-in.test.mjs scripts/tests/root-publish-capability-parity.test.mjs scripts/tests/ruvector-native-adapter.test.mjs scripts/tests/weight-eft-api-contract.test.mjs scripts/tests/keychain-optional-binding.test.mjs scripts/__tests__/stage-internal-runtime-bundles.test.mjs",
+      "passed": 92,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 10391.176044,
+      "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-contracts-final.log",
+      "sha256": "79a67c3837db08f7a9066d330963d6aaf83103ad60682978d59c492dd39ff1ad"
+    },
+    "collector": {
+      "command": "python3 scripts/tests/runtime-relationships.test.py",
+      "passed": 15,
+      "failed": 0,
+      "durationSeconds": 0.014
+    },
+    "installed": {
+      "command": "node --test scripts/tests/weight-eft-installed.test.mjs scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-agent-memory.installed.test.mjs scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs",
+      "passed": 40,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 97169.195539,
+      "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-installed-frozen.log",
+      "sha256": "59c9743a47be06748e0dbd7516e958235cfec09c9b841142a12bac05071ca6b8"
+    },
+    "requiredEnvironment": {
+      "RUFLO_MEMORY_REQUIRED": "1",
+      "RUFLO_MEMORY_RESOLVE_FROM": "<qualified-fixture>/package.json",
+      "RUFLO_RUVECTOR_REQUIRED": "1",
+      "RUFLO_RUVECTOR_RESOLVE_FROM": "<qualified-fixture>/package.json",
+      "RUFLO_REQUIRE_HARNESS": "1",
+      "RUFLO_HARNESS_RESOLVE_FROM": "<qualified-fixture>/package.json",
+      "RUFLO_WEIGHT_EFT_REQUIRED": "1",
+      "RUFLO_WEIGHT_EFT_RESOLVE_FROM": "<qualified-fixture>/package.json"
+    },
+    "versions": {
+      "memory": "3.0.5",
+      "ruvector": "0.2.41",
+      "core": "0.1.33",
+      "sqljs": "1.15.0",
+      "harness": "0.2.0",
+      "weightEft": "0.1.2"
+    },
+    "audits": {
+      "commands": [
+        "node scripts/audit-umbrella-version-lockstep.mjs",
+        "node scripts/audit-package-dep-overlap.mjs"
+      ],
+      "exitCode": 0
+    },
+    "loop": {
+      "command": "node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 120000",
+      "exitCode": 2,
+      "checksPassed": true,
+      "sourceUnchanged": true,
+      "inputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209",
+      "sourceSha256": "7ab4c6fd7f416e1d4be3e681e394aedbc7d46385d02dab84af22f63247e62773",
+      "requestedIterations": 2,
+      "completedIterations": 2,
+      "budgetMs": 120000,
+      "durationMs": 79644.574796,
+      "history": [
+        {
+          "iteration": 1,
+          "inputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209",
+          "checksPassed": true,
+          "uncoveredPackages": 390,
+          "newSourceEvidence": true
+        },
+        {
+          "iteration": 2,
+          "inputHash": "1a4cd04822acdfe48864fa52c81e589df110341516d6eb0725a0161595552209",
+          "checksPassed": true,
+          "uncoveredPackages": 390,
+          "newSourceEvidence": false
+        }
+      ],
+      "newSourceIdentities": 1,
+      "adoptionMeasured": false,
+      "automaticPromotion": false,
+      "ledgerEntries": 14,
+      "webCommand": "node scripts/build-ecosystem-web.mjs",
+      "webPassed": 10
+    }
+  },
+  "excludedAttempts": [
+    {
+      "passed": 36,
+      "failed": 1,
+      "skipped": 0,
+      "durationMs": 112477.296806,
+      "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-installed.log",
+      "sha256": "907afc4b43d921e97ff02eb91ea8bf00e487b435f6c73b8180f5ea6a8ee66fc2",
+      "reason": "Bound source changed during running evaluation; source-stability check correctly refused artifact review. Replaced only by frozen-source 40/40 rerun; no guard weakened."
+    }
+  ],
+  "retainedPayload": {
+    "schema": "ruflo-slim-opt-in-benchmark/v1",
+    "startedAt": "2026-10-18T10:00:18Z",
+    "sourceBase": "da709de5bd1b88c15399128d16fd004c1b7fc046",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "archiveSha256": "cfcff015c86393cbd1b1a8577300bae2bab435f17017ef34bfb5b7092e34d1af",
+    "baselineManifestSha256": "8d544c227f396b74e6128f0ecc9e9e4358261e53c57b33801972a95689c84385",
+    "candidateManifestSha256": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+    "lifecycleScripts": false,
+    "runs": [
+      {
+        "variant": "baseline",
+        "exitCode": 0,
+        "seconds": 65.412,
+        "cachedTarballBytes": 522159201,
+        "tarballCount": 548,
+        "fixtureSha256": "274e51dcfdb3e5d3555f2a86400716f83b96e8e9d9840a708b7e57b7b13e4ddc",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "2b6edc2d249e246f3feb3624bf541e8af9106dfc326be996498e7b5115e271ec",
+        "slimPackages": [
+          "node_modules/@agntcy/slim-bindings",
+          "node_modules/@agntcy/slim-bindings-darwin-arm64",
+          "node_modules/@agntcy/slim-bindings-darwin-x64",
+          "node_modules/@agntcy/slim-bindings-linux-arm64-gnu",
+          "node_modules/@agntcy/slim-bindings-linux-x64-gnu",
+          "node_modules/@agntcy/slim-bindings-win32-arm64-msvc",
+          "node_modules/@agntcy/slim-bindings-win32-x64-msvc",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-arm64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-x64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-win32-x64-gnu"
+        ],
+        "tarballsIdenticalToFixed": true,
+        "tarballRecordsSha256": "1ea22f1b7fc77e8f7e2bc1da6ae807509175e7b772577377ba83de2d3b98d223"
+      },
+      {
+        "variant": "candidate",
+        "exitCode": 0,
+        "seconds": 91.845,
+        "cachedTarballBytes": 412781888,
+        "tarballCount": 538,
+        "fixtureSha256": "645a9f04d531ea780fcd4d29aebd866363aed61d42e779894b374710e3738807",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "c7081908996b4fe2c73a84484c9bda8ede77938038b0d44123d1bdf44f092ab8",
+        "slimPackages": [],
+        "tarballsIdenticalToFixed": true,
+        "tarballRecordsSha256": "1762d35fede751d7a15474c4bb25b69817a8a71f161609b3a6982f3c6f1ebb27"
+      }
+    ],
+    "comparison": {
+      "savedBytes": 109377313,
+      "reductionPercent": 20.947119727188337,
+      "addedTarballs": [],
+      "timingAttribution": "One sequential observation per variant; CDN and metadata caches uncontrolled. No latency improvement claim.",
+      "removedTarballsCount": 10,
+      "timingDeltaSeconds": 26.433,
+      "candidateSlower": true
+    },
+    "command": "python3 scripts/benchmarks/npm-slim-opt-in.py --archive <claude-flow-3.57.0.tgz> --baseline-manifest <fixed-baseline-package.json> --output <new-empty-directory>",
+    "policy": "Separate empty npm caches; lifecycle scripts disabled on both; unsigned archive fixtures; existing benchmark counts unique cached registry tarball bytes, not total wire traffic.",
+    "quantitativeGainNewThisRun": false
+  },
+  "freshConsumers": {
+    "command": "node --test scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs",
+    "baseline": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 21152.282471,
+      "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-fresh-baseline.log",
+      "sha256": "7648a6f75eda2e936cceb40b6b9d79cf873555d35bd42db0ef061a9eb6395f3f"
+    },
+    "candidate": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 20855.451823,
+      "raw": "docs/ecosystem/evidence/correctness-2026-10-18/cycle8-fresh-candidate.log",
+      "sha256": "e0ad89388c60812787eefe2dc96d7c00e3fc022161ab6ffb024637606e4fa00d"
+    },
+    "environment": "Required memory/Weight EFT resolve from each fresh measured install. Qualified harness0.2.0 resolves separately from the existing fixture; umbrella harness0.1.0 is unchanged and not counted as0.2.0 in payload.",
+    "unsignedFixtures": true
+  },
+  "upstream": {
+    "native": {
+      "pullRequest": "https://github.com/ruvnet/RuVector/pull/1230",
+      "commit": "39f41d2474d7804fd73d933a3925883108473090",
+      "receipt": "docs/ecosystem/evidence/native-rustls-2026-10-18/native-remediation-receipt.json",
+      "nativeVulnerabilityInstances": [
+        13,
+        9
+      ],
+      "baselineAndCandidatePassed": 297,
+      "baselineAndCandidateIgnored": 3,
+      "releaseGatePassed": false
+    },
+    "guidance": {
+      "pullRequest": "https://github.com/ruvnet/metaharness/pull/416",
+      "commit": "62cdc6984bec239a229dadff5737dc28b99b0b51",
+      "receipt": "data/ecosystem-guidance-router.validation.json",
+      "packBytes": [
+        21362,
+        22643
+      ],
+      "newRuntimeCoverage": false
+    }
+  },
+  "coverage": {
+    "registeredChecks": 10,
+    "registeredPackages": 11,
+    "integrationRegisteredPackages": 7,
+    "inventory": 401,
+    "uncoveredPackages": 390,
+    "runtimeLinks": 42,
+    "isolates": 95,
+    "localGuidanceRoots": 54,
+    "localGuidanceInventoryNames": 40,
+    "ecosystemSourceDocumentedBefore": 43,
+    "ecosystemSourceDocumentedAfter": 44,
+    "pendingGuidance": 357,
+    "unverifiedSourceMapping": 353,
+    "mappedPending": 4,
+    "includesDraftBranches": true,
+    "releasedClaimed": false
+  },
+  "rollback": {
+    "scope": "All staged files before this self-referencing receipt",
+    "baselineTree": "2732a8c1bc9dab1ce5230987c7a4a465d4ab3405",
+    "candidateTree": "0162696232a7846d6b38df554d35edbe5e241816",
+    "restoredTree": "2732a8c1bc9dab1ce5230987c7a4a465d4ab3405",
+    "patchSha256": "ff52d421d623632f7100941a67cd927ccf0fa454ad83e3ed31a8315bc48a6ae0",
+    "method": "Isolated temporary Git index seeded with candidate tree; git apply --reverse --cached restores exact HEAD tree.",
+    "limits": "Source rollback does not undo database writes. Reverting memory/native fixes reintroduces known defects/advisories."
+  },
+  "remainingGates": [
+    "Nine native ZIP advisory instances; full workspace/platform/optional-feature/MSRV and cargo-deny validation",
+    "Independent hosted CI/review; signing and published release acceptance",
+    "390 inventory packages lack registered checks;353 still lack verified source mapping",
+    "OS filesystem/network access is not sandboxed by candidate worktrees or environment filtering",
+    "Semantic embedding quality, real model training improvement and seven-day compounding unproven"
+  ],
+  "nextAction": "Review the narrow upstream patches, remediate remaining ZIP dependency paths with native regressions, and continue exact-source package guidance without adding dependencies or download traffic."
+}

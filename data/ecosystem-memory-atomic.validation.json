@@ -1,0 +1,367 @@
+{
+  "schema": "ruflo-memory-atomic-snapshot-validation/v1",
+  "recordedAt": "2026-10-18",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "pullRequest": "https://github.com/ruvnet/ruflo/pull/4264",
+  "baseCommit": "039927ac4c953ff61e8c61738d3d5cc63dfb0595",
+  "disposition": "independently-reviewed-correctness-fix; draft PR, no automatic promotion",
+  "sourceFilesSha256": {
+    "scripts/lib/ecosystem-memory-workflow.mjs": "2e74fb1e67051f3e44122fdaabaa92734fa6630b6b3723e4582f8e90c3fbb8fb",
+    "scripts/lib/ecosystem-memory-snapshot.mjs": "8911aa8857a029247dc4f7560b9390b248ffe566e31b8dc483add5f10161eb09",
+    "scripts/tests/ecosystem-memory-atomic-installed.test.mjs": "4502fe3e0275dd7d5ee6657975b2affd2e05ebd06c2bd5d41a93e974ad5e5a3a",
+    "scripts/tests/ecosystem-memory-snapshot.test.mjs": "bb7915d56ec475486b862ce24b397a0ae3bd65bd35590f6931f23728b8bf83fe",
+    "scripts/tests/fixtures/ecosystem-memory-worker.mjs": "e38bb7b7a2befba18480fa294c1956c55401034fded147c44553a236afe355e1",
+    "data/ecosystem-capabilities.json": "00c856cd6814c57fff38e87e9b24acbddd8ce9d475333900bf96aa6fd4a36598",
+    ".github/workflows/ecosystem-contracts.yml": "6b518d0a7afcaed53eefb4fd4ef71b10a7bb9a588d960def6c2f2cc751ecb7cc",
+    "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+    "data/npm-slim-opt-in.latest.json": "537ec1cf4b6d8056bbf0afd4e2b4c6afc4522d737cc4ce631e3ab6a1f6845315",
+    "data/ecosystem-memory-restart.validation.json": "b987d7a8c2bfbd3b99d9411e3b1b1e4e7d51e5203292ea105f6a07004e6fe16c",
+    "data/ecosystem-candidate.validation.json": "00aeceb94b7188976a4315189a7413fe9b472cac2c17a9973fa09e722260205d"
+  },
+  "newImprovement": {
+    "kind": "correctness",
+    "baselineFailure": "A reader initialized before a completed writer persisted its stale state on shutdown, deleting the newer saved record.",
+    "candidateBehavior": "Readers operate on disposable private snapshots; cooperating writers lock, stage, close the real backend, sync, validate ownership and atomically replace the authoritative database.",
+    "runtimePackages": {
+      "@claude-flow/memory": "3.0.5",
+      "ruvector": "0.2.41",
+      "@ruvector/core": "0.1.33",
+      "sql.js": "1.15.0"
+    },
+    "packageSourceModified": false,
+    "packageDependenciesModified": false,
+    "newQuantitativeGain": false
+  },
+  "pairedReproducer": {
+    "test": "scripts/tests/ecosystem-memory-atomic-installed.test.mjs",
+    "worker": "scripts/tests/fixtures/ecosystem-memory-worker.mjs",
+    "baselineWorkflowSha256": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65",
+    "baselineCommand": "RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<installed-consumer>/package.json RUFLO_MEMORY_WORKFLOW_TEST_MODULE=<baseline-checkout>/scripts/lib/ecosystem-memory-workflow.mjs node --test --test-name-pattern='separate stale reader' scripts/tests/ecosystem-memory-atomic-installed.test.mjs",
+    "baseline": {
+      "exitCode": 1,
+      "tests": 1,
+      "failed": 1,
+      "skipped": 0,
+      "assertion": "reader shutdown must not persist stale state",
+      "durationMs": 1205.711166
+    },
+    "candidateCommand": "RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<installed-consumer>/package.json node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-snapshot.test.mjs",
+    "candidate": {
+      "tests": 11,
+      "passed": 11,
+      "skipped": 0,
+      "independentReviewDurationMs": 4922,
+      "retainedKeys": [
+        "new",
+        "before"
+      ],
+      "authoritativeBytesUnchangedByReader": true
+    },
+    "interruptions": [
+      {
+        "checkpoint": "before-publish",
+        "signal": "SIGKILL",
+        "retainedKeys": [
+          "before"
+        ]
+      },
+      {
+        "checkpoint": "after-publish",
+        "signal": "SIGKILL",
+        "retainedKeys": [
+          "new",
+          "before"
+        ]
+      }
+    ],
+    "competingWritersRejected": true,
+    "staleLeaseNotStolen": true,
+    "powerLossTested": false
+  },
+  "validation": [
+    {
+      "command": "node --test scripts/tests/ecosystem-dependency-graph.test.mjs scripts/tests/ecosystem-connectivity.test.mjs scripts/tests/ecosystem-candidate.test.mjs scripts/tests/ecosystem-memory-snapshot.test.mjs scripts/tests/ecosystem-rsi.test.mjs scripts/tests/ecosystem-loop.test.mjs scripts/tests/ecosystem-explorer.test.mjs scripts/tests/ecosystem-ruvector.test.mjs scripts/tests/ecosystem-runtime-relationships.test.mjs scripts/tests/ecosystem-runtime-contract.test.mjs scripts/tests/slim-opt-in.test.mjs scripts/tests/root-publish-capability-parity.test.mjs scripts/tests/ruvector-native-adapter.test.mjs scripts/tests/weight-eft-api-contract.test.mjs scripts/tests/keychain-optional-binding.test.mjs scripts/__tests__/stage-internal-runtime-bundles.test.mjs",
+      "tests": 90,
+      "passed": 90,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 14428.022659
+    },
+    {
+      "command": "python3 scripts/tests/runtime-relationships.test.py",
+      "tests": 15,
+      "passed": 15,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "command": "RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<consumer>/package.json RUFLO_RUVECTOR_REQUIRED=1 RUFLO_RUVECTOR_RESOLVE_FROM=<consumer>/package.json RUFLO_WEIGHT_EFT_REQUIRED=1 RUFLO_WEIGHT_EFT_RESOLVE_FROM=<consumer>/package.json node --test scripts/tests/weight-eft-installed.test.mjs scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs",
+      "tests": 8,
+      "passed": 8,
+      "skipped": 0,
+      "exitCode": 0,
+      "durationMs": 42870.109175
+    },
+    {
+      "command": "node scripts/audit-umbrella-version-lockstep.mjs",
+      "exitCode": 0,
+      "umbrellaVersion": "3.57.0"
+    },
+    {
+      "command": "node scripts/audit-package-dep-overlap.mjs",
+      "exitCode": 0,
+      "packagesScanned": 38
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<consumer>/package.json RUFLO_RUVECTOR_REQUIRED=1 RUFLO_RUVECTOR_RESOLVE_FROM=<consumer>/package.json node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 60000",
+      "exitCode": 2,
+      "meaning": "All eight checks passed twice; exit 2 honestly denotes 391 uncovered packages.",
+      "loop": {
+        "requestedIterations": 2,
+        "completedIterations": 2,
+        "budgetMs": 60000,
+        "durationMs": 37166.130803,
+        "history": [
+          {
+            "iteration": 1,
+            "inputHash": "bd75a20250595d1a933348d6d14f9b9cbf03f12ab1acdf7a4a86ac7dec56c59d",
+            "checksPassed": true,
+            "uncoveredPackages": 391,
+            "newSourceEvidence": true
+          },
+          {
+            "iteration": 2,
+            "inputHash": "bd75a20250595d1a933348d6d14f9b9cbf03f12ab1acdf7a4a86ac7dec56c59d",
+            "checksPassed": true,
+            "uncoveredPackages": 391,
+            "newSourceEvidence": false
+          }
+        ],
+        "newSourceIdentities": 1,
+        "adoptionMeasured": false,
+        "automaticPromotion": false
+      }
+    },
+    {
+      "command": "node scripts/build-ecosystem-web.mjs",
+      "exitCode": 0,
+      "capabilitiesPassed": 8
+    }
+  ],
+  "freshConsumerBenchmark": {
+    "schema": "ruflo-slim-opt-in-benchmark/v1",
+    "startedAt": "2026-10-18T06:08:55Z",
+    "sourceBase": "039927ac4c953ff61e8c61738d3d5cc63dfb0595",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "archiveSha256": "e6c60db234075253f03c849c226b432646aaeb20c076a0646e11b45c956168ea",
+    "baselineManifestSha256": "01f92adabee2376d69dafbd3185ae86264faff51a6ae4a189b7dd56f763cf9af",
+    "candidateManifestSha256": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+    "lifecycleScripts": false,
+    "runs": [
+      {
+        "variant": "baseline",
+        "exitCode": 0,
+        "seconds": 54.314,
+        "cachedTarballBytes": 522159201,
+        "tarballCount": 548,
+        "fixtureSha256": "f451bdd877dc486359182f102c0ca63455c7591891d759e7ba8cd288e6fe7a1f",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "df8d1f9e381b7b47ced44f614d51ab356159aac169331bc1855d5a9fa4129fe6",
+        "slimPackages": [
+          "node_modules/@agntcy/slim-bindings",
+          "node_modules/@agntcy/slim-bindings-darwin-arm64",
+          "node_modules/@agntcy/slim-bindings-darwin-x64",
+          "node_modules/@agntcy/slim-bindings-linux-arm64-gnu",
+          "node_modules/@agntcy/slim-bindings-linux-x64-gnu",
+          "node_modules/@agntcy/slim-bindings-win32-arm64-msvc",
+          "node_modules/@agntcy/slim-bindings-win32-x64-msvc",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-arm64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-x64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-win32-x64-gnu"
+        ],
+        "tarballListSha256": "1ea22f1b7fc77e8f7e2bc1da6ae807509175e7b772577377ba83de2d3b98d223"
+      },
+      {
+        "variant": "candidate",
+        "exitCode": 0,
+        "seconds": 55.069,
+        "cachedTarballBytes": 412781888,
+        "tarballCount": 538,
+        "fixtureSha256": "e48b645b1518954407f309a326b17f81d26ffc3cde2914519f92766a0f6c7b22",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "17bc30e6cae6bb154dc8fb15807166b3ff2d4d9ccc08358cddc745d44eb878cf",
+        "slimPackages": [],
+        "tarballListSha256": "1762d35fede751d7a15474c4bb25b69817a8a71f161609b3a6982f3c6f1ebb27"
+      }
+    ],
+    "comparison": {
+      "savedBytes": 109377313,
+      "reductionPercent": 20.947119727188337,
+      "removedTarballs": [
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-arm64/-/slim-bindings-darwin-arm64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-M5DP+SPVn+ReAAK6GxHosxciNMCWZv1vxZziPcxWMt+HIOt4/9w7vlbJPe1dfmdEHegE9iNGQ+AOSKOfQS5rhQ==",
+          "size": 18254344
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-x64/-/slim-bindings-darwin-x64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-xWbywk8ZNABApjKiUe8E6umkGXYTNQBKAO1ZFPQfOP1OrSf3oupJTv/pkzsRifh+/dOFaojpZFvcZJfeM1L/jA==",
+          "size": 18708574
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-arm64-gnu/-/slim-bindings-linux-arm64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-+3YZRrVNYpY4eD4Wn9aza6rsiGwB/hz/ojxyCPgeK9/4QFYVvUMnVq4H4sN+k5ckJP7lrR6ncfEqp7BJyOwKQA==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-x64-gnu/-/slim-bindings-linux-x64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-BYGtMWtJJTd+z6eioFvbGbg/oq0DwjhHRJtTYvNpHQ6CFhja3PhuxcUPrW53xKVLTD3saeZq8MVOGq2tuF+PRQ==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-arm64-msvc/-/slim-bindings-win32-arm64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-dO6/JdvE2ANVujXMTSxSMqb94YN9+ox7HbNaSzQt8shERB/5XFgWKYDCrwEJC26ux8FzQcvaq8mnlePGueDq7g==",
+          "size": 16027202
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-x64-msvc/-/slim-bindings-win32-x64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-w0mKFPKKkhwfQzaC/p1Ke3ogNL4AyxC9jt0LY0LsBHNIJaPPBvAbLMLVslZBgn2ghrMRS/nxdacdQrAcFQQzXg==",
+          "size": 17006526
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings/-/slim-bindings-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-QBpln5ubYbJ7nMY2SUWJJfUsl5qmezqWNwcatdjuaZaK2dDIj2RHAvgNKNmuf8Exg+kuI/88SFrAZMNxLJolNQ==",
+          "size": 35162
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/core/-/core-0.31.0-3.tgz",
+          "integrity": "sha512-39XrJgUZ2VVb561sSnkXPhczNoeBsNiSRArecsV0JE7CJq69ajFkcn9/tBAUS2NpgHkLIDU+z6Ks2+1wXnboxg==",
+          "size": 44743
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node-linux-x64-gnu/-/node-linux-x64-gnu-0.31.0-3.tgz",
+          "integrity": "sha512-Xdm21blyg5U/kW6s7OMvgrr8coGTkUlt26DVR9x8gKISif+E3YwdEskbFScWqystAiJnfjw7xHEc8UMu0Qlz7Q==",
+          "size": 339564
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node/-/node-0.31.0-3.tgz",
+          "integrity": "sha512-qNMpi2LICNwxGXZyRF8fSDBSpbezyZbEsydrbiMPJOmtOWr4tmZIEl7jkWGHVGShoBvHfFo4eHp5B4UVP928Cg==",
+          "size": 7224
+        }
+      ],
+      "addedTarballs": [],
+      "timingAttribution": "One sequential observation per variant; CDN and metadata caches uncontrolled. No latency improvement claim."
+    },
+    "retainedComparison": {
+      "changedPackageVersionsOrIntegrities": [],
+      "addedTarballs": 0,
+      "retainedTarballs": 538
+    },
+    "installTimeDeltaSeconds": 0.755
+  },
+  "freshConsumerBenchmarkMethod": {
+    "command": "python3 scripts/benchmarks/npm-slim-opt-in.py --archive <prior-baseline-fixture.tgz> --baseline-manifest <fixed-baseline-package.json> --output <new-empty-directory>",
+    "archiveOrigin": "Unsigned baseline fixture from the previous fresh-pair validation; its 1,941 nonmanifest archive entries have the same digest as the published-byte fixture recorded in ecosystem-memory-restart.validation.json.",
+    "cachePolicy": "Separate initially empty npm caches per variant; identical --ignore-scripts --no-audit --no-fund policy.",
+    "byteDefinition": "Unique registry tarball payload bytes recorded in the fresh cache, not full network wire bytes. Excludes registry metadata, headers, TLS and local fixture bytes.",
+    "timingPolicy": "One sequential observation per variant. No latency claim; CDN/metadata state and concurrent validation load uncontrolled.",
+    "releaseValidation": false
+  },
+  "freshConsumerWorkflow": {
+    "command": "RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<fresh-variant>/package.json node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs",
+    "note": "Both freshly installed dependency variants run the same candidate source workflow. Baseline source defect is evaluated separately above.",
+    "baseline": {
+      "tests": 5,
+      "passed": 5,
+      "skipped": 0,
+      "durationMs": 3894.922297,
+      "writeMs": 120.223887,
+      "restartRetrieveMs": 114.054235,
+      "repeatedRetrieveMs": 110.661972,
+      "databaseBytes": 36864
+    },
+    "candidate": {
+      "tests": 5,
+      "passed": 5,
+      "skipped": 0,
+      "durationMs": 3344.34971,
+      "writeMs": 114.178859,
+      "restartRetrieveMs": 95.679729,
+      "repeatedRetrieveMs": 111.173803,
+      "databaseBytes": 36864
+    },
+    "restartRetrieveDeltaMs": -18.374506,
+    "latencyImprovementEstablished": false
+  },
+  "retainedBaselines": {
+    "fixed": "data/npm-download-benchmark.latest.json",
+    "lastAcceptedPayload": "data/npm-slim-opt-in.latest.json",
+    "previousRestartRevalidation": "data/ecosystem-memory-restart.validation.json",
+    "candidateExecutorProof": "data/ecosystem-candidate.validation.json",
+    "allFourFilesUnchanged": true,
+    "savedBytes": 109377313,
+    "reductionPercent": 20.947119727188337,
+    "countedAsNewGain": false
+  },
+  "rollback": {
+    "candidateTreeBeforeValidationReceipt": "e7024cc501389dbbf9599f3ae3fcfc55e877c69b",
+    "baseTree": "720552cd81502341743e41bddd41fffc3f39d167",
+    "restoredTree": "720552cd81502341743e41bddd41fffc3f39d167",
+    "patchSha256": "491b103529a164d03529d13d05dcee8f403ffa176eb16370ec827ddfaf88f2c1",
+    "sourceRollbackVerified": true,
+    "dataRollback": false
+  },
+  "coverage": {
+    "inventoryPackages": 401,
+    "registeredChecks": 8,
+    "coveredPackages": 10,
+    "uncoveredPackages": 391,
+    "integrationCoveredInventoryPackages": 5,
+    "sourceEvidencedRuntimeLinks": 42,
+    "isolates": 95,
+    "packageCoverageChange": 0,
+    "localGuidanceRoots": 54,
+    "sourceDocumentedInventoryPackages": 40,
+    "pendingInventoryGuidance": 361,
+    "pendingVerifiedProposals": 2,
+    "pendingUnmapped": 359
+  },
+  "upstreamGuidance": {
+    "receipt": "data/ecosystem-guidance-ruvector-build.validation.json",
+    "patch": "docs/ecosystem/proposals/ruvector-guidance.patch",
+    "newlyVerified": "Pinned tooling permits baseline/candidate JS builds and dist verification; 129 generated files match; built AGENTS.md inclusion adds 1,021 compressed bytes.",
+    "remainingGates": [
+      "Cargo absent in both available executors; no native source build",
+      "Full wrapper tests stop on unavailable MetaHarness SDK dependencies; two MinCut tests skip"
+    ],
+    "upstreamPrOpened": false,
+    "sourceCoverageIncrease": 0,
+    "released": false
+  },
+  "independentReview": {
+    "scope": "Targeted file/persistence security and correctness review, not full package advisory audit.",
+    "findingsFixed": [
+      "FIFO open could block before file-type validation",
+      "Post-publication cleanup error could omit committed-state annotation"
+    ],
+    "finalBlockers": 0
+  },
+  "limitations": [
+    "Trusted private POSIX directory and cooperating wrapper writers only",
+    "SIGKILL tested, not physical power loss or network filesystem semantics",
+    "Existing package backend outside wrapper remains unchanged",
+    "No automatic stale-lock recovery; unidentified orphan stages must be preserved",
+    "Unsigned consumer fixtures are not final signed release validation",
+    "Hosted Node22/24 checks pending when this receipt was created; consult PR for current status",
+    "Seven-day compounding target not yet established"
+  ],
+  "nextAction": "Retain this regression in later evaluations; provision the existing-source-compatible RuVector dependency fixture and Rust-capable authorized build environment before upstream guidance PR. Then add update/delete consistency and agent-execution acceptance with independent evidence."
+}

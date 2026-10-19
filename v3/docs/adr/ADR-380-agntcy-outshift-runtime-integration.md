@@ -199,3 +199,13 @@ theory.
 - IOC protocol repository — https://github.com/outshift-open/ioc-protocols-models
 - Companion: metaharness repo ADR-240 (`agent/adr-237-agntcy-outshift-integration` branch) — build-time half of this integration
 - ADR-150 (`v3/docs/adr/ADR-150-metaharness-integration-surfaces.md`) — the optional/removable-augmentation precedent this ADR follows
+
+## Update October 18, 2026: umbrella installation cost
+
+The umbrella declares the exact SLIM alpha as an optional peer instead of an automatically acquired optional dependency. Operators using `claude-flow` install `@agntcy/slim-bindings@2.0.0-alpha.5` explicitly in the same application. The scoped CLI keeps its existing optional dependency policy. This refines the optional-only declaration rule; local transport and graceful degradation remain unchanged.
+
+```bash
+npm install claude-flow @agntcy/slim-bindings@2.0.0-alpha.5
+```
+
+The pinned SDK currently declares platform archives without OS/CPU filters. Explicit installation still incurs that cost. The change avoids acquiring that capability for umbrella users who do not select it; it does not repair upstream metadata or validate every transport platform. See the source bound benchmark in `docs/ecosystem/slim-opt-in-validation.md`.

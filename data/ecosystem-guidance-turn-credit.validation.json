@@ -1,0 +1,771 @@
+{
+  "schema": "metaharness-guidance/v1",
+  "package": "@metaharness/turn-credit",
+  "version": "0.1.0",
+  "sourceBaseCommit": "e0dfd44da72b7adfb7c57fdd42d124be58ed7086",
+  "repository": "https://github.com/ruvnet/metaharness",
+  "packagePath": "packages/turn-credit",
+  "platform": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "variants": {
+    "baseline": {
+      "pack": {
+        "id": "@metaharness/turn-credit@0.1.0",
+        "name": "@metaharness/turn-credit",
+        "version": "0.1.0",
+        "size": 19606,
+        "unpackedSize": 64940,
+        "shasum": "cc1e8153ad2c43098e7db2a4ffc390d4f490ad86",
+        "integrity": "sha512-A752c0eEYEVodBB8HLOaSvcUMA65TX6/Cru2apZ7EE7aL2FSO74GFbgFWPo85bgqgNuMjhHkl/kG+lkC0TunNA==",
+        "filename": "metaharness-turn-credit-0.1.0.tgz",
+        "files": [
+          {
+            "path": "README.md",
+            "size": 3486,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.d.ts",
+            "size": 2119,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.d.ts.map",
+            "size": 1174,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.js",
+            "size": 3068,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.js.map",
+            "size": 3375,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.d.ts",
+            "size": 997,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.d.ts.map",
+            "size": 633,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.js",
+            "size": 2314,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.js.map",
+            "size": 1821,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.d.ts",
+            "size": 198,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.d.ts.map",
+            "size": 285,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.js",
+            "size": 4975,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.js.map",
+            "size": 4979,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.d.ts",
+            "size": 830,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.d.ts.map",
+            "size": 752,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.js",
+            "size": 650,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.js.map",
+            "size": 570,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.d.ts",
+            "size": 1728,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.d.ts.map",
+            "size": 809,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.js",
+            "size": 3299,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.js.map",
+            "size": 3061,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.d.ts",
+            "size": 1306,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.d.ts.map",
+            "size": 548,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.js",
+            "size": 2099,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.js.map",
+            "size": 1823,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.d.ts",
+            "size": 990,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.d.ts.map",
+            "size": 660,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.js",
+            "size": 3079,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.js.map",
+            "size": 2918,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.d.ts",
+            "size": 4694,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.d.ts.map",
+            "size": 1952,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.js",
+            "size": 1596,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.js.map",
+            "size": 574,
+            "mode": 420
+          },
+          {
+            "path": "package.json",
+            "size": 1578,
+            "mode": 420
+          }
+        ],
+        "entryCount": 34,
+        "bundled": []
+      },
+      "tarballSha256": "05f801be533e98f0d2006332bfe2b4be4168e8bfc391a69485204e85935b0f59",
+      "consumer": {
+        "write": {
+          "phase": "write",
+          "passed": true,
+          "pid": 145,
+          "creditDigest": "60d8f99cab57227eb44797d0ebfda783f67d892288c3b5d7d8660e8d79a5eb49",
+          "receiptDigest": "c708f8734f047dc38cc3d54b0b4c7864383ab85cc107c4fdc7c85a6c750d0ffd"
+        },
+        "read": {
+          "phase": "restart",
+          "passed": true,
+          "pid": 153,
+          "creditDigest": "60d8f99cab57227eb44797d0ebfda783f67d892288c3b5d7d8660e8d79a5eb49",
+          "receiptDigest": "c708f8734f047dc38cc3d54b0b4c7864383ab85cc107c4fdc7c85a6c750d0ffd"
+        }
+      },
+      "manifestSha256": "acc4b5c768a8d9c1c12dec93f6c40e8dad5b38735f522a12d042aa555508e323"
+    },
+    "candidate": {
+      "pack": {
+        "id": "@metaharness/turn-credit@0.1.0",
+        "name": "@metaharness/turn-credit",
+        "version": "0.1.0",
+        "size": 20936,
+        "unpackedSize": 67983,
+        "shasum": "6e8bb217e4b334fd1f779e8d46b7abe5d420c07b",
+        "integrity": "sha512-lyDJHusVMhSuPNM9oHFQzupoyYu/KUa+C/ONlY6BgzkccCjs/rUnaLeVgpVgkHcrybcNLogH6DQATq04Hj7Cjg==",
+        "filename": "metaharness-turn-credit-0.1.0.tgz",
+        "files": [
+          {
+            "path": "AGENTS.md",
+            "size": 3026,
+            "mode": 420
+          },
+          {
+            "path": "README.md",
+            "size": 3486,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.d.ts",
+            "size": 2119,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.d.ts.map",
+            "size": 1174,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.js",
+            "size": 3068,
+            "mode": 420
+          },
+          {
+            "path": "dist/adapters.js.map",
+            "size": 3375,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.d.ts",
+            "size": 997,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.d.ts.map",
+            "size": 633,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.js",
+            "size": 2314,
+            "mode": 420
+          },
+          {
+            "path": "dist/belief.js.map",
+            "size": 1821,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.d.ts",
+            "size": 198,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.d.ts.map",
+            "size": 285,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.js",
+            "size": 4975,
+            "mode": 420
+          },
+          {
+            "path": "dist/cli.js.map",
+            "size": 4979,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.d.ts",
+            "size": 830,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.d.ts.map",
+            "size": 752,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.js",
+            "size": 650,
+            "mode": 420
+          },
+          {
+            "path": "dist/index.js.map",
+            "size": 570,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.d.ts",
+            "size": 1728,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.d.ts.map",
+            "size": 809,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.js",
+            "size": 3299,
+            "mode": 420
+          },
+          {
+            "path": "dist/processor.js.map",
+            "size": 3061,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.d.ts",
+            "size": 1306,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.d.ts.map",
+            "size": 548,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.js",
+            "size": 2099,
+            "mode": 420
+          },
+          {
+            "path": "dist/receipt.js.map",
+            "size": 1823,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.d.ts",
+            "size": 990,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.d.ts.map",
+            "size": 660,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.js",
+            "size": 3079,
+            "mode": 420
+          },
+          {
+            "path": "dist/reshape.js.map",
+            "size": 2918,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.d.ts",
+            "size": 4694,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.d.ts.map",
+            "size": 1952,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.js",
+            "size": 1596,
+            "mode": 420
+          },
+          {
+            "path": "dist/types.js.map",
+            "size": 574,
+            "mode": 420
+          },
+          {
+            "path": "package.json",
+            "size": 1595,
+            "mode": 420
+          }
+        ],
+        "entryCount": 35,
+        "bundled": []
+      },
+      "tarballSha256": "b8d25435b282ae2ea296cb744f08a7de09871f035fb8443f716a3d391fb4f680",
+      "consumer": {
+        "write": {
+          "phase": "write",
+          "passed": true,
+          "pid": 297,
+          "creditDigest": "60d8f99cab57227eb44797d0ebfda783f67d892288c3b5d7d8660e8d79a5eb49",
+          "receiptDigest": "c708f8734f047dc38cc3d54b0b4c7864383ab85cc107c4fdc7c85a6c750d0ffd"
+        },
+        "read": {
+          "phase": "restart",
+          "passed": true,
+          "pid": 305,
+          "creditDigest": "60d8f99cab57227eb44797d0ebfda783f67d892288c3b5d7d8660e8d79a5eb49",
+          "receiptDigest": "c708f8734f047dc38cc3d54b0b4c7864383ab85cc107c4fdc7c85a6c750d0ffd"
+        }
+      },
+      "manifestSha256": "3f0f2d5aaa218fb322b7d816258d62869c15e5329d5c14cf25629de6e8b3f966"
+    }
+  },
+  "commands": [
+    {
+      "label": "validated-baseline-build",
+      "cmd": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/baseline/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 1724,
+      "logSha256": "348abe3e0fe7c400c7439ce2bc248d9b135754580fe1a8d0388e8e7a735c5cf8"
+    },
+    {
+      "label": "validated-baseline-lint",
+      "cmd": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/baseline/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 1771,
+      "logSha256": "bb083732d0fb924b6398bb6332a8529797b1ba6aeae9db0ed0734f30a3b81d7b"
+    },
+    {
+      "label": "validated-baseline-test",
+      "cmd": [
+        "npm",
+        "test",
+        "--",
+        "--root",
+        "../..",
+        "packages/turn-credit/__tests__/turn-credit.test.ts",
+        "--maxWorkers=1",
+        "--minWorkers=1",
+        "--no-cache"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/baseline/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 1133,
+      "logSha256": "1946d20f2e35b3390fe93817ceb480dd2de830924164a593fb4f859155cc52c0"
+    },
+    {
+      "label": "validated-baseline-pack",
+      "cmd": [
+        "npm",
+        "pack",
+        "--ignore-scripts",
+        "--json",
+        "--pack-destination",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/baseline/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 549,
+      "logSha256": "363148d6345fd75fb9c42e5e83de88a690712a286245c192c160929b742af151"
+    },
+    {
+      "label": "validated-baseline-install",
+      "cmd": [
+        "npm",
+        "install",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--cache",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/empty-cache",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/metaharness-turn-credit-0.1.0.tgz"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+      "code": 0,
+      "elapsedMs": 474,
+      "logSha256": "46bb680a17bd02d692599f0269ff3e3947be753eccaeef05c6a4e50a563ab338"
+    },
+    {
+      "label": "validated-baseline-consumer-write",
+      "cmd": [
+        "node",
+        "--input-type=module",
+        "--eval",
+        "import assert from 'node:assert/strict';\nimport fs from 'node:fs';\nconst [consumer,phase]=process.argv.slice(1);\nconst api=await import('@metaharness/turn-credit');\nconst {dispatch}=await import('@metaharness/turn-credit/cli');\nconst input={prior:0.3,success:true,turns:[{turn:1,label:'route:cheap',scoreWith:0.7,scoreWithout:0.5},{turn:2,label:'tool:edit',scoreWith:0.9,scoreWithout:0.2},{turn:3,label:'retry',scoreWith:0.3,scoreWithout:0.6}]};\nconst file=`${consumer}/credit.json`;\nif(phase==='write'){\n  fs.writeFileSync(`${consumer}/input.json`,JSON.stringify(input));\n  const processed=await dispatch('process',[`${consumer}/input.json`,'--out',file,'--governed']);\n  assert.equal(processed.code,0);assert.match(processed.lines.join('\\n'),/PROXY/);\n  const credit=JSON.parse(fs.readFileSync(file));\n  assert.equal(credit.proxy,true);assert.equal(credit.boundPct,0.1);\n  for(const c of credit.credits)assert.ok(c.multiplier>=0.9&&c.multiplier<=1.1);\n  for(const success of [false,true]){\n    const c=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success,config:api.GOVERNED_DEFAULTS});\n    assert.equal(c.outcomeSign,success?1:-1);\n    for(const x of c.credits)assert.equal(Math.sign(api.reshapedAdvantage(c.advantage,x)),c.outcomeSign);\n    const feedback=api.toMemoryFeedback(c,new Map([[1,['skill-a']],[2,['skill-b']]]));\n    assert.equal(feedback.length,2);assert.ok(feedback.every(x=>x.resolved===success&&x.weight>=0.9&&x.weight<=1.1));\n    assert.ok(api.toQualityLabels(c).every(x=>x.quality>=0&&x.quality<=1));\n  }\n  const neutral=api.processTrajectory({evidence:[{turn:1,evidence:0.5}],mode:'logprob-gap',prior:0.3,advantage:0,config:api.GOVERNED_DEFAULTS});\n  assert.equal(neutral.outcomeSign,0);assert.ok(neutral.credits.every(x=>x.credit===0));\n  assert.throws(()=>api.evidenceFromLogProbs([{turn:1,withContext:[-0.1],withoutContext:[]}]),/token counts differ/);\n  const receipt=api.buildCreditReceiptPayload({credit,verifierVersion:'fixture@1',retrievedEvidence:{id:'skill-a'},trajectory:input});\n  assert.equal(receipt.proxy,true);assert.equal(receipt.creditDigest,api.digest(credit));\n  fs.writeFileSync(`${consumer}/receipt.json`,JSON.stringify(receipt));\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(credit),receiptDigest:api.digest(receipt)}));\n}else{\n  const report=await dispatch('report',[file]);assert.equal(report.code,0);assert.match(report.lines.join('\\n'),/tool:edit/);assert.match(report.lines.join('\\n'),/PROXY/);\n  const saved=JSON.parse(fs.readFileSync(file));const receipt=JSON.parse(fs.readFileSync(`${consumer}/receipt.json`));\n  const replay=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success:true,config:api.GOVERNED_DEFAULTS});\n  assert.equal(api.digest(replay),api.digest(saved));assert.equal(api.digest(saved),receipt.creditDigest);\n  assert.equal((await dispatch('unknown',[])).code,2);\n  assert.equal((await dispatch('report',[`${consumer}/missing.json`])).code,1);\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(saved),receiptDigest:api.digest(receipt)}));\n}\n",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+        "write"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+      "code": 0,
+      "elapsedMs": 99,
+      "logSha256": "359503c5553859e4940e9763978222fe15387042c5ed8d6d15fb6c51565f31f5"
+    },
+    {
+      "label": "validated-baseline-consumer-restart",
+      "cmd": [
+        "node",
+        "--input-type=module",
+        "--eval",
+        "import assert from 'node:assert/strict';\nimport fs from 'node:fs';\nconst [consumer,phase]=process.argv.slice(1);\nconst api=await import('@metaharness/turn-credit');\nconst {dispatch}=await import('@metaharness/turn-credit/cli');\nconst input={prior:0.3,success:true,turns:[{turn:1,label:'route:cheap',scoreWith:0.7,scoreWithout:0.5},{turn:2,label:'tool:edit',scoreWith:0.9,scoreWithout:0.2},{turn:3,label:'retry',scoreWith:0.3,scoreWithout:0.6}]};\nconst file=`${consumer}/credit.json`;\nif(phase==='write'){\n  fs.writeFileSync(`${consumer}/input.json`,JSON.stringify(input));\n  const processed=await dispatch('process',[`${consumer}/input.json`,'--out',file,'--governed']);\n  assert.equal(processed.code,0);assert.match(processed.lines.join('\\n'),/PROXY/);\n  const credit=JSON.parse(fs.readFileSync(file));\n  assert.equal(credit.proxy,true);assert.equal(credit.boundPct,0.1);\n  for(const c of credit.credits)assert.ok(c.multiplier>=0.9&&c.multiplier<=1.1);\n  for(const success of [false,true]){\n    const c=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success,config:api.GOVERNED_DEFAULTS});\n    assert.equal(c.outcomeSign,success?1:-1);\n    for(const x of c.credits)assert.equal(Math.sign(api.reshapedAdvantage(c.advantage,x)),c.outcomeSign);\n    const feedback=api.toMemoryFeedback(c,new Map([[1,['skill-a']],[2,['skill-b']]]));\n    assert.equal(feedback.length,2);assert.ok(feedback.every(x=>x.resolved===success&&x.weight>=0.9&&x.weight<=1.1));\n    assert.ok(api.toQualityLabels(c).every(x=>x.quality>=0&&x.quality<=1));\n  }\n  const neutral=api.processTrajectory({evidence:[{turn:1,evidence:0.5}],mode:'logprob-gap',prior:0.3,advantage:0,config:api.GOVERNED_DEFAULTS});\n  assert.equal(neutral.outcomeSign,0);assert.ok(neutral.credits.every(x=>x.credit===0));\n  assert.throws(()=>api.evidenceFromLogProbs([{turn:1,withContext:[-0.1],withoutContext:[]}]),/token counts differ/);\n  const receipt=api.buildCreditReceiptPayload({credit,verifierVersion:'fixture@1',retrievedEvidence:{id:'skill-a'},trajectory:input});\n  assert.equal(receipt.proxy,true);assert.equal(receipt.creditDigest,api.digest(credit));\n  fs.writeFileSync(`${consumer}/receipt.json`,JSON.stringify(receipt));\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(credit),receiptDigest:api.digest(receipt)}));\n}else{\n  const report=await dispatch('report',[file]);assert.equal(report.code,0);assert.match(report.lines.join('\\n'),/tool:edit/);assert.match(report.lines.join('\\n'),/PROXY/);\n  const saved=JSON.parse(fs.readFileSync(file));const receipt=JSON.parse(fs.readFileSync(`${consumer}/receipt.json`));\n  const replay=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success:true,config:api.GOVERNED_DEFAULTS});\n  assert.equal(api.digest(replay),api.digest(saved));assert.equal(api.digest(saved),receipt.creditDigest);\n  assert.equal((await dispatch('unknown',[])).code,2);\n  assert.equal((await dispatch('report',[`${consumer}/missing.json`])).code,1);\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(saved),receiptDigest:api.digest(receipt)}));\n}\n",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+        "restart"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/consumer",
+      "code": 0,
+      "elapsedMs": 80,
+      "logSha256": "24d40037256a3acc14bcade463a3e487064d5ae1ae165862ec72876a905926f3"
+    },
+    {
+      "label": "validated-baseline-unpack",
+      "cmd": [
+        "tar",
+        "-xzf",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/metaharness-turn-credit-0.1.0.tgz",
+        "-C",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline/unpacked"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/baseline",
+      "code": 0,
+      "elapsedMs": 5,
+      "logSha256": "9b2880721eb57c1f2e40b0d53582da989c32928e89d46f955b5cd652957f76fd"
+    },
+    {
+      "label": "validated-candidate-build",
+      "cmd": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 1294,
+      "logSha256": "13ca79aa59686d7e9963b9404489d1f756e6f47b23c53f30f6e49ad72b05efc0"
+    },
+    {
+      "label": "validated-candidate-lint",
+      "cmd": [
+        "npm",
+        "run",
+        "lint"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 1279,
+      "logSha256": "2d7aad0406cec99d7055de4e1533ec5b3fdb889665cd87a8bda5ecaf3005c215"
+    },
+    {
+      "label": "validated-candidate-test",
+      "cmd": [
+        "npm",
+        "test",
+        "--",
+        "--root",
+        "../..",
+        "packages/turn-credit/__tests__/turn-credit.test.ts",
+        "--maxWorkers=1",
+        "--minWorkers=1",
+        "--no-cache"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 902,
+      "logSha256": "643d47ad9236140e02c146dbddabec3d3598a90c16402d594c68c739989eebfc"
+    },
+    {
+      "label": "validated-candidate-pack",
+      "cmd": [
+        "npm",
+        "pack",
+        "--ignore-scripts",
+        "--json",
+        "--pack-destination",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/candidate/packages/turn-credit",
+      "code": 0,
+      "elapsedMs": 441,
+      "logSha256": "a6404db753b3a42b70d169dce6db082ae9e216ac35b9106bcb0f95feccc1085f"
+    },
+    {
+      "label": "validated-candidate-install",
+      "cmd": [
+        "npm",
+        "install",
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--cache",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/empty-cache",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/metaharness-turn-credit-0.1.0.tgz"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/consumer",
+      "code": 0,
+      "elapsedMs": 456,
+      "logSha256": "3b924c8f4437973872fd1cca9a8361d33b4898258ebbc84a5229d4ee0003b9be"
+    },
+    {
+      "label": "validated-candidate-consumer-write",
+      "cmd": [
+        "node",
+        "--input-type=module",
+        "--eval",
+        "import assert from 'node:assert/strict';\nimport fs from 'node:fs';\nconst [consumer,phase]=process.argv.slice(1);\nconst api=await import('@metaharness/turn-credit');\nconst {dispatch}=await import('@metaharness/turn-credit/cli');\nconst input={prior:0.3,success:true,turns:[{turn:1,label:'route:cheap',scoreWith:0.7,scoreWithout:0.5},{turn:2,label:'tool:edit',scoreWith:0.9,scoreWithout:0.2},{turn:3,label:'retry',scoreWith:0.3,scoreWithout:0.6}]};\nconst file=`${consumer}/credit.json`;\nif(phase==='write'){\n  fs.writeFileSync(`${consumer}/input.json`,JSON.stringify(input));\n  const processed=await dispatch('process',[`${consumer}/input.json`,'--out',file,'--governed']);\n  assert.equal(processed.code,0);assert.match(processed.lines.join('\\n'),/PROXY/);\n  const credit=JSON.parse(fs.readFileSync(file));\n  assert.equal(credit.proxy,true);assert.equal(credit.boundPct,0.1);\n  for(const c of credit.credits)assert.ok(c.multiplier>=0.9&&c.multiplier<=1.1);\n  for(const success of [false,true]){\n    const c=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success,config:api.GOVERNED_DEFAULTS});\n    assert.equal(c.outcomeSign,success?1:-1);\n    for(const x of c.credits)assert.equal(Math.sign(api.reshapedAdvantage(c.advantage,x)),c.outcomeSign);\n    const feedback=api.toMemoryFeedback(c,new Map([[1,['skill-a']],[2,['skill-b']]]));\n    assert.equal(feedback.length,2);assert.ok(feedback.every(x=>x.resolved===success&&x.weight>=0.9&&x.weight<=1.1));\n    assert.ok(api.toQualityLabels(c).every(x=>x.quality>=0&&x.quality<=1));\n  }\n  const neutral=api.processTrajectory({evidence:[{turn:1,evidence:0.5}],mode:'logprob-gap',prior:0.3,advantage:0,config:api.GOVERNED_DEFAULTS});\n  assert.equal(neutral.outcomeSign,0);assert.ok(neutral.credits.every(x=>x.credit===0));\n  assert.throws(()=>api.evidenceFromLogProbs([{turn:1,withContext:[-0.1],withoutContext:[]}]),/token counts differ/);\n  const receipt=api.buildCreditReceiptPayload({credit,verifierVersion:'fixture@1',retrievedEvidence:{id:'skill-a'},trajectory:input});\n  assert.equal(receipt.proxy,true);assert.equal(receipt.creditDigest,api.digest(credit));\n  fs.writeFileSync(`${consumer}/receipt.json`,JSON.stringify(receipt));\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(credit),receiptDigest:api.digest(receipt)}));\n}else{\n  const report=await dispatch('report',[file]);assert.equal(report.code,0);assert.match(report.lines.join('\\n'),/tool:edit/);assert.match(report.lines.join('\\n'),/PROXY/);\n  const saved=JSON.parse(fs.readFileSync(file));const receipt=JSON.parse(fs.readFileSync(`${consumer}/receipt.json`));\n  const replay=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success:true,config:api.GOVERNED_DEFAULTS});\n  assert.equal(api.digest(replay),api.digest(saved));assert.equal(api.digest(saved),receipt.creditDigest);\n  assert.equal((await dispatch('unknown',[])).code,2);\n  assert.equal((await dispatch('report',[`${consumer}/missing.json`])).code,1);\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(saved),receiptDigest:api.digest(receipt)}));\n}\n",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/consumer",
+        "write"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/consumer",
+      "code": 0,
+      "elapsedMs": 83,
+      "logSha256": "31506c3e481ba354b81ddbca202404b6acf25314dd0d6f87518c0b51e1e8f388"
+    },
+    {
+      "label": "validated-candidate-consumer-restart",
+      "cmd": [
+        "node",
+        "--input-type=module",
+        "--eval",
+        "import assert from 'node:assert/strict';\nimport fs from 'node:fs';\nconst [consumer,phase]=process.argv.slice(1);\nconst api=await import('@metaharness/turn-credit');\nconst {dispatch}=await import('@metaharness/turn-credit/cli');\nconst input={prior:0.3,success:true,turns:[{turn:1,label:'route:cheap',scoreWith:0.7,scoreWithout:0.5},{turn:2,label:'tool:edit',scoreWith:0.9,scoreWithout:0.2},{turn:3,label:'retry',scoreWith:0.3,scoreWithout:0.6}]};\nconst file=`${consumer}/credit.json`;\nif(phase==='write'){\n  fs.writeFileSync(`${consumer}/input.json`,JSON.stringify(input));\n  const processed=await dispatch('process',[`${consumer}/input.json`,'--out',file,'--governed']);\n  assert.equal(processed.code,0);assert.match(processed.lines.join('\\n'),/PROXY/);\n  const credit=JSON.parse(fs.readFileSync(file));\n  assert.equal(credit.proxy,true);assert.equal(credit.boundPct,0.1);\n  for(const c of credit.credits)assert.ok(c.multiplier>=0.9&&c.multiplier<=1.1);\n  for(const success of [false,true]){\n    const c=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success,config:api.GOVERNED_DEFAULTS});\n    assert.equal(c.outcomeSign,success?1:-1);\n    for(const x of c.credits)assert.equal(Math.sign(api.reshapedAdvantage(c.advantage,x)),c.outcomeSign);\n    const feedback=api.toMemoryFeedback(c,new Map([[1,['skill-a']],[2,['skill-b']]]));\n    assert.equal(feedback.length,2);assert.ok(feedback.every(x=>x.resolved===success&&x.weight>=0.9&&x.weight<=1.1));\n    assert.ok(api.toQualityLabels(c).every(x=>x.quality>=0&&x.quality<=1));\n  }\n  const neutral=api.processTrajectory({evidence:[{turn:1,evidence:0.5}],mode:'logprob-gap',prior:0.3,advantage:0,config:api.GOVERNED_DEFAULTS});\n  assert.equal(neutral.outcomeSign,0);assert.ok(neutral.credits.every(x=>x.credit===0));\n  assert.throws(()=>api.evidenceFromLogProbs([{turn:1,withContext:[-0.1],withoutContext:[]}]),/token counts differ/);\n  const receipt=api.buildCreditReceiptPayload({credit,verifierVersion:'fixture@1',retrievedEvidence:{id:'skill-a'},trajectory:input});\n  assert.equal(receipt.proxy,true);assert.equal(receipt.creditDigest,api.digest(credit));\n  fs.writeFileSync(`${consumer}/receipt.json`,JSON.stringify(receipt));\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(credit),receiptDigest:api.digest(receipt)}));\n}else{\n  const report=await dispatch('report',[file]);assert.equal(report.code,0);assert.match(report.lines.join('\\n'),/tool:edit/);assert.match(report.lines.join('\\n'),/PROXY/);\n  const saved=JSON.parse(fs.readFileSync(file));const receipt=JSON.parse(fs.readFileSync(`${consumer}/receipt.json`));\n  const replay=api.processTrajectory({evidence:api.evidenceFromScorePairs(input.turns),mode:'verifier-delta-proxy',prior:0.3,success:true,config:api.GOVERNED_DEFAULTS});\n  assert.equal(api.digest(replay),api.digest(saved));assert.equal(api.digest(saved),receipt.creditDigest);\n  assert.equal((await dispatch('unknown',[])).code,2);\n  assert.equal((await dispatch('report',[`${consumer}/missing.json`])).code,1);\n  console.log(JSON.stringify({phase,passed:true,pid:process.pid,creditDigest:api.digest(saved),receiptDigest:api.digest(receipt)}));\n}\n",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/consumer",
+        "restart"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/consumer",
+      "code": 0,
+      "elapsedMs": 78,
+      "logSha256": "f9d7512e76d51cc1120edc035ff551913dffecc775062c8436c9c240fc037824"
+    },
+    {
+      "label": "validated-candidate-unpack",
+      "cmd": [
+        "tar",
+        "-xzf",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/metaharness-turn-credit-0.1.0.tgz",
+        "-C",
+        "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate/unpacked"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence/validated/candidate",
+      "code": 0,
+      "elapsedMs": 7,
+      "logSha256": "4fbf3aee7dc8e89b38d74acd1e1c555e567bdb9ca488c0af9e6fca93bb6cbdfd"
+    },
+    {
+      "label": "validated-registry-mapping",
+      "cmd": [
+        "npm",
+        "view",
+        "@metaharness/turn-credit@0.1.0",
+        "version",
+        "repository",
+        "dist",
+        "--json",
+        "--registry=https://registry.npmjs.org"
+      ],
+      "cwd": "/dev/shm/turn-credit-cycle9.aAzq6X/evidence",
+      "code": 0,
+      "elapsedMs": 5794,
+      "logSha256": "bc199448eb9bd8cc7bf16c5220565ee3b0b02276730fefa2dd47d86d8c6b8bce"
+    }
+  ],
+  "initialAttempts": "Both package-local test invocations failed before tests because ancestor vitest.config.ts could not resolve vitest; root tool symlinks then explicit repository root/selected test were used. Build/lint had passed. No source tests changed. Filesystem exhaustion interrupted the corrected first rerun before consumer validation. Original filesystem remained unchanged; complete validation ran in /dev/shm with explicit caches and TMPDIR. First fresh consumer probe incorrectly used require.resolve against an ESM-import-only export and failed before workflow. Preserved baseline-consumer-write.json; corrected test fixture uses actual ESM imports in new fresh consumers and new empty caches.",
+  "limits": [
+    "Guidance-only; no new runtime coverage, model training or quality claim",
+    "Unsigned packs, no publish, full native/security/release gates still required",
+    "Shared policy source-only, AGENTS included in pack"
+  ],
+  "comparison": {
+    "bytesDelta": 1330,
+    "existingNonmanifestFilesIdentical": 33,
+    "addedFiles": [
+      "AGENTS.md"
+    ],
+    "runtimeOutputIdentical": true
+  },
+  "registry": {
+    "version": "0.1.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/ruvnet/metaharness.git",
+      "directory": "packages/turn-credit"
+    },
+    "dist": {
+      "integrity": "sha512-A752c0eEYEVodBB8HLOaSvcUMA65TX6/Cru2apZ7EE7aL2FSO74GFbgFWPo85bgqgNuMjhHkl/kG+lkC0TunNA==",
+      "shasum": "cc1e8153ad2c43098e7db2a4ffc390d4f490ad86",
+      "tarball": "https://registry.npmjs.org/@metaharness/turn-credit/-/turn-credit-0.1.0.tgz",
+      "fileCount": 34,
+      "unpackedSize": 64940,
+      "signatures": [
+        {
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+          "sig": "MEUCICSOC0WINPNKmejuDU4ZFiD9gzPt8p5GfGeTWbN5fgKTAiEA+S8zWwMKwOp+7/FFXT/rNcbUC4lig9JIDIjfuLNwADo="
+        }
+      ]
+    }
+  },
+  "baselineMatchesPublishedIntegrity": true,
+  "rollback": {
+    "patchSha256": "cb0f39c6786e15b00474cf157a363dac552c30f0f6771af3c681440de22d76f6",
+    "candidateTree": "d60491916176f4141efad22da35c80475dc28c52",
+    "restoredTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "originalTree": "bbee42ae2996277f47d9388159f9e7fc831d56ba",
+    "exactSourceRestored": true,
+    "limits": "Temporary isolated index only; working files unchanged. Source rollback does not undo downstream effects or publication."
+  },
+  "sourceFiles": {
+    "packages/turn-credit/AGENTS.md": {
+      "sha256": "807fb161ca435e4ccc80543bbba173d6198432ee3ca954f96066d4c3227421a1",
+      "bytes": 3026
+    },
+    "packages/turn-credit/package.json": {
+      "sha256": "3f0f2d5aaa218fb322b7d816258d62869c15e5329d5c14cf25629de6e8b3f966",
+      "bytes": 1595
+    },
+    "docs/ecosystem/package-improvement-policy.md": {
+      "sha256": "8998d86e3530ccb3eaf51e66c89a8314f048cc86f960fc3d323901687b91fdc3",
+      "bytes": 2457
+    }
+  },
+  "toolchain": {
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9",
+    "nodeTypes": "20.19.43",
+    "dependenciesSource": "/workspace/scratch/1511111b1812/router-guidance-cycle8-tools/package-lock.json",
+    "dependencyLockSha256": "4722e07a3ba3c2cc42cf1e76ab56350a5b5d8f019be3f318919bf6580d62a7ca"
+  },
+  "validationScripts": {
+    "consumerSha256": "8f6f1afefea97b50aaeb4dd02ff0ae7297880293a1077929202380b6158f0e68",
+    "validationSha256": "82643a45cc39abfcf76712e87b3a08a2d82efbfd0c0999c960df4bb19e64a4ad"
+  },
+  "guidance": {
+    "before": {
+      "documented": 44,
+      "mappedPending": 4,
+      "unknownMapping": 353,
+      "totalPending": 357
+    },
+    "afterIfParentCreatesDraft": {
+      "documented": 45,
+      "mappedPending": 4,
+      "unknownMapping": 352,
+      "totalPending": 356
+    },
+    "localRoots": 54,
+    "localInventoryNames": 40,
+    "runtimeCoverageChange": 0
+  }
+}

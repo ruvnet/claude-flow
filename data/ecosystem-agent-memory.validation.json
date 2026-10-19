@@ -1,0 +1,943 @@
+{
+  "schema": "ruflo-agent-memory-validation/v1",
+  "observedDate": "2026-10-18",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "pullRequest": "https://github.com/ruvnet/ruflo/pull/4264",
+  "baseCommit": "2be7ad56240a4ac45957aec338675216d2fdebec",
+  "disposition": "review-ready repository consumer composition; not a signed or published release",
+  "sourceFilesSha256": {
+    ".github/workflows/ecosystem-contracts.yml": "4f16420b900acfbd1af41c16818e46bd07263b32ae3777be0bc77cb9e671a448",
+    "data/ecosystem-capabilities.json": "3c7075703f9812b41fc0f8c3a1f3fe755eebeae8bf1f237e03d9939b9cccfb14",
+    "data/ecosystem-guidance-rollout.json": "2478a0dab6278e1d3f97ad00f2b95e0443df90c2a26439c96ee5c6ce474f184f",
+    "data/ecosystem-guidance-weight-eft.validation.json": "7afd2e352b1341ebb5d5920116bd354907bd5c9f22e63f65a7f62a772ee464ba",
+    "data/ecosystem-rsi.latest.json": "a3459b2f653afa86d29ab5ca260fc0469b0688db9617cbae9dd9f8f5efb73d1a",
+    "data/ecosystem-rsi.ledger.json": "89bdc76d83429d3969a93aa9adfbb82da96edd151c698da66e3803c85f60c684",
+    "data/ecosystem-web.latest.json": "826af0591cddf1406b076ab6ce0f575e78ca38dc8e4ee286f45e7ee3c8f50171",
+    "docs/ecosystem/capability-web.md": "d9f7167d4adc4d1e6c5b18fbf97cbcd3747bc348e1d73ef5456e2e61e6e9340c",
+    "docs/ecosystem/persistent-agent-memory-v1.md": "e9ebc7c78c2db481b3a76ddc3462b33e9e9cd8ee147c099090e1a6041911d791",
+    "docs/ecosystem/proposals/ruvector-lock-triage.py": "ed1d3c8a99e49a9927771c02cd9e8aff6d6da40d244078e7f9e2575d2c7868ce",
+    "docs/ecosystem/ruvector-security-triage-2026-10-18.md": "f8a1a2f0314ee054db1cef09b0734402eac30abd2d518f356b6870de596c657b",
+    "scripts/examples/persistent-agent-memory-v1.mjs": "e9615e2908b30a85c7d49a0d34a99942bf894b96423dd65fbcf36b31c4e75feb",
+    "scripts/lib/ecosystem-agent-memory-workflow.mjs": "5d92554e7af3982cf2f343d98bf3420e007b192d218e417b5092ca174130384f",
+    "scripts/lib/ecosystem-rsi.mjs": "a136eb5df6b912aed8d6375205aae7dd214744ecc13a5debc0c282b978b82997",
+    "scripts/tests/ecosystem-agent-memory.installed.test.mjs": "91b34d8960ddf5278039de3ffd0500b89b48439bada36e82cf60be0d6aac6e4d",
+    "scripts/tests/ecosystem-loop-installed.test.mjs": "61ce20856308ed6a3532e09b44769260b6ee605ff747163c9a1431eba8f5285c",
+    "v3/docs/adr/ADR-493-ecosystem-capability-web-and-rsi.md": "406d556113f3a8ee1c9243c601e81addd420fd8b21c97deb739aac065971ddf7"
+  },
+  "newImprovement": {
+    "kind": "executable-capability",
+    "workflow": "actual HarnessKernel local task -> guarded persistence -> exit -> native retrieval -> second task",
+    "harness": "0.2.0",
+    "memory": "3.0.5",
+    "ruvector": "0.2.41",
+    "core": "0.1.33",
+    "sqljs": "1.15.0",
+    "fixedSingleStep": true,
+    "llmUsed": false,
+    "generatedSemanticEmbeddings": false,
+    "automaticPromotion": false
+  },
+  "validation": {
+    "contracts": {
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 10002.273347,
+      "command": "node --test <all 16 contract paths in .github/workflows/ecosystem-contracts.yml>"
+    },
+    "collector": {
+      "command": "python3 scripts/tests/runtime-relationships.test.py",
+      "passed": 15,
+      "failed": 0
+    },
+    "audits": {
+      "commands": [
+        "node scripts/audit-umbrella-version-lockstep.mjs",
+        "node scripts/audit-package-dep-overlap.mjs"
+      ],
+      "exitCode": 0
+    },
+    "retainedInstalled": {
+      "command": "node --test scripts/tests/ecosystem-memory-installed.test.mjs scripts/tests/ecosystem-memory-atomic-installed.test.mjs scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/weight-eft-installed.test.mjs",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 13145.247571
+    },
+    "agentAndLoopInstalled": {
+      "command": "node --test scripts/tests/ecosystem-agent-memory.installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 62187.685312
+    },
+    "independentReview": {
+      "scope": "actual harness source and adapter safety review; installed nine tests",
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 4787.008014,
+      "issuesResolved": [
+        "Version compatibility preflight before any memory mutation",
+        "Explicit read-before-policy behavior documented and tested",
+        "Wrong saved-input digest tested",
+        "Isolated synthetic metadata guard test, not release evidence"
+      ]
+    },
+    "invalidMeasurementAttempts": [
+      {
+        "label": "agent-memory-nine-required",
+        "exitCode": 0,
+        "stderr": "(node:12) Warning: node:test run() is being called recursively within a test file. skipping running files.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+        "accepted": false,
+        "reason": "Scratch wrapper forwarded NODE_TEST_CONTEXT as empty; Node suppressed nested --test. Zero tests executed. Excluded; direct rerun with absent variable passed ten real tests above."
+      },
+      {
+        "label": "registered-loop-installed",
+        "exitCode": 0,
+        "stderr": "(node:19) Warning: node:test run() is being called recursively within a test file. skipping running files.\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+        "accepted": false,
+        "reason": "Scratch wrapper forwarded NODE_TEST_CONTEXT as empty; Node suppressed nested --test. Zero tests executed. Excluded; direct rerun with absent variable passed ten real tests above."
+      }
+    ],
+    "installedEnvironment": {
+      "node": "v24.19.0",
+      "npm": "11.9.0",
+      "platform": "linux",
+      "arch": "x64",
+      "lifecycleScripts": false,
+      "fixtureLockSha256": "8e2cb5163ec17cab14626a712f4394f14eac4087fe6f99a9b7744ab9e1a3e261",
+      "direct": {
+        "@metaharness/harness": {
+          "version": "0.2.0",
+          "resolved": "https://registry.npmjs.org/@metaharness/harness/-/harness-0.2.0.tgz",
+          "integrity": "sha512-j/NLHqgPNre4qTTExvjCjh4/HgmhnVZPSQUfj06dyrlkpXCMFJ2abdPrl5yuFfzBMU0wnfFnFY2qQHQnBlAreg==",
+          "license": "MIT",
+          "engines": {
+            "node": ">=20.0.0"
+          }
+        },
+        "@claude-flow/memory": {
+          "version": "3.0.5",
+          "resolved": "https://registry.npmjs.org/@claude-flow/memory/-/memory-3.0.5.tgz",
+          "integrity": "sha512-eSInpPJmopVRy1EwZ7sETgvLeR7uqLw7SxZO+30IpnyHtICB4JEjIoPJlLdQjo6L6jQXyGL56B4LJsdkfvCFuA==",
+          "cpu": [
+            "x64",
+            "arm64"
+          ],
+          "os": [
+            "darwin",
+            "linux",
+            "win32"
+          ],
+          "dependencies": {
+            "@claude-flow/security": "^3.0.0",
+            "agentdb": "^3.0.0-alpha.20",
+            "sql.js": "^1.10.3"
+          },
+          "optionalDependencies": {
+            "better-sqlite3": "^12.9.0"
+          }
+        },
+        "ruvector": {
+          "version": "0.2.41",
+          "resolved": "https://registry.npmjs.org/ruvector/-/ruvector-0.2.41.tgz",
+          "integrity": "sha512-6ox6kcONkFxKhOv6yAp6FKonn+WlNQ8t0tnK9xsOJKkQEru1psptGrObPA57VenaZ7pToEUvvgiLJYLc9uukIg==",
+          "license": "MIT",
+          "dependencies": {
+            "@metaharness/darwin": "0.8.0",
+            "@metaharness/flywheel": "0.1.7",
+            "@metaharness/harness": "0.1.0",
+            "@metaharness/redblue": "0.1.4",
+            "@metaharness/router": "0.3.2",
+            "@metaharness/weight-eft": "0.1.1",
+            "@metaharness/workspace-lens": "0.1.1",
+            "@metaharness/workspace-probe": "0.1.1",
+            "@modelcontextprotocol/sdk": "^1.30.0",
+            "@ruvector/attention": "^0.1.3",
+            "@ruvector/core": "^0.1.25",
+            "@ruvector/gnn": "^0.1.22",
+            "@ruvector/sona": "^0.1.4",
+            "chalk": "^4.1.2",
+            "commander": "^11.1.0",
+            "metaharness": "0.4.2",
+            "ora": "^5.4.1"
+          },
+          "bin": {
+            "ruvector": "bin/cli.js"
+          },
+          "engines": {
+            "node": ">=20.0.0"
+          },
+          "optionalDependencies": {
+            "@ruvector/rvf": "^0.1.0",
+            "@ruvector/tiny-dancer": "^0.1.22"
+          },
+          "peerDependencies": {
+            "@ruvector/diskann": ">=0.1.0",
+            "@ruvector/pi-brain": ">=0.1.0",
+            "@ruvector/router": ">=0.1.0",
+            "@ruvector/ruvllm": ">=2.0.0"
+          },
+          "peerDependenciesMeta": {
+            "@ruvector/diskann": {
+              "optional": true
+            },
+            "@ruvector/pi-brain": {
+              "optional": true
+            },
+            "@ruvector/router": {
+              "optional": true
+            },
+            "@ruvector/ruvllm": {
+              "optional": true
+            }
+          }
+        },
+        "@ruvector/core": {
+          "version": "0.1.33",
+          "resolved": "https://registry.npmjs.org/@ruvector/core/-/core-0.1.33.tgz",
+          "integrity": "sha512-IoZoJsYXvJO5TckaKELUn012Aj9SSDDIfCiiNo3gx+y6OFeLoHwprd/2JzZ3afOvEQDQTUwaHNR6b5lsGCvbcw==",
+          "license": "MIT",
+          "engines": {
+            "node": ">=18.0.0"
+          },
+          "optionalDependencies": {
+            "ruvector-core-darwin-arm64": "0.1.31",
+            "ruvector-core-darwin-x64": "0.1.31",
+            "ruvector-core-linux-arm64-gnu": "0.1.31",
+            "ruvector-core-linux-x64-gnu": "0.1.31",
+            "ruvector-core-win32-x64-msvc": "0.1.31"
+          }
+        },
+        "sql.js": {
+          "version": "1.15.0",
+          "resolved": "https://registry.npmjs.org/sql.js/-/sql.js-1.15.0.tgz",
+          "integrity": "sha512-54VT5h9/VGlLaQan5pX/Zx8k6Vbykwl5hRUtl4h4+VYnaZCTraUs4P1i2WLz21O6oPVp6Gvg+d1OyPo01ZG5ig==",
+          "license": "MIT"
+        },
+        "@metaharness/weight-eft": {
+          "version": "0.1.2",
+          "resolved": "https://registry.npmjs.org/@metaharness/weight-eft/-/weight-eft-0.1.2.tgz",
+          "integrity": "sha512-2C6Ivgz1yJgRrklG0NqsNAjm+THyFsfX4DR2VyeqkLHJeR+LnVEOmzdUPQPp0yBJcXvoO9+du8R6HzZ4vDItrQ==",
+          "license": "MIT",
+          "bin": {
+            "weight-eft": "dist/cli.js"
+          },
+          "engines": {
+            "node": ">=20.0.0"
+          }
+        }
+      }
+    }
+  },
+  "retainedBaselines": {
+    "data/npm-download-benchmark.latest.json": {
+      "sha256": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+      "unchanged": true
+    },
+    "data/npm-slim-opt-in.latest.json": {
+      "sha256": "537ec1cf4b6d8056bbf0afd4e2b4c6afc4522d737cc4ce631e3ab6a1f6845315",
+      "unchanged": true
+    },
+    "data/ecosystem-memory-restart.validation.json": {
+      "sha256": "b987d7a8c2bfbd3b99d9411e3b1b1e4e7d51e5203292ea105f6a07004e6fe16c",
+      "unchanged": true
+    },
+    "data/ecosystem-memory-atomic.validation.json": {
+      "sha256": "7d993bd1deeff2d3105cb3806abedba2c3ecf3cd300c2661c55aea6f842498da",
+      "unchanged": true
+    },
+    "data/ecosystem-memory-lifecycle.validation.json": {
+      "sha256": "64194322057ae898da29d15eff4be599bcb4617116f8af349a4025e42ac391fe",
+      "unchanged": true
+    },
+    "data/ecosystem-candidate.validation.json": {
+      "sha256": "00aeceb94b7188976a4315189a7413fe9b472cac2c17a9973fa09e722260205d",
+      "unchanged": true
+    }
+  },
+  "payloadRevalidation": {
+    "schema": "ruflo-slim-opt-in-benchmark/v1",
+    "startedAt": "2026-10-18T08:07:24Z",
+    "sourceBase": "2be7ad56240a4ac45957aec338675216d2fdebec",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "archiveSha256": "cfcff015c86393cbd1b1a8577300bae2bab435f17017ef34bfb5b7092e34d1af",
+    "baselineManifestSha256": "8d544c227f396b74e6128f0ecc9e9e4358261e53c57b33801972a95689c84385",
+    "candidateManifestSha256": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+    "lifecycleScripts": false,
+    "runs": [
+      {
+        "variant": "baseline",
+        "exitCode": 0,
+        "seconds": 49.911,
+        "cachedTarballBytes": 522159201,
+        "tarballCount": 548,
+        "fixtureSha256": "714071684316a01fb63a2744902a2d57d1f2241423c6652b54d283f691f0419c",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "24f28ca98ca377a0dca8f96a0c2e9ee768549e4fe0c81da4c9e7b1479a4ef3f1",
+        "slimPackages": [
+          "node_modules/@agntcy/slim-bindings",
+          "node_modules/@agntcy/slim-bindings-darwin-arm64",
+          "node_modules/@agntcy/slim-bindings-darwin-x64",
+          "node_modules/@agntcy/slim-bindings-linux-arm64-gnu",
+          "node_modules/@agntcy/slim-bindings-linux-x64-gnu",
+          "node_modules/@agntcy/slim-bindings-win32-arm64-msvc",
+          "node_modules/@agntcy/slim-bindings-win32-x64-msvc",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-arm64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-x64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-win32-x64-gnu"
+        ],
+        "tarballEvidenceSha256": "1ea22f1b7fc77e8f7e2bc1da6ae807509175e7b772577377ba83de2d3b98d223"
+      },
+      {
+        "variant": "candidate",
+        "exitCode": 0,
+        "seconds": 44.65,
+        "cachedTarballBytes": 412781888,
+        "tarballCount": 538,
+        "fixtureSha256": "6ab6d0fccbe1fd4a26bb3415263da16cf4dd13efff3185ccd8229e40a907bde4",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "d1db4b21cf97fc72ea525855ead4d2eea345531ec70c575a9e3564f706e0f4a3",
+        "slimPackages": [],
+        "tarballEvidenceSha256": "1762d35fede751d7a15474c4bb25b69817a8a71f161609b3a6982f3c6f1ebb27"
+      }
+    ],
+    "comparison": {
+      "savedBytes": 109377313,
+      "reductionPercent": 20.947119727188337,
+      "removedTarballs": [
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-arm64/-/slim-bindings-darwin-arm64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-M5DP+SPVn+ReAAK6GxHosxciNMCWZv1vxZziPcxWMt+HIOt4/9w7vlbJPe1dfmdEHegE9iNGQ+AOSKOfQS5rhQ==",
+          "size": 18254344
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-x64/-/slim-bindings-darwin-x64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-xWbywk8ZNABApjKiUe8E6umkGXYTNQBKAO1ZFPQfOP1OrSf3oupJTv/pkzsRifh+/dOFaojpZFvcZJfeM1L/jA==",
+          "size": 18708574
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-arm64-gnu/-/slim-bindings-linux-arm64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-+3YZRrVNYpY4eD4Wn9aza6rsiGwB/hz/ojxyCPgeK9/4QFYVvUMnVq4H4sN+k5ckJP7lrR6ncfEqp7BJyOwKQA==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-x64-gnu/-/slim-bindings-linux-x64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-BYGtMWtJJTd+z6eioFvbGbg/oq0DwjhHRJtTYvNpHQ6CFhja3PhuxcUPrW53xKVLTD3saeZq8MVOGq2tuF+PRQ==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-arm64-msvc/-/slim-bindings-win32-arm64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-dO6/JdvE2ANVujXMTSxSMqb94YN9+ox7HbNaSzQt8shERB/5XFgWKYDCrwEJC26ux8FzQcvaq8mnlePGueDq7g==",
+          "size": 16027202
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-x64-msvc/-/slim-bindings-win32-x64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-w0mKFPKKkhwfQzaC/p1Ke3ogNL4AyxC9jt0LY0LsBHNIJaPPBvAbLMLVslZBgn2ghrMRS/nxdacdQrAcFQQzXg==",
+          "size": 17006526
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings/-/slim-bindings-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-QBpln5ubYbJ7nMY2SUWJJfUsl5qmezqWNwcatdjuaZaK2dDIj2RHAvgNKNmuf8Exg+kuI/88SFrAZMNxLJolNQ==",
+          "size": 35162
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/core/-/core-0.31.0-3.tgz",
+          "integrity": "sha512-39XrJgUZ2VVb561sSnkXPhczNoeBsNiSRArecsV0JE7CJq69ajFkcn9/tBAUS2NpgHkLIDU+z6Ks2+1wXnboxg==",
+          "size": 44743
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node-linux-x64-gnu/-/node-linux-x64-gnu-0.31.0-3.tgz",
+          "integrity": "sha512-Xdm21blyg5U/kW6s7OMvgrr8coGTkUlt26DVR9x8gKISif+E3YwdEskbFScWqystAiJnfjw7xHEc8UMu0Qlz7Q==",
+          "size": 339564
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node/-/node-0.31.0-3.tgz",
+          "integrity": "sha512-qNMpi2LICNwxGXZyRF8fSDBSpbezyZbEsydrbiMPJOmtOWr4tmZIEl7jkWGHVGShoBvHfFo4eHp5B4UVP928Cg==",
+          "size": 7224
+        }
+      ],
+      "addedTarballs": [],
+      "timingAttribution": "One sequential observation per variant; CDN and metadata caches uncontrolled. No latency improvement claim."
+    },
+    "commonIdenticalIntegrities": 538,
+    "timeDeltaSeconds": -5.261,
+    "newQuantitativeGain": false,
+    "measurement": "Unique fetched registry tarball payload cached by npm; excludes metadata, headers, retries and protocol overhead, not wire bytes.",
+    "fixtureCaveat": "Unsigned repacks preserve 1941 nonmanifest published archive files; release signing/preparation is not exercised."
+  },
+  "freshConsumerAcceptance": [
+    {
+      "label": "baseline-memory-lifecycle",
+      "command": [
+        "node",
+        "scripts/examples/persistent-memory-lifecycle-v2.mjs"
+      ],
+      "environment": {
+        "RUFLO_MEMORY_REQUIRED": "1",
+        "RUFLO_MEMORY_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-payload/baseline/package.json",
+        "RUFLO_RUVECTOR_REQUIRED": "1",
+        "RUFLO_RUVECTOR_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json",
+        "RUFLO_REQUIRE_HARNESS": "1",
+        "RUFLO_HARNESS_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json"
+      },
+      "exitCode": 0,
+      "elapsedMs": 1116.641638,
+      "result": {
+        "starter": "persistent-memory-lifecycle-v2",
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "taskSuccess": true,
+        "operations": 6,
+        "steps": [
+          {
+            "mode": "write",
+            "pid": 38,
+            "elapsedMs": 93.350818
+          },
+          {
+            "mode": "retrieve",
+            "pid": 58,
+            "elapsedMs": 81.49247
+          },
+          {
+            "mode": "update",
+            "pid": 79,
+            "elapsedMs": 67.854172
+          },
+          {
+            "mode": "retrieve",
+            "pid": 99,
+            "elapsedMs": 69.067676
+          },
+          {
+            "mode": "delete",
+            "pid": 120,
+            "elapsedMs": 73.376543
+          },
+          {
+            "mode": "retrieve",
+            "pid": 140,
+            "elapsedMs": 85.443022
+          }
+        ],
+        "generatedSemanticEmbeddings": false,
+        "secureErasure": false
+      }
+    },
+    {
+      "label": "baseline-agent-composition",
+      "command": [
+        "node",
+        "scripts/examples/persistent-agent-memory-v1.mjs"
+      ],
+      "environment": {
+        "RUFLO_MEMORY_REQUIRED": "1",
+        "RUFLO_MEMORY_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-payload/baseline/package.json",
+        "RUFLO_RUVECTOR_REQUIRED": "1",
+        "RUFLO_RUVECTOR_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json",
+        "RUFLO_REQUIRE_HARNESS": "1",
+        "RUFLO_HARNESS_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json"
+      },
+      "exitCode": 0,
+      "elapsedMs": 671.431403,
+      "result": {
+        "starter": "persistent-agent-memory-v1",
+        "taskSuccess": true,
+        "first": {
+          "starter": "persistent-agent-memory-v1",
+          "mode": "first",
+          "pid": 173,
+          "harnessVersion": "0.2.0",
+          "versions": {
+            "memory": "3.0.5",
+            "ruvector": "0.2.41",
+            "core": "0.1.33",
+            "sqljs": "1.15.0"
+          },
+          "taskSuccess": true,
+          "result": {
+            "type": "bounded-local-sum-v1",
+            "total": 1067,
+            "inputDigest": "924105b242852bbdf6c15d8cad2ddf339f9222b539a5cf5499a9e251a1fd6252"
+          },
+          "receiptsValid": true,
+          "receipts": [
+            {
+              "runId": "local-first",
+              "step": "bounded:sum-inputs",
+              "inputHash": "564d7a0aba195683efc064b8aaf21e68aa93a3133104a913fbf5da282791397b",
+              "outputHash": "c002aa50f8d6b942a8020514cf3ba8ce136fdc08f32ced9613b9cda8a2c4dcba",
+              "agent": "local-arithmetic",
+              "model": "deterministic-tool:no-llm",
+              "costUsd": 0,
+              "latencyMs": 0.25641600000000153,
+              "verdict": "pass",
+              "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "thisHash": "3b5c2f5e579cf4d8beda13bb886de37fa21309da0605ad96a194600584fd5e1d"
+            }
+          ],
+          "consumerInputDigest": "766344882248483057a9d60f51914fe5e6edb317d3b4011d72e2b3fc9929e9df",
+          "steps": [
+            {
+              "status": "ok",
+              "attempts": 0
+            }
+          ],
+          "operations": [
+            {
+              "operation": "write"
+            }
+          ],
+          "invocations": [
+            "sum-inputs"
+          ],
+          "elapsedMs": 191.649757,
+          "totalCostUsd": 0,
+          "llmUsed": false,
+          "generatedSemanticEmbeddings": false,
+          "securitySandbox": false
+        },
+        "second": {
+          "starter": "persistent-agent-memory-v1",
+          "mode": "second",
+          "pid": 201,
+          "harnessVersion": "0.2.0",
+          "versions": {
+            "memory": "3.0.5",
+            "ruvector": "0.2.41",
+            "core": "0.1.33",
+            "sqljs": "1.15.0"
+          },
+          "taskSuccess": true,
+          "result": {
+            "type": "bounded-local-remaining-v1",
+            "value": 1060,
+            "inputDigest": "924105b242852bbdf6c15d8cad2ddf339f9222b539a5cf5499a9e251a1fd6252",
+            "sourceRecord": {
+              "id": "mem_mvdjrtnp_i6z46dcv",
+              "version": 1
+            }
+          },
+          "receiptsValid": true,
+          "receipts": [
+            {
+              "runId": "local-second",
+              "step": "bounded:use-saved-total",
+              "inputHash": "768120192d190948276098326dd7b44f113d0992b85dac31e6006f7b0148877b",
+              "outputHash": "373291ae064dcc8f8fc79c3f50be148145f581cdd6285bbf0d824da72b507c3d",
+              "agent": "local-arithmetic",
+              "model": "deterministic-tool:no-llm",
+              "costUsd": 0,
+              "latencyMs": 0.011927999999983285,
+              "verdict": "pass",
+              "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "thisHash": "396d730a0d8b0f2a2e6d02a1a042baa1fdae27ca7b585c54be3ad92edb88a50b"
+            }
+          ],
+          "consumerInputDigest": "dc9fba169ace23c8c0e89c45002ccda536bdbda5c8adbf8c3d8d0477a51ac93e",
+          "retrievedRecord": {
+            "id": "mem_mvdjrtnp_i6z46dcv",
+            "version": 1,
+            "key": "first-result"
+          },
+          "steps": [
+            {
+              "status": "ok",
+              "attempts": 0
+            }
+          ],
+          "operations": [
+            {
+              "operation": "retrieve",
+              "indexed": 2
+            },
+            {
+              "operation": "write"
+            }
+          ],
+          "invocations": [
+            "use-saved-total"
+          ],
+          "elapsedMs": 154.471566,
+          "totalCostUsd": 0,
+          "llmUsed": false,
+          "generatedSemanticEmbeddings": false,
+          "securitySandbox": false
+        },
+        "finalIndexed": 3,
+        "llmUsed": false,
+        "generatedSemanticEmbeddings": false,
+        "securitySandbox": false,
+        "totalCostUsd": 0
+      }
+    },
+    {
+      "label": "candidate-memory-lifecycle",
+      "command": [
+        "node",
+        "scripts/examples/persistent-memory-lifecycle-v2.mjs"
+      ],
+      "environment": {
+        "RUFLO_MEMORY_REQUIRED": "1",
+        "RUFLO_MEMORY_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-payload/candidate/package.json",
+        "RUFLO_RUVECTOR_REQUIRED": "1",
+        "RUFLO_RUVECTOR_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json",
+        "RUFLO_REQUIRE_HARNESS": "1",
+        "RUFLO_HARNESS_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json"
+      },
+      "exitCode": 0,
+      "elapsedMs": 1035.4858339999998,
+      "result": {
+        "starter": "persistent-memory-lifecycle-v2",
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "taskSuccess": true,
+        "operations": 6,
+        "steps": [
+          {
+            "mode": "write",
+            "pid": 251,
+            "elapsedMs": 66.16752100000001
+          },
+          {
+            "mode": "retrieve",
+            "pid": 271,
+            "elapsedMs": 73.66623899999999
+          },
+          {
+            "mode": "update",
+            "pid": 292,
+            "elapsedMs": 71.384983
+          },
+          {
+            "mode": "retrieve",
+            "pid": 312,
+            "elapsedMs": 77.575289
+          },
+          {
+            "mode": "delete",
+            "pid": 333,
+            "elapsedMs": 88.657483
+          },
+          {
+            "mode": "retrieve",
+            "pid": 353,
+            "elapsedMs": 68.35477900000001
+          }
+        ],
+        "generatedSemanticEmbeddings": false,
+        "secureErasure": false
+      }
+    },
+    {
+      "label": "candidate-agent-composition",
+      "command": [
+        "node",
+        "scripts/examples/persistent-agent-memory-v1.mjs"
+      ],
+      "environment": {
+        "RUFLO_MEMORY_REQUIRED": "1",
+        "RUFLO_MEMORY_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-payload/candidate/package.json",
+        "RUFLO_RUVECTOR_REQUIRED": "1",
+        "RUFLO_RUVECTOR_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json",
+        "RUFLO_REQUIRE_HARNESS": "1",
+        "RUFLO_HARNESS_RESOLVE_FROM": "/workspace/scratch/1511111b1812/cycle6-consumer/package.json"
+      },
+      "exitCode": 0,
+      "elapsedMs": 685.4648260000004,
+      "result": {
+        "starter": "persistent-agent-memory-v1",
+        "taskSuccess": true,
+        "first": {
+          "starter": "persistent-agent-memory-v1",
+          "mode": "first",
+          "pid": 386,
+          "harnessVersion": "0.2.0",
+          "versions": {
+            "memory": "3.0.5",
+            "ruvector": "0.2.41",
+            "core": "0.1.33",
+            "sqljs": "1.15.0"
+          },
+          "taskSuccess": true,
+          "result": {
+            "type": "bounded-local-sum-v1",
+            "total": 2185,
+            "inputDigest": "7acc7c0d045620761d1030e539f157516ecd7db59e810703cb910660ca2db60c"
+          },
+          "receiptsValid": true,
+          "receipts": [
+            {
+              "runId": "local-first",
+              "step": "bounded:sum-inputs",
+              "inputHash": "564d7a0aba195683efc064b8aaf21e68aa93a3133104a913fbf5da282791397b",
+              "outputHash": "37c406ea04d3684ac283f756ad82a57f6bb236f836bf490bbc7cf3ff889856d7",
+              "agent": "local-arithmetic",
+              "model": "deterministic-tool:no-llm",
+              "costUsd": 0,
+              "latencyMs": 0.3080630000000042,
+              "verdict": "pass",
+              "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "thisHash": "e13f2960c4076261a62c27f30f955ebbc95906bf1d0e16e8cbc0dac8e02e3ae6"
+            }
+          ],
+          "consumerInputDigest": "fd3c13368087d381099b842f1ac9eeb7525efd6cc60709ded84fdb0bcc2fbb8e",
+          "steps": [
+            {
+              "status": "ok",
+              "attempts": 0
+            }
+          ],
+          "operations": [
+            {
+              "operation": "write"
+            }
+          ],
+          "invocations": [
+            "sum-inputs"
+          ],
+          "elapsedMs": 144.952242,
+          "totalCostUsd": 0,
+          "llmUsed": false,
+          "generatedSemanticEmbeddings": false,
+          "securitySandbox": false
+        },
+        "second": {
+          "starter": "persistent-agent-memory-v1",
+          "mode": "second",
+          "pid": 414,
+          "harnessVersion": "0.2.0",
+          "versions": {
+            "memory": "3.0.5",
+            "ruvector": "0.2.41",
+            "core": "0.1.33",
+            "sqljs": "1.15.0"
+          },
+          "taskSuccess": true,
+          "result": {
+            "type": "bounded-local-remaining-v1",
+            "value": 2178,
+            "inputDigest": "7acc7c0d045620761d1030e539f157516ecd7db59e810703cb910660ca2db60c",
+            "sourceRecord": {
+              "id": "mem_mvdjruzf_bzw93hea",
+              "version": 1
+            }
+          },
+          "receiptsValid": true,
+          "receipts": [
+            {
+              "runId": "local-second",
+              "step": "bounded:use-saved-total",
+              "inputHash": "768120192d190948276098326dd7b44f113d0992b85dac31e6006f7b0148877b",
+              "outputHash": "47e8728a02167b205fbdbd657767aab13310633a41b592c6ad6cd5f8ecbd76c0",
+              "agent": "local-arithmetic",
+              "model": "deterministic-tool:no-llm",
+              "costUsd": 0,
+              "latencyMs": 0.014732000000009293,
+              "verdict": "pass",
+              "prevHash": "0000000000000000000000000000000000000000000000000000000000000000",
+              "thisHash": "8d995f34f0f2d27d604d7b852f0faf76b11a784651de2b204e24b8ff79ef920a"
+            }
+          ],
+          "consumerInputDigest": "1abf52716da77e1ef27f398a7da276367c3e8e3907871452193a7d60336a3541",
+          "retrievedRecord": {
+            "id": "mem_mvdjruzf_bzw93hea",
+            "version": 1,
+            "key": "first-result"
+          },
+          "steps": [
+            {
+              "status": "ok",
+              "attempts": 0
+            }
+          ],
+          "operations": [
+            {
+              "operation": "retrieve",
+              "indexed": 2
+            },
+            {
+              "operation": "write"
+            }
+          ],
+          "invocations": [
+            "use-saved-total"
+          ],
+          "elapsedMs": 173.707455,
+          "totalCostUsd": 0,
+          "llmUsed": false,
+          "generatedSemanticEmbeddings": false,
+          "securitySandbox": false
+        },
+        "finalIndexed": 3,
+        "llmUsed": false,
+        "generatedSemanticEmbeddings": false,
+        "securitySandbox": false,
+        "totalCostUsd": 0
+      }
+    }
+  ],
+  "freshConsumerBoundary": "Both unmodified benchmark consumers complete the six-process lifecycle with their installed dependencies. Agent composition uses those consumers for memory/vector and separate pinned harness0.2.0 tooling; benchmark umbrellas themselves retain harness0.1.0. The separately installed harness is not included in the umbrella payload delta. No default umbrella agent0.2.0 or all-in-one release claim.",
+  "boundedLoop": {
+    "command": "RUFLO_REQUIRE_HARNESS=1 RUFLO_HARNESS_RESOLVE_FROM=<fixture>/package.json RUFLO_MEMORY_REQUIRED=1 RUFLO_MEMORY_RESOLVE_FROM=<fixture>/package.json RUFLO_RUVECTOR_REQUIRED=1 RUFLO_RUVECTOR_RESOLVE_FROM=<fixture>/package.json node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 120000",
+    "inputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5",
+    "sourceSha256": "5e2d88717ce64b0a11a4f5b85c4239693e59f8768ace9e7f09503209adcfeabe",
+    "requestedIterations": 2,
+    "completedIterations": 2,
+    "budgetMs": 120000,
+    "durationMs": 62570.746149000006,
+    "history": [
+      {
+        "iteration": 1,
+        "inputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5",
+        "checksPassed": true,
+        "uncoveredPackages": 390,
+        "newSourceEvidence": true
+      },
+      {
+        "iteration": 2,
+        "inputHash": "359057861e20568cbe9bb9709ce81dc36f4cefae1d14910dc5006356424157b5",
+        "checksPassed": true,
+        "uncoveredPackages": 390,
+        "newSourceEvidence": false
+      }
+    ],
+    "newSourceIdentities": 1,
+    "adoptionMeasured": false,
+    "automaticPromotion": false,
+    "checks": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed",
+        "durationMs": 559.391012
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed",
+        "durationMs": 9767.492026
+      },
+      {
+        "id": "persistent-agent-memory",
+        "status": "passed",
+        "durationMs": 5635.815035
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed",
+        "durationMs": 12118.818674000002
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed",
+        "durationMs": 146.76832999999897
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed",
+        "durationMs": 2032.9016059999994
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed",
+        "durationMs": 770.9471659999981
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed",
+        "durationMs": 369.3782060000012
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed",
+        "durationMs": 203.9598760000008
+      }
+    ],
+    "exitCode": 2,
+    "gate": {
+      "status": "rejected",
+      "reason": "Registered checks passed; affected package coverage remains incomplete"
+    },
+    "ledgerEntries": 12
+  },
+  "coverage": {
+    "inventory": 401,
+    "registeredChecks": {
+      "before": 8,
+      "after": 9
+    },
+    "registeredPackages": {
+      "before": 10,
+      "after": 11
+    },
+    "uncovered": {
+      "before": 391,
+      "after": 390
+    },
+    "integrationRegisteredPackages": {
+      "before": 5,
+      "after": 6
+    },
+    "runtimeEdges": 42,
+    "isolates": 95
+  },
+  "guidance": {
+    "localRoots": 54,
+    "localInventoryPackages": 40,
+    "ecosystemSourceDocumentedIncludingDrafts": 42,
+    "pending": 359,
+    "pendingVerifiedRepository": 4,
+    "pendingSourceMapping": 355,
+    "newPullRequest": "https://github.com/ruvnet/metaharness/pull/412",
+    "validation": "data/ecosystem-guidance-weight-eft.validation.json",
+    "released": false
+  },
+  "security": {
+    "triage": "docs/ecosystem/ruvector-security-triage-2026-10-18.md",
+    "upstreamCI": "https://github.com/ruvnet/RuVector/actions/runs/39106465039",
+    "cargoAuditInstances": 13,
+    "cargoDenyInstances": 10,
+    "uniqueAdvisories": 7,
+    "localCargoAvailable": false,
+    "remediationApplied": false,
+    "releaseGateCleared": false,
+    "reachability": "Version signals and static paths verified; specific affected configurations and published npm binary reachability not established."
+  },
+  "rollback": {
+    "scope": "All staged implementation, guidance, security and generated receipts before this self-describing validation file",
+    "baseTree": "60d1b31b2528c44e24982ee8efe6defea1824407",
+    "candidateTree": "e0e4e7a5faa470b4cd9bcb6ba614a46abd193374",
+    "patchSha256": "604eaeb4c2e3c630d2104c1cc0fc4c2c3feeacc652f7cc9b3665a44c9821d133",
+    "reversePatchTree": "60d1b31b2528c44e24982ee8efe6defea1824407",
+    "exactMatch": true,
+    "dataRollback": false,
+    "warning": "Stop cooperating writers; source rollback does not undo saved records or restore deleted data."
+  },
+  "limitations": [
+    "Trusted local deterministic workers, not LLM reasoning, adversarial evaluation or arbitrary-code sandbox",
+    "Policy is worker-execution control, not memory read authorization",
+    "Package versions check compatibility, not code integrity; receipt hashes are unsigned",
+    "No new download traffic or dependencies for graph inflation; repeated passes are not a new improvement",
+    "Clock source: orchestration UTC is authoritative; raw executor wall-clock timestamps differ; elapsed times are monotonic",
+    "Hosted current-commit Node22/24 CI and signed release gates require separate confirmation"
+  ],
+  "nextActions": [
+    "Revalidate this agent-memory composition and prior retained payload/lifecycle baselines",
+    "Use an existing Cargo-capable runner for resolver-generated rustls update plus unchanged audit/deny, then separately review ZIP parent/feature changes",
+    "Review metaharness412 and RuVector1227 guidance without treating unsigned packs as releases",
+    "Expand independent held-out task evaluation; no actual training authorized by a plan alone"
+  ]
+}

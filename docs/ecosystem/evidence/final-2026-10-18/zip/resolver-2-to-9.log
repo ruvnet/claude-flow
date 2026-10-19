@@ -1,0 +1,150 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-acorn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-rabitq-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/cognitum-gate-kernel/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-router-cli/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-router-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-router-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-typesafe-ffi/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-typesafe-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-tiny-dancer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-graph-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-graph-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-gnn-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-gnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-attention-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-attention-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-cnn-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-mincut-gated-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-hailo-cluster/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/examples/google-cloud/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/rvlite/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-dag-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-nervous-system-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-economy-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-learning-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-exotic-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-attention-unified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-fpga-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-delta-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-domain-expansion-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-solver-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-solver-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-verified-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-graph-transformer-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-graph-transformer-node/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/types/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/region/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/cap/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/proof/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/nucleus/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/crates/shell/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/tests/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/benches/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvix/examples/cognitive_demo/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-consciousness-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-decompiler-wasm/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-entropy-ann/Cargo.toml
+workspace: /workspace/scratch/1511111b1812/ruvector-zip-cycle9/Cargo.toml
+    Updating crates.io index
+error: failed to select a version for the requirement `zip = "^2"`
+candidate versions found which didn't match: 9.0.0
+location searched: crates.io index
+required by package `ndarray-npy v0.9.1`
+    ... which satisfies dependency `ndarray-npy = "^0.9"` (locked to 0.9.1) of package `ruvector-cli v2.3.0 (/workspace/scratch/1511111b1812/ruvector-zip-cycle9/crates/ruvector-cli)`

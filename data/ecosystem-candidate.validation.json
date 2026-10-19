@@ -1,0 +1,459 @@
+{
+  "schema": "ruflo-ecosystem-candidate-review/v1",
+  "executorBinding": {
+    "candidate": "6b7acfea2b3ce9a36e8193d6777e7871195470458f94db3d4d5703acba9c83cf",
+    "evaluator": "7262aa86512b59cc88908cd216497cb4fc333cc413731d50effdc794a56bbf66"
+  },
+  "proposalId": "63383f318bae3b2b6527ea0ac9b7462e796ab4fc281a9313e6619d176b457728",
+  "finding": {
+    "kind": "measured-download-regression",
+    "packages": [
+      "claude-flow"
+    ],
+    "priority": 100,
+    "additionalBytes": 111971638,
+    "increasePercent": 27.3,
+    "reason": "Captured bundle preserving benchmark; remeasure after a proposed change."
+  },
+  "baselineHead": "00400e5667576ded953a1fba742c43e5aee82aac",
+  "baselineTree": "f31dcbfd93cb55d6487d0f599841686428cfc8f9",
+  "candidateTree": "d9a411c7071758092abc0982814e6bcd0bc52641",
+  "changedPaths": [
+    "docs/ecosystem/slim-opt-in-validation.md"
+  ],
+  "changedBytes": 5336,
+  "patchSha256": "85923f7117c95849dc2ff4b03d0a1dbbc3f38b5baa5696f705b039ef4b603440",
+  "baseline": {
+    "inputHash": "ff8558f0a1aed9a22aa67135bd236206761adc9ab7c1988f204c5daec7d43048",
+    "sourceBinding": {
+      "files": {
+        "data/ecosystem-capabilities.json": "17bae16d780794d6349f0181ed343eab49726deff968286ade1c4b838533516f",
+        "data/npm-dependencies.latest.json": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
+        "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+        "data/npm-runtime-relationships.latest.json": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
+        "package-lock.json": "7b578976283696878c3ba612fb0f67fa741e9b57a205ff7f26b6539301cd8cb2",
+        "package.json": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+        "ruflo/package.json": "e5642b73aa37bfc968ecab5ac699237ae09f40b82c9bb891db2afafceb093744",
+        "scripts/analyze-ecosystem.mjs": "669dcb56f67f93c11e888d6b7725893412429dc0801c1fe3c9558a2865b77984",
+        "scripts/build-ecosystem-web.mjs": "a2938563a8ab1c9e5342f94b5c1904bd1a5e039072ef05c41b82d904d162f335",
+        "scripts/ecosystem-loop.mjs": "bcaee0ee3d2053eb218ad7967d19edda3928bf0a50a1b619f8b35c8568868d4f",
+        "scripts/ecosystem-memory.mjs": "46e264ca9ac7e72d9d6c7319a3969ea6ccd79b0cd019d4b43f202cf9fe83c796",
+        "scripts/ecosystem-rsi.mjs": "b176e1f8c9aa55245f1a6d7a798fec4616ca8b62e01a66b765c3f06ec27230a7",
+        "scripts/lib/codex-mod-runtime.mjs": "1de438abf18ff59490d621142fc2f119c1fd36473684931c999c7475749ac168",
+        "scripts/lib/ecosystem-connectivity.mjs": "eebec4fb50d4b407459ee40f2c727538c39c5018492a10f2b98f37ca946a43e5",
+        "scripts/lib/ecosystem-dependency-graph.mjs": "f7f20f65c2c7d9a27f4b33ec084cdb8b53388f35ba2d8533659c719b2a973128",
+        "scripts/lib/ecosystem-memory-workflow.mjs": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65",
+        "scripts/lib/ecosystem-rsi.mjs": "fc49cb75d4f4a083414c3a03221e79e8c0d6ab3c64805a162fec1e1bd253d211",
+        "scripts/lib/ecosystem-runtime-relationships.mjs": "d4c7e5f73caf720e5dcf1bfbb6f54d6b67c468669860cd19c87551507fa1b522",
+        "scripts/lib/ecosystem-ruvector.mjs": "a55f64311595ff91325cdfb20c2ba4771916e4ec93e6bdca8fddea5b52bc601c",
+        "scripts/lib/guard-probe-corpus.mjs": "63354015f6ee1452d8394175974a9db83a6caf3cd5ab84fe97210820c3b04822",
+        "scripts/lib/guard-probe-report.mjs": "40356fb9edb07e2c5ae77d1ff37f7c73e2e5d20d1d4b6fef25bf58be8d25d56c",
+        "scripts/lib/guard-probe-worker.mjs": "cce0cef949080988015d3b72a8b79df97c15101d85d4f5c037e15535b5f2f36c",
+        "scripts/lib/prepare-scoped-cli.mjs": "e060dd1f5dde433ff9a740eb30046f0bebe4ac09718cd11daf96ce1dd05590d5",
+        "scripts/prepare-root-publish.mjs": "78e84ecadaa207d26f37faa02b3099bb2aafd7d2a1b7a25ffb4c8318cfad0711",
+        "scripts/tests/ecosystem-analysis-installed.test.mjs": "3e3a43a17dd2ff61475826d9fe72c86e81c876f988089587bed94092fb4b3ac8",
+        "scripts/tests/ecosystem-connectivity.test.mjs": "6e759a64cc41db1a008318e4e1c0aad5752eca9128865d5351f6123e723a9b7e",
+        "scripts/tests/ecosystem-memory-installed.test.mjs": "af267327e028afcaf4f9daa77e4208df499a7343ed196435a774d7ead7bcd98b",
+        "scripts/tests/ecosystem-runtime-contract.test.mjs": "74191605a60b7707708cf9575629c7034e4e6f1a5a7e2898ed10cbeac10529c4",
+        "scripts/tests/ecosystem-runtime-relationships.test.mjs": "fcbc2e64d97373eb189a96e1c276fa54640a37835e31f1f7e9ee444cc6672fa7",
+        "scripts/tests/root-publish-capability-parity.test.mjs": "a7d3d1fa3db29b85295c719cd6a741b1a14fc9eb23bf495c7e6d717efc81da24",
+        "scripts/tests/ruvector-native-adapter.test.mjs": "3be26a15342d54759c391481c209799eb0665c2ef9fe36508c4f913ce18e53ac",
+        "scripts/tests/slim-opt-in.test.mjs": "d854f31de02bfc2123624276e6996536dbe329b772fcd17f8ef703d3f6034ff3",
+        "scripts/tests/weight-eft-api-contract.test.mjs": "3f53c0a8de4bd4d388c9d68709b998a45f74807eb27c5269f3ed9388974ec385",
+        "v3/@claude-flow/cli/package.json": "cc1c40ac6a503822303e3a947df29058db2f89dadd82d628e2554355ba11ddd7",
+        "v3/@claude-flow/cli/scripts/prepare-publish.mjs": "9e1d8fb4eeedbab866b25d7b506a6e8f605148d4affdb8c0abb4b890ae24e87b",
+        "v3/@claude-flow/cli/src/commands/agntcy/runtime.ts": "cf711414b8026825e7d6df9aef4190302b94f1eb10de8cc9837f2ea9afb29a66",
+        "v3/@claude-flow/cli/src/ruvector/vector-db.ts": "d33b2acfabbbafe642798528708cb52bd2d2fe566e9dee3e27a04bee92f8782b",
+        "v3/@claude-flow/cli/src/services/weight-eft.ts": "7a2dccd4ffd12f63884798348a5510a5ed7cd3f2e79392e7099320bb3c979692"
+      },
+      "sha256": "41a51781d4253951d23ce079916851eb75396297e580e7bb2ec4ef49c7eb7fb8"
+    },
+    "selectedChecks": [
+      {
+        "id": "dependency-ownership",
+        "packages": [
+          "@claude-flow/cli",
+          "@claude-flow/memory",
+          "@metaharness/weight-eft",
+          "@ruvector/core",
+          "@ruvector/sona",
+          "claude-flow",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-runtime-contract.test.mjs",
+          "scripts/tests/slim-opt-in.test.mjs"
+        ]
+      },
+      {
+        "id": "graph-impact",
+        "packages": [
+          "metaharness",
+          "ruflo",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-connectivity.test.mjs"
+        ]
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "packages": [
+          "@claude-flow/memory",
+          "@ruvector/core",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-memory-installed.test.mjs"
+        ]
+      },
+      {
+        "id": "relationship-provenance",
+        "packages": [
+          "@ruvector/kge",
+          "metaharness",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-runtime-relationships.test.mjs"
+        ]
+      },
+      {
+        "id": "ruvector-workflow",
+        "packages": [
+          "metaharness",
+          "ruflo",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-analysis-installed.test.mjs"
+        ]
+      },
+      {
+        "id": "signed-publication",
+        "packages": [
+          "@claude-flow/cli",
+          "claude-flow",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/root-publish-capability-parity.test.mjs"
+        ]
+      },
+      {
+        "id": "vector-mutations",
+        "packages": [
+          "@claude-flow/cli",
+          "@ruvector/core"
+        ],
+        "testFiles": [
+          "scripts/tests/ruvector-native-adapter.test.mjs"
+        ]
+      },
+      {
+        "id": "weight-eft-api",
+        "packages": [
+          "@claude-flow/cli",
+          "@metaharness/weight-eft"
+        ],
+        "testFiles": [
+          "scripts/tests/weight-eft-api-contract.test.mjs"
+        ]
+      }
+    ],
+    "checksPassed": true,
+    "sourceUnchanged": true,
+    "results": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed",
+        "durationMs": 332.93939500000124
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed",
+        "durationMs": 203.78712799999994
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed",
+        "durationMs": 2119.433548000001
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed",
+        "durationMs": 115.48070999999982
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed",
+        "durationMs": 2300.9592159999993
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed",
+        "durationMs": 1053.8727450000006
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed",
+        "durationMs": 297.71905100000004
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed",
+        "durationMs": 191.17724499999895
+      }
+    ],
+    "affected": 401,
+    "uncovered": 391
+  },
+  "candidate": {
+    "inputHash": "ff8558f0a1aed9a22aa67135bd236206761adc9ab7c1988f204c5daec7d43048",
+    "sourceBinding": {
+      "files": {
+        "data/ecosystem-capabilities.json": "17bae16d780794d6349f0181ed343eab49726deff968286ade1c4b838533516f",
+        "data/npm-dependencies.latest.json": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
+        "data/npm-download-benchmark.latest.json": "f0407212e044105f7c2e403f03b094429f31e2f7d7513c092edd19a60caa23e8",
+        "data/npm-runtime-relationships.latest.json": "09e5ed0e2869844fe58b14a91b4fd94cf8c06cdb2f4cd07ae019ee09e506d8f3",
+        "package-lock.json": "7b578976283696878c3ba612fb0f67fa741e9b57a205ff7f26b6539301cd8cb2",
+        "package.json": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+        "ruflo/package.json": "e5642b73aa37bfc968ecab5ac699237ae09f40b82c9bb891db2afafceb093744",
+        "scripts/analyze-ecosystem.mjs": "669dcb56f67f93c11e888d6b7725893412429dc0801c1fe3c9558a2865b77984",
+        "scripts/build-ecosystem-web.mjs": "a2938563a8ab1c9e5342f94b5c1904bd1a5e039072ef05c41b82d904d162f335",
+        "scripts/ecosystem-loop.mjs": "bcaee0ee3d2053eb218ad7967d19edda3928bf0a50a1b619f8b35c8568868d4f",
+        "scripts/ecosystem-memory.mjs": "46e264ca9ac7e72d9d6c7319a3969ea6ccd79b0cd019d4b43f202cf9fe83c796",
+        "scripts/ecosystem-rsi.mjs": "b176e1f8c9aa55245f1a6d7a798fec4616ca8b62e01a66b765c3f06ec27230a7",
+        "scripts/lib/codex-mod-runtime.mjs": "1de438abf18ff59490d621142fc2f119c1fd36473684931c999c7475749ac168",
+        "scripts/lib/ecosystem-connectivity.mjs": "eebec4fb50d4b407459ee40f2c727538c39c5018492a10f2b98f37ca946a43e5",
+        "scripts/lib/ecosystem-dependency-graph.mjs": "f7f20f65c2c7d9a27f4b33ec084cdb8b53388f35ba2d8533659c719b2a973128",
+        "scripts/lib/ecosystem-memory-workflow.mjs": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65",
+        "scripts/lib/ecosystem-rsi.mjs": "fc49cb75d4f4a083414c3a03221e79e8c0d6ab3c64805a162fec1e1bd253d211",
+        "scripts/lib/ecosystem-runtime-relationships.mjs": "d4c7e5f73caf720e5dcf1bfbb6f54d6b67c468669860cd19c87551507fa1b522",
+        "scripts/lib/ecosystem-ruvector.mjs": "a55f64311595ff91325cdfb20c2ba4771916e4ec93e6bdca8fddea5b52bc601c",
+        "scripts/lib/guard-probe-corpus.mjs": "63354015f6ee1452d8394175974a9db83a6caf3cd5ab84fe97210820c3b04822",
+        "scripts/lib/guard-probe-report.mjs": "40356fb9edb07e2c5ae77d1ff37f7c73e2e5d20d1d4b6fef25bf58be8d25d56c",
+        "scripts/lib/guard-probe-worker.mjs": "cce0cef949080988015d3b72a8b79df97c15101d85d4f5c037e15535b5f2f36c",
+        "scripts/lib/prepare-scoped-cli.mjs": "e060dd1f5dde433ff9a740eb30046f0bebe4ac09718cd11daf96ce1dd05590d5",
+        "scripts/prepare-root-publish.mjs": "78e84ecadaa207d26f37faa02b3099bb2aafd7d2a1b7a25ffb4c8318cfad0711",
+        "scripts/tests/ecosystem-analysis-installed.test.mjs": "3e3a43a17dd2ff61475826d9fe72c86e81c876f988089587bed94092fb4b3ac8",
+        "scripts/tests/ecosystem-connectivity.test.mjs": "6e759a64cc41db1a008318e4e1c0aad5752eca9128865d5351f6123e723a9b7e",
+        "scripts/tests/ecosystem-memory-installed.test.mjs": "af267327e028afcaf4f9daa77e4208df499a7343ed196435a774d7ead7bcd98b",
+        "scripts/tests/ecosystem-runtime-contract.test.mjs": "74191605a60b7707708cf9575629c7034e4e6f1a5a7e2898ed10cbeac10529c4",
+        "scripts/tests/ecosystem-runtime-relationships.test.mjs": "fcbc2e64d97373eb189a96e1c276fa54640a37835e31f1f7e9ee444cc6672fa7",
+        "scripts/tests/root-publish-capability-parity.test.mjs": "a7d3d1fa3db29b85295c719cd6a741b1a14fc9eb23bf495c7e6d717efc81da24",
+        "scripts/tests/ruvector-native-adapter.test.mjs": "3be26a15342d54759c391481c209799eb0665c2ef9fe36508c4f913ce18e53ac",
+        "scripts/tests/slim-opt-in.test.mjs": "d854f31de02bfc2123624276e6996536dbe329b772fcd17f8ef703d3f6034ff3",
+        "scripts/tests/weight-eft-api-contract.test.mjs": "3f53c0a8de4bd4d388c9d68709b998a45f74807eb27c5269f3ed9388974ec385",
+        "v3/@claude-flow/cli/package.json": "cc1c40ac6a503822303e3a947df29058db2f89dadd82d628e2554355ba11ddd7",
+        "v3/@claude-flow/cli/scripts/prepare-publish.mjs": "9e1d8fb4eeedbab866b25d7b506a6e8f605148d4affdb8c0abb4b890ae24e87b",
+        "v3/@claude-flow/cli/src/commands/agntcy/runtime.ts": "cf711414b8026825e7d6df9aef4190302b94f1eb10de8cc9837f2ea9afb29a66",
+        "v3/@claude-flow/cli/src/ruvector/vector-db.ts": "d33b2acfabbbafe642798528708cb52bd2d2fe566e9dee3e27a04bee92f8782b",
+        "v3/@claude-flow/cli/src/services/weight-eft.ts": "7a2dccd4ffd12f63884798348a5510a5ed7cd3f2e79392e7099320bb3c979692"
+      },
+      "sha256": "41a51781d4253951d23ce079916851eb75396297e580e7bb2ec4ef49c7eb7fb8"
+    },
+    "selectedChecks": [
+      {
+        "id": "dependency-ownership",
+        "packages": [
+          "@claude-flow/cli",
+          "@claude-flow/memory",
+          "@metaharness/weight-eft",
+          "@ruvector/core",
+          "@ruvector/sona",
+          "claude-flow",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-runtime-contract.test.mjs",
+          "scripts/tests/slim-opt-in.test.mjs"
+        ]
+      },
+      {
+        "id": "graph-impact",
+        "packages": [
+          "metaharness",
+          "ruflo",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-connectivity.test.mjs"
+        ]
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "packages": [
+          "@claude-flow/memory",
+          "@ruvector/core",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-memory-installed.test.mjs"
+        ]
+      },
+      {
+        "id": "relationship-provenance",
+        "packages": [
+          "@ruvector/kge",
+          "metaharness",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-runtime-relationships.test.mjs"
+        ]
+      },
+      {
+        "id": "ruvector-workflow",
+        "packages": [
+          "metaharness",
+          "ruflo",
+          "ruvector"
+        ],
+        "testFiles": [
+          "scripts/tests/ecosystem-analysis-installed.test.mjs"
+        ]
+      },
+      {
+        "id": "signed-publication",
+        "packages": [
+          "@claude-flow/cli",
+          "claude-flow",
+          "ruflo"
+        ],
+        "testFiles": [
+          "scripts/tests/root-publish-capability-parity.test.mjs"
+        ]
+      },
+      {
+        "id": "vector-mutations",
+        "packages": [
+          "@claude-flow/cli",
+          "@ruvector/core"
+        ],
+        "testFiles": [
+          "scripts/tests/ruvector-native-adapter.test.mjs"
+        ]
+      },
+      {
+        "id": "weight-eft-api",
+        "packages": [
+          "@claude-flow/cli",
+          "@metaharness/weight-eft"
+        ],
+        "testFiles": [
+          "scripts/tests/weight-eft-api-contract.test.mjs"
+        ]
+      }
+    ],
+    "checksPassed": true,
+    "sourceUnchanged": true,
+    "results": [
+      {
+        "id": "dependency-ownership",
+        "status": "passed",
+        "durationMs": 321.30522199999905
+      },
+      {
+        "id": "graph-impact",
+        "status": "passed",
+        "durationMs": 200.66297199999826
+      },
+      {
+        "id": "persistent-memory-retrieval",
+        "status": "passed",
+        "durationMs": 2249.6853009999977
+      },
+      {
+        "id": "relationship-provenance",
+        "status": "passed",
+        "durationMs": 118.15532399999938
+      },
+      {
+        "id": "ruvector-workflow",
+        "status": "passed",
+        "durationMs": 2183.0087770000027
+      },
+      {
+        "id": "signed-publication",
+        "status": "passed",
+        "durationMs": 875.4684230000021
+      },
+      {
+        "id": "vector-mutations",
+        "status": "passed",
+        "durationMs": 287.9068819999993
+      },
+      {
+        "id": "weight-eft-api",
+        "status": "passed",
+        "durationMs": 154.53578199999902
+      }
+    ],
+    "affected": 401,
+    "uncovered": 391
+  },
+  "rollback": {
+    "method": "reverse patch in isolated Git index",
+    "tree": "f31dcbfd93cb55d6487d0f599841686428cfc8f9",
+    "exactBaselineRestored": true
+  },
+  "status": "checks-passed-review-required",
+  "promotionAllowed": false,
+  "improvementEstablished": false,
+  "totalDurationMs": 21742.8072,
+  "executionBoundary": "Trusted local executor only; worktree and timeout are not a hostile-code sandbox. Unrelated environment variables are excluded; OS file/network access remains.",
+  "recordedAt": "2026-10-18T05:11:12.912Z",
+  "executionEnvironment": {
+    "node": "v24.19.0",
+    "platform": "linux",
+    "arch": "x64"
+  },
+  "purpose": "Real proposal handoff smoke: correct stale workflow documentation. Not a new payload improvement or closure of the historical proposal.",
+  "firstAttempt": {
+    "status": "rejected",
+    "reason": "Evaluator source changed during execution while a review fix was applied; no review receipt was accepted."
+  },
+  "independentReview": {
+    "tests": 17,
+    "failed": 0,
+    "skipped": 0,
+    "findingsFixed": [
+      "hidden assume-unchanged control file",
+      "staged addition omitted from snapshot",
+      "stale owner could not release lease"
+    ]
+  },
+  "retained": {
+    "fixedReference": "data/npm-download-benchmark.latest.json",
+    "acceptedReference": "data/ecosystem-memory-restart.validation.json",
+    "freshTransferMeasurementThisCycle": false,
+    "savedBytes": 109377313,
+    "baselineCachedTarballBytes": 522159201,
+    "candidateCachedTarballBytes": 412781888,
+    "installSeconds": {
+      "baseline": 50.225,
+      "candidate": 47.178,
+      "attribution": "Prior paired fresh observation; not a new latency claim"
+    },
+    "runtimeThisCycle": {
+      "memory": "3.0.5",
+      "ruvector": "0.2.41",
+      "core": "0.1.33",
+      "sqljs": "1.15.0",
+      "writeMs": 134.767926,
+      "restartRetrieveMs": 119.861434,
+      "repeatedRetrieveMs": 98.80587799999999,
+      "databaseBytes": 36864,
+      "success": true,
+      "crashDurabilityTested": false
+    },
+    "unchangedSourceHashes": {
+      "package.json": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+      "package-lock.json": "7b578976283696878c3ba612fb0f67fa741e9b57a205ff7f26b6539301cd8cb2",
+      "ruflo/package.json": "e5642b73aa37bfc968ecab5ac699237ae09f40b82c9bb891db2afafceb093744",
+      "v3/@claude-flow/cli/package.json": "cc1c40ac6a503822303e3a947df29058db2f89dadd82d628e2554355ba11ddd7",
+      "scripts/lib/ecosystem-memory-workflow.mjs": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65"
+    }
+  }
+}

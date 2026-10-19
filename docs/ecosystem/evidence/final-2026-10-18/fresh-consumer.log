@@ -1,0 +1,29 @@
+✔ real memory persists across process exits and native RuVector retrieves only scoped saved content (1660.517599ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","node":"v24.19.0","writeMs":138.19522,"restartRetrieveMs":167.71815300000003,"repeatedRetrieveMs":164.437402,"databaseBytes":36864,"taskSuccess":true,"crashDurabilityTested":false}
+✔ memory workflow rejects missing/corrupt state, invalid dimensions, and missing package resolution (1684.446163ms)
+✔ real update and delete survive restart with correct vector ranking, stable identity and namespace isolation (3797.20739ms)
+ℹ {"versions":{"memory":"3.0.5","ruvector":"0.2.41","core":"0.1.33","sqljs":"1.15.0"},"platform":"linux","arch":"x64","writeMs":202.717137,"updateMs":158.50282499999997,"deleteMs":106.825101,"taskSuccess":true,"generatedSemanticEmbeddings":false}
+✔ cross-batch dimensional mismatch rejects before publishing and preserves retrievability (701.892169ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-30 (1399.987025ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e+30 (1189.992735ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 1e-45 (1166.46669ms)
+✔ native cosine retrieval preserves scale invariance across restart and update at 3.4e+38 (1228.20963ms)
+✔ native projection keeps zero, Float32 underflow and overflow rejected without changing saved state (2028.467271ms)
+✔ direct API rejects sparse write vectors before opening state and preserves saved records (1431.285667ms)
+✔ direct API rejects sparse update vectors before opening state and preserves saved records (1248.644484ms)
+✔ direct API rejects sparse retrieve vectors before opening state and preserves saved records (1192.878586ms)
+✔ duplicate existing keys require explicit update rather than silently replacing saved identity (731.414249ms)
+✔ missing, cross-namespace, stale and invalid mutation batches leave the entire database unchanged (3475.134266ms)
+✔ record identity prevents stale update or delete after deletion and recreation of the same key (1766.08128ms)
+✔ namespace capacity includes prior writes; explicit deletion frees capacity (1706.558688ms)
+✔ update and delete require existing state and never create a missing database (281.663429ms)
+✔ expired persisted keys remain protected from implicit replacement (603.412648ms)
+✔ versioned v2 starter completes six real operations in independent processes (1430.678653ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25586.292463

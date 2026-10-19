@@ -1,0 +1,680 @@
+{
+  "schema": "ruvnet.runtime-relationships.v1",
+  "capturedAt": "2026-10-18T01:29:42.010361+00:00",
+  "sourceSnapshotSha256": "6434bc3748c3c81b4b6976b7940281e102f6f6fac6dd9bda11c3825a3c48e444",
+  "scope": {
+    "candidatePackages": 42,
+    "selection": "isolated @metaharness packages plus @ruvector/kge"
+  },
+  "relationships": [
+    {
+      "source": "@metaharness/claude-code",
+      "target": "metaharness",
+      "sourceVersion": "0.1.1",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/claude-code/-/claude-code-0.1.1.tgz",
+        "integrity": "sha512-y5Y6uduKsz2wsN9xWDz6BFGgS56kvkMqBay3x0hAW6Aw7sGlhCkyNpNzQ1xlX/xIhqXrXW2CjWo5g4lJ2GzRrQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 12,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "90e56c32d67e75ca5abc124652f2a80c6efc249489eb2ff4f0662653743afa7f"
+      }
+    },
+    {
+      "source": "@metaharness/codex",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/codex/-/codex-0.1.0.tgz",
+        "integrity": "sha512-pAQQwP6qMHfF6Dp8w1/kXTu6u6nle+gvjmecJJRG0INRaljJzuegOoVK/KksD+0ucgVe29FDXQK1uSNtfB5eIQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "const cmd = `npx --yes metaharness@latest ${name} --template minimal --host codex --force${extraArgs ? ' ' + extraArgs : ''}`;",
+        "sourceSha256": "12d3c6789d0ea1556411909090e9cb30c30789af359e33ab1e1d754ab1ce89b4"
+      }
+    },
+    {
+      "source": "@metaharness/coding",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/coding/-/coding-0.1.0.tgz",
+        "integrity": "sha512-TZ33qqO+gA81lUHukLNKmY29q/d8U2QNZq5J/8QKYMTaOC/W0fuRq7YwwoRbReytMHKjtU7fDqUrpqNyv6f73w==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "3b060aa24ff75611458fa92301ec4559b9a3d155fdce0a1b75a9ef194ee1cd23"
+      }
+    },
+    {
+      "source": "@metaharness/copilot",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/copilot/-/copilot-0.1.0.tgz",
+        "integrity": "sha512-z98gU6tAizhH9JHWzRPQSe0KctLpT7MTY95e7u4j6YEe1a9bBVgak7unL9KiaTBJbQjZetyJr78C7/Bm87leig==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 9,
+        "excerpt": "const cmd = `npx --yes metaharness@latest ${name} --template minimal --host copilot --force${extra ? ' ' + extra : ''}`;",
+        "sourceSha256": "4fcef2fe67e2eb640fe9dae0bdfa47b5dacc8820f5070e32c60732110b853855"
+      }
+    },
+    {
+      "source": "@metaharness/devops",
+      "target": "metaharness",
+      "sourceVersion": "0.1.1",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/devops/-/devops-0.1.1.tgz",
+        "integrity": "sha512-trqCZdbr5yqh6FIJyfEs0AT2CaScgoCgsZ4eyA3EILeQC3c6sl9rjRNFpaEeseT6XW1VDO2yMtswDJZyrfJv/Q==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "c112f9c175aa574273d1db8334122c7e97f845fc11bd5d87247fdcaa1fc8de0e"
+      }
+    },
+    {
+      "source": "@metaharness/education",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/education/-/education-0.1.0.tgz",
+        "integrity": "sha512-OPv2wXwytLt1jC+6Nq4bXOJ+mTad0R4dyF3jWVyLGJA/PC7hVqyL/xENg0hJQhINfyNbMMJui+am3JGl+pqeiQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 10,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "83af64e1bd56b547a3d5b08d6e30e92d278e90bed01d8958591cc5149ba5b466"
+      }
+    },
+    {
+      "source": "@metaharness/example-ads",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-ads/-/example-ads-0.2.0.tgz",
+        "integrity": "sha512-wjkH60YM2aJ953/yq0knbvqpSh7A8HrcuSY2OSJv/plxwDeAM2mw2MZ/SuzlzhrR/mc4kiZgB1nr0ZLLAz/jtw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "f8ff1ef87b60cbbe3e841c4d646e6faef49d40835248ad66f30ef0f84a16dcf1"
+      }
+    },
+    {
+      "source": "@metaharness/example-aws",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-aws/-/example-aws-0.2.0.tgz",
+        "integrity": "sha512-eAVPTPnmZBmbcfnAQGYzDaTtnKkG8wrEbiC3RjphFqLdgoEhyTkWj9eQgdBNr6dpalYDsKOKurzrQMaKvNg5pQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "6b0c19b2c4d17e8b9a3539b9e2de5934f9240d347c9fa5b7482f165968c5021f"
+      }
+    },
+    {
+      "source": "@metaharness/example-azure",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-azure/-/example-azure-0.2.0.tgz",
+        "integrity": "sha512-yz8kH57jljnp/mq/3ScBC6YaiJTzMqbJa+MrBIKRy+m1ETTvX80bzhswR9aBpJbly8smcItShbDfDqaydy538A==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "4cf61e959fce07345196c813e86f7c57dd298e6573df600a966a6cd512e2f11c"
+      }
+    },
+    {
+      "source": "@metaharness/example-bio",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-bio/-/example-bio-0.2.0.tgz",
+        "integrity": "sha512-uGlHn3+bFg9jcoNwtgCCPw1VK9hxYTPBy6VgKgRCOYakrAJ9hLRfrKieOYUvFqu3htMph6hlOnztprmyBRcw/Q==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "f1fd1c764af37582c36c9d55836908fe371c748b6f1e833ee29800e7edc8b55f"
+      }
+    },
+    {
+      "source": "@metaharness/example-datadog",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-datadog/-/example-datadog-0.2.0.tgz",
+        "integrity": "sha512-fDFyqAsvAHjsXDtaJZQvLQQOa2VjyWhnW9eFoKRR3MwlE7xZsV6FedLoLDd4bxucCcPGhPW7YQW+GilkLTnfkA==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "a39cc1d12835c45bcb3a69e5ff8a146ac876104e1bd89a4cb862914ee49f15f3"
+      }
+    },
+    {
+      "source": "@metaharness/example-fhir",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-fhir/-/example-fhir-0.2.0.tgz",
+        "integrity": "sha512-AqxsT3EmudLhOFkK61AZy4nMSZ1jyePZgqdTWdpSIN6wAu868GgHgDBiBN64AfXZlxTkhTeGws6w2macWSoLeg==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "216d18220032654647b3f52e96104666a3d45e94ec6a9f9a930d29ef6c765745"
+      }
+    },
+    {
+      "source": "@metaharness/example-gcp",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-gcp/-/example-gcp-0.2.0.tgz",
+        "integrity": "sha512-KCnfQkI+J8KVCEMrqh4hQWn+7Xa8FbjWrB+SUpcSuPDgOd2yb2HJqlZ9MljeZRjSasXstTLIMAxB8Vz8oh54ug==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "a457c0b00da6d77b6d54ec791c484723624d863411e0e98b587362ad3556d87e"
+      }
+    },
+    {
+      "source": "@metaharness/example-github",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-github/-/example-github-0.2.0.tgz",
+        "integrity": "sha512-Rpo5ZuHSiyXmODq7azBlevv+k0mFhlHu/nS3CPsE7AFmIAoZjKbza+wQ5T5BQX7Itef81d4aQbu+OmTzYufEWg==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "7a3065a0569d83eb14287b459373c82a297eb5aa81455afc6572d821109c84ca"
+      }
+    },
+    {
+      "source": "@metaharness/example-huggingface",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-huggingface/-/example-huggingface-0.2.0.tgz",
+        "integrity": "sha512-ybG2cYiPlprkFyvH5XJpX4Dveu5zIOcYc/w0NmXI7kXtc4cr8KYMfAS4li7m1W8HMBTxBuB+eaFJok30pbNJ5g==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "073d3b6d3a31ca945b805dd560fc041123cd16da4e3b3194c97e4f3e37b6a705"
+      }
+    },
+    {
+      "source": "@metaharness/example-iot",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-iot/-/example-iot-0.2.0.tgz",
+        "integrity": "sha512-p9DG+328FPvo3qWJK7Kv3MD00c5LFdsZtPfS5J+PFaKOFGydK+tVEkfPBMQBx3jc2eODA3GMNdJgLQe8/hWV9A==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "7fc38fd20500eccccdf2d20177e1787563da5241486c60d764abd7588d5273a5"
+      }
+    },
+    {
+      "source": "@metaharness/example-nasa",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-nasa/-/example-nasa-0.2.0.tgz",
+        "integrity": "sha512-OOid976DUSOjJFhUYjCaAD6lEeZP+oHf2Ewj8lk7S8vvWCvxsTP1hJcbYRtTY332l/DVKuBnb2tLOPrgFtekug==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "2959eaac9669a65505783fab0c3a1f83720ba59854bea7145999e8a34910b4cb"
+      }
+    },
+    {
+      "source": "@metaharness/example-pinecone",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-pinecone/-/example-pinecone-0.2.0.tgz",
+        "integrity": "sha512-LBRhEj5YzlyaNxY6NEg+g4wXU7RmnYnx4/aJBG7deofH+ouqecu/NlWqGczUjgsBvZzReU8gjQbiuSry2CIyTw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "43b121613cb6ad561b27082f019eb523610158dfe3269730061d8c17490997e5"
+      }
+    },
+    {
+      "source": "@metaharness/example-qiskit",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-qiskit/-/example-qiskit-0.2.0.tgz",
+        "integrity": "sha512-J4XgjdBlA2KJMk5yPHESWcu3+LKGeTYyFu+EAH1v52aduRdxhqij8uEdcxrYpWCAZymnuyx9oS24KDLuaW86cw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "e0d9de86024aa8f811a2f3629350f5948443ca53a364910805287e9e28ac1c01"
+      }
+    },
+    {
+      "source": "@metaharness/example-slack",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-slack/-/example-slack-0.2.0.tgz",
+        "integrity": "sha512-vno8rkYrl3Z+cY4MjMzVcYa6h6GU31wu7aNsJ908G+adjHYT1S3nVeZ/CCTLd6lK68OuyhZ4C6hhVeYQMfZ1Gg==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "05234b82e29e84178b51f03b2ec6a144f2549e9a725993f495102fbf7d93889c"
+      }
+    },
+    {
+      "source": "@metaharness/example-stripe",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-stripe/-/example-stripe-0.2.0.tgz",
+        "integrity": "sha512-h3aKEBaP0j6XCMBn7wcrwF28BJBeBeBw45YuND0VAAUwHCR3v9DTbN+zHUCaV7shOSWNUYnbXhlsVw1QZ0m2hA==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "65fcfd7b3d98c251177e44b30863e6f39272d2fe4596f63e1e940a5d23388a2c"
+      }
+    },
+    {
+      "source": "@metaharness/example-supabase",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-supabase/-/example-supabase-0.2.0.tgz",
+        "integrity": "sha512-j0v24bbMppkXpCOhnbct2LFHsff/MkUaF+SQ2pxm4WL1faz1Pe2VcwFr8gjn3MRt4nrpAKOVWcu+DD58ayVMVA==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "db9b7d91ec4564124a4de9359eef5d68f9e9b6acbe9322fe60996308f639768f"
+      }
+    },
+    {
+      "source": "@metaharness/example-twilio",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-twilio/-/example-twilio-0.2.0.tgz",
+        "integrity": "sha512-CXJC1GutOxSOAjeeJVC6Ov3bQblcjx3kdnwBbj854WDD0Gh/4DTbXYwudoaIfVfJwGQjAj/u12O3qeBAuaSBPQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "68fb6bdffc06042382c44fa729bce433bc3a8dda5635b0364dedf741e7778482"
+      }
+    },
+    {
+      "source": "@metaharness/example-web3",
+      "target": "metaharness",
+      "sourceVersion": "0.2.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/example-web3/-/example-web3-0.2.0.tgz",
+        "integrity": "sha512-TQoCRc5H6uvTKYmiVlTYjw3EJE6vsCH1iEyR/auBdSnvWjGSR8MOmupKhwAb/eoV/RzPuZG4ObIDjkjER7f4UQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 52,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "461881cac1f319f4be0fc08119062999c6187800544c06edfadd69544349572a"
+      }
+    },
+    {
+      "source": "@metaharness/gaming",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/gaming/-/gaming-0.1.0.tgz",
+        "integrity": "sha512-4mkDqhbltZ5hxNjQg4VB8Nfjezj+lRvcNG/X6ZZi43NWUvVhMlo5gE2suXQFp32NW9TT25BUkjYXVC9OZ0hCQw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 12,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "7cd22a99f0b699fa369b45cac27d24cdb12bf5bab54a2d3234cd189c1c7831dc"
+      }
+    },
+    {
+      "source": "@metaharness/github-actions",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/github-actions/-/github-actions-0.1.0.tgz",
+        "integrity": "sha512-qgpIzeu9Y5X5cctLLyNeGQPX4kZ6nnebvGL1WrtKuhtAUb7pkW5YcaY2mWBxDM1nOr3ljqojOZu8r+GJfirwnw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "49fc7d54371f60f42e05303e0e28bf817534812fce457c1e00b24ed4be965f86"
+      }
+    },
+    {
+      "source": "@metaharness/hermes",
+      "target": "metaharness",
+      "sourceVersion": "0.1.1",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/hermes/-/hermes-0.1.1.tgz",
+        "integrity": "sha512-HmdMwfpwdbEpIeGFhcgDkQm6JQp5v7nxTGmMf8LxeEF8KWcFUNKG9Wm6WaTOzbXVXxlsYoMTDiH4+unDF0Myhw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 12,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "5ee94bc2dd860117a006f45e9fae2446a04083b4279d41a691273b1d2aed85a9"
+      }
+    },
+    {
+      "source": "@metaharness/legal",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/legal/-/legal-0.1.0.tgz",
+        "integrity": "sha512-wOfFwA21NwqaWliTGydJiIMsMyVAGWRrQqUi1OHpy0rhvjW0LDk6aU3rNNdQTxjCwJrN+DY5OuYngrgeGzakgQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 10,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "6c9fb98d05ce61c486c94d4a341dcbdb80e2dc5f8d39d503a3164497ce83405c"
+      }
+    },
+    {
+      "source": "@metaharness/openclaw",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/openclaw/-/openclaw-0.1.0.tgz",
+        "integrity": "sha512-vUEUFvoCONd8gonLQ37rHG3pbz9bgnI6JVpHLZiQkIJbaYtmUnUUZbAHjlWKaDVo4SkSQW47raOI3re8p5/+Cg==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "const cmd = `npx --yes metaharness@latest ${JSON.stringify(name)} --template minimal --host openclaw --force${extra ? ' ' + extra : ''}`;",
+        "sourceSha256": "5030da364e6e59eb41831061e6e7794d7502eeca0c22756fdeb2241abf9ee81e"
+      }
+    },
+    {
+      "source": "@metaharness/opencode",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/opencode/-/opencode-0.1.0.tgz",
+        "integrity": "sha512-P4GZqzgJJflpiaV5hUhV2g0Seh0gkoyHbd6Ik0/J+RDviPBwBV9qBdHIhogCAIVw5BHzDzx/jytIr+aYHKf8eQ==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "ebb5d50a0603e6a7a705fe4355f41255c50d29e21e53280c8fc85288c76d614c"
+      }
+    },
+    {
+      "source": "@metaharness/pi-dev",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/pi-dev/-/pi-dev-0.1.0.tgz",
+        "integrity": "sha512-YXYbSvFGlHHd6SxKM3jryuE4iAEFo8jqdBY4quLRVU8a8gXRPCt2O2qA07AP0As0llpC5dr3SE40cqg7FB+tng==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "const cmd = `npx --yes metaharness@latest ${name} --template minimal --host pi-dev --force${",
+        "sourceSha256": "7a281d59de54cf6584448bb9d57a5d7ccca0924fe24016c508eaa12b163cb906"
+      }
+    },
+    {
+      "source": "@metaharness/repo-maintainer",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/repo-maintainer/-/repo-maintainer-0.1.0.tgz",
+        "integrity": "sha512-dquX/o8YVHqeKik9mchU9IJjgrRmFel6gJXlrHPM6gXT/gZNoVQ8L0AHafbVCZAGQUJyFZB5I0HHMYIEOGRXUw==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "ac6d100458262612b279b11d243168100f7e8cf629277c16fdbf834cd4da2ea0"
+      }
+    },
+    {
+      "source": "@metaharness/research",
+      "target": "metaharness",
+      "sourceVersion": "0.1.1",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/research/-/research-0.1.1.tgz",
+        "integrity": "sha512-ldIGgkutPMFzGhxaVx+8GdjcuvyjduUSiluX5rsuJAQsLWDtA0ZcsBfv3JxmcBaQ2C/khvnvydwd1rxC8AYlKA==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 12,
+        "excerpt": "'npx --yes metaharness@latest',",
+        "sourceSha256": "833b5cc100a10ab296cb8a9330c60e435e65592304c4dfa39a12c89197fe3591"
+      }
+    },
+    {
+      "source": "@metaharness/rvm",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/rvm/-/rvm-0.1.0.tgz",
+        "integrity": "sha512-oN0RMA7tvH9QJmLFjQtEd9AapWqEUPrOm4Q3EFkv5xSslAYOTLAkFXdPl10BNwofGLVN0bZNJB1RPrK54CoH+A==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "6c96bf583dca5558013565d0ccd263dccc7de92f228e7ce8b5e14078b3fd7c87"
+      }
+    },
+    {
+      "source": "@metaharness/sales",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/sales/-/sales-0.1.0.tgz",
+        "integrity": "sha512-YljpfQSWn2ni4/LQaB3sItT8DjIKoZquPzZbGy+zxfN8uiDjrU2z1peMePxV9D9dET3MVJposmpj8iygXU3dig==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "a93a268450e7c38d2a13f8daba7e02c37c6d81d04aa5fa3fc91a1d56ab4659c6"
+      }
+    },
+    {
+      "source": "@metaharness/support",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/support/-/support-0.1.0.tgz",
+        "integrity": "sha512-aEx8JsGpXkYDtW/Jt4vZ3tITMn25sbcwrZoS2AFtofXMoeomTl+Wr5KXgcF7A3OG5j0yEgY4BJ4OcqM54hrEJA==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 14,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "529e551b1246319827f2fdc0050fd44750a712beb2dd715b4fe6e1b5883c2b24"
+      }
+    },
+    {
+      "source": "@metaharness/trading",
+      "target": "metaharness",
+      "sourceVersion": "0.1.0",
+      "type": "runtime-command",
+      "targetSelector": "latest",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@metaharness/trading/-/trading-0.1.0.tgz",
+        "integrity": "sha512-ruGS6UVuDslXgyBRbAIFoCoudRqz0D8yfRpnMZrcg8FuJYdN0DdWSp8W+KM0xt8TgVfe2zbm03G7rlE4wEFs+g==",
+        "sourceFile": "package/bin/scaffold.mjs",
+        "line": 11,
+        "excerpt": "'metaharness@latest',",
+        "sourceSha256": "69f3e1bea3cc2fb4ad1b76874dfbbdd0879232b7018c0664c39b4a12511b70ca"
+      }
+    },
+    {
+      "source": "@ruvector/kge",
+      "target": "@ruvector/kge-darwin-arm64",
+      "sourceVersion": "0.2.0",
+      "type": "native-fallback",
+      "targetSelector": "unversioned runtime require",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@ruvector/kge/-/kge-0.2.0.tgz",
+        "integrity": "sha512-WwfysfBa3/3HVmSLrwVvso+TuFp8rOubUJZIsoOUaWbLidzYvw35zuQthKhxSzH0wJE4CybJYVwOkCeyOZMCMA==",
+        "sourceFile": "package/index.js",
+        "line": 51,
+        "excerpt": "return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);",
+        "sourceSha256": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc"
+      }
+    },
+    {
+      "source": "@ruvector/kge",
+      "target": "@ruvector/kge-darwin-x64",
+      "sourceVersion": "0.2.0",
+      "type": "native-fallback",
+      "targetSelector": "unversioned runtime require",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@ruvector/kge/-/kge-0.2.0.tgz",
+        "integrity": "sha512-WwfysfBa3/3HVmSLrwVvso+TuFp8rOubUJZIsoOUaWbLidzYvw35zuQthKhxSzH0wJE4CybJYVwOkCeyOZMCMA==",
+        "sourceFile": "package/index.js",
+        "line": 51,
+        "excerpt": "return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);",
+        "sourceSha256": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc"
+      }
+    },
+    {
+      "source": "@ruvector/kge",
+      "target": "@ruvector/kge-linux-arm64-gnu",
+      "sourceVersion": "0.2.0",
+      "type": "native-fallback",
+      "targetSelector": "unversioned runtime require",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@ruvector/kge/-/kge-0.2.0.tgz",
+        "integrity": "sha512-WwfysfBa3/3HVmSLrwVvso+TuFp8rOubUJZIsoOUaWbLidzYvw35zuQthKhxSzH0wJE4CybJYVwOkCeyOZMCMA==",
+        "sourceFile": "package/index.js",
+        "line": 51,
+        "excerpt": "return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);",
+        "sourceSha256": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc"
+      }
+    },
+    {
+      "source": "@ruvector/kge",
+      "target": "@ruvector/kge-linux-x64-gnu",
+      "sourceVersion": "0.2.0",
+      "type": "native-fallback",
+      "targetSelector": "unversioned runtime require",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@ruvector/kge/-/kge-0.2.0.tgz",
+        "integrity": "sha512-WwfysfBa3/3HVmSLrwVvso+TuFp8rOubUJZIsoOUaWbLidzYvw35zuQthKhxSzH0wJE4CybJYVwOkCeyOZMCMA==",
+        "sourceFile": "package/index.js",
+        "line": 51,
+        "excerpt": "return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);",
+        "sourceSha256": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc"
+      }
+    },
+    {
+      "source": "@ruvector/kge",
+      "target": "@ruvector/kge-win32-x64-msvc",
+      "sourceVersion": "0.2.0",
+      "type": "native-fallback",
+      "targetSelector": "unversioned runtime require",
+      "evidence": {
+        "tarballUrl": "https://registry.npmjs.org/@ruvector/kge/-/kge-0.2.0.tgz",
+        "integrity": "sha512-WwfysfBa3/3HVmSLrwVvso+TuFp8rOubUJZIsoOUaWbLidzYvw35zuQthKhxSzH0wJE4CybJYVwOkCeyOZMCMA==",
+        "sourceFile": "package/index.js",
+        "line": 51,
+        "excerpt": "return tryRequire(`@ruvector/kge-${file.slice('kge.'.length, -'.node'.length)}`);",
+        "sourceSha256": "c0f5199760ddca2cafd4e012b8e69d69c49762246d83313a0f987d57707609fc"
+      }
+    }
+  ],
+  "unresolved": [
+    {
+      "package": "@metaharness/agntcy",
+      "version": "0.1.0",
+      "reason": "No recognized runtime command in selected source"
+    },
+    {
+      "package": "@metaharness/aws-finops",
+      "version": "0.1.0",
+      "reason": "No recognized runtime command in selected source"
+    },
+    {
+      "package": "@metaharness/field-memory",
+      "version": "0.1.0",
+      "reason": "No recognized runtime command in selected source"
+    },
+    {
+      "package": "@metaharness/projects",
+      "version": "0.1.2",
+      "reason": "No recognized runtime command in selected source"
+    }
+  ],
+  "findings": [
+    {
+      "type": "optional-peer-registry-check",
+      "package": "@claude-flow/ruvector-upstream",
+      "consumers": [
+        "@claude-flow/plugin-cognitive-kernel",
+        "@claude-flow/plugin-financial-risk",
+        "@claude-flow/plugin-hyperbolic-reasoning",
+        "@claude-flow/plugin-neural-coordination",
+        "@claude-flow/plugin-quantum-optimizer",
+        "@claude-flow/plugin-test-intelligence"
+      ],
+      "url": "https://registry.npmjs.org/%40claude-flow%2Fruvector-upstream/latest",
+      "status": "HTTP 404",
+      "checkedAt": "2026-10-18T01:29:42.010337+00:00"
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+{
+  "benchmark": {
+    "schema": "ruflo-slim-opt-in-benchmark/v1",
+    "startedAt": "2026-10-18T04:00:30Z",
+    "sourceBase": "5a61c6143060a8485ed938991c39b1044e3f9b1e",
+    "node": "v24.19.0",
+    "npm": "11.9.0",
+    "platform": "Linux-6.18.55-x86_64-with-glibc2.39",
+    "archiveSha256": "2f5c27bbc5bbaf5ba681624da23ee6aaef90ebdb7a36fff19c71cfc64820dbfc",
+    "baselineManifestSha256": "01f92adabee2376d69dafbd3185ae86264faff51a6ae4a189b7dd56f763cf9af",
+    "candidateManifestSha256": "6036d248724c59db67cfbc5b19a3fadf05559112495a45bf57e7db7ebc57b37f",
+    "lifecycleScripts": false,
+    "runs": [
+      {
+        "variant": "baseline",
+        "exitCode": 0,
+        "seconds": 50.225,
+        "cachedTarballBytes": 522159201,
+        "tarballCount": 548,
+        "fixtureSha256": "e6c60db234075253f03c849c226b432646aaeb20c076a0646e11b45c956168ea",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "682bb9db31e79bbf43a657a32bd33a01e6409f850518f88ad1792251f9bdc230",
+        "slimPackages": [
+          "node_modules/@agntcy/slim-bindings",
+          "node_modules/@agntcy/slim-bindings-darwin-arm64",
+          "node_modules/@agntcy/slim-bindings-darwin-x64",
+          "node_modules/@agntcy/slim-bindings-linux-arm64-gnu",
+          "node_modules/@agntcy/slim-bindings-linux-x64-gnu",
+          "node_modules/@agntcy/slim-bindings-win32-arm64-msvc",
+          "node_modules/@agntcy/slim-bindings-win32-x64-msvc",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-arm64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-linux-x64-musl",
+          "node_modules/@agntcy/slim-bindings/node_modules/@agntcy/slim-bindings-win32-x64-gnu"
+        ],
+        "tarballListSha256": "1ea22f1b7fc77e8f7e2bc1da6ae807509175e7b772577377ba83de2d3b98d223"
+      },
+      {
+        "variant": "candidate",
+        "exitCode": 0,
+        "seconds": 47.178,
+        "cachedTarballBytes": 412781888,
+        "tarballCount": 538,
+        "fixtureSha256": "f2a51499175c61e4afc04018396c8d5cbce5a05c0453bf72717947f555da86f1",
+        "unchangedFiles": 1941,
+        "nonmanifestDigest": "990932e9418704eddb15fb0f9e08429944eb82c0d460aa471ff4eee7304b2824",
+        "lockSha256": "f387cf0f358550617ce7f1c30977ce5df6524a770dde32db56ad8aaaf982f599",
+        "slimPackages": [],
+        "tarballListSha256": "1762d35fede751d7a15474c4bb25b69817a8a71f161609b3a6982f3c6f1ebb27"
+      }
+    ],
+    "comparison": {
+      "savedBytes": 109377313,
+      "reductionPercent": 20.947119727188337,
+      "removedTarballs": [
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-arm64/-/slim-bindings-darwin-arm64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-M5DP+SPVn+ReAAK6GxHosxciNMCWZv1vxZziPcxWMt+HIOt4/9w7vlbJPe1dfmdEHegE9iNGQ+AOSKOfQS5rhQ==",
+          "size": 18254344
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-darwin-x64/-/slim-bindings-darwin-x64-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-xWbywk8ZNABApjKiUe8E6umkGXYTNQBKAO1ZFPQfOP1OrSf3oupJTv/pkzsRifh+/dOFaojpZFvcZJfeM1L/jA==",
+          "size": 18708574
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-arm64-gnu/-/slim-bindings-linux-arm64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-+3YZRrVNYpY4eD4Wn9aza6rsiGwB/hz/ojxyCPgeK9/4QFYVvUMnVq4H4sN+k5ckJP7lrR6ncfEqp7BJyOwKQA==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-linux-x64-gnu/-/slim-bindings-linux-x64-gnu-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-BYGtMWtJJTd+z6eioFvbGbg/oq0DwjhHRJtTYvNpHQ6CFhja3PhuxcUPrW53xKVLTD3saeZq8MVOGq2tuF+PRQ==",
+          "size": 19476987
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-arm64-msvc/-/slim-bindings-win32-arm64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-dO6/JdvE2ANVujXMTSxSMqb94YN9+ox7HbNaSzQt8shERB/5XFgWKYDCrwEJC26ux8FzQcvaq8mnlePGueDq7g==",
+          "size": 16027202
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings-win32-x64-msvc/-/slim-bindings-win32-x64-msvc-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-w0mKFPKKkhwfQzaC/p1Ke3ogNL4AyxC9jt0LY0LsBHNIJaPPBvAbLMLVslZBgn2ghrMRS/nxdacdQrAcFQQzXg==",
+          "size": 17006526
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@agntcy/slim-bindings/-/slim-bindings-2.0.0-alpha.5.tgz",
+          "integrity": "sha512-QBpln5ubYbJ7nMY2SUWJJfUsl5qmezqWNwcatdjuaZaK2dDIj2RHAvgNKNmuf8Exg+kuI/88SFrAZMNxLJolNQ==",
+          "size": 35162
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/core/-/core-0.31.0-3.tgz",
+          "integrity": "sha512-39XrJgUZ2VVb561sSnkXPhczNoeBsNiSRArecsV0JE7CJq69ajFkcn9/tBAUS2NpgHkLIDU+z6Ks2+1wXnboxg==",
+          "size": 44743
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node-linux-x64-gnu/-/node-linux-x64-gnu-0.31.0-3.tgz",
+          "integrity": "sha512-Xdm21blyg5U/kW6s7OMvgrr8coGTkUlt26DVR9x8gKISif+E3YwdEskbFScWqystAiJnfjw7xHEc8UMu0Qlz7Q==",
+          "size": 339564
+        },
+        {
+          "key": "make-fetch-happen:request-cache:https://registry.npmjs.org/@ubjs/node/-/node-0.31.0-3.tgz",
+          "integrity": "sha512-qNMpi2LICNwxGXZyRF8fSDBSpbezyZbEsydrbiMPJOmtOWr4tmZIEl7jkWGHVGShoBvHfFo4eHp5B4UVP928Cg==",
+          "size": 7224
+        }
+      ],
+      "addedTarballs": [],
+      "timingAttribution": "One sequential observation per variant; CDN and metadata caches uncontrolled. No latency improvement claim."
+    }
+  },
+  "previousPublishedArchiveSha256": "cfcff015c86393cbd1b1a8577300bae2bab435f17017ef34bfb5b7092e34d1af",
+  "nonmanifestMatchesPrior": true,
+  "sharedTarballs": 538,
+  "retainedVersionOrIntegrityChanges": [],
+  "sourceFiles": {
+    "scripts/ecosystem-memory.mjs": "46e264ca9ac7e72d9d6c7319a3969ea6ccd79b0cd019d4b43f202cf9fe83c796",
+    "scripts/lib/ecosystem-memory-workflow.mjs": "1482600b1224c2dbd3fcf08aaae89b85095fcebe036ae2106c70ca3ba9e70c65",
+    "scripts/tests/ecosystem-memory-installed.test.mjs": "af267327e028afcaf4f9daa77e4208df499a7343ed196435a774d7ead7bcd98b",
+    "data/ecosystem-capabilities.json": "17bae16d780794d6349f0181ed343eab49726deff968286ade1c4b838533516f",
+    ".github/workflows/ecosystem-contracts.yml": "d41fe54d3e6ade392bf5709c47ca896c0af6eedcacede696041b513162743b58"
+  },
+  "logs": [
+    {
+      "sha256": "1e4489fff7ef16b9405428b69640db9b5646b05d6707945b36d4dae869d02a6e",
+      "measurement": {
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "platform": "linux",
+        "arch": "x64",
+        "node": "v24.19.0",
+        "writeMs": 103.75416500000001,
+        "restartRetrieveMs": 94.07663,
+        "repeatedRetrieveMs": 86.06419300000002,
+        "databaseBytes": 36864,
+        "taskSuccess": true,
+        "crashDurabilityTested": false
+      },
+      "passed": true,
+      "noSkips": true,
+      "variant": "baseline",
+      "consumerLockSha256": "682bb9db31e79bbf43a657a32bd33a01e6409f850518f88ad1792251f9bdc230"
+    },
+    {
+      "sha256": "29bb1c6ea1e2efaf6828b4654c4f10694b89ce2e58c69e4551dfd85be82cec96",
+      "measurement": {
+        "versions": {
+          "memory": "3.0.5",
+          "ruvector": "0.2.41",
+          "core": "0.1.33",
+          "sqljs": "1.15.0"
+        },
+        "platform": "linux",
+        "arch": "x64",
+        "node": "v24.19.0",
+        "writeMs": 89.795678,
+        "restartRetrieveMs": 110.968288,
+        "repeatedRetrieveMs": 122.04833299999999,
+        "databaseBytes": 36864,
+        "taskSuccess": true,
+        "crashDurabilityTested": false
+      },
+      "passed": true,
+      "noSkips": true,
+      "variant": "candidate",
+      "consumerLockSha256": "f387cf0f358550617ce7f1c30977ce5df6524a770dde32db56ad8aaaf982f599"
+    }
+  ],
+  "receiptInputHash": "c08ebfca0324797431b7f0320467cecad97e667161bb0fd323a3159ceb0b52ff",
+  "schema": "ruflo-memory-restart-validation/v1",
+  "date": "2026-10-18",
+  "sourceBase": "5a61c6143060a8485ed938991c39b1044e3f9b1e",
+  "disposition": "review-ready consumer integration; no release promotion",
+  "fixedReference": "data/npm-download-benchmark.latest.json",
+  "lastAcceptedBaseline": "data/npm-slim-opt-in.latest.json",
+  "newImprovement": "Registered executable graceful-restart memory/vector workflow; existing published packages already supported this composition.",
+  "retainedImprovement": "109377313-byte acquisition saving revalidated, not a new gain.",
+  "measurementScope": "Unique npm registry tarball payload in fresh empty caches, excluding fixture archives, metadata, headers and retransmission. Not full wire traffic.",
+  "fixtureProvenance": "Reuses prior baseline fixture, archive SHA matching prior receipt; 1941 nonmanifest files match the prior published-archive proof. Unsigned dependency acquisition fixtures, not signed release artifacts.",
+  "validation": {
+    "nodeContracts": 67,
+    "pythonCollectorTests": 15,
+    "installedTests": {
+      "memory": 2,
+      "ruvectorGraph": 1,
+      "twoCycleLoop": 1,
+      "weightEft": 1
+    },
+    "failures": 0,
+    "skips": 0,
+    "registeredChecks": 8,
+    "iterations": 2,
+    "coveredInventoryPackages": 10,
+    "uncoveredInventoryPackages": 391,
+    "registeredIntegrationPackages": {
+      "before": 3,
+      "after": 5
+    },
+    "independentReview": "Read-only API/source review and independent focused execution passed; input validation and database size bound hardened after review."
+  },
+  "commands": [
+    "node --test scripts/tests/ecosystem-memory-installed.test.mjs",
+    "node --test scripts/tests/ecosystem-analysis-installed.test.mjs scripts/tests/ecosystem-loop-installed.test.mjs",
+    "node --test scripts/tests/weight-eft-installed.test.mjs",
+    "python3 scripts/tests/runtime-relationships.test.py",
+    "node scripts/audit-umbrella-version-lockstep.mjs",
+    "node scripts/audit-package-dep-overlap.mjs",
+    "node scripts/benchmarks/probe-slim-consumer.mjs <candidate> absent",
+    "node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 60000",
+    "node scripts/build-ecosystem-web.mjs"
+  ],
+  "rollback": "Remove memory starter, registry check and CI memory step; keep existing persisted consumer SQLite files and earlier SLIM optional-peer change.",
+  "limitations": [
+    "Graceful restart only; no crash atomicity or concurrent writers.",
+    "Supplied fixture vectors, not embedding-quality measurement.",
+    "Linux x64 Node 24.19.0 local validation; Node 22/24 CI configured but hosted results pending.",
+    "No AgentDB runtime coverage; application composition not a published dependency.",
+    "No npm publish, merge, release signing or automatic promotion.",
+    "Guidance remains 54 local package roots / 40 inventory packages; 361 pending guidance. Two upstream mappings verified, leaving 359 unverified mappings."
+  ],
+  "nextAction": "Add crash-safe persistence/update-delete acceptance, connect bounded proposal candidate work, and prepare grouped RuVector guidance PR at verified source paths.",
+  "environment": {
+    "RUFLO_MEMORY_REQUIRED": "1",
+    "RUFLO_MEMORY_RESOLVE_FROM": "<fresh-variant-consumer>/package.json",
+    "RUFLO_RUVECTOR_REQUIRED": "1",
+    "RUFLO_RUVECTOR_RESOLVE_FROM": "<fresh-candidate-consumer>/package.json",
+    "RUFLO_WEIGHT_EFT_REQUIRED": "1",
+    "RUFLO_WEIGHT_EFT_RESOLVE_FROM": "<fresh-candidate-consumer>/package.json"
+  }
+}

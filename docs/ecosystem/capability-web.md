@@ -1,0 +1,84 @@
+# Package capability web and bounded RSI loop
+
+The explorer maps all 401 captured packages, including isolated packages, and distinguishes npm declarations from 42 source evidenced runtime relationships. The loop observes that graph, prioritizes gaps, runs registered checks, records results and repeats within a finite budget. It does not rewrite code, install packages, merge changes or publish releases.
+
+## Open the explorer
+
+From the repository root:
+
+```bash
+python3 -m http.server 8000
+```
+
+Open `http://localhost:8000/docs/ecosystem/explorer/`. Search a package, select its neighborhood or filter the 95 remaining isolates. Relationship evidence links explain what each runtime edge means. Capability results appear only when the prepared receipt matches the graph, runtime overlay and registry hashes. Availability remains **Not probed** because this page cannot inspect the visitor's environment.
+
+## Run the improvement loop
+
+Install the pinned analysis dependency into a separate tooling directory. This does not change consumer manifests:
+
+```bash
+npm install --prefix /tmp/ruflo-ruvector-proof --ignore-scripts --omit=optional --no-audit --no-fund --save-exact ruvector@0.2.41
+npm install --prefix /tmp/ruflo-memory-proof --ignore-scripts --no-audit --no-fund --save-exact @claude-flow/memory@3.0.5 ruvector@0.2.41 @ruvector/core@0.1.33 sql.js@1.15.0 @metaharness/harness@0.2.0
+npm install --prefix /tmp/ruflo-weight-proof --ignore-scripts --no-audit --no-fund --save-exact @metaharness/weight-eft@0.1.2
+RUFLO_WEIGHT_EFT_REQUIRED=1 \
+RUFLO_WEIGHT_EFT_RESOLVE_FROM=/tmp/ruflo-weight-proof/package.json \
+RUFLO_REQUIRE_HARNESS=1 \
+RUFLO_HARNESS_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
+RUFLO_MEMORY_REQUIRED=1 \
+RUFLO_MEMORY_RESOLVE_FROM=/tmp/ruflo-memory-proof/package.json \
+RUFLO_RUVECTOR_REQUIRED=1 \
+RUFLO_RUVECTOR_RESOLVE_FROM=/tmp/ruflo-ruvector-proof/package.json \
+node scripts/ecosystem-loop.mjs --iterations 2 --max-duration-ms 120000
+node scripts/build-ecosystem-web.mjs
+```
+
+Exit 0 means selected checks and affected package coverage are complete. Exit 2 means checks passed with incomplete coverage. Exit 1 means evaluation failed. Run the receipt builder after exit 2 as well; the coverage gap belongs in the explorer. Use `--changed PACKAGE` to select affected packages, `--max-checks` to bound check count, and `--output` and `--ledger` for separate experiment artifacts. Iterations are bounded to 1 through 5 and total execution time to 300 seconds. There is no background scheduler.
+
+The ledger deduplicates equivalent source identities. Checks still execute every cycle. Hashes identify local source content; they do not authenticate a publisher. Execute untrusted checkouts in an isolated environment because repository tests run with the caller's permissions.
+
+## Initial capability matrix
+
+| Capability | Evidence type |
+| --- | --- |
+| Dependency ownership | Contract |
+| Vector mutations | Contract |
+| Weight EFT API | Contract |
+| Signed publication preparation | Contract, not a release signature |
+| Runtime relationship provenance | Contract |
+| Graph impact selection | Contract |
+| Installed RuVector workflow | Integration |
+| Persistent scoped memory and native retrieval after process restart | Integration |
+| Local harness execution, persisted result retrieval and resumed task | Integration |
+| Fixed held-out task evaluation across harness, memory, native retrieval and Weight EFT | Integration |
+
+The current registry has ten checks covering 11 packages; 390 of 401 remain without registered coverage. Seven inventory packages have a registered integration check; this does not establish all combinations. [Persistent memory starter v1](persistent-memory-v1.md), [agent-memory starter v1](persistent-agent-memory-v1.md), and [held-out evaluation starter v1](heldout-agent-memory-v1.md) document the real package compositions and their limits. Passing contracts alone do not establish runtime interoperability.
+
+The graph artifact measurement explains 43 previously isolated nodes, from 138 to 95, a 31.2 percent reduction. Its three required graph and runtime evidence checks pass. This makes the captured annotations ready for review; it does not create new runtime integrations or measure adoption. Global runtime promotion remains rejected.
+
+The ranked queue includes the measured umbrella payload increase of 111,971,638 bytes, floating runtime selectors and remaining isolates. These are proposed work, not completed fixes. No npm download totals, dependency declarations or consumer versions are modified by the loop.
+
+An explicit executor can now turn one current proposal into an isolated, leased candidate worktree with a narrow file allowlist, paired baseline/candidate checks, an exact source patch and a reverse-patch rollback proof. [Candidate work and review](candidate-work.md) explains the separate CLI. It emits a manual PR handoff; the observation loop still never edits or promotes candidates automatically.
+
+## Validation and next work
+
+Regression tests cover traversal and symbolic link rejection, stale evidence, fabricated success, skipped tests, execution timeout, excessive output, deduplication, failure prioritization and bounded iteration. The installed integration test runs two actual cycles and verifies that captured downloads and manifests remain unchanged. CI runs contracts on Node 22 and 24 and requires installed RuVector integration.
+
+The persistent-memory check also runs a separate-process stale-reader race and SIGKILL tests on either side of atomic database replacement. Private reader snapshots prevent shutdown from overwriting a newer successful writer. Exclusive writer ownership and explicit stale-lock recovery apply only to this trusted-local POSIX consumer. Process interruption is tested; power-loss durability and the underlying package outside this wrapper are not. See the [snapshot safety receipt](../../data/ecosystem-memory-atomic.validation.json). This strengthens an existing capability without increasing package coverage or counting an earlier payload saving twice.
+
+[Lifecycle starter v2](persistent-memory-v2.md) adds explicit ID-and-version-fenced update/delete, namespace-wide dimension/capacity checks and insert-only writes. The required check runs real restart, stale mutation, namespace, expired-key and SIGKILL regressions plus the six-process starter. The default two-cycle budget is now 120 seconds to fit the expanded suite; the 300-second hard maximum and failure gates are unchanged. This is a functional-test budget adjustment, not a performance improvement or weakened benchmark threshold.
+
+The ninth check runs the installed HarnessKernel with a bounded local arithmetic worker, persists only successfully verified results, exits, retrieves the first result through the native vector index, then executes a second task with it. Negative checks prove policy denial executes no worker and verification failure publishes no memory. This is deterministic task execution, not LLM reasoning, training improvement or an arbitrary-code sandbox. No consumer dependency is added to make the graph look connected.
+
+Direct memory API calls now reject sparse vector arrays before opening snapshots; writes, updates and retrieval queries share this validation. The identical baseline/candidate regressions verify database bytes remain unchanged and saved records remain retrievable. The JSON CLI already rejected the corresponding null elements. Candidate evaluation also forwards the two exact required harness fixture settings to both sides, without forwarding similarly named credential variables. These fixes deepen existing checks; package coverage is unchanged.
+
+Prior browser validation covered 401 rendered nodes, the original seven capabilities, 95 isolates, package search and neighborhood selection, stale receipt rejection and a 390 pixel mobile viewport without horizontal overflow. It used Chromium 153 through Playwright; the eighth through tenth capabilities have source/receipt tests but await a fresh visual browser pass.
+
+Next, register and execute one real cross package workflow at a time. Expand coverage based on successful tasks and compatibility evidence. No adoption telemetry is collected, and no increase in user adoption is claimed. Existing signing and release gates remain mandatory.
+
+[ADR 493](../../v3/docs/adr/ADR-493-ecosystem-capability-web-and-rsi.md) records the architecture and trust boundaries.
+
+## Final bounded pilot handoff — October 18, 2026
+
+Extreme finite Float32 magnitudes now receive stable unit normalization only at native cosine index/query boundaries. Saved embeddings remain unchanged. Five new regressions exercise restart/update ranking and invalid-vector rejection; the prior source fails four of them. Full installed coverage is 45 passing tests, but the registry still covers only 11 packages through 10 checks. No new package coverage, semantic-quality or speed claim follows from this fix.
+
+The earlier payload saving remains 109377313 bytes (20.9471%) in a fresh paired install. The proposal queue's original regression is a fixed reference, not a claim that this saving is still unimplemented. Local guidance remains 54 roots/40 inventory names; ecosystem source documentation including draft PRs is 45/401. See [the final handoff](final-pilot-2026-10-18.md) for retained improvements, measurements, pending security/release gates and the concrete guidance queue. Automatic promotion remains disabled and the original bounded pilot is not extended.

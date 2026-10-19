@@ -1,0 +1,26 @@
+✔ real isolated candidate fixes failing baseline check and exact reverse patch restores base tree (1795.221224ms)
+✔ rejects stale base, dirty source, unknown proposal, unsafe/control paths and no-op candidates (1096.151032ms)
+✔ atomic lease blocks duplicate writers and fences a replaced owner (566.332402ms)
+✔ expired lease cannot evaluate or be silently stolen; owner can explicitly release (1558.039068ms)
+✔ rejects out-of-scope files, test changes, symbolic links and ignored executable inputs (1396.696038ms)
+✔ forged state, source movement and candidate commits invalidate evaluation (502.803873ms)
+✔ detects candidate changes outside source binding during execution (1196.798223ms)
+✔ failed checks never become successful review evidence (1494.225855ms)
+✔ skipped checks never become successful review evidence (1754.270304ms)
+✔ timed out checks never become successful review evidence (1802.483981ms)
+✔ test subprocess does not inherit unrelated credential environment (1724.727481ms)
+✔ candidate passes exact harness fixture settings to both sides without widening credential forwarding (1298.993469ms)
+✔ hidden protected test with --assume-unchanged is rejected before execution (844.886618ms)
+✔ hidden protected test with --skip-worktree is rejected before execution (1282.620883ms)
+✔ actual bytes and executable modes bind protected source independently of Git stat settings (1192.645341ms)
+✔ owner can release after stale source or committed candidate, without discarding work (535.592601ms)
+✔ precreated review artifact symlinks are not overwritten (1344.605531ms)
+✔ staged additions cannot evade scope and allowed staged additions bind to candidate tree (1466.060641ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22998.778614

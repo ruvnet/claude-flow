@@ -202,8 +202,8 @@ export async function loadRuVector(): Promise<boolean> {
           });
           // Wrap ruvector's VectorDB to match our interface
           return {
-            insert: (embedding: Float32Array, id: string, metadata?: Record<string, unknown>) => {
-              db.insert({ id, vector: embedding, metadata });
+            insert: async (embedding: Float32Array, id: string, metadata?: Record<string, unknown>) => {
+              await db.insert({ id, vector: embedding, metadata });
             },
             search: async (query: Float32Array, k: number = 10) => {
               const results = await db.search({ vector: query, k });
@@ -213,9 +213,9 @@ export async function loadRuVector(): Promise<boolean> {
                 metadata: r.metadata,
               }));
             },
-            remove: (id: string) => {
-              db.delete(id);
-              return true;
+            remove: async (id: string) => {
+              const result = await db.delete(id);
+              return typeof result === 'boolean' ? result : true;
             },
             size: async () => {
               const len = await db.len();

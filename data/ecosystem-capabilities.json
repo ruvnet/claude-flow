@@ -1,0 +1,252 @@
+{
+  "schema": "ruflo-capabilities/v1",
+  "semantics": "Registry entries describe bounded checks, not universal package interoperability. Availability requires a separate environment probe. Download events are not adoption.",
+  "capabilities": [
+    {
+      "id": "heldout-agent-evaluation",
+      "title": "Fixed held-out local task evaluation across harness, memory, native retrieval and Weight EFT",
+      "kind": "integration",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core", "@metaharness/weight-eft"],
+      "checks": ["heldout-agent-evaluation"]
+    },
+    {
+      "id": "persistent-agent-memory",
+      "title": "Bounded local harness task execution with persisted native retrieval after restart",
+      "kind": "integration",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "checks": ["persistent-agent-memory"]
+    },
+    {
+      "id": "persistent-memory-retrieval",
+      "title": "Persisted scoped memory and native vector retrieval across process restart",
+      "kind": "integration",
+      "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "checks": ["persistent-memory-retrieval"]
+    },
+    {
+      "id": "dependency-ownership",
+      "title": "Optional capability dependency ownership",
+      "kind": "contract",
+      "packages": [
+        "claude-flow",
+        "@claude-flow/cli",
+        "@claude-flow/memory",
+        "@ruvector/core",
+        "@ruvector/sona",
+        "@metaharness/weight-eft"
+      ],
+      "checks": [
+        "dependency-ownership"
+      ]
+    },
+    {
+      "id": "vector-mutations",
+      "title": "Awaited vector mutations and fallback",
+      "kind": "contract",
+      "packages": [
+        "@claude-flow/cli",
+        "@ruvector/core"
+      ],
+      "checks": [
+        "vector-mutations"
+      ]
+    },
+    {
+      "id": "weight-eft-api",
+      "title": "Weight EFT export and evaluation API contract",
+      "kind": "contract",
+      "packages": [
+        "@claude-flow/cli",
+        "@metaharness/weight-eft"
+      ],
+      "checks": [
+        "weight-eft-api"
+      ]
+    },
+    {
+      "id": "signed-publication",
+      "title": "Source and signed artifact publication contract",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli"
+      ],
+      "checks": [
+        "signed-publication"
+      ]
+    },
+    {
+      "id": "relationship-provenance",
+      "title": "Runtime relationship evidence validation",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "metaharness",
+        "@ruvector/kge"
+      ],
+      "checks": [
+        "relationship-provenance"
+      ]
+    },
+    {
+      "id": "graph-impact",
+      "title": "Dependency impact, cycle planning and isolated candidate review",
+      "kind": "contract",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "checks": [
+        "graph-impact"
+      ]
+    },
+    {
+      "id": "ruvector-workflow",
+      "title": "Real RuVector ecosystem analysis workflow",
+      "kind": "integration",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "checks": [
+        "ruvector-workflow"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "id": "heldout-agent-evaluation",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core", "@metaharness/weight-eft"],
+      "testFiles": ["scripts/tests/ecosystem-heldout-evaluation.installed.test.mjs"],
+      "sourceFiles": ["scripts/lib/ecosystem-heldout-evaluation.mjs", "scripts/examples/heldout-agent-memory-v1.mjs", "scripts/lib/ecosystem-agent-memory-workflow.mjs", "scripts/examples/persistent-agent-memory-v1.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs"]
+    },
+    {
+      "id": "persistent-agent-memory",
+      "packages": ["@metaharness/harness", "@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "testFiles": ["scripts/tests/ecosystem-agent-memory.installed.test.mjs"],
+      "sourceFiles": ["scripts/lib/ecosystem-agent-memory-workflow.mjs", "scripts/examples/persistent-agent-memory-v1.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs"]
+    },
+    {
+      "id": "persistent-memory-retrieval",
+      "packages": ["@claude-flow/memory", "ruvector", "@ruvector/core"],
+      "testFiles": ["scripts/tests/ecosystem-memory-installed.test.mjs", "scripts/tests/ecosystem-memory-atomic-installed.test.mjs", "scripts/tests/ecosystem-memory-lifecycle-installed.test.mjs", "scripts/tests/ecosystem-memory-snapshot.test.mjs"],
+      "sourceFiles": ["scripts/ecosystem-memory.mjs", "scripts/lib/ecosystem-memory-workflow.mjs", "scripts/lib/ecosystem-memory-snapshot.mjs", "scripts/tests/fixtures/ecosystem-memory-worker.mjs", "scripts/examples/persistent-memory-lifecycle-v2.mjs"]
+    },
+    {
+      "id": "dependency-ownership",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli",
+        "@claude-flow/memory",
+        "@ruvector/core",
+        "@ruvector/sona",
+        "@metaharness/weight-eft"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-runtime-contract.test.mjs",
+        "scripts/tests/slim-opt-in.test.mjs"
+      ],
+      "sourceFiles": [
+        "package.json",
+        "ruflo/package.json",
+        "v3/@claude-flow/cli/package.json",
+        "package-lock.json",
+        "v3/@claude-flow/cli/src/commands/agntcy/runtime.ts"
+      ]
+    },
+    {
+      "id": "vector-mutations",
+      "packages": [
+        "@claude-flow/cli",
+        "@ruvector/core"
+      ],
+      "testFiles": [
+        "scripts/tests/ruvector-native-adapter.test.mjs"
+      ],
+      "sourceFiles": [
+        "v3/@claude-flow/cli/src/ruvector/vector-db.ts"
+      ]
+    },
+    {
+      "id": "weight-eft-api",
+      "packages": [
+        "@claude-flow/cli",
+        "@metaharness/weight-eft"
+      ],
+      "testFiles": [
+        "scripts/tests/weight-eft-api-contract.test.mjs"
+      ],
+      "sourceFiles": [
+        "v3/@claude-flow/cli/src/services/weight-eft.ts"
+      ]
+    },
+    {
+      "id": "signed-publication",
+      "packages": [
+        "ruflo",
+        "claude-flow",
+        "@claude-flow/cli"
+      ],
+      "testFiles": [
+        "scripts/tests/root-publish-capability-parity.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/prepare-scoped-cli.mjs",
+        "scripts/prepare-root-publish.mjs",
+        "v3/@claude-flow/cli/scripts/prepare-publish.mjs"
+      ]
+    },
+    {
+      "id": "relationship-provenance",
+      "packages": [
+        "ruflo",
+        "metaharness",
+        "@ruvector/kge"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-runtime-relationships.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/ecosystem-runtime-relationships.mjs"
+      ]
+    },
+    {
+      "id": "graph-impact",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-connectivity.test.mjs",
+        "scripts/tests/ecosystem-candidate.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/lib/ecosystem-connectivity.mjs",
+        "scripts/lib/ecosystem-candidate.mjs",
+        "scripts/ecosystem-candidate.mjs"
+      ]
+    },
+    {
+      "id": "ruvector-workflow",
+      "packages": [
+        "ruflo",
+        "ruvector",
+        "metaharness"
+      ],
+      "testFiles": [
+        "scripts/tests/ecosystem-analysis-installed.test.mjs"
+      ],
+      "sourceFiles": [
+        "scripts/analyze-ecosystem.mjs",
+        "scripts/lib/ecosystem-ruvector.mjs",
+        "scripts/lib/ecosystem-connectivity.mjs",
+        "scripts/lib/ecosystem-runtime-relationships.mjs"
+      ]
+    }
+  ]
+}

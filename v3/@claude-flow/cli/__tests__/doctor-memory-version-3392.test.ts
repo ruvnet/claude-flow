@@ -45,15 +45,15 @@ describe('#3392 evaluateMemoryPackageVersion', () => {
 });
 
 describe('#3392 cli declares an exact @claude-flow/memory pin', () => {
-  it.each(['dependencies', 'optionalDependencies'] as const)('%s pins memory to one exact version', (field) => {
+  it.each(['optionalDependencies'] as const)('%s pins memory to one exact version', (field) => {
     const spec = pkg[field]?.['@claude-flow/memory'];
     expect(spec, `${field} should declare @claude-flow/memory`).toBeDefined();
     // Exact semver: no range operators, so a cached older copy cannot satisfy it.
     expect(spec).toMatch(/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/);
   });
 
-  it('declares the same pin in both fields (npm lets optionalDependencies win)', () => {
-    expect(pkg.optionalDependencies?.['@claude-flow/memory']).toBe(pkg.dependencies?.['@claude-flow/memory']);
+  it('declares memory only as optional so omission remains supported', () => {
+    expect(pkg.dependencies?.['@claude-flow/memory']).toBeUndefined();
   });
 });
 
@@ -65,6 +65,6 @@ describe('#3392 checkMemoryPackageVersion (real resolution)', () => {
     // can legitimately hold another version), so only the verdict's shape is
     // asserted here; the version comparison itself is covered above.
     expect(['pass', 'warn']).toContain(check.status);
-    expect(check.message).toContain(pkg.dependencies!['@claude-flow/memory']);
+    expect(check.message).toContain(pkg.optionalDependencies!['@claude-flow/memory']);
   });
 });
