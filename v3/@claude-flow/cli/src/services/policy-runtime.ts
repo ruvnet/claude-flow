@@ -5,12 +5,14 @@
 // runtime never uses.
 import {
   AgenticPolicyEngine,
+  POLICY_STATE_VERSION,
   createLegacyCompatibleState,
   type BudgetLimit,
   type CapabilityEnvelope,
   type PolicyApproval,
   type PolicyDecision,
   type PolicyEvidence,
+  type PolicyReceipt,
   type PolicyRequest,
   type PolicyRule,
   type PolicyState,
@@ -28,6 +30,9 @@ import {
   constants as fsConstants,
   existsSync,
   fstatSync,
+  fsyncSync,
+  ftruncateSync,
+  writeSync,
   lstatSync,
   mkdirSync,
   openSync,
@@ -36,20 +41,32 @@ import {
   readlinkSync,
   realpathSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { hostname, userInfo } from 'node:os';
 import { syncPolicyProjection } from '../mods/policy-projection.js';
-import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent } from './policy-ledger-anchor.js';
+import { ATOMIC_JSON_WRITER, type AtomicJsonSource } from './policy-anchor-log.js';
+import { captureArchiveSnapshot, verifyFullPolicyLedger, type ArchiveSnapshot } from './policy-ledger-audit.js';
+import { assessAnchors, policyTrustRoot, recordAnchor, type AnchorEvent, type AnchorEntry } from './policy-ledger-anchor.js';
 
 const POLICY_DIR = join('.claude-flow', 'policy');
 const POLICY_FILE = 'state.json';
 const LOCK_FILE = 'state.lock';
-const LOCK_STALE_MS = 30_000;
+const RECEIPT_ARCHIVE_FILE = 'receipts.ledger.jsonl';
 const LOCK_WAIT_MS = 5_000;
+// #3164: without a bound, `state.receipts` grows forever and every
+// transaction's verify/clone/serialize cost is O(all receipts ever issued) —
+// eventually exceeding LOCK_WAIT_MS and timing out every MCP tool call.
+// Pruned receipts are archived to RECEIPT_ARCHIVE_FILE, never discarded.
+const DEFAULT_LEDGER_RETENTION = 2_000;
+function ledgerRetention(): number {
+  const raw = process.env.CLAUDE_FLOW_POLICY_LEDGER_RETENTION;
+  if (!raw) return DEFAULT_LEDGER_RETENTION;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_LEDGER_RETENTION;
+}
 // A lock is ~170 bytes plus the hostname (at most 255 bytes).
 const LOCK_MAX_BYTES = 1_024;
 // Linux PID namespace of this process, e.g. `pid:[4026531836]`; undefined on
@@ -66,10 +83,10 @@ const BOOT_ID = (() => {
   try { return readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); } catch { return undefined; }
 })();
 
-function paths(projectRoot: string): { dir: string; state: string; lock: string } {
+function paths(projectRoot: string): { dir: string; state: string; lock: string; archive: string } {
   const root = resolve(projectRoot);
   const dir = join(root, POLICY_DIR);
-  return { dir, state: join(dir, POLICY_FILE), lock: join(dir, LOCK_FILE) };
+  return { dir, state: join(dir, POLICY_FILE), lock: join(dir, LOCK_FILE), archive: join(dir, RECEIPT_ARCHIVE_FILE) };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -94,7 +111,7 @@ function isPidAlive(pid: number): boolean {
 /**
  * Reads a lock only if it is a small regular file: never follows a symlink,
  * never blocks on a FIFO or device, never reads more than LOCK_MAX_BYTES.
- * Anything else returns undefined and the caller keeps the mtime rule.
+ * Anything else returns undefined; unknown owners are preserved.
  */
 function readLockFile(lockPath: string): string | undefined {
   if (!lstatSync(lockPath).isFile()) return undefined;
@@ -121,8 +138,8 @@ function readLockFile(lockPath: string): string | undefined {
  * boot and in this PID namespace: anywhere else (a bwrap --unshare-pid
  * sandbox, a container, another machine on a shared filesystem) a live owner
  * also answers ESRCH. Locks without that identity (older ruflo, a crash
- * between create and write, anything unparsable) return false and keep the
- * mtime rule.
+ * between create and write, anything unparsable) return false and require
+ * explicit operator inspection rather than age-only takeover.
  */
 function lockOwnerIsDead(lockPath: string): boolean {
   try {
@@ -151,6 +168,26 @@ function lockOwnerIsDead(lockPath: string): boolean {
   }
 }
 
+/** Serialize dead-owner reclamation across processes. A normal acquirer can
+ * create state.lock after deletion, but the next reclaimer must re-probe that
+ * new owner under this guard. Guard orphans fail closed, requiring explicit
+ * operator recovery after validating their exact recorded owner and nonce.
+ * Unknown/foreign owners are never stolen merely because their mtime aged. */
+function reclaimDeadLock(lockPath: string): void {
+  const guard = `${lockPath}.reclaim`;
+  let fd: number;
+  try { fd = openSync(guard, 'wx', 0o600); } catch { return; }
+  const ownership = JSON.stringify({ pid: process.pid, nonce: randomUUID(), host: hostname(), platform: process.platform, pidns: PID_NAMESPACE, boot: BOOT_ID });
+  try {
+    writeFileSync(fd, ownership);
+    if (lockOwnerIsDead(lockPath)) unlinkSync(lockPath);
+  } catch { /* lock changed, unknown identity, or an inaccessible path */ }
+  finally {
+    closeSync(fd);
+    try { if (readLockFile(guard) === ownership) unlinkSync(guard); } catch { /* preserve an unknown guard */ }
+  }
+}
+
 /**
  * Exported for ADR-406 mission storage, which takes the same per-file lock
  * (pid, pid namespace and boot id identify a dead owner) rather than a copy.
@@ -160,27 +197,27 @@ export async function acquireLock(lockPath: string): Promise<() => void> {
   while (Date.now() - started < LOCK_WAIT_MS) {
     try {
       const fd = openSync(lockPath, 'wx', 0o600);
-      writeFileSync(fd, JSON.stringify({
+      const ownership = JSON.stringify({
         pid: process.pid,
         acquiredAt: Date.now(),
         host: hostname(),
         platform: process.platform,
         pidns: PID_NAMESPACE,
         boot: BOOT_ID,
-      }));
-      closeSync(fd);
+        nonce: randomUUID(),
+      });
+      try { writeFileSync(fd, ownership); } finally { closeSync(fd); }
       return () => {
-        try { unlinkSync(lockPath); } catch { /* already released */ }
+        try { if (readLockFile(lockPath) === ownership) unlinkSync(lockPath); } catch { /* already released */ }
       };
     } catch {
-      try {
-        if (lockOwnerIsDead(lockPath)
-          || Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS) unlinkSync(lockPath);
-      } catch { /* another process changed the lock */ }
+      reclaimDeadLock(lockPath);
       await sleep(10);
     }
   }
-  throw new Error('policy-state-lock-timeout');
+  throw new Error(lockOwnerIsDead(lockPath)
+    ? 'policy-state-lock-timeout: dead owner; inspect exact owner of state.lock.reclaim before explicit recovery'
+    : 'policy-state-lock-timeout');
 }
 
 // #3398: Windows rename over a file another process holds open fails with
@@ -190,23 +227,100 @@ export async function acquireLock(lockPath: string): Promise<() => void> {
 const RENAME_RETRY_DELAYS_MS = [25, 50, 100, 150, 250, 300, 400];
 const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
 
+function mkdirDurably(dir: string): void {
+  if (existsSync(dir)) return;
+  const parent = dirname(dir);
+  if (parent !== dir) mkdirDurably(parent);
+  try { mkdirSync(dir, { mode: 0o700 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+  syncDirectory(parent);
+}
+
+function syncDirectory(dir: string): void {
+  // Windows does not expose directory fsync through Node. File sync and
+  // atomic rename still apply there; POSIX failures must reach the caller.
+  if (process.platform === 'win32') return;
+  const fd = openSync(dir, fsConstants.O_RDONLY | (fsConstants.O_DIRECTORY ?? 0));
+  try { fsyncSync(fd); } finally { closeSync(fd); }
+}
+
+/** Recover only an incomplete, unacknowledged final append. All inspection,
+ * truncation, append and sync use the same nofollow regular-file descriptor. */
+function appendArchiveDurably(file: string, receipts: PolicyReceipt[], verifier: AgenticPolicyEngine): void {
+  const fd = openSync(file, fsConstants.O_RDWR | fsConstants.O_CREAT
+    | (fsConstants.O_NOFOLLOW ?? 0) | (fsConstants.O_NONBLOCK ?? 0), 0o600);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) throw new Error('policy-ledger-archive-not-regular');
+    const limit = 64 * 1024;
+    const start = Math.max(0, stat.size - limit);
+    const buffer = Buffer.alloc(stat.size - start);
+    if (readSync(fd, buffer, 0, buffer.length, start) !== buffer.length) throw new Error('policy-ledger-archive-short-read');
+    let end = stat.size;
+    const lastNewline = buffer.lastIndexOf(10);
+    if (buffer.length && buffer[buffer.length - 1] !== 10) {
+      if (lastNewline < 0 && start > 0) throw new Error('policy-ledger-archive-tail-too-large');
+      const fragmentBytes = buffer.subarray(lastNewline + 1);
+      const fragment = fragmentBytes.toString('utf8');
+      try { JSON.parse(fragment); throw new Error('policy-ledger-archive-unterminated-record'); }
+      catch (error) { if (!(error instanceof SyntaxError)) throw error; }
+      // A parse failure alone grants no repair authority: the bytes must
+      // be an exact prefix of a receipt still available in the verified hot
+      // state and being retried by this prune.
+      if (!fragmentBytes.length || !receipts.some(receipt => {
+        const expected = Buffer.from(JSON.stringify(receipt));
+        return fragmentBytes.length < expected.length && expected.subarray(0, fragmentBytes.length).equals(fragmentBytes);
+      })) {
+        throw new Error('policy-ledger-archive-unrecoverable-tail');
+      }
+      end = start + lastNewline + 1;
+    }
+    const complete = buffer.subarray(0, end - start).toString('utf8');
+    const usable = start === 0 ? complete : complete.slice(complete.indexOf('\n') + 1);
+    for (const line of usable.split('\n')) {
+      if (!line.trim()) continue;
+      let record: unknown;
+      try { record = JSON.parse(line); } catch { throw new Error('policy-ledger-archive-parse-error'); }
+      if (verifier.verifyReceipt(record)) throw new Error('policy-ledger-archive-conflict');
+    }
+    if (end < stat.size) { ftruncateSync(fd, end); fsyncSync(fd); }
+    const bytes = Buffer.from(`${receipts.map(receipt => JSON.stringify(receipt)).join('\n')}\n`);
+    let written = 0;
+    while (written < bytes.length) {
+      const count = writeSync(fd, bytes, written, bytes.length - written, end + written);
+      if (!count) throw new Error('policy-ledger-archive-short-write');
+      written += count;
+    }
+    fsyncSync(fd);
+    syncDirectory(dirname(file));
+  } finally { closeSync(fd); }
+}
+
 async function writeJsonAtomic(file: string, value: unknown): Promise<void> {
-  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  mkdirDurably(dirname(file));
   const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
   let renamed = false;
   try {
-    writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+    const fd = openSync(temporary, 'wx', 0o600);
+    try {
+      if (value && typeof (value as AtomicJsonSource)[ATOMIC_JSON_WRITER] === 'function') (value as AtomicJsonSource)[ATOMIC_JSON_WRITER](fd);
+      else writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`);
+      fsyncSync(fd);
+    } finally { closeSync(fd); }
     for (let attempt = 0; ; attempt++) {
       try {
         renameSync(temporary, file);
         renamed = true;
-        return;
+        break;
       } catch (error) {
         const code = (error as NodeJS.ErrnoException)?.code ?? '';
         if (!TRANSIENT_RENAME_CODES.has(code) || attempt >= RENAME_RETRY_DELAYS_MS.length) throw error;
         await sleep(RENAME_RETRY_DELAYS_MS[attempt]);
       }
     }
+    // A post-rename sync failure is a publication failure, not a rename
+    // failure. Never retry with a temporary file already consumed by rename.
+    syncDirectory(dirname(file));
   } finally {
     if (!renamed) {
       try { unlinkSync(temporary); } catch { /* never created or already gone */ }
@@ -225,8 +339,10 @@ function trustKey(projectRoot: string, create: boolean): Buffer | undefined {
   const { key } = trustPaths(projectRoot);
   if (!existsSync(key)) {
     if (!create) return undefined;
-    mkdirSync(dirname(key), { recursive: true, mode: 0o700 });
-    writeFileSync(key, randomBytes(32), { mode: 0o600, flag: 'wx' });
+    mkdirDurably(dirname(key));
+    const fd = openSync(key, 'wx', 0o600);
+    try { writeFileSync(fd, randomBytes(32)); fsyncSync(fd); } finally { closeSync(fd); }
+    syncDirectory(dirname(key));
   }
   const material = readFileSync(key);
   if (material.length !== 32) throw new Error('invalid-policy-trust-key');
@@ -258,11 +374,12 @@ async function writePolicyState(
   state: PolicyState,
   anchorEvent: AnchorEvent = 'append',
   by?: string,
+  assessedTip?: AnchorEntry,
 ): Promise<void> {
   await writePolicyStateFiles(projectRoot, statePath, state);
   // #3602: the second anchor is written after the state, so a crash leaves the
   // state AHEAD of the log (caught up on the next write), never behind it.
-  await recordAnchor(projectRoot, state, writeJsonAtomic, anchorEvent, by);
+  await recordAnchor(projectRoot, state, writeJsonAtomic, anchorEvent, by, writeJsonAtomic, assessedTip);
   // ADR-404: the ruflo mod reads Claude Code tool rules from a small
   // projection, never from state.json. Written only after the state and its
   // anchor are safely down; a failure here never fails the state write. A
@@ -337,7 +454,7 @@ export function loadPolicyState(projectRoot = process.cwd()): PolicyState {
     return createLegacyCompatibleState(detectLegacyCapabilities(projectRoot));
   }
   const parsed = JSON.parse(readFileSync(target.state, 'utf8')) as PolicyState;
-  if (parsed.version !== 1 || !Array.isArray(parsed.rules) || !Array.isArray(parsed.receipts)) {
+  if ((parsed.version !== 1 && parsed.version !== POLICY_STATE_VERSION) || !Array.isArray(parsed.rules) || !Array.isArray(parsed.receipts)) {
     throw new Error(`unsupported-policy-state-version:${String(parsed.version)}`);
   }
   verifyStateAnchor(projectRoot, parsed);
@@ -362,7 +479,7 @@ export async function autoMigratePolicyStateIfNeeded(projectRoot = process.cwd()
   // acquire policy state merely because `ruflo --version` ran there.
   if (!existsSync(join(resolve(projectRoot), '.claude-flow'))
     && !existsSync(join(resolve(projectRoot), '.swarm'))) return { migrated: false };
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
   const release = await acquireLock(target.lock);
   try {
     if (!existsSync(target.state)) {
@@ -388,7 +505,7 @@ export async function withPolicyTransaction<T>(
   } = {},
 ): Promise<T> {
   const target = paths(projectRoot);
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
   const release = await acquireLock(target.lock);
   try {
     const loaded = loadPolicyState(projectRoot);
@@ -407,9 +524,29 @@ export async function withPolicyTransaction<T>(
         : gate.result.error ?? 'policy-ledger-verification-failed');
     }
     const result = await operation(engine);
-    if (!engine.verifyLedger().valid) throw new Error('policy-ledger-verification-failed');
+    const verified = engine.verifyLedger();
+    if (!verified.valid) throw new Error('policy-ledger-verification-failed');
+    // Only archive the prefix already committed in loaded state. Archiving
+    // newly generated receipts before their first state publication would
+    // leave conflicting same-sequence records when a failed operation is
+    // retried with a different timestamp/request. Retention=0 and large
+    // batches therefore retain this transaction's new receipts until a
+    // subsequent transaction can archive their exact committed bytes.
+    const newlyAppended = verified.length - ((loaded.retainedFrom ?? 0) + loaded.receipts.length);
+    const pruned = engine.pruneReceipts(Math.max(ledgerRetention(), newlyAppended));
+    // #3164: archive BEFORE writing the shrunk state. If the process crashes
+    // between the two writes, the archive append already landed but
+    // `retainedFrom` on disk still reflects the pre-prune length, so the next
+    // prune recomputes and re-appends the SAME receipts — a harmless,
+    // detectable duplicate (same sequence, identical content), deduped by
+    // `verifyPolicyLedger({ full: true })`. The reverse order (state first)
+    // would instead risk a permanent gap if the process died in between,
+    // which is strictly worse for an audit ledger — never reorder this.
+    if (pruned.length > 0) {
+      appendArchiveDurably(target.archive, pruned, engine);
+    }
     const nextState = engine.exportState();
-    await writePolicyState(projectRoot, target.state, nextState, gate.event);
+    await writePolicyState(projectRoot, target.state, nextState, gate.event, undefined, gate.anchorTip);
     return result;
   } finally {
     release();
@@ -484,6 +621,7 @@ interface Reconciled {
   result: PolicyLedgerVerification;
   persist: boolean;
   event?: AnchorEvent;
+  anchorTip?: AnchorEntry;
 }
 
 /**
@@ -498,7 +636,9 @@ function reconcileLedger(
   options: { establishAnchor?: boolean },
 ): Reconciled {
   const state = engine.exportState();
-  const length = state.receipts.length;
+  // #3164: the historical length includes anything pruned out of the hot
+  // array — `length` here must keep meaning "total receipts ever issued".
+  const length = (state.retainedFrom ?? 0) + state.receipts.length;
   const primary = typeof state.ledgerLength === 'number';
   const base = engine.verifyLedger();
   const fail = (error: string): Reconciled => ({ result: { valid: false, length, error }, persist: false });
@@ -511,7 +651,7 @@ function reconcileLedger(
         ? { result: { ...base, secondaryAnchor: 'established-explicitly' }, persist: true, event: 'establish-anchor' }
         : { result: { ...base, secondaryAnchor: 'recorded-from-state' }, persist: true, event: 'migrated-from-state' };
     }
-    return { result: base, persist: assessed.kind === 'ok' && assessed.behind, event: 'append' };
+    return { result: base, persist: assessed.kind === 'ok' && assessed.behind, event: 'append', anchorTip: assessed.kind === 'ok' ? assessed.last : undefined };
   }
   // No primary anchor.
   if (length === 0) return { result: { valid: true, length, state: 'empty' }, persist: false };
@@ -519,7 +659,7 @@ function reconcileLedger(
     // The second anchor is authentic and agrees with the chain: the deleted
     // primary can be restored from it. Truncation was already rejected above.
     engine.verifyLedger({ establishAnchor: true });
-    return { result: { valid: true, length, secondaryAnchor: 'restored-primary' }, persist: true, event: 'append' };
+    return { result: { valid: true, length, secondaryAnchor: 'restored-primary' }, persist: true, event: 'append', anchorTip: assessed.last };
   }
   if (options.establishAnchor) {
     const established = engine.verifyLedger({ establishAnchor: true });
@@ -540,25 +680,44 @@ function reconcileLedger(
  */
 export async function verifyPolicyLedger(
   projectRoot = process.cwd(),
-  options: { establishAnchor?: boolean } = {},
+  options: { establishAnchor?: boolean; full?: boolean } = {},
 ): Promise<PolicyLedgerVerification> {
   const target = paths(projectRoot);
-  mkdirSync(target.dir, { recursive: true, mode: 0o700 });
+  mkdirDurably(target.dir);
+  const engineOptions = {
+    signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
+    keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
+  };
+  let outcomeResult: PolicyLedgerVerification;
+  let snapshotState: PolicyState;
+  let archiveSnapshot: ArchiveSnapshot | undefined;
+  // Capture the verified hot state and a checked regular archive descriptor
+  // plus immutable byte boundary under the writer lock. Historical read,
+  // authentication, deduplication and replay all happen after release, using
+  // bounded chunks and private disposable disk scratch instead of O(history)
+  // strings, receipt arrays or maps. The descriptor pins path replacements.
   const release = await acquireLock(target.lock);
   try {
-    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), {
-      signingKey: process.env.CLAUDE_FLOW_POLICY_SIGNING_KEY,
-      keyId: process.env.CLAUDE_FLOW_POLICY_KEY_ID,
-    });
+    const engine = AgenticPolicyEngine.fromState(loadPolicyState(projectRoot), engineOptions);
     const outcome = reconcileLedger(projectRoot, engine, options);
     if (outcome.persist) {
       const by = outcome.event === 'establish-anchor' ? userInfo().username : undefined;
-      await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by);
+      await writePolicyState(projectRoot, target.state, engine.exportState(), outcome.event, by, outcome.anchorTip);
     }
-    return outcome.result;
+    outcomeResult = outcome.result;
+    snapshotState = engine.exportState();
+    if (options.full && outcomeResult.valid) {
+      try { archiveSnapshot = captureArchiveSnapshot(target.archive); }
+      catch (error) { outcomeResult = { valid: false, length: outcomeResult.length, error: (error as Error).message }; }
+    }
   } finally {
     release();
   }
+  if (!options.full || !outcomeResult.valid) return outcomeResult;
+  try {
+    const full = await verifyFullPolicyLedger(archiveSnapshot, snapshotState, engineOptions);
+    return { ...full, secondaryAnchor: outcomeResult.secondaryAnchor };
+  } finally { if (archiveSnapshot !== undefined) closeSync(archiveSnapshot.fd); }
 }
 
 /**

@@ -53,6 +53,22 @@ describe('validateEnv (audit_1776853149979)', () => {
       'GIT_SSH_COMMAND',
       'BASH_ENV',
       'IFS',
+      // dream-cycle 2026-10-16: 2026-09-21 covered Python/Perl/Ruby/git/shell
+      // search-path vars but missed credential vars in the same git family,
+      // interpreter-flag-injection vars for Perl/Ruby/Java, and two more
+      // search-path vars. See validate-input.ts's denylist comment for the
+      // source grading behind each of these.
+      'GIT_ASKPASS',
+      'GIT_PROXY_COMMAND',
+      'GIT_CONFIG_NOSYSTEM',
+      'PERL5OPT',
+      'RUBYOPT',
+      'JAVA_TOOL_OPTIONS',
+      '_JAVA_OPTIONS',
+      'JDK_JAVA_OPTIONS',
+      'PYTHONHOME',
+      'CLASSPATH',
+      'PYTHONSTARTUP',
     ];
 
     for (const name of denylisted) {
@@ -69,7 +85,7 @@ describe('validateEnv (audit_1776853149979)', () => {
     // are case-insensitive, so `path`/`Path` must be denylisted the same as
     // `PATH` even though they're distinct object keys here.
     describe('case-insensitive denylist match', () => {
-      const caseVariants = ['path', 'Path', 'PaTh', 'node_options', 'Node_Options'];
+      const caseVariants = ['path', 'Path', 'PaTh', 'node_options', 'Node_Options', 'git_askpass', 'Java_Tool_Options'];
 
       for (const name of caseVariants) {
         it(`rejects ${name}`, () => {
@@ -79,6 +95,29 @@ describe('validateEnv (audit_1776853149979)', () => {
           expect(r.sanitized).toEqual({});
         });
       }
+    });
+
+    // dream-cycle 2026-10-16: git's numbered runtime-config-injection family
+    // (GIT_CONFIG_COUNT / GIT_CONFIG_KEY_<n> / GIT_CONFIG_VALUE_<n>) lets a
+    // caller set arbitrary git config (core.sshCommand, core.hooksPath,
+    // http.*, …) at runtime — strictly broader than any single fixed name,
+    // so it's matched by pattern rather than exact Set membership.
+    describe('GIT_CONFIG_* numbered family (pattern match)', () => {
+      const names = ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'GIT_CONFIG_KEY_12', 'git_config_key_3'];
+
+      for (const name of names) {
+        it(`rejects ${name}`, () => {
+          const r = validateEnv({ [name]: 'x' });
+          expect(r.valid).toBe(false);
+          expect(r.error).toContain('denylisted');
+          expect(r.sanitized).toEqual({});
+        });
+      }
+
+      it('does not reject an unrelated GIT_CONFIG-prefixed name', () => {
+        const r = validateEnv({ GIT_CONFIGURATION_PROFILE: 'x' });
+        expect(r.valid).toBe(true);
+      });
     });
   });
 

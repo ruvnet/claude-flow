@@ -117,7 +117,7 @@ importers:
   '@claude-flow/cli':
     dependencies:
       '@claude-flow/cli-core':
-        specifier: 3.7.3
+        specifier: 3.7.4
         version: link:../cli-core
       '@claude-flow/codex':
         specifier: 3.0.5
@@ -214,8 +214,8 @@ importers:
         specifier: 3.0.5
         version: link:../memory
       '@metaharness/darwin':
-        specifier: ~0.10.2
-        version: 0.10.2
+        specifier: ~0.12.0
+        version: 0.12.0
       '@metaharness/flywheel':
         specifier: ~0.1.10
         version: 0.1.10
@@ -1766,8 +1766,8 @@ packages:
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
     dev: false
 
-  /@metaharness/darwin@0.10.2:
-    resolution: {integrity: sha512-Glczy9YJDLf5x4HlfVuQVbZuPuue45K+8ohfLixZPJ18oc0Q8RR+BcsopHUQsL4hBkvs3YPXUyZ16piDJQp4gw==}
+  /@metaharness/darwin@0.12.0:
+    resolution: {integrity: sha512-opUL/Ho/48I0HWs+eSePVkrl1O9F+MreFakw2nYJGT5tG92DtOSmeFcpzLAEWt5Rnr5xNFZ0Ieg0RMKRhUyqiw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true

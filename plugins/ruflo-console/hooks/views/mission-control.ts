@@ -56,7 +56,7 @@ function skillRows(ctx: Ctx): RenderElement[] {
   })
   const missing = MISSION_SKILLS.filter(skill => !isAvailable(ctx.state, skill)).length
 
-  return section(ctx, 'skills', 'Mission options', `${GOALS_PLUGIN} skills, run in the main Claude UI · ★ suits ${mc.profile}`, [...rows, text(ctx, missing > 0 ? ` ${missing} not offered by this session: install ${GOALS_PLUGIN} (Plugin Catalog), then /reload-plugins` : ` each runs /${GOALS_PLUGIN}:<skill> on the goal now, or prepares it in the prompt box while a turn runs`, { dimColor: true })])
+  return section(ctx, 'skills', 'Mission options', `${GOALS_PLUGIN} skills, run in the main Claude UI · ★ suits ${mc.profile}`, [...rows, ...paragraph(ctx, missing > 0 ? ` ${missing} not offered by this session: install ${GOALS_PLUGIN} (Plugin Catalog), then /reload-plugins` : ` each runs /${GOALS_PLUGIN}:<skill> on the goal now, or prepares it in the prompt box while a turn runs`, { dimColor: true }, ' ')])
 }
 
 function planRows(ctx: Ctx): RenderElement[] {
