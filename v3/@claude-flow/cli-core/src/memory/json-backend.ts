@@ -98,7 +98,7 @@ export class JsonMemoryBackend implements MemoryBackend {
   }
 
   private isExpired(entry: MemoryEntry): boolean {
-    if (!entry.ttlSeconds) return false;
+    if (entry.ttlSeconds === undefined) return false;
     const expiresAt = new Date(entry.storedAt).getTime() + entry.ttlSeconds * 1000;
     return Date.now() >= expiresAt;
   }
