@@ -1767,6 +1767,14 @@ const exportCommand: Command = {
         includeVectors: ctx.flags.includeVectors ?? true,
       });
 
+      // memory_export reports failure as { error } rather than throwing; without
+      // this check the command printed "Exported to undefined" and then crashed
+      // reading result.exported.entries (#4204).
+      if (!result || (result as { error?: string }).error || !result.exported) {
+        output.printError(`Export error: ${(result as { error?: string } | undefined)?.error ?? 'memory_export returned no export summary'}`);
+        return { success: false, exitCode: 1 };
+      }
+
       output.printSuccess(`Exported to ${result.outputPath}`);
       output.printList([
         `Entries: ${result.exported.entries}`,
