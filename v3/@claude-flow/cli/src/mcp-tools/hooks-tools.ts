@@ -4397,12 +4397,12 @@ export const hooksIntelligenceLearn: MCPTool = {
 // Intelligence attention hook
 export const hooksIntelligenceAttention: MCPTool = {
   name: 'hooks_intelligence_attention',
-  description: 'Compute attention-weighted similarity using MoE/Flash/Hyperbolic Use when native Bash hooks (via Claude Code\'s settings.json) are wrong because you need Ruflo-side state — pattern persistence, neural training signals, model-routing learning, cost tracking, audit chain. For one-off shell commands, plain Bash hooks are fine.',
+  description: 'Compute attention-weighted similarity using MoE/Flash. Use when native Bash hooks (via Claude Code\'s settings.json) are wrong because you need Ruflo-side state — pattern persistence, neural training signals, model-routing learning, cost tracking, audit chain. For one-off shell commands, plain Bash hooks are fine.',
   inputSchema: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Query for attention computation' },
-      mode: { type: 'string', description: 'Attention mode (flash, moe, hyperbolic)' },
+      mode: { type: 'string', description: 'Attention mode (flash, moe)' },
       topK: { type: 'number', description: 'Top-k results' },
     },
     required: ['query'],
@@ -4414,6 +4414,12 @@ export const hooksIntelligenceAttention: MCPTool = {
     const startTime = performance.now();
 
     { const v = validateText(query, 'query'); if (!v.valid) return { success: false, error: v.error }; }
+    // #3548: only flash and moe have an implementation. Any other mode
+    // (including the previously advertised 'hyperbolic') used to return an
+    // empty stub whose note blamed a missing package; say so instead.
+    if (mode !== 'flash' && mode !== 'moe') {
+      return { success: false, error: `Attention mode "${mode}" is not implemented; supported modes: flash, moe` };
+    }
 
     let implementation = 'placeholder';
     let embeddingSource: 'onnx' | 'hash-fallback' | 'none' = 'none';
@@ -4593,7 +4599,7 @@ export const hooksIntelligenceAttention: MCPTool = {
         implementation,
         _embeddingSource: embeddingSource,
         _stub: implementation === 'none',
-        _note: implementation === 'none' ? 'No attention backend available. Install @ruvector/attention for real computation.' : undefined,
+        _note: implementation === 'none' ? 'No attention backend available: flash/moe attention from @claude-flow/neural could not be loaded or failed.' : undefined,
         ...(embeddingSource === 'hash-fallback' && implementation !== 'none'
           ? { _embeddingNote: 'Query embeddings are hash-based (not semantic). Install @claude-flow/embeddings for real ONNX embeddings.' }
           : {}),
