@@ -46,6 +46,7 @@ export const policyCommand: Command = {
     { name: 'mode', type: 'string', description: 'Policy mode: legacy | observe | enforce' },
     { name: 'project-root', type: 'string', description: 'Project root containing .claude-flow/policy' },
     { name: 'establish-anchor', type: 'boolean', description: 'verify: explicitly anchor a ledger that has receipts but no anchor (interactive, logged with user and time)' },
+    { name: 'full', type: 'boolean', description: 'verify: additionally replay the archived receipts (receipts.ledger.jsonl) to verify the complete historical chain, not just the retained hot tail' },
   ],
   async action(context: CommandContext): Promise<CommandResult> {
     const args = (context as { args?: string[] }).args ?? [];
@@ -108,8 +109,12 @@ export const policyCommand: Command = {
       }
       if (operation === 'verify') {
         const establishAnchor = flags['establish-anchor'] === true || flags.establishAnchor === true;
+        const full = flags.full === true;
         if (establishAnchor) requireInteractiveAdministrator();
-        const ledger = await verifyPolicyLedger(root, { establishAnchor });
+        const ledger = await verifyPolicyLedger(root, { establishAnchor, full });
+        if (ledger.error === 'receipt-key-id-mismatch') {
+          output.printError('Restore the original CLAUDE_FLOW_POLICY_KEY_ID for this ledger; do not rewrite or re-sign historical receipts.');
+        }
         const result = print({ ...ledger, anchors: anchorPosture(root), scope: LEDGER_TRUST_SCOPE });
         return ledger.valid ? result : { ...result, success: false, exitCode: 1 };
       }

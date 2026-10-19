@@ -124,6 +124,8 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_FORCE_UPDATE',     // Set by --force flag internally, then cleared — not external
   'CLAUDE_FLOW_AUTO_UPDATE',      // Auto-update cadence — env-only documented design
   'RUFLO_DAEMON_LOCK_WAIT_MS',    // How long `daemon start` waits on another start's spawn lock; operator tuning knob, env-only by design (no `daemon start` flag)
+  'CLAUDE_FLOW_POLICY_LEDGER_RETENTION', // Operator policy-writer retention window, shared by CLI and long-lived MCP transactions; no per-request flag owns the writer lifecycle. Pruned receipts remain archived and authenticated (#3164/#3892).
+  'CLAUDE_FLOW_POLICY_AUDIT_MAX_RECORD_BYTES', // Operator memory-safety bound shared by archive preflight and full-audit replay, including MCP calls. Intentionally process-wide, not caller-overridable; validated 1 KiB–64 MiB with an unchanged 16 MiB default (#3892).
 
   // ── Logging / diagnostics ───────────────────────────────────────────────────
   'CLAUDE_FLOW_LOG_LEVEL',
