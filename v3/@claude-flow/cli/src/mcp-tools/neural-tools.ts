@@ -963,9 +963,6 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
-      // Resolve provider so embeddingProvider in the result matches the old
-      // eager-init reporting.
-      await ensureEmbeddings();
       const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
       const targetReduction = (input.targetSize as number) || 0.5;
@@ -976,38 +973,27 @@ export const neuralTools: MCPTool[] = [
       }
 
       const beforeCount = patterns.length;
-      const beforeSize = patterns.reduce((s, p) => s + (p.embedding?.length || 0) * 4, 0); // Float32 = 4 bytes
 
       if (method === 'quantize') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          let totalCompressed = 0;
-          for (const pattern of patterns) {
-            if (pattern.embedding && pattern.embedding.length > 0) {
-              const stats = getQuantizationStats(pattern.embedding);
-              const quantized = quantizeInt8(pattern.embedding);
-              // Store quantized metadata (keep original embedding for search)
-              (pattern as any)._quantized = {
-                scale: quantized.scale,
-                zeroPoint: quantized.zeroPoint,
-                compressionRatio: stats.compressionRatio,
-              };
-              totalCompressed++;
-            }
-          }
-          saveNeuralStore(store);
-          return {
-            success: true, _real: true, method,
-            embeddingProvider: embeddingServiceName,
-            patternsCompressed: totalCompressed,
-            compressionRatio: '3.92x (Int8)',
-            beforeBytes: beforeSize,
-            afterBytes: Math.round(beforeSize / 3.92),
-          };
-        } catch {
-          return { success: false, error: 'Quantization requires memory-initializer. Run `memory init` first.' };
-        }
+        // Neural-store readers consume `embedding` as a full-precision number[]
+        // (search, prediction, deduplication, and optimization). The former
+        // implementation discarded the Int8 vector, persisted only metadata,
+        // and reported a calculated 3.92x reduction. Refuse until the store has
+        // a persisted representation with a reader-side decode contract.
+        const storedBytes = readFileSync(getNeuralPath()).byteLength;
+        return {
+          success: false,
+          error: 'Quantized embeddings are not persisted: neural-store readers require full-precision embedding arrays.',
+          method,
+          patternsCompressed: 0,
+          beforeBytes: storedBytes,
+          afterBytes: storedBytes,
+          compressionRatio: '1.00x (unchanged JSON storage)',
+        };
       }
+
+      // Resolve provider only for operations that actually use embeddings.
+      await ensureEmbeddings();
 
       if (method === 'prune') {
         // Prune patterns with low usage count below threshold (targetReduction as min usage)
@@ -1189,22 +1175,10 @@ export const neuralTools: MCPTool[] = [
         if (duplicatesRemoved > 0) actions.push(`Removed ${duplicatesRemoved} near-duplicate patterns`);
       }
 
-      // memory / balanced: quantize large embeddings
+      // memory / balanced: report the unsupported persisted representation
+      // instead of attaching metadata for a discarded Int8 vector.
       if (target === 'memory' || target === 'balanced') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          for (const p of Object.values(store.patterns)) {
-            if (p.embedding && p.embedding.length > 0 && !(p as any)._quantized) {
-              const stats = getQuantizationStats(p.embedding);
-              const q = quantizeInt8(p.embedding);
-              (p as any)._quantized = { scale: q.scale, zeroPoint: q.zeroPoint, compressionRatio: stats.compressionRatio };
-              patternsQuantized++;
-            }
-          }
-          if (patternsQuantized > 0) actions.push(`Quantized ${patternsQuantized} pattern embeddings (Int8, ~3.92x)`);
-        } catch {
-          actions.push('Quantization skipped (memory-initializer not available)');
-        }
+        actions.push('Quantization skipped: neural-store readers require persisted full-precision embedding arrays.');
       }
 
       // accuracy / balanced: prune low-usage, zero-embedding patterns

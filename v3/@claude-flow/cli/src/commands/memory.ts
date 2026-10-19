@@ -1836,6 +1836,9 @@ const importCommand: Command = {
 
     try {
       const result = await callMCPTool<{
+        success?: boolean;
+        error?: string;
+        failed?: number;
         inputPath: string;
         imported: {
           entries: number;
@@ -1850,6 +1853,22 @@ const importCommand: Command = {
         namespace: ctx.flags.namespace,
         dbPath: resolveDbPath(ctx.flags.path as string | undefined),
       });
+
+      // memory_import reports a bad file as { error } rather than throwing, and
+      // a partial write as { success: false, error, imported }. Without this the
+      // command printed "Imported from undefined" and crashed on result.imported,
+      // or reported success for an import that dropped entries.
+      const failure = (result as { error?: string } | undefined)?.error;
+      if (!result || failure || result.success === false || !result.imported) {
+        output.printError(`Import error: ${failure ?? 'memory_import returned no import summary'}`);
+        if (result?.imported) {
+          output.printList([
+            `Entries imported: ${result.imported.entries}`,
+            `Failed: ${result.failed ?? 'unknown'}`,
+          ]);
+        }
+        return { success: false, exitCode: 1 };
+      }
 
       output.printSuccess(`Imported from ${result.inputPath}`);
       output.printList([
