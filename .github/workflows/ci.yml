@@ -86,7 +86,13 @@ jobs:
         # (Complements, not duplicates, the codex package-lock.json fix
         # above it in history — that made npm ci link the package for
         # codex at all; this makes the linked package actually runnable.)
-        run: npm run build --workspace=@claude-flow/security
+        # @claude-flow/codex is linked the same way and needs its dist/ too:
+        # the cli's team runner loads @claude-flow/codex/dual-mode at run
+        # time, and team-run*.test.ts / team-hosts.test.ts exercise it from
+        # this root install. security first: codex's tsc reads its types.
+        run: |
+          npm run build --workspace=@claude-flow/security
+          npm run build --workspace=@claude-flow/codex
 
       - name: Build local @claude-flow/cli-core and overlay onto the installed package
         # dream-cycle 2026-09-21: unlike @claude-flow/security above,
