@@ -113,7 +113,9 @@ const QUOTED = /(["'\x60])((?:(?!\1)[^\n]){1,256})\1/y
 const BARE_VALUE = /[^\s"'\x60,;]{1,256}/y
 const QUERY_VALUE = /[^\s"'\x60,;&]{1,256}/y
 
-/** A secret-named key assigned a literal value: env style, JSON, YAML, code. Values that are calls, references or placeholders do not count. */
+/** A secret-named key assigned a literal value: env style, JSON, YAML, code. Values that are calls, references or placeholders do not count.
+ * A key that is itself a multi-word hyphenated name is an entry's name, not a credential field (an agentdb write is `{ key: name, value: note }`),
+ * so the value is not judged by its key; the secret shapes above still screen the text as a whole (#4202). */
 function assignmentSecret(text: string): boolean {
   let valueEnd = 0
   for (const m of text.matchAll(KEY_NAME)) {
@@ -121,6 +123,10 @@ function assignmentSecret(text: string): boolean {
     const at = m.index + m[0].length
     let back = m.index
     while (back > 0 && m.index - back < 64 && /[A-Za-z0-9_.-]/.test(text.charAt(back - 1))) back--
+    if (hyphenName((text.slice(back, m.index) + m[0]).replace(/["']?\s*[:=]\s*$/, ''))) {
+      valueEnd = at
+      continue
+    }
     const re = /["'\x60]/.test(text.charAt(at)) ? QUOTED : /[?&]/.test(text.charAt(back - 1)) ? QUERY_VALUE : BARE_VALUE
     re.lastIndex = at
     const hit = re.exec(text)

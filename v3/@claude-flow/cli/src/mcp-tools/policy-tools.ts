@@ -48,9 +48,11 @@ export const policyTools: MCPTool[] = [
     category: 'security',
     inputSchema: {
       type: 'object',
-      properties: {},
+      properties: {
+        full: { type: 'boolean', description: 'Also replay the archived receipts to verify the complete historical ledger, not just the retained hot tail (#3164)' },
+      },
     },
-    handler: async (_input, context) => {
+    handler: async (input, context) => {
       const root = typeof context?.projectRoot === 'string' ? context.projectRoot : process.cwd();
       const state = loadPolicyState(root);
       return {
@@ -63,7 +65,7 @@ export const policyTools: MCPTool[] = [
           approvals: state.approvals.length,
           receipts: state.receipts.length,
         },
-        ledger: await verifyPolicyLedger(root),
+        ledger: await verifyPolicyLedger(root, { full: input.full === true }),
       };
     },
   },

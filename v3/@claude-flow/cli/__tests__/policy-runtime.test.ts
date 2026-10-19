@@ -1,7 +1,9 @@
+import './helpers/isolated-policy-trust.js';
+import { policyTrustRoot } from '../src/services/policy-ledger-anchor.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir, userInfo } from 'node:os';
+import { tmpdir } from 'node:os';
 import { createHash, createHmac } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
@@ -34,7 +36,7 @@ function project(): string {
   const projectId = createHash('sha256').update(realpathSync(root)).digest('hex');
   roots.push({
     root,
-    trust: join(userInfo().homedir, '.config', 'ruflo', 'policy-trust', projectId),
+    trust: join(policyTrustRoot(), projectId),
   });
   return root;
 }

@@ -8,6 +8,7 @@
 
 plugins/ruflo-adr/tests/mod.test.ts
 plugins/ruflo-agentdb/tests/fold.test.ts
+plugins/ruflo-agentdb/tests/guard-keys.test.ts
 plugins/ruflo-agentdb/tests/guard-scan.test.ts
 plugins/ruflo-agentdb/tests/import.test.ts
 plugins/ruflo-agentdb/tests/register.test.ts
