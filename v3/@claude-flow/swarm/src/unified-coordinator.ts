@@ -483,6 +483,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     if (task.assignedTo) {
       await this.releaseDomainAgent(task.assignedTo.id);
     }
+    this.releaseStaleTaskOwners(taskId, task.assignedTo?.id);
   }
 
   getTask(taskId: string): TaskDefinition | undefined {
@@ -940,6 +941,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       // duplicate/late completion cannot free an agent already working on a
       // reassigned task.
       void this.releaseDomainAgent(agentId);
+      this.releaseStaleTaskOwners(data.taskId, agentId);
     }
   }
 
@@ -977,6 +979,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         // which may hand the task back to the same agent, so releasing here
         // would race that re-assignment.
         void this.releaseDomainAgent(agentId);
+        this.releaseStaleTaskOwners(data.taskId, agentId);
       }
     }
   }
@@ -1716,6 +1719,26 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         agentId,
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  /**
+   * A task can have more than one AgentState pointing at it after
+   * assignTaskToDomain() retargets a generic reservation: #4245 deliberately
+   * keeps the previous owner busy because a retarget does not prove that
+   * worker stopped executing. Once the task is terminal, however, no other
+   * owner can still be working on it; any remaining currentTask reference is
+   * stale and would keep that agent (and its domain-pool slot) reserved
+   * forever. Clear and release every owner except the terminal reporter.
+   */
+  private releaseStaleTaskOwners(taskId: string, exceptAgentId?: string): void {
+    for (const [agentId, agent] of this.state.agents) {
+      if (agentId === exceptAgentId) continue;
+      if (agent.currentTask?.id !== taskId) continue;
+
+      agent.status = 'idle';
+      agent.currentTask = undefined;
+      void this.releaseDomainAgent(agentId);
     }
   }
 
