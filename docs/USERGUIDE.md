@@ -1683,13 +1683,13 @@ chain.verify(envelope); // true — tamper-evident
 
 ### Documentation
 
-- [Architecture Overview](v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
-- [Getting Started](v3/@claude-flow/guidance/docs/guides/getting-started.md)
-- [Enforcement Gates Tutorial](v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
-- [Proof Audit Trail](v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
-- [Multi-Agent Security](v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
-- [API Quick Reference](v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
-- [Full README](v3/@claude-flow/guidance/README.md)
+- [Architecture Overview](../v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
+- [Getting Started](../v3/@claude-flow/guidance/docs/guides/getting-started.md)
+- [Enforcement Gates Tutorial](../v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
+- [Proof Audit Trail](../v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
+- [Multi-Agent Security](../v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
+- [API Quick Reference](../v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
+- [Full README](../v3/@claude-flow/guidance/README.md)
 
 </details>
 
@@ -2181,8 +2181,8 @@ Workers run automatically based on context, or dispatch manually via MCP tools.
 | **TestGaps** | `testgaps` | Test coverage analysis | Code changes without tests |
 
 ```bash
-npx ruflo@latest worker dispatch --trigger audit --context "./src"
-npx ruflo@latest worker status
+npx ruflo@latest hooks worker dispatch --trigger audit --context "./src"
+npx ruflo@latest hooks worker status
 ```
 
 </details>
@@ -4347,9 +4347,9 @@ The Claims system manages **who is working on what** — whether human or agent.
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `issues list` | See all issues and their status | `npx ruflo@latest issues list` |
-| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --as coder-1` |
-| `issues release` | Release your claim | `npx ruflo@latest issues release #123` |
-| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to reviewer` |
+| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --agent coder:coder-1` |
+| `issues release` | Release your claim | `npx ruflo@latest issues release #123 --agent coder:coder-1` |
+| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to agent:reviewer:reviewer-1` |
 | `issues status` | Update progress on claimed work | `npx ruflo@latest issues status #123 --progress 75` |
 | `issues stealable` | List abandoned/stuck issues | `npx ruflo@latest issues stealable` |
 | `issues steal` | Take over stealable issue | `npx ruflo@latest issues steal #123` |
@@ -4383,12 +4383,10 @@ When you need to pass work to someone else:
 ```bash
 # 1. Request handoff with context
 npx ruflo@latest issues handoff #123 \
-  --to security-architect \
-  --reason "Needs security review" \
-  --progress 80
+  --to agent:security-architect:security-architect-1 \
+  --reason "Needs security review"
 
-# 2. Target accepts handoff
-npx ruflo@latest issues accept #123 --as security-architect
+# 2. Target accepts the handoff through the claims_accept-handoff MCP tool
 
 # 3. Work continues with full context
 ```
@@ -4470,7 +4468,7 @@ The Route system uses **Q-Learning** to automatically assign tasks to the best a
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `route task` | Get agent recommendation | `npx ruflo@latest route task "implement OAuth2"` |
-| `route explain` | Understand routing decision | `npx ruflo@latest route explain "task"` |
+| `hooks explain` | Understand routing decision | `npx ruflo@latest hooks explain -t "task"` |
 | `route coverage` | Route based on test coverage | `npx ruflo@latest route coverage` |
 
 ### Example: Route a Task
@@ -6461,7 +6459,7 @@ const template = getWorkflow('login-basic');
 // { steps: [{action: 'open'}, {action: 'fill'}, ...], variables: [...] }
 ```
 
-📖 [Full Documentation](./v3/@claude-flow/browser/README.md)
+📖 [Full Documentation](../v3/@claude-flow/browser/README.md)
 
 </details>
 
@@ -7711,27 +7709,27 @@ cp -r ./data-backup-v2 ./data
 
 | Module | Description | Docs |
 |--------|-------------|------|
-| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](./v3/@claude-flow/plugins/README.md) |
-| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](./v3/@claude-flow/hooks/) |
-| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](./v3/@claude-flow/memory/) |
-| `@claude-flow/security` | CVE remediation & security patterns | [Source](./v3/@claude-flow/security/) |
-| `@claude-flow/swarm` | 15-agent coordination engine | [Source](./v3/@claude-flow/swarm/) |
-| `@claude-flow/cli` | CLI modernization | [Source](./v3/@claude-flow/cli/) |
-| `@claude-flow/neural` | SONA learning integration | [Source](./v3/@claude-flow/neural/) |
-| `@claude-flow/testing` | TDD London School framework | [Source](./v3/@claude-flow/testing/) |
-| `@claude-flow/mcp` | MCP server & tools | [Source](./v3/@claude-flow/mcp/) |
-| `@claude-flow/embeddings` | Vector embedding providers | [Source](./v3/@claude-flow/embeddings/) |
-| `@claude-flow/providers` | LLM provider integrations | [Source](./v3/@claude-flow/providers/) |
-| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](./v3/@claude-flow/integration/) |
-| `@claude-flow/performance` | Benchmarking & optimization | [Source](./v3/@claude-flow/performance/) |
-| `@claude-flow/deployment` | Release & CI/CD | [Source](./v3/@claude-flow/deployment/) |
-| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](./v3/@claude-flow/shared/) |
-| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](./v3/@claude-flow/browser/README.md) |
+| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](../v3/@claude-flow/plugins/README.md) |
+| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](../v3/@claude-flow/hooks/) |
+| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](../v3/@claude-flow/memory/) |
+| `@claude-flow/security` | CVE remediation & security patterns | [Source](../v3/@claude-flow/security/) |
+| `@claude-flow/swarm` | 15-agent coordination engine | [Source](../v3/@claude-flow/swarm/) |
+| `@claude-flow/cli` | CLI modernization | [Source](../v3/@claude-flow/cli/) |
+| `@claude-flow/neural` | SONA learning integration | [Source](../v3/@claude-flow/neural/) |
+| `@claude-flow/testing` | TDD London School framework | [Source](../v3/@claude-flow/testing/) |
+| `@claude-flow/mcp` | MCP server & tools | [Source](../v3/@claude-flow/mcp/) |
+| `@claude-flow/embeddings` | Vector embedding providers | [Source](../v3/@claude-flow/embeddings/) |
+| `@claude-flow/providers` | LLM provider integrations | [Source](../v3/@claude-flow/providers/) |
+| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](../v3/@claude-flow/integration/) |
+| `@claude-flow/performance` | Benchmarking & optimization | [Source](../v3/@claude-flow/performance/) |
+| `@claude-flow/deployment` | Release & CI/CD | [Source](../v3/@claude-flow/deployment/) |
+| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](../v3/@claude-flow/shared/) |
+| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](../v3/@claude-flow/browser/README.md) |
 
 ### Additional Resources
 
 - [V2 Documentation](./v2/README.md)
-- [Architecture Decisions (ADRs)](./v3/implementation/adrs/)
+- [Architecture Decisions (ADRs)](../v3/implementation/adrs/)
 - [API Reference](./v2/docs/technical/)
 - [Examples](./v2/examples/)
 

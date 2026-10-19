@@ -116,3 +116,21 @@ test('session-end is never dropped by the cap', async () => {
   runShim('session-end', {}, dedupFreeEnv({ ...base, HOOK_SLOW_MS: '100', HOOK_SLOW_OUT: out }), work);
   assert.ok(await waitFor(out), 'session-end ran although the single slot was busy');
 });
+
+test('session-end dedup distinguishes lifecycle events within one session (#4206)', async () => {
+  const work = tmp('rf-lifecycle-');
+  const base = {
+    CLAUDE_PROJECT_DIR: work,
+    RUFLO_HOOK_DEDUP_DIR: path.join(work, 'dedup'),
+    RUFLO_HOOK_TMP_DIR: work,
+    HOOK_SLOW_MS: '50',
+  };
+  const stopOut = path.join(work, 'stop.json');
+  const compactOut = path.join(work, 'compact.json');
+  const stop = { session_id: 'same-session', hook_event_name: 'Stop' };
+  const compact = { session_id: 'same-session', hook_event_name: 'PreCompact' };
+  runShim('session-end', stop, dedupFreeEnv({ ...base, RUFLO_DISABLE_HOOK_DEDUP: '', HOOK_SLOW_OUT: stopOut }), work);
+  assert.ok(await waitFor(stopOut), 'Stop session-end ran');
+  runShim('session-end', compact, dedupFreeEnv({ ...base, RUFLO_DISABLE_HOOK_DEDUP: '', HOOK_SLOW_OUT: compactOut }), work);
+  assert.ok(await waitFor(compactOut), 'PreCompact session-end was not suppressed by Stop');
+});

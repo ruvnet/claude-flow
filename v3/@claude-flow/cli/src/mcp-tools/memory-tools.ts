@@ -12,9 +12,10 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'crypto';
-import type { MCPTool } from './types.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 import { validateIdentifier } from './validate-input.js';
 import { DEFAULT_SEARCH_THRESHOLD, nearMisses } from '../memory/search-defaults.js';
 
@@ -175,7 +176,22 @@ function resolveProjectMemoryDir(claudeProjectsDir: string, projectPathOverride?
   if (projectPathOverride && projectPathOverride.length > 0) {
     sources.push(projectPathOverride);
   } else {
-    sources.push(process.cwd());
+    const project = getProjectCwd();
+    sources.push(project);
+    // Claude Code shares auto-memory across linked Git worktrees under the
+    // main checkout's project slug. Preserve the direct-path match first,
+    // then try the common Git directory's parent. Explicit overrides above
+    // remain authoritative, and non-Git projects need no Git dependency.
+    try {
+      const commonDir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+        cwd: project,
+        encoding: 'utf-8',
+        timeout: 1000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      if (basename(commonDir) === '.git') sources.push(dirname(resolve(project, commonDir)));
+    } catch { /* Git unavailable or not a repository: use the project path */ }
   }
 
   for (const source of sources) {
@@ -244,13 +260,29 @@ function loadLegacyStore(): LegacyMemoryStore | null {
 /**
  * Mark migration as complete
  */
-function markMigrationComplete(): void {
+function markMigrationComplete(counts?: { migrated: number; total: number }): void {
   const legacyDir = resolve(LEGACY_MEMORY_DIR);
   if (!existsSync(legacyDir)) mkdirSync(legacyDir, { recursive: true });
   writeFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), JSON.stringify({
     migratedAt: new Date().toISOString(),
     version: '3.0.0',
+    ...(counts ?? {}),
   }), 'utf-8');
+}
+
+/**
+ * Counts recorded by the migration that wrote the marker, or null when no
+ * marker (or an older marker without counts) is present.
+ */
+function readMigrationCounts(): { migrated: number; total: number } | null {
+  try {
+    const marker = JSON.parse(readFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), 'utf-8'));
+    return typeof marker?.migrated === 'number' && typeof marker?.total === 'number'
+      ? { migrated: marker.migrated, total: marker.total }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -446,7 +478,7 @@ async function ensureInitialized(dbPath?: string): Promise<void> {
           }
 
           console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
-          markMigrationComplete();
+          markMigrationComplete({ migrated, total: Object.keys(legacyStore.entries).length });
         }
       }
     }
@@ -1046,11 +1078,17 @@ export const memoryTools: MCPTool[] = [
     handler: async (input) => {
       const force = input.force as boolean;
 
-      // Remove migration marker if forcing
+      // Remove the migration marker if forcing. hasLegacyStore() checks the marker
+      // beside the legacy store, so that is the one force must clear (#4194);
+      // the old .swarm marker path is cleared too for compatibility.
       if (force) {
-        const markerPath = getMigrationMarkerPath();
-        if (existsSync(markerPath)) {
-          unlinkSync(markerPath);
+        for (const markerPath of [
+          resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)),
+          getMigrationMarkerPath(),
+        ]) {
+          if (existsSync(markerPath)) {
+            unlinkSync(markerPath);
+          }
         }
       }
 
@@ -1064,13 +1102,38 @@ export const memoryTools: MCPTool[] = [
         };
       }
 
+      // A marker beside the store means a migration already ran; ensureInitialized
+      // would move nothing, so say so instead of reporting the store's size.
+      if (!hasLegacyStore()) {
+        return {
+          success: true,
+          message: 'Legacy store already migrated (marker present); nothing was moved. Pass force: true to re-run.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       // Run migration via ensureInitialized
       await ensureInitialized();
 
+      // ensureInitialized swallows errors and records what it moved in the marker.
+      const counts = readMigrationCounts();
+      if (!counts) {
+        return {
+          success: false,
+          message: 'Migration did not complete; no entries were recorded as migrated. See the MCP server log.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       return {
         success: true,
-        message: 'Migration completed',
-        migrated: Object.keys(legacyStore.entries).length,
+        message: counts.migrated === counts.total
+          ? 'Migration completed'
+          : `Migration completed with failures: ${counts.migrated} of ${counts.total} entries migrated`,
+        migrated: counts.migrated,
+        total: counts.total,
         backend: await describeBackend(),
       };
     },
@@ -1161,6 +1224,7 @@ export const memoryTools: MCPTool[] = [
 
       let imported = 0;
       let skipped = 0;
+      const importErrors: string[] = [];
       // #1791.8 — Claude Code's `~/.claude/projects/` accumulates historical
       // project_id directories (truncated forms, sandbox cwds, renamed
       // workspaces) that all contain copies of the same memory files. The
@@ -1205,7 +1269,7 @@ export const memoryTools: MCPTool[] = [
             // #1884 — sanitize key so memory_delete can later remove it. Without
             // this, dangerous chars from frontmatter `name` strand the key.
             const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}`);
-            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true });
+            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true, upsert: true });
             if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
             imported++;
           } else {
@@ -1217,13 +1281,17 @@ export const memoryTools: MCPTool[] = [
               // #1884 — sanitize so any dangerous chars in the heading don't
               // produce keys memory_delete will reject.
               const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}:${sectionTitle.slice(0, 50)}`);
-              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true });
+              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true, upsert: true });
               if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
               imported++;
             }
           }
-        } catch {
+        } catch (err) {
           skipped++;
+          // Say why a file was skipped instead of returning a bare failure (#4197).
+          if (importErrors.length < 5) {
+            importErrors.push(`${memFile.path}: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
 
@@ -1243,6 +1311,7 @@ export const memoryTools: MCPTool[] = [
         skipped,
         duplicatesSkipped,
         excludedByPattern,
+        ...(importErrors.length > 0 ? { errors: importErrors } : {}),
         files: memoryFiles.length,
         projects: projects.size,
         namespace: ns,

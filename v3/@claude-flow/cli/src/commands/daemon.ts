@@ -1294,11 +1294,17 @@ const statusCommand: Command = {
       // its real consent state into daemon-state.json — prefer that when it
       // is the one running.
       let aiWorkersEnabled = status.config.aiWorkersEnabled;
+      // #4238: same for the TTL — a daemon started with `--ttl 0` must not be
+      // reported with this process's 12h default.
+      let ttlMs = status.config.ttlMs;
       if (bgRunning) {
         try {
           const st = JSON.parse(fs.readFileSync(join(projectRoot, '.claude-flow', 'daemon-state.json'), 'utf-8'));
           if (typeof st?.config?.aiWorkersEnabled === 'boolean') {
             aiWorkersEnabled = st.config.aiWorkersEnabled;
+          }
+          if (typeof st?.config?.ttlMs === 'number' && Number.isFinite(st.config.ttlMs)) {
+            ttlMs = st.config.ttlMs;
           }
         } catch { /* no/partial state — fall back to in-process config */ }
       }
@@ -1315,8 +1321,8 @@ const statusCommand: Command = {
           `Status: ${statusIcon} ${statusText}${mode}`,
           `PID: ${displayPid}`,
           status.startedAt ? `Started: ${status.startedAt.toISOString()}` : '',
-          status.config.ttlMs > 0
-            ? `TTL: ${Math.round(status.config.ttlMs / 3600000)}h (self-shutdown)`
+          ttlMs > 0
+            ? `TTL: ${Math.round(ttlMs / 3600000)}h (self-shutdown)`
             : `TTL: ${output.dim('off (runs until stopped)')}`,
           // #2661: surface the AI-consent gate so "why is audit local-only?"
           // is answerable from `daemon status` alone.

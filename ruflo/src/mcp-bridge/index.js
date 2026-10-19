@@ -890,6 +890,7 @@ app.use((req, res, next) => {
 const CORS_ALLOWLIST = (process.env.MCP_CORS_ORIGIN || "*")
   .split(",").map(s => s.trim()).filter(Boolean);
 const CORS_WILDCARD = CORS_ALLOWLIST.length === 1 && CORS_ALLOWLIST[0] === "*";
+app.use((req, res, next) => localBrowserGuard(req, res, next));
 app.use((req, res, next) => {
   const origin = req.get("origin") || "";
   if (CORS_WILDCARD) {
@@ -907,6 +908,43 @@ app.use((req, res, next) => {
 // ---------- Auth middleware ----------
 // No-op in local-only mode (MCP_AUTH_TOKEN unset). Enforces 401 when token is set.
 const MCP_TOKEN = process.env.MCP_AUTH_TOKEN || "";
+
+// ---------- Local-only browser guard (#4226) ----------
+// Binding to loopback does not keep web pages out: any page the user opens
+// can send requests to 127.0.0.1, and a DNS-rebinding page can even make the
+// request look same-origin. CORS only decides whether the page may READ the
+// reply; a "simple" cross-origin POST runs without a preflight. So when there
+// is no MCP_AUTH_TOKEN, refuse requests that a browser sent on behalf of a
+// foreign page:
+//   - the Host header must name a loopback address (stops DNS rebinding);
+//   - a request carrying an Origin header must come from a loopback origin or
+//     from an origin listed explicitly in MCP_CORS_ORIGIN.
+// Native MCP clients (CLI, IDE, curl) send no Origin and a loopback Host.
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+function hostnameOf(value) {
+  try {
+    return new URL(value.includes("://") ? value : `http://${value}`).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+function isLoopbackHostname(hostname) {
+  return LOOPBACK_HOSTNAMES.has(hostname) || hostname.endsWith(".localhost");
+}
+function localBrowserGuard(req, res, next) {
+  if (MCP_TOKEN) return next();
+  if (!isLoopbackHostname(hostnameOf(req.get("host") || ""))) {
+    return res.status(403).json({ error: "forbidden host" });
+  }
+  const origin = req.get("origin");
+  if (origin !== undefined) {
+    const explicitlyAllowed = !CORS_WILDCARD && CORS_ALLOWLIST.includes(origin);
+    if (!explicitlyAllowed && !isLoopbackHostname(hostnameOf(origin))) {
+      return res.status(403).json({ error: "forbidden origin" });
+    }
+  }
+  next();
+}
 function requireAuth(req, res, next) {
   if (req.path === "/health") return next();
   if (!MCP_TOKEN) return next();

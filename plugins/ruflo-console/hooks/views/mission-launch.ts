@@ -3,7 +3,7 @@ import type { RenderElement } from 'claude-code'
 import { activeMission, derive, mcOf, nextTask, progressOf } from '../mission-control'
 import { blocksCreate, blocksGuidance, capabilitiesOf, PLUGIN_NOTES } from '../mission-options'
 import { settingsOf } from '../settings'
-import { clip, col, confirmHere, row, section, text, THEME, type Ctx } from './common'
+import { clip, col, confirmHere, paragraph, row, section, text, THEME, type Ctx } from './common'
 
 type StepState = 'done' | 'next' | 'todo' | 'running' | 'blocked' | 'skip'
 type Step = { id: string; label: string; state: StepState; detail: string; action?: { key: string; label: string; run: () => void } }
@@ -60,7 +60,7 @@ export function launchSteps(ctx: Ctx): Step[] {
     id: 'run',
     label: 'Hand tasks to Claude',
     state: mission === null ? 'todo' : total > 0 && done >= total ? 'done' : isRunning ? 'running' : 'todo',
-    detail: mission === null ? 'after the mission exists' : `${done}/${total} done${mission.paused ? ' · paused' : ''}${next !== null ? ` · next ${next.id} ${clip(next.title, 40)}` : ''}`,
+    detail: mission === null ? 'after the mission exists' : `${done}/${total} done${mission.paused ? ' · paused' : ''}${next !== null ? ` · next ${next.id} ${next.title}` : ''}`,
     ...(next !== null ? { action: { key: 'mc-todo-run', label: ' ▶ run next ', run: () => m.next() } } : {}),
   })
 
@@ -82,17 +82,26 @@ export function launchRows(ctx: Ctx): RenderElement[] {
 
   const steps = launchSteps(ctx)
   const next = steps.find(step => step.state === 'next')
-  const lines = steps.map(step =>
-    row(
-      ctx,
-      [
-        ctx.kit.Text({ bold: step.state === 'next', color: COLOR[step.state], children: ` ${GLYPH[step.state]} ${step.label.padEnd(32)}` }),
-        ctx.kit.Text({ dimColor: step.state !== 'next', wrap: 'truncate-end', children: clip(step.detail, Math.max(16, ctx.columns - 50)) }),
-        ...(step.action === undefined ? [] : [ctx.kit.Button({ key: step.action.key, label: step.action.label, ...(step.state === 'next' && { variant: 'primary' as const }), onPress: step.action.run })]),
-      ],
-      `todo-${step.id}`,
-    ),
-  )
+  // A detail that does not fit beside its label (80 columns in tmux: Claude's guidance note, a screen verdict) wraps on the rows under it
+  // instead of ending in "…" (#3899). The box's border and padding take 4 columns.
+  const inner: Ctx = { ...ctx, columns: ctx.columns - 4 }
+  const lines = steps.flatMap(step => {
+    const button = step.action === undefined ? [] : [ctx.kit.Button({ key: step.action.key, label: step.action.label, ...(step.state === 'next' && { variant: 'primary' as const }), onPress: step.action.run })]
+    const fits = step.detail.length <= inner.columns - 36 - (step.action?.label.length ?? 0)
+
+    return [
+      row(
+        ctx,
+        [
+          ctx.kit.Text({ bold: step.state === 'next', color: COLOR[step.state], children: ` ${GLYPH[step.state]} ${step.label.padEnd(32)} ` }),
+          ...(fits ? [ctx.kit.Text({ dimColor: step.state !== 'next', children: step.detail })] : []),
+          ...button,
+        ],
+        `todo-${step.id}`,
+      ),
+      ...(fits ? [] : paragraph(inner, `   ${step.detail}`, { dimColor: step.state !== 'next' }, '   ')),
+    ]
+  })
 
   return [
     ctx.kit.Box({
