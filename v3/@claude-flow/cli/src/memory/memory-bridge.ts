@@ -2077,9 +2077,94 @@ export async function bridgeGetVectorSearchStatus(
 }
 
 /**
+ * #4203: RaBitQ pre-filter for the bridge's vector search.
+ *
+ * The index yields candidate ids from a 32×-compressed Hamming scan; each is
+ * reranked here with the same exact cosine similarity the exhaustive scan uses,
+ * so scores keep their meaning and only the scanned set shrinks (the candidate
+ * window `k * 2` is then widened 3× by `searchRabitq` itself).
+ *
+ * Returns null whenever the index cannot answer this query — WASM missing, too
+ * few vectors, or an index built for another store/dimension — so the caller
+ * runs its unchanged brute-force scan. Keyword/BM25 recall is unaffected: this
+ * only ever replaces the cosine scan.
+ */
+async function rabitqSearchAndRerank(
+  db: any,
+  queryEmbedding: number[],
+  options: { k: number; threshold: number; namespace?: string; dbPath?: string },
+): Promise<Array<{ id: string; key: string; content: string; score: number; namespace: string }> | null> {
+  try {
+    const { ensureRabitqIndex, searchRabitq } = await import('./rabitq-index.js');
+
+    const ready = await ensureRabitqIndex({ dbPath: options.dbPath, dimensions: queryEmbedding.length });
+    if (!ready) return null;
+
+    const candidates = await searchRabitq(queryEmbedding, {
+      k: options.k * 2,
+      namespace: options.namespace,
+    });
+    if (!candidates || candidates.length === 0) return null;
+
+    // Fetch exactly the candidates (id is the primary key) instead of the
+    // 10k-row full scan; chunked to stay well inside SQLite's parameter limit.
+    const rowsById = new Map<string, { key: string; namespace: string; content: string; score: number }>();
+    const ids = candidates.map(c => c.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const placeholders = chunk.map(() => '?').join(',');
+      const rows: any[] = db.prepare(`
+        SELECT id, key, namespace, content, embedding
+        FROM memory_entries
+        WHERE id IN (${placeholders}) AND ${liveMemoryRowSql()} AND embedding IS NOT NULL
+      `).all(...chunk);
+
+      for (const row of rows) {
+        let embedding: number[];
+        try {
+          embedding = JSON.parse(row.embedding) as number[];
+        } catch {
+          continue;
+        }
+        if (!Array.isArray(embedding) || embedding.length !== queryEmbedding.length) continue;
+        rowsById.set(String(row.id), {
+          key: row.key || String(row.id),
+          namespace: row.namespace || 'default',
+          content: row.content || '',
+          score: cosineSim(queryEmbedding, embedding),
+        });
+      }
+    }
+
+    const results: Array<{ id: string; key: string; content: string; score: number; namespace: string }> = [];
+    for (const candidate of candidates) {
+      const row = rowsById.get(candidate.id);
+      if (!row || row.score < options.threshold) continue;
+      results.push({
+        id: candidate.id.substring(0, 12),
+        key: row.key || candidate.id.substring(0, 15),
+        content: row.content.substring(0, 60) + (row.content.length > 60 ? '...' : ''),
+        score: row.score,
+        namespace: row.namespace,
+      });
+    }
+
+    if (results.length === 0) return null;
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, options.k);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Search AgentDB v3's embedder + SQLite entries via a full-table scan and
  * brute-force cosine similarity. NOT HNSW-accelerated — see #2922. Returns
  * null if unavailable.
+ *
+ * #4203: when a RaBitQ index is available the Hamming-scan candidate set is
+ * reranked exactly instead of scanning the whole table; the exhaustive loop
+ * below stays the fallback, so results and scores keep their meaning.
  */
 export async function bridgeSearchBruteForceCosine(
   queryEmbedding: number[],
@@ -2105,6 +2190,17 @@ export async function bridgeSearchBruteForceCosine(
     const nsFilter = options?.namespace && options.namespace !== 'all'
       ? `AND namespace = ?`
       : '';
+
+    // #4203: try the RaBitQ pre-filter before the exhaustive scan below. A null
+    // result (no index / unavailable / nothing above threshold) falls through
+    // to the unchanged brute-force path.
+    const accelerated = await rabitqSearchAndRerank(ctx.db, queryEmbedding, {
+      k,
+      threshold,
+      namespace: options?.namespace,
+      dbPath,
+    });
+    if (accelerated) return accelerated;
 
     let rows: any[];
     try {
@@ -3730,6 +3826,47 @@ export async function bridgeGetAllEmbeddings(options?: {
     }
 
     return results;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Count the embeddings `bridgeGetAllEmbeddings()` would export (#4203).
+ * RaBitQ's auto-build uses this as its cheap "has the corpus drifted?" probe —
+ * a COUNT instead of re-reading every embedding blob. With `dimensions` it
+ * counts only rows build() would keep, so the drift ratio compares like with
+ * like. Returns null if the bridge is unavailable.
+ */
+export async function bridgeCountEmbeddings(options?: {
+  dimensions?: number;
+  dbPath?: string;
+}): Promise<number | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeCountEmbeddings(options));
+  const registry = await getRegistry(options?.dbPath);
+  if (!registry) return null;
+
+  const ctx = getDb(registry);
+  if (!ctx) return null;
+
+  const dims = options?.dimensions;
+  try {
+    if (dims != null) {
+      try {
+        const row = ctx.db.prepare(
+          `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL AND json_array_length(embedding) = ?`,
+        ).get(dims);
+        return row?.cnt ?? 0;
+      } catch {
+        // JSON1 unavailable in this SQLite build — fall through to the
+        // unfiltered count rather than losing the probe entirely.
+      }
+    }
+
+    const row = ctx.db.prepare(
+      `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL`,
+    ).get();
+    return row?.cnt ?? 0;
   } catch {
     return null;
   }

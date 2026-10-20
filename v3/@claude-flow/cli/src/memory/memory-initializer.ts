@@ -3270,7 +3270,11 @@ export async function searchEntries(options: {
 
     // Try RaBitQ pre-filter first (32× compressed Hamming scan)
     try {
-      const { searchRabitq } = await import('./rabitq-index.js');
+      const { ensureRabitqIndex, searchRabitq } = await import('./rabitq-index.js');
+      // #4203: build/rebuild on demand — without this the index was only ever
+      // populated by the explicit `embeddings_rabitq_build` tool, so this
+      // pre-filter always missed.
+      await ensureRabitqIndex({ dbPath, dimensions: queryEmbedding.length });
       const rabitqCandidates = await searchRabitq(queryEmbedding, { k: limit * 2, namespace: effectiveNamespace });
       if (rabitqCandidates && rabitqCandidates.length > 0) {
         // Rerank candidates with exact cosine similarity from SQLite
