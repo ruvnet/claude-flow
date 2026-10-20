@@ -25,16 +25,16 @@ function makeRepo() {
   return root;
 }
 
-function runVerify(root, manifestPath, env = {}) {
-  return execFileSync(process.execPath, [VERIFY, '--manifest', manifestPath, '--root', root, '--json'], {
+function runVerify(root, manifestPath, env = {}, extraArgs = []) {
+  return execFileSync(process.execPath, [VERIFY, '--manifest', manifestPath, '--root', root, '--json', ...extraArgs], {
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
 }
 
-function runVerifyFailing(root, manifestPath, env = {}) {
+function runVerifyFailing(root, manifestPath, env = {}, extraArgs = []) {
   try {
-    runVerify(root, manifestPath, env);
+    runVerify(root, manifestPath, env, extraArgs);
     assert.fail('verify.mjs was expected to exit non-zero');
   } catch (error) {
     assert.equal(error.status, 1);
@@ -68,8 +68,28 @@ test('external signing key verifies only with the pinned public key', () => {
     assert.equal(unpinned.signature.authenticity, 'external-key');
     assert.equal(unpinned.signature.publicKeyReproducible, false);
 
+    const wrongKey = randomBytes(32).toString('hex');
+    // --public-key takes precedence over a conflicting env var.
+    const flagWins = JSON.parse(runVerify(
+      root,
+      manifestPath,
+      { RUFLO_WITNESS_PUBLIC_KEY: wrongKey },
+      ['--public-key', publicKey]
+    ));
+    assert.equal(flagWins.ok, true);
+    assert.equal(flagWins.signature.pinnedKeyMatches, true);
+
+    const flagLoses = runVerifyFailing(
+      root,
+      manifestPath,
+      { RUFLO_WITNESS_PUBLIC_KEY: publicKey },
+      ['--public-key', wrongKey]
+    );
+    assert.equal(flagLoses.ok, false);
+    assert.equal(flagLoses.signature.pinnedKeyMatches, false);
+
     const wrong = runVerifyFailing(root, manifestPath, {
-      RUFLO_WITNESS_PUBLIC_KEY: randomBytes(32).toString('hex'),
+      RUFLO_WITNESS_PUBLIC_KEY: wrongKey,
     });
     assert.equal(wrong.ok, false);
     assert.equal(wrong.signature.pinnedKeyMatches, false);

@@ -5,7 +5,7 @@
  * Project-agnostic — works without ruflo CLI being installed.
  *
  * Usage:
- *   node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict]
+ *   node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict] [--public-key <hex>]
  *
  * Exit codes:
  *   0  — signature valid + all fixes pass or drift (marker present);
@@ -30,7 +30,7 @@ import { fileSha256, fileContains } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help) {
-  console.log('Usage: node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict]');
+  console.log('Usage: node verify.mjs --manifest <path> [--root <path>] [--source-only] [--json] [--strict] [--public-key <hex>]');
   process.exit(0);
 }
 if (!args.manifest) { console.error('--manifest <path> required'); process.exit(2); }
@@ -46,7 +46,7 @@ const strict = !!args.strict;
 const witness = JSON.parse(readFileSync(manifestPath, 'utf8'));
 
 // ─── signature ────────────────────────────────────────────────────
-const sig = verifySignature(witness);
+const sig = verifySignature(witness, { publicKey: args['public-key'] });
 
 // ─── per-fix marker check ─────────────────────────────────────────
 const allFixes = witness.manifest.fixes;
@@ -139,11 +139,11 @@ if (asJson) {
   if (sig.authenticity === 'self-attested' && !sig.pinnedKeyConfigured) {
     console.log('  WARNING: the signing seed is derived from the public git commit, so this');
     console.log('           signature proves integrity, not authorship. Set');
-    console.log('           RUFLO_WITNESS_PUBLIC_KEY to pin a release key.');
+    console.log('           --public-key or RUFLO_WITNESS_PUBLIC_KEY to pin a release key.');
   }
   if (sig.authenticity === 'external-key' && !sig.pinnedKeyConfigured) {
     console.log('  WARNING: manifest was signed with an external key; verification fails closed');
-    console.log('           until RUFLO_WITNESS_PUBLIC_KEY pins the matching public key.');
+    console.log('           until --public-key or RUFLO_WITNESS_PUBLIC_KEY pins the matching public key.');
   }
   console.log('');
   console.log(`Summary: pass=${summary.pass} drift=${summary.drift} regressed=${summary.regressed} missing=${summary.missing} skipped-generated=${summary.skippedGenerated}`);
@@ -164,13 +164,14 @@ if (asJson) {
 process.exit(ok ? 0 : 1);
 
 // ─── ed25519 helpers ─────────────────────────────────────────────
-function verifySignature(witness) {
+function verifySignature(witness, options = {}) {
   try {
     const recomputed = createHash('sha256').update(JSON.stringify(witness.manifest)).digest('hex');
     const manifestHashOk = recomputed === witness.integrity.manifestHash;
     const authenticity = witness.integrity.authenticity ?? 'self-attested';
     const declaredPublicKey = String(witness.integrity.publicKey ?? '').toLowerCase();
-    const pinnedKey = String(process.env.RUFLO_WITNESS_PUBLIC_KEY ?? '').trim().toLowerCase();
+    // --public-key takes precedence over the RUFLO_WITNESS_PUBLIC_KEY env var.
+    const pinnedKey = String(options.publicKey ?? process.env.RUFLO_WITNESS_PUBLIC_KEY ?? '').trim().toLowerCase();
     const pinnedKeyConfigured = pinnedKey.length > 0;
     const pinnedKeyMatches = pinnedKeyConfigured ? declaredPublicKey === pinnedKey : undefined;
 
@@ -231,7 +232,7 @@ function verifySignature(witness) {
       publicKeyReproducible: false,
       signatureValid: false,
       authenticity: witness?.integrity?.authenticity ?? 'self-attested',
-      pinnedKeyConfigured: Boolean(process.env.RUFLO_WITNESS_PUBLIC_KEY),
+      pinnedKeyConfigured: Boolean(options.publicKey ?? process.env.RUFLO_WITNESS_PUBLIC_KEY),
       verifier: 'node:crypto',
       reason: 'signature-verification-error',
       error: error instanceof Error ? error.message : String(error),

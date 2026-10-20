@@ -56,6 +56,10 @@ node plugins/ruflo-core/scripts/witness/verify.mjs \
 # For a CI hash tripwire, also fail when a file changes but its marker remains.
 node plugins/ruflo-core/scripts/witness/verify.mjs \
   --manifest verification.md.json --source-only --strict
+
+# Authenticity: pin a release public key (the flag wins over the env var).
+node plugins/ruflo-core/scripts/witness/verify.mjs \
+  --manifest verification.md.json --public-key <64-hex-public-key>
 ```
 
 Without `--strict`, marker-preserving SHA drift is reported but exits 0.
