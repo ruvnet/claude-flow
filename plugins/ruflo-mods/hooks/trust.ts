@@ -32,9 +32,14 @@ const RISKY_CALLS: Record<string, string> = {
   'mcp.connect': 'connects MCP servers',
   'session.send': 'sends messages to other agents',
   'config.set': 'changes Claude Code settings',
+  'agent.spawn': 'starts subagents (they run tools)',
+  'agent.register': 'defines agent types the model can start',
+  'prompt.submit': 'submits prompts the model acts on',
+  'session.append': 'adds rows to the conversation',
+  'tool.call': 'runs any tool (Bash included)',
+  'command.run': 'runs slash commands',
   'env.set': 'changes the environment of later hooks and tools',
   'fs.write': 'writes files (settings, hooks, helpers included)',
-  'agent.spawn': 'starts agents with a prompt of its own',
 }
 
 /** Hooks that decide for, or over, everything else. */
@@ -47,23 +52,57 @@ const RISKY_EVENTS: Record<string, string> = {
   'prompt.compose': 'can rewrite the system prompt',
   'prompt.submit': 'can add to or rewrite every prompt you send',
   'agent.spawn': 'can rewrite or answer every agent spawn',
+  'tool.describe': 'can rewrite the tool descriptions the model reads',
+  'session.append': 'can rewrite every row added to the conversation',
+  'prompt.section': 'can rewrite system prompt sections',
+  'prompt.context': 'can rewrite the context added to prompts',
+  'prompt.attachment': 'can rewrite prompt attachments',
+  'skill.prompt': 'can rewrite skill prompts',
+  'session.receive': 'can rewrite or drop messages from other agents',
+  'turn.step': 'can rewrite or answer every model request',
+  'tool.register': 'can rewrite tools other mods register',
+  'session.compact': 'can replace the whole conversation at compaction',
+  'prompt.edit': 'can rewrite what the person types',
+  'attribution.text': 'can rewrite git text the model reads',
+  // Reads other mods decide by: forging them can switch off an enforced policy (the projection reads as absent).
+  'fs.read': "can feed other mods false file contents (ruflo's policy projection included)",
+  'fs.stat': "can hide files from other mods (ruflo's policy projection included)",
+  'fs.exists': 'can hide files from other mods',
+  'fs.list': 'can hide files from other mods',
+  'settings.read': 'can forge the settings other mods decide by',
+  'env.get': 'can forge the environment other mods decide by',
+  'session.root': "can move other mods' project root (ruflo's policy projection read from elsewhere)",
+  'session.cwd': 'can move the directory other mods resolve paths from',
+  'fs.ancestors': 'can hide parent directories from other mods',
+  'command.register': 'can rewrite commands other mods register',
+}
+
+/**
+ * Every call on `$` is also an event a hook above the caller can rewrite or
+ * answer for every other mod, so a hook on a risky call is a risky hook too
+ * (a hook on fs.write can redirect another mod's write; one on env.set can change
+ * the value it sets).
+ */
+const HOOK_RISK: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(RISKY_CALLS).map(([call, does]) => [call, `can rewrite or answer another mod's ${call}, which ${does}`])),
+  ...RISKY_EVENTS,
 }
 
 /**
  * The risky events a registered pattern reaches. The scan reports patterns as
- * written, so a glob (`tool.*`) or a negation (`!tool.describe`: every event
- * but one) must be judged by what it selects, not by how it is spelled.
+ * written, so a glob (`tool.*`) or a negation (`!tool.describe`, every event
+ * but one) must be judged by what it selects, not by its spelling.
  */
 const escapeRe = (text: string) => text.replace(/[.+?^$()|[\]{}\\]/g, '\\$&')
 
 function riskyEventsOf(pattern: string): string[] {
-  if (Object.hasOwn(RISKY_EVENTS, pattern)) return [pattern]
+  if (Object.hasOwn(HOOK_RISK, pattern)) return [pattern]
   if (pattern.startsWith('!')) return ['*']
-  // A settings hook by name, or a glob of them, can answer any of them.
+  // Any settings hook, one by name or a glob of them, can answer it.
   if (pattern.startsWith('classic.')) return ['classic.*']
   if (!pattern.includes('*')) return []
   const glob = new RegExp(`^${pattern.split('*').map(escapeRe).join('.*')}$`)
-  return Object.keys(RISKY_EVENTS).filter(name => name !== '*' && name !== 'classic.*' && glob.test(name))
+  return Object.keys(HOOK_RISK).filter(name => name !== '*' && name !== 'classic.*' && glob.test(name))
 }
 
 const isStrings = (v: unknown): v is readonly string[] => Array.isArray(v) && v.every(s => typeof s === 'string')
@@ -74,7 +113,7 @@ export function riskOf(scan: ModuleScan): string[] {
   const events = isStrings(scan.uses?.events) ? scan.uses.events : []
   return [
     ...calls.filter(c => Object.hasOwn(RISKY_CALLS, c)).map(c => `${c} (${RISKY_CALLS[c]})`),
-    ...events.flatMap(ev => riskyEventsOf(ev).map(name => `on ${ev === name ? ev : `${ev} → ${name}`} (${RISKY_EVENTS[name]})`)),
+    ...events.flatMap(ev => riskyEventsOf(ev).map(name => `on ${ev === name ? ev : `${ev} → ${name}`} (${HOOK_RISK[name]})`)),
   ]
 }
 

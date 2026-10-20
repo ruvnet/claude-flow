@@ -21,6 +21,17 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 export const SCOPE_READ = 'swarm:read';
 export const SCOPE_PUBLISH = 'swarm:publish';
 
+// Standard OIDC scope requesting a refresh_token (RFC 6749 + OIDC Core §11).
+// `auth.cognitum.one` advertises `refresh_token` in grant_types_supported and
+// `offline_access` in scopes_supported (its own discovery doc), but only
+// issues a refresh_token when a client actually requests this scope. Without
+// it, every access token this resource accepts is the only credential a
+// client ever gets, so its own short expiry forces a full browser
+// authorization_code+PKCE dance again each time it lapses. Advertising it
+// here lets a spec-compliant client (RFC 9728: request only scopes this
+// resource says it supports) ask for it and refresh silently instead.
+export const SCOPE_OFFLINE = 'offline_access';
+
 /**
  * RFC 9728 protected-resource metadata. A client that gets a 401 from /mcp reads
  * this to learn which authorization server to go to.
@@ -29,7 +40,7 @@ export function protectedResourceMetadata({ resource, issuer }) {
   return {
     resource,
     authorization_servers: [issuer],
-    scopes_supported: [SCOPE_READ, SCOPE_PUBLISH],
+    scopes_supported: [SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE],
     bearer_methods_supported: ['header'],
     resource_documentation: `${resource}/`,
   };

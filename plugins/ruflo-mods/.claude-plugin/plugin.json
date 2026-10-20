@@ -113,7 +113,7 @@
     "modTrust": {
       "type": "string",
       "title": "Mod trust gate",
-      "description": "How ruflo treats a hooks module installed or hot-reloaded after it (a mod Claude wrote, say). \"observe\" (default): name what it can do (host commands, network, environment, file writes, tool verdicts) in the transcript. \"refuse-risky\": refuse user-tier mods that can do any of those, unless listed in modTrustAllow. \"off\": do not watch.",
+      "description": "How ruflo treats a hooks module installed or hot-reloaded after it (a mod Claude wrote, say). \"observe\" (default): name what it can do (host commands, network, MCP tools, messages to other agents, settings, environment, file writes, starting agents, submitting prompts, running tools; hooks, including globs and negations, on tool verdicts, tool calls, prompts, agent spawns, tool descriptions, the transcript, compaction, model requests, other mods, or the file reads, settings and environment other mods decide by) in the transcript. \"refuse-risky\": refuse user-tier mods that can do any of those, unless listed in modTrustAllow. \"off\": do not watch.",
       "required": false,
       "default": "observe",
       "options": [

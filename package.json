@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "3.57.0",
+  "version": "3.58.1",
   "workspaces": [
     "v3/@claude-flow/codex",
     "v3/@claude-flow/mcp",
@@ -69,7 +69,7 @@
     "v3:security": "npm run security:audit && npm run security:test"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "3.7.3",
+    "@claude-flow/cli-core": "3.7.5",
     "@claude-flow/codex": "3.0.5",
     "@claude-flow/mcp": "3.1.1",
     "@claude-flow/neural": "3.0.0",
@@ -114,6 +114,7 @@
     "js-yaml": ">=4.3.0",
     "hono": ">=4.13.2",
     "@ruvector/rvf-wasm": "0.1.5",
+    "@ruvector/rvf": "0.3.4",
     "@hono/node-server": ">=2.1.1",
     "flatted": ">=3.4.0",
     "tar": ">=7.5.11",

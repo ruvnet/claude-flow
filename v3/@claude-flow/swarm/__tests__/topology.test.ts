@@ -400,6 +400,62 @@ describe('TopologyManager', () => {
       expect(newLeader).toBeDefined();
     });
 
+    it('should promote a replacement queen after the queen dies (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'hierarchical', maxAgents: 5, failoverEnabled: true });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+      await topology.electLeader();
+      expect(topology.getLeader()).toBe('agent-1');
+
+      // Dies while it is the current leader -> removeNode() re-elects internally.
+      await topology.removeNode('agent-1');
+
+      expect(topology.getQueen()).toBeDefined();
+      expect(topology.getQueen()?.agentId).toBe(topology.getLeader());
+      expect(topology.getNode(topology.getLeader()!)?.role).toBe('queen');
+
+      // A subsequent explicit electLeader() call must keep using the O(1)
+      // cached queen, not fall through to the generic ranking again.
+      const reElected = await topology.electLeader();
+      expect(reElected).toBe(topology.getLeader());
+    });
+
+    it('should promote a replacement coordinator after the coordinator dies (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'centralized', maxAgents: 5, failoverEnabled: true });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'coordinator');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+      await topology.electLeader();
+      expect(topology.getLeader()).toBe('agent-1');
+
+      await topology.removeNode('agent-1');
+
+      expect(topology.getCoordinator()).toBeDefined();
+      expect(topology.getCoordinator()?.agentId).toBe(topology.getLeader());
+      expect(topology.getNode(topology.getLeader()!)?.role).toBe('coordinator');
+    });
+
+    it('should NOT auto-promote a replacement when failoverEnabled is false (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'hierarchical', maxAgents: 5, failoverEnabled: false });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'worker');
+      await topology.electLeader();
+
+      await topology.removeNode('agent-1');
+
+      expect(topology.getQueen()).toBeUndefined();
+      // Falls through to the generic ranking path (unchanged pre-existing behavior).
+      expect(topology.getLeader()).toBe('agent-2');
+      expect(topology.getNode('agent-2')?.role).toBe('worker');
+    });
+
     it('should throw error when no nodes available', async () => {
       await expect(
         topology.electLeader()

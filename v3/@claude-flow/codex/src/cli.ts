@@ -704,6 +704,10 @@ program.addCommand(createDualModeCommand());
 import { createLoopCommand } from './loop/cli.js';
 program.addCommand(createLoopCommand());
 
+// Read-only activity from an already-running Codex session.
+import { createActivityCommand } from './activity/cli.js';
+program.addCommand(createActivityCommand());
+
 // Policy-governed worktree isolation for concurrent Codex writers (ADR-324)
 import { CodexWorktreeCoordinator } from './worktrees/index.js';
 const worktree = program.command('worktree').description('Prepare, inspect, integrate, or clean registry-owned Codex swarm worktrees');

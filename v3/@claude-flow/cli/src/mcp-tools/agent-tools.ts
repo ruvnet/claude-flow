@@ -30,6 +30,8 @@ type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'opus-4.7' | 'inherit';
 interface AgentRecord {
   agentId: string;
   agentType: string;
+  /** #4300 — display name given at spawn (`agent spawn --name`). */
+  name?: string;
   status: 'idle' | 'busy' | 'terminated';
   health: number;
   taskCount: number;
@@ -288,6 +290,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         agentType: { type: 'string', description: 'Type of agent to spawn' },
         agentId: { type: 'string', description: 'Optional custom agent ID' },
+        name: { type: 'string', description: 'Optional display name for the agent (shown by agent_list, agent_status and ruflo-console)' },
         // #2085 — accept swarmId so spawned agents register in the
         // swarm.agents array that swarm_status reports. Omit to register
         // with the most-recently-created swarm.
@@ -314,6 +317,18 @@ export const agentTools: MCPTool[] = [
 
       const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const agentType = input.agentType as string;
+      // #4300 — older callers (including `agent spawn` before this fix) send
+      // the name only as metadata.name.
+      const metadata = input.metadata as Record<string, unknown> | undefined;
+      const rawName = input.name ?? metadata?.name;
+      let name: string | undefined;
+      if (rawName !== undefined && rawName !== '') {
+        const vName = validateText(rawName, 'name', 200);
+        if (!vName.valid) {
+          return { success: false, error: `Input validation failed: ${vName.error}` };
+        }
+        name = vName.sanitized;
+      }
       const config = (input.config as Record<string, unknown>) || {};
 
       // Add explicit model to config if provided
@@ -345,6 +360,7 @@ export const agentTools: MCPTool[] = [
       const agent: AgentRecord = {
         agentId,
         agentType,
+        ...(name ? { name } : {}),
         status: 'idle',
         health: 1.0,
         taskCount: 0,
@@ -434,6 +450,7 @@ export const agentTools: MCPTool[] = [
         success: true,
         agentId,
         agentType: agent.agentType,
+        ...(agent.name ? { name: agent.name } : {}),
         model: agent.model,
         modelRoutedBy: routingResult.routedBy,
         ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
@@ -592,6 +609,7 @@ export const agentTools: MCPTool[] = [
         return {
           agentId: agent.agentId,
           agentType: agent.agentType,
+          ...(agent.name ? { name: agent.name } : {}),
           status: agent.status,
           health: agent.health,
           taskCount: agent.taskCount,
@@ -617,6 +635,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         status: { type: 'string', description: 'Filter by status' },
         domain: { type: 'string', description: 'Filter by domain' },
+        agentType: { type: 'string', description: 'Filter by agent type' },
         includeTerminated: { type: 'boolean', description: 'Include terminated agents' },
       },
     },
@@ -627,6 +646,10 @@ export const agentTools: MCPTool[] = [
       }
       if (input.domain) {
         const v = validateIdentifier(input.domain, 'domain');
+        if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
+      }
+      if (input.agentType) {
+        const v = validateIdentifier(input.agentType, 'agentType');
         if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
       }
 
@@ -644,10 +667,16 @@ export const agentTools: MCPTool[] = [
         agents = agents.filter(a => a.domain === input.domain);
       }
 
+      // Filter by agent type
+      if (input.agentType) {
+        agents = agents.filter(a => a.agentType === input.agentType);
+      }
+
       return {
         agents: agents.map(a => ({
           agentId: a.agentId,
           agentType: a.agentType,
+          ...(a.name ? { name: a.name } : {}),
           status: a.status,
           health: a.health,
           taskCount: a.taskCount,
@@ -658,6 +687,7 @@ export const agentTools: MCPTool[] = [
         filters: {
           status: input.status,
           domain: input.domain,
+          agentType: input.agentType,
           includeTerminated: input.includeTerminated,
         },
       };

@@ -18,7 +18,7 @@
     "transport": "streamable_http",
     "authentication": "oauth_2_1",
     "protected_resource_metadata": "https://x.ruv.io/.well-known/oauth-protected-resource/claude/mcp",
-    "scopes": ["swarm:read", "swarm:publish"],
+    "scopes": ["swarm:read", "swarm:publish", "offline_access"],
     "anonymous_reads": true,
     "oauth_required_for_writes": true
   },

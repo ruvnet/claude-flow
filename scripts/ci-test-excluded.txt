@@ -81,8 +81,10 @@ tests/plugins/codex-mod-hooks.test.mjs
 tests/plugins/codex-swarm-hook-manifest.test.mjs
 scripts/__tests__/guard-label.test.mjs
 scripts/__tests__/mod-capability-matrix.test.mjs
+tests/all-plugins-smoke-workflow.test.mjs
 tests/check-guard-tool-names.test.mjs
 tests/check-status-forwarding.test.mjs
+tests/external-plugins.test.mjs
 plugins/ruflo-console/tests/result-display.test.ts
 plugins/ruflo-console/tests/toasts.test.ts
 plugins/ruflo-console/tests/full-text.test.ts
@@ -96,7 +98,9 @@ plugins/ruflo-swarm/tests/toast.test.ts
 plugins/ruflo-mods/tests/protector.test.ts
 plugins/ruflo-mods/tests/selfcheck.test.ts
 plugins/ruflo-testgen/scripts/tdd-repair/tdd-repair.test.mjs
+plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
 plugins/ruflo-core/scripts/background-hooks.test.cjs
 plugins/ruflo-core/scripts/command-recording-switch.test.cjs
 tests/regression/oct12-coverage.test.cjs
 plugins/ruflo-adr/scripts/__tests__/adr-status-forms-4126.test.mjs
+scripts/__tests__/probe-mod-guards.test.mjs

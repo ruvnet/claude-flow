@@ -144,35 +144,47 @@ describe('ModelRouter — Thompson sampling bandit (#1772, ADR-142 bucketed)', (
     expect(router.getBanditPriors('high').haiku).toEqual({ alpha: 9, beta: 2 }); // seeded
   });
 
-  it('converges toward Haiku on a low-complexity workload (~50 trials)', async () => {
+  it('converges toward Haiku on a low-complexity workload (100 seeded trials)', async () => {
     const router = new ModelRouter();
-    let seed = 0x1234567;
-    const rng = () => {
-      seed |= 0;
-      seed = (seed + 0x6D2B79F5) | 0;
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    const seededRandom = (initialSeed: number) => {
+      let seed = initialSeed;
+      return () => {
+        seed |= 0;
+        seed = (seed + 0x6D2B79F5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
     };
+    const rng = seededRandom(0x1234567);
+    // Seed exploration too: the real sampleBeta Gamma/Box-Muller path uses
+    // Math.random. Outcome seeds alone left this finite-horizon assertion
+    // dependent on an unrelated random trajectory (CI failure on #3802).
+    // Independent streams keep sampler rejection counts out of outcome draws.
+    const samplerRandom = vi.spyOn(Math, 'random').mockImplementation(seededRandom(0x2468ace));
 
     const N = 100;
     let haikuPicked = 0;
     let opusPicked = 0;
-    for (let i = 0; i < N; i++) {
-      const complexity = 0.1 + rng() * 0.4; // 0.1 .. 0.5, avg ~0.3
-      const task = `simple task ${i}`;
-      const r = await router.route(task);
-      if (r.model === 'haiku') haikuPicked++;
-      if (r.model === 'opus') opusPicked++;
-      const outcome = syntheticOutcome(r.model as 'haiku' | 'sonnet' | 'opus', complexity, rng);
-      router.recordOutcome(task, r.model, outcome);
-    }
+    try {
+      for (let i = 0; i < N; i++) {
+        const complexity = 0.1 + rng() * 0.4; // 0.1 .. 0.5, avg ~0.3
+        const task = `simple task ${i}`;
+        const r = await router.route(task);
+        if (r.model === 'haiku') haikuPicked++;
+        if (r.model === 'opus') opusPicked++;
+        const outcome = syntheticOutcome(r.model as 'haiku' | 'sonnet' | 'opus', complexity, rng);
+        router.recordOutcome(task, r.model, outcome);
+      }
 
-    const priors = aggregatePriors(router);
-    const meanHaiku  = priors.haiku.alpha  / (priors.haiku.alpha  + priors.haiku.beta);
-    const meanOpus   = priors.opus.alpha   / (priors.opus.alpha   + priors.opus.beta);
-    expect(meanHaiku).toBeGreaterThan(meanOpus);
-    expect(haikuPicked).toBeGreaterThan(opusPicked);
+      const priors = aggregatePriors(router);
+      const meanHaiku  = priors.haiku.alpha  / (priors.haiku.alpha  + priors.haiku.beta);
+      const meanOpus   = priors.opus.alpha   / (priors.opus.alpha   + priors.opus.beta);
+      expect(meanHaiku).toBeGreaterThan(meanOpus);
+      expect(haikuPicked).toBeGreaterThan(opusPicked);
+    } finally {
+      samplerRandom.mockRestore();
+    }
   }, 30_000);
 
   it('does not lock in early — recovers from a bad initial draw', async () => {
