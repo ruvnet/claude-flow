@@ -135,6 +135,16 @@ if (asJson) {
   console.log(`  hash matches:                    ${sig.manifestHashOk ? 'yes' : 'NO'}`);
   console.log(`  public key reproducible:         ${sig.publicKeyReproducible ? 'yes' : 'NO'}`);
   console.log(`  Ed25519 signature valid:         ${sig.signatureValid ? 'yes' : 'NO'}`);
+  console.log(`  authenticity:                    ${sig.authenticity}${sig.pinnedKeyConfigured ? ' (pinned key)' : ''}`);
+  if (sig.authenticity === 'self-attested' && !sig.pinnedKeyConfigured) {
+    console.log('  WARNING: the signing seed is derived from the public git commit, so this');
+    console.log('           signature proves integrity, not authorship. Set');
+    console.log('           RUFLO_WITNESS_PUBLIC_KEY to pin a release key.');
+  }
+  if (sig.authenticity === 'external-key' && !sig.pinnedKeyConfigured) {
+    console.log('  WARNING: manifest was signed with an external key; verification fails closed');
+    console.log('           until RUFLO_WITNESS_PUBLIC_KEY pins the matching public key.');
+  }
   console.log('');
   console.log(`Summary: pass=${summary.pass} drift=${summary.drift} regressed=${summary.regressed} missing=${summary.missing} skipped-generated=${summary.skippedGenerated}`);
   if (summary.regressed > 0) {
@@ -158,26 +168,39 @@ function verifySignature(witness) {
   try {
     const recomputed = createHash('sha256').update(JSON.stringify(witness.manifest)).digest('hex');
     const manifestHashOk = recomputed === witness.integrity.manifestHash;
-    const seed = createHash('sha256')
-      .update(witness.manifest.gitCommit + ':ruflo-witness/v1')
-      .digest();
+    const authenticity = witness.integrity.authenticity ?? 'self-attested';
+    const declaredPublicKey = String(witness.integrity.publicKey ?? '').toLowerCase();
+    const pinnedKey = String(process.env.RUFLO_WITNESS_PUBLIC_KEY ?? '').trim().toLowerCase();
+    const pinnedKeyConfigured = pinnedKey.length > 0;
+    const pinnedKeyMatches = pinnedKeyConfigured ? declaredPublicKey === pinnedKey : undefined;
 
-    // RFC 8410 DER wrappers let Node/OpenSSL derive and verify Ed25519 keys
-    // without a package install. The witness format remains byte-compatible
-    // with manifests produced by @noble/ed25519.
-    const privateKey = createPrivateKey({
-      key: Buffer.concat([
-        Buffer.from('302e020100300506032b657004220420', 'hex'),
-        seed,
-      ]),
-      format: 'der',
-      type: 'pkcs8',
-    });
-    const reproducedKey = createPublicKey(privateKey)
-      .export({ format: 'der', type: 'spki' })
-      .subarray(-32);
-    const publicKeyReproducible =
-      reproducedKey.toString('hex') === witness.integrity.publicKey;
+    // For a legacy self-attested manifest, the public key is reproducible from
+    // the commit. For an external-key manifest, only a caller-supplied pinned
+    // key can establish authenticity; without one verification fails closed.
+    let publicKeyReproducible = false;
+    if (pinnedKeyConfigured) {
+      publicKeyReproducible = pinnedKeyMatches === true;
+    } else if (authenticity === 'self-attested') {
+      const seed = createHash('sha256')
+        .update(witness.manifest.gitCommit + ':ruflo-witness/v1')
+        .digest();
+
+      // RFC 8410 DER wrappers let Node/OpenSSL derive and verify Ed25519 keys
+      // without a package install. The witness format remains byte-compatible
+      // with manifests produced by @noble/ed25519.
+      const privateKey = createPrivateKey({
+        key: Buffer.concat([
+          Buffer.from('302e020100300506032b657004220420', 'hex'),
+          seed,
+        ]),
+        format: 'der',
+        type: 'pkcs8',
+      });
+      const reproducedKey = createPublicKey(privateKey)
+        .export({ format: 'der', type: 'spki' })
+        .subarray(-32);
+      publicKeyReproducible = reproducedKey.toString('hex') === declaredPublicKey;
+    }
 
     const declaredKey = createPublicKey({
       key: Buffer.concat([
@@ -193,12 +216,22 @@ function verifySignature(witness) {
       declaredKey,
       Buffer.from(witness.integrity.signature, 'hex'),
     );
-    return { manifestHashOk, publicKeyReproducible, signatureValid, verifier: 'node:crypto' };
+    return {
+      manifestHashOk,
+      publicKeyReproducible,
+      signatureValid,
+      authenticity,
+      pinnedKeyConfigured,
+      pinnedKeyMatches,
+      verifier: 'node:crypto',
+    };
   } catch (error) {
     return {
       manifestHashOk: false,
       publicKeyReproducible: false,
       signatureValid: false,
+      authenticity: witness?.integrity?.authenticity ?? 'self-attested',
+      pinnedKeyConfigured: Boolean(process.env.RUFLO_WITNESS_PUBLIC_KEY),
       verifier: 'node:crypto',
       reason: 'signature-verification-error',
       error: error instanceof Error ? error.message : String(error),
