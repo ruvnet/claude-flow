@@ -16,7 +16,11 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/external-plugins.mjs'
+      - 'tests/external-plugins.test.mjs'
+      - '.github/workflows/validate-marketplace.yml'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
       - 'scripts/audit-skill-mcp-tools.mjs'
       - 'verification/skill-mcp-tool-baseline.json'
@@ -33,7 +37,11 @@ on:
   pull_request:
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/external-plugins.mjs'
+      - 'tests/external-plugins.test.mjs'
+      - '.github/workflows/validate-marketplace.yml'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
       - 'scripts/audit-skill-mcp-tools.mjs'
       - 'verification/skill-mcp-tool-baseline.json'
@@ -49,12 +57,19 @@ on:
       - '.github/workflows/all-plugins-smoke.yml'
   workflow_dispatch:
 
+# The external-plugin smoke runs third-party code (scripts/external-plugins.mjs): the token can only read, and no checkout
+# keeps credentials in the workspace.
+permissions:
+  contents: read
+
 jobs:
   smoke-all:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -64,6 +79,9 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/esbuild" --no-audit --no-fund --no-package-lock esbuild@0.25.0 yaml@2.8.0
           echo "ESBUILD=$RUNNER_TEMP/esbuild/node_modules/.bin/esbuild" >> "$GITHUB_ENV"
+      - name: External plugin checks (github-only source, realpath containment, scrubbed env and cwd)
+        run: node --test tests/external-plugins.test.mjs
+
       - name: Discover and run every plugin smoke contract (parallel)
         # --timeout 300 caps each individual plugin smoke at 5 minutes.
         # iter 119 — bumped from 60s because ruflo-metaharness has grown

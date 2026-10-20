@@ -1,7 +1,9 @@
 /**
  * The ruflo marketplace as a catalog: every plugin its clone lists, with the skills, agents, commands, MCP config and
- * mod (function hooks) each ships, read from the clone on disk. Read-only, bounded, nothing run: a file over the cap,
- * a name that is not a plain word and a path with `..` are skipped, and every read may be refused.
+ * mod (function hooks) each ships, read from the clone on disk. An external plugin (listed by a git source, maintained in
+ * another repository) has no copy in the clone: it is read from its install path in `installed_plugins.json` when it is
+ * installed. Read-only, bounded, nothing run: a file over the cap, a name that is not a plain word and a path with `..`
+ * are skipped, and every read may be refused.
  */
 import type { ReaderFs } from './files'
 import { plain } from './parse'
@@ -10,7 +12,7 @@ export type CatalogPlugin = {
   name: string
   description: string
   version: string | null
-  /** Folder of the plugin inside the clone (absolute). */
+  /** Folder of the plugin inside the clone, or of the installed copy of an external one (absolute); '' when there is neither. */
   dir: string
   skills: string[]
   agents: string[]
@@ -20,6 +22,8 @@ export type CatalogPlugin = {
   options: string[]
   /** A `hooks/register.ts` makes it a mod: function hooks run in the engine. */
   isMod: boolean
+  /** Set for an external plugin: the repository, folder and ref the marketplace pins it to. */
+  external?: string
 }
 
 const NAME = /^[A-Za-z0-9._-]{1,80}$/
@@ -48,15 +52,34 @@ async function namesIn(fs: ReaderFs, dir: string, kind: 'dir' | 'md'): Promise<s
     .slice(0, LIST_MAX)
 }
 
+/** An external source (`git-subdir`, `github`, `git`, `url`) as one plain line, or null for anything else. */
+function externalOf(source: unknown): string | null {
+  const record = recordOf(source)
+  const at = (value: unknown) => (typeof value === 'string' ? value : '')
+
+  if (record === null || !['git-subdir', 'github', 'git', 'url'].includes(at(record.source))) return null
+
+  const where = [at(record.url) || at(record.repo), at(record.path)].filter(Boolean).join(' ')
+  const ref = at(record.ref) || at(record.sha).slice(0, 12)
+
+  return where === '' ? null : plain(`${where}${ref === '' ? '' : ` @ ${ref}`}`, 200)
+}
+
 const exists = async (fs: ReaderFs, path: string): Promise<boolean> => (await fs.stat(path).catch(() => undefined)) !== undefined
 
-async function pluginOf(fs: ReaderFs, location: string, entry: Record<string, unknown>): Promise<CatalogPlugin | null> {
+async function pluginOf(fs: ReaderFs, location: string, entry: Record<string, unknown>, installed: ReadonlyMap<string, string>): Promise<CatalogPlugin | null> {
   const name = entry.name
   const source = safeSource(entry.source)
+  const external = source === null ? externalOf(entry.source) : null
 
-  if (typeof name !== 'string' || !NAME.test(name) || source === null) return null
+  if (typeof name !== 'string' || !NAME.test(name) || (source === null && external === null)) return null
 
-  const dir = `${location}/${source}`
+  const dir = source !== null ? `${location}/${source}` : (installed.get(name) ?? '')
+
+  if (dir === '') {
+    return { name, options: [], description: plain(typeof entry.description === 'string' ? entry.description : '', 400), version: null, dir, skills: [], agents: [], commands: [], hasMcp: false, isMod: false, ...(external !== null && { external }) }
+  }
+
   const manifest = await fs.read(`${dir}/.claude-plugin/plugin.json`).then(
     text => recordOf(JSON.parse(text)),
     () => null,
@@ -66,11 +89,14 @@ async function pluginOf(fs: ReaderFs, location: string, entry: Record<string, un
 
   const options = Object.keys(recordOf(manifest?.userConfig) ?? {}).filter(key => NAME.test(key)).slice(0, 60)
 
-  return { name, options, description: plain(typeof entry.description === 'string' ? entry.description : typeof manifest?.description === 'string' ? manifest.description : '', 400), version, dir, skills, agents, commands, hasMcp, isMod }
+  return { name, options, description: plain(typeof entry.description === 'string' ? entry.description : typeof manifest?.description === 'string' ? manifest.description : '', 400), version, dir, skills, agents, commands, hasMcp, isMod, ...(external !== null && { external }) }
 }
 
-/** Every plugin the marketplace clone at `location` lists, or null when its manifest cannot be read. */
-export async function readCatalog(fs: ReaderFs, location: string): Promise<CatalogPlugin[] | null> {
+/**
+ * Every plugin the marketplace clone at `location` lists, or null when its manifest cannot be read. `installed` maps a plugin name to
+ * its install path (absolute, already checked by the caller): an external plugin is read from there.
+ */
+export async function readCatalog(fs: ReaderFs, location: string, installed: ReadonlyMap<string, string> = new Map()): Promise<CatalogPlugin[] | null> {
   if (!location.startsWith('/') || location.split('/').includes('..')) return null
 
   const raw = await fs.read(`${location}/.claude-plugin/marketplace.json`).catch(() => null)
@@ -94,7 +120,7 @@ export async function readCatalog(fs: ReaderFs, location: string): Promise<Catal
       list.slice(at, at + 8).map(async entry => {
         const record = recordOf(entry)
 
-        return record === null ? null : pluginOf(fs, location, record).catch(() => null)
+        return record === null ? null : pluginOf(fs, location, record, installed).catch(() => null)
       }),
     )
 
@@ -106,7 +132,7 @@ export async function readCatalog(fs: ReaderFs, location: string): Promise<Catal
 
 /** A skill, agent or command file's first lines (and its frontmatter description), or null when it cannot be read. */
 export async function readDoc(fs: ReaderFs, plugin: CatalogPlugin, kind: 'skill' | 'agent' | 'command', name: string): Promise<{ description: string; lines: string[] } | null> {
-  if (!NAME.test(name)) return null
+  if (!NAME.test(name) || plugin.dir === '') return null
 
   const path = kind === 'skill' ? `${plugin.dir}/skills/${name}/SKILL.md` : `${plugin.dir}/${kind === 'agent' ? 'agents' : 'commands'}/${name}.md`
   const stat = await fs.stat(path).catch(() => undefined)

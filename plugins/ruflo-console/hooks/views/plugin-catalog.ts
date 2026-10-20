@@ -15,7 +15,7 @@ function verbOf(ctx: Ctx, plugin: CatalogPlugin): { verb: Verb; label: string } 
 }
 
 function counts(plugin: CatalogPlugin): string {
-  return [plugin.skills.length > 0 ? `S${plugin.skills.length}` : '', plugin.agents.length > 0 ? `A${plugin.agents.length}` : '', plugin.commands.length > 0 ? `C${plugin.commands.length}` : '', plugin.hasMcp ? 'MCP' : '', plugin.isMod ? 'MOD' : ''].filter(Boolean).join(' ')
+  return [plugin.skills.length > 0 ? `S${plugin.skills.length}` : '', plugin.agents.length > 0 ? `A${plugin.agents.length}` : '', plugin.commands.length > 0 ? `C${plugin.commands.length}` : '', plugin.hasMcp ? 'MCP' : '', plugin.isMod ? 'MOD' : '', plugin.external !== undefined ? 'EXT' : ''].filter(Boolean).join(' ')
 }
 
 /** One plugin row: the whole row selects it, the trailing button changes it. */
@@ -71,6 +71,10 @@ function detailRows(ctx: Ctx, plugin: CatalogPlugin): RenderElement[] {
     row(ctx, [text(ctx, ' related ', { dimColor: true }), ...(home === null ? [] : [button(ctx, `cat-home-${plugin.name}`, `→ ${home.label}: its commands (Launch)`, () => ctx.act.view(home.view))]), button(ctx, `cat-health-${plugin.name}`, '→ Plugins: setup health', () => ctx.act.view('plugins'))], `cat-related-${plugin.name}`),
   )
 
+  if (plugin.external !== undefined) {
+    rows.push(text(ctx, ` EXTERNAL: maintained outside ruflo, installed from ${plugin.external}`, { color: THEME.warn }))
+    if (plugin.dir === '') rows.push(text(ctx, ' its skills, agents and commands are listed once it is installed (the ruflo clone holds no copy)', { dimColor: true }))
+  }
   if (plugin.isMod) rows.push(text(ctx, ' MOD: function hooks run in the engine once this plugin is loaded (trust it like code you run)', { color: THEME.warn }))
   if (plugin.hasMcp) rows.push(text(ctx, ' MCP: ships an .mcp.json: its servers start with the plugin', { dimColor: true }))
 
