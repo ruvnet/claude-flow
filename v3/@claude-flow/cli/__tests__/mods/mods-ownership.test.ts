@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { register } from '../../../../../plugins/ruflo-mods/hooks/register';
-import { classicConfigured, ownedEvents } from '../../../../../plugins/ruflo-mods/hooks/ownership';
+import { classicConfigured, legacyCliConfigured, ownedEvents } from '../../../../../plugins/ruflo-mods/hooks/ownership';
 import { loadMod, memoryWorld, realWorld, type World } from './harness';
 
 const REPO = resolve(__dirname, '../../../../..');
@@ -48,6 +48,25 @@ describe('ADR-404 ownership rule', () => {
     expect(ownedEvents({}, false)).toEqual(['route', 'post-edit']);
     expect(ownedEvents(CLASSIC, false)).toEqual([]);
     expect(ownedEvents(CLASSIC, true)).toEqual(['route', 'post-edit']);
+  });
+
+  it('stands down where settings still run the CLI\'s own hooks route/post-edit (pre-hook-handler init), handshake or not', () => {
+    const legacy = (route: string, edit: string) => ({ hooks: {
+      UserPromptSubmit: [{ hooks: [{ command: route }] }],
+      PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ command: edit }] }],
+    } });
+    for (const s of [
+      legacy('[ -n "$PROMPT" ] && npx claude-flow@v3alpha hooks route --task "$PROMPT" --intelligence || true',
+        'if [ -n "$TOOL_INPUT_file_path" ]; then npx claude-flow@v3alpha hooks post-edit --file "$TOOL_INPUT_file_path"; fi; exit 0'),
+      legacy('npx @claude-flow/cli@latest hooks route --task "$PROMPT"', 'npx @claude-flow/cli@latest hooks post-edit --file x'),
+      legacy('npx ruflo hooks route --task "$PROMPT"', 'ruflo hooks post-edit --file x'),
+    ]) {
+      expect(legacyCliConfigured(s, 'route')).toBe(true);
+      expect(ownedEvents(s, true)).toEqual([]);
+    }
+    expect(legacyCliConfigured(CLASSIC, 'route')).toBe(false);
+    expect(legacyCliConfigured(legacy('npx claude-flow hooks router-stats', 'npx myruflo hooks post-edit'), 'route')).toBe(false);
+    expect(legacyCliConfigured(legacy('npx claude-flow hooks router-stats', 'npx myruflo hooks post-edit'), 'post-edit')).toBe(false);
   });
 
   it('never owns pre-bash or session events', () => {

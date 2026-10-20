@@ -222,6 +222,7 @@ describe('GATES_ROW', () => {
 
   it('patches the text, keeping newlines, dropping other control characters and capping length', () => {
     expect(GATES_ROW.patch('npm test\nnpm run lint\u0007')).toEqual({ loopGates: 'npm test\nnpm run lint ' .trim() })
-    expect(GATES_ROW.patch('x'.repeat(5000)).loopGates.length).toBeLessThanOrEqual(GATES_ROW.maxLength)
+    // Not cut here (ADR-481): parseGates refuses an over-long line and keeps four, each with its reason.
+    expect(GATES_ROW.patch('x'.repeat(5000)).loopGates.length).toBe(5000)
   })
 })

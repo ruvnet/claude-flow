@@ -1,7 +1,7 @@
 ---
 name: cost-advise
 description: Optimisation findings from your own Claude Code and Codex logs — low cache hit ratio, 1-hour cache writes that did not pay back, sub-agents on a top-tier model, Codex reasoning share, bloated sessions — each with evidence and a what-if saving. Use when asked how to cut spend or why it is high.
-argument-hint: "[--since 7d] [--provider claude|codex|all] [--format json|markdown]"
+argument-hint: "[--since 7d] [--provider claude|codex|grok|all] [--format json|markdown]"
 allowed-tools: Bash
 ---
 

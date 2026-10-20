@@ -9,9 +9,12 @@
  */
 import type { ActionSpec } from './actions'
 import { PHASE_NAME, plan as planOf, stageOf, type Plan, type Profile, profileOf, type Rigor, toMissionPlan } from './goap'
-import { isCapReached } from './mission-guard'
+import { capGate, capOf, refreshCost } from './mission-guard'
 import type { Host } from './host'
 import { plain, type TaskRecord } from './data/parse'
+import { taskStatusOf } from './data/automate'
+import { keepText } from './field-keep'
+import { checkLimit, keepLines, LONG_TEXT_MAX, withBreaks } from './full-text'
 import { isAvailable, MISSION_SKILLS, slashOf, GOALS_PLUGIN } from './mission-skills'
 import { offerGuidance } from './mission-guidance'
 import { blocksCreate, blocksGuidance, capUsd, isCapability, RESEARCH_DEFAULT_CAP, researchArgs, researchConfirm, researchWhy, screenText, type ResearchDepth } from './mission-options'
@@ -19,24 +22,13 @@ import type { Runner } from './runner'
 import { CLI_PREFIXES, type State } from './state'
 import type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
 
-import { cancelSpec, createSpec, dispatchSpec, isInflight, resultOf, setPaused } from './mission-specs'
+import { checkpointPlan } from './mission-advisor-live'
+import { adoptLegacy, type AdoptResult, dismissLegacy, mcOf, saveLedger } from './mission-ledger'
+import { cancelSpec, createSpec, createWhy, dispatchSpec, isInflight, MAX_HANDOUTS, resultOf, setPaused } from './mission-specs'
 
-export { cancelSpec, createSpec, dispatchSpec, resultOf, setPaused }
+export { cancelSpec, createSpec, createWhy, dispatchSpec, resultOf, setPaused }
+export { adoptLegacy, dismissLegacy, LEDGER_KEY, ledgerKeyOf, loadLedger, mcOf, saveLedger } from './mission-ledger'
 export type { Derived, LedgerEvent, LedgerTask, McState, McTab, MissionActions, MissionRecord } from './mission-types'
-
-const states = new WeakMap<State, McState>()
-export const LEDGER_KEY = 'mission-ledger'
-
-export function mcOf(state: State): McState {
-  let found = states.get(state)
-
-  if (found === undefined) {
-    found = { goal: '', profile: 'feature', rigor: 'standard', isProfilePicked: false, planned: null, missions: new Map(), active: null, tab: 'plan', lastGuide: '', guidance: null, screen: null, isScreenOn: true, last: null }
-    states.set(state, found)
-  }
-
-  return found
-}
 
 export const activeMission = (state: State): MissionRecord | null => {
   const mc = mcOf(state)
@@ -48,7 +40,8 @@ export const activeMission = (state: State): MissionRecord | null => {
 export function setGoal(state: State, goal: string): void {
   const mc = mcOf(state)
 
-  mc.goal = plain(goal, 500).trim()
+  // Line breaks the person made (a pasted block, or a typed \n) stay in the goal; a destination that is one line (a slash command's arguments) joins them with spaces.
+  mc.goal = keepLines(withBreaks(goal))
   mc.screen = null
   if (!mc.isProfilePicked) mc.profile = profileOf(mc.goal)
   mc.planned = mc.goal === '' ? null : planOf(mc.profile, mc.rigor)
@@ -71,7 +64,8 @@ export function derive(mission: MissionRecord, tasks: readonly TaskRecord[]): Ma
   const out = new Map<string, Derived>()
 
   for (const task of mission.tasks) {
-    const status = rufloTaskOf(tasks, task)?.status
+    // Read through taskStatusOf: a task stored as "complete" by an older CLI is done, never handed to Claude again.
+    const status = taskStatusOf(rufloTaskOf(tasks, task)?.status)
     const done = (id: string) => out.get(id) === 'done'
 
     out.set(task.id, status === 'completed' ? 'done' : status === 'failed' ? 'failed' : status === 'cancelled' ? 'cancelled' : status === 'in_progress' || status === 'running' ? 'running' : task.dependsOn.every(done) ? 'ready' : 'waiting')
@@ -91,14 +85,33 @@ export function nextTask(mission: MissionRecord, tasks: readonly TaskRecord[]): 
   return mission.tasks.find(task => status.get(task.id) === 'ready' && task.rufloTaskId !== undefined) ?? null
 }
 
+/**
+ * Autopilot's narrow door (ADR-470 §2.2): the mission's own rule for handing a task over, with the one-at-a-time limit widened to `cap`.
+ * Everything else is `nextTask`'s: not paused or cancelled, nothing failed, the task ready (its dependencies done) and in the task store.
+ * `running` counts tasks the store shows in progress plus tasks handed over in the last seconds (the store has not refreshed yet).
+ * `startable(m, tasks, t, 1)` is exactly `nextTask(m, tasks)?.id === t.id` as far as the running rule goes.
+ */
+export function startable(mission: MissionRecord, tasks: readonly TaskRecord[], task: LedgerTask, cap: number): boolean {
+  if (mission.paused || mission.cancelled || task.rufloTaskId === undefined || isInflight(task)) return false
+
+  const status = derive(mission, tasks)
+  const values = [...status.values()]
+  const running = mission.tasks.filter(candidate => status.get(candidate.id) === 'running' || (candidate !== task && isInflight(candidate))).length
+
+  return !values.includes('failed') && status.get(task.id) === 'ready' && running < Math.max(1, cap)
+}
+
 export const progressOf = (mission: MissionRecord, tasks: readonly TaskRecord[]) => {
   const status = derive(mission, tasks)
 
   return { done: [...status.values()].filter(value => value === 'done').length, total: mission.tasks.length }
 }
 
+/** How many of the mission's tasks the ruflo task store shows as failed. */
+export const failedOf = (mission: MissionRecord, tasks: readonly TaskRecord[]): number => [...derive(mission, tasks).values()].filter(value => value === 'failed').length
+
 /** The instruction handed to the primary session for one task: what, as whom, what it must show, and how to record it. */
-export function instructionOf(mission: MissionRecord, task: LedgerTask): string {
+export function instructionOf(mission: MissionRecord, task: LedgerTask, adrBlock = ''): string {
   const criteria = mission.acceptance.slice(0, 8).map(criterion => `- ${criterion.check}`).join('\n')
   const deps = task.dependsOn.length === 0 ? 'none' : task.dependsOn.map(id => `${id} (${mission.tasks.find(candidate => candidate.id === id)?.title ?? ''})`).join(', ')
 
@@ -108,6 +121,7 @@ export function instructionOf(mission: MissionRecord, task: LedgerTask): string 
     `Act as: ${task.agent}. It is done when: ${task.requirement}`,
     `Already done: ${deps}.`,
     `The mission's acceptance criteria, for context:\n${criteria}`,
+    ...(adrBlock === '' ? [] : [adrBlock]),
     `When this task is finished, record it: call the ruflo MCP tool task_complete with taskId "${task.rufloTaskId ?? ''}" and a result object {summary, evidence} (evidence = files changed, commands run, test output). If you cannot finish it, call task_update with the same taskId, status "failed" and a result {reason}. Do not complete it unless "it is done when" is true. Keep this transcript to decisions and verified results.`,
   ].join('\n')
 }
@@ -119,35 +133,31 @@ export function record(mission: MissionRecord, event: Omit<LedgerEvent, 'seq' | 
   if (mission.events.length > 500) mission.events.splice(0, mission.events.length - 500)
 }
 
-export function saveLedger(state: State, host: Host): void {
-  const mc = mcOf(state)
+/**
+ * The longest text a person's goal, question, aside or instruction may be (ADR-481). These reach Claude as a prompt or a slash command's
+ * arguments through the session (no argv, no stdin of ours), and the AIDefence screen and guidance turn take the same text, so one bound serves.
+ * Over it the action is refused with the exact count before anything is sent, and the field keeps the text.
+ */
+const MAX_TEXT = LONG_TEXT_MAX
 
-  void host.storeSet(LEDGER_KEY, { active: mc.active, missions: [...mc.missions.values()].slice(-20) }).catch(() => undefined)
+/** The refusal for text over MAX_TEXT (the exact count), or null when it fits. Line breaks count as the spaces they become. */
+export const longRefusal = (raw: string, what: string): string | null => {
+  const fit = checkLimit(raw.replace(/\s+/g, ' ').trim(), MAX_TEXT, what, 'sent to Claude as one prompt')
+
+  return fit.ok ? null : fit.message
 }
 
-export async function loadLedger(state: State, host: Host): Promise<void> {
-  const saved = await host.storeGet(LEDGER_KEY).catch(() => undefined)
-  const missions = (saved as { missions?: unknown } | undefined)?.missions
-  const mc = mcOf(state)
+/** The Enter that was refused: says why in the result line and puts the text back in its field. Returns true when it refused. */
+function refusedLong(state: State, say: (label: string, ok: boolean, detail: string) => void, label: string, what: string, raw: string): boolean {
+  const refusal = longRefusal(raw, what)
 
-  if (!Array.isArray(missions)) return
+  if (refusal === null) return false
 
-  for (const raw of missions.slice(0, 20)) {
-    const m = raw as MissionRecord
+  keepText(state, raw)
+  say(label, false, refusal)
 
-    const isShaped = Array.isArray(m?.tasks) && m.tasks.every(task => typeof task?.id === 'string' && Array.isArray(task.dependsOn)) && Array.isArray(m.events)
-
-    // Auto-run never survives a restart: a new session starts by asking.
-    if (typeof m?.id === 'string' && /^msn_[a-f0-9]{24}$/.test(m.id) && isShaped) mc.missions.set(m.id, { ...m, auto: false })
-  }
-
-  const active = (saved as { active?: unknown }).active
-
-  if (typeof active === 'string' && mc.missions.has(active)) mc.active = active
+  return true
 }
-
-/** `ruflo mcp exec -t <tool> -p <json>` as an argv on the configured CLI prefix. */
-const MAX_TEXT = 500
 
 
 /** The research start's inputs as typed (ADR-439): the question, the depth and the cap in dollars (text, validated when started). */
@@ -167,7 +177,15 @@ export function researchOf(state: State): ResearchDraft {
 
 export const setResearch = (state: State, patch: Partial<ResearchDraft>): void => void Object.assign(researchOf(state), patch)
 
-const wired = new WeakMap<State, { host: Host; actions: MissionActions; research: () => void }>()
+/** What Mission Control says after the person adopts one offered mission (#4254). */
+const ADOPT_SAYS: Record<AdoptResult, [string, boolean, string]> = {
+  adopted: ['adopted 1 mission', true, 'recorded under this project and removed from the old shared ledger'],
+  none: ['nothing to adopt', false, 'that mission is no longer offered here'],
+  full: ['not adopted', false, 'it is older than the 20 missions this project keeps, so the save would drop it; it stays offered'],
+  failed: ['not adopted', false, 'the store refused the write; the mission is still in the old shared ledger'],
+}
+
+const wired = new WeakMap<State, { host: Host; actions: MissionActions; research: () => void | Promise<void> }>()
 
 /** The host, actions and research start Mission Control was wired with, for the palette and the headless commands. */
 export const missionWired = (state: State) => wired.get(state)
@@ -181,22 +199,24 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
   const tasksNow = (): readonly TaskRecord[] => state.snapshot?.tasks ?? []
 
   /** Runs a slash command on the goal (or the active mission's objective) in the main UI: now when idle, prepared in the prompt box mid-turn. */
-  const launch = (slash: string, label: string, custom?: { args: string; note: string }) => {
+  const launch = (slash: string, label: string, custom?: { args: string; note: string; byModel?: boolean; byCall?: number }) => {
     const objective = activeMission(state)?.objective ?? mc.goal
 
     // A research start brings its own, already screened arguments; every other launch works on the goal.
     if (custom === undefined && objective.trim() === '') return say(label, false, 'type a goal first: it works on the goal')
     if (custom === undefined && blocksGuidance(mc.screen)) return say(`${label} blocked`, false, `AIDefence: ${mc.screen?.detail ?? ''}. Change the goal.`)
 
+    // The whole goal: the arguments of a slash command are one line of the same prompt, so line breaks become spaces (the goal is one line).
     const args = custom?.args ?? plain(objective, MAX_TEXT)
 
     // It starts a model turn: asked first, with the exact command.
     runner.ask(
       {
         label: `run /${slash} on the goal in the main Claude UI`,
+        ...(custom?.byModel === true && { byModel: true, byCall: custom.byCall }),
         scope: 'controls',
         args: [],
-        shows: `/${slash} ${plain(args, custom === undefined ? 100 : 200)}`,
+        shows: `/${slash} ${args}`,
         expect: 'the command in the main conversation',
         note: custom?.note ?? 'Starts a Claude Code turn (billed as any turn is); mid-turn it is only prepared in the prompt box.',
         run: async () => {
@@ -221,8 +241,12 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
 
   /** Research start: validate, screen the question (always: it reaches the web), refuse when unsafe, then ask with the confirm in words. */
   const research = () => {
+    const byModel = state.control.viaModel
+    const byCall = state.control.callTag ?? undefined
     const draft = { ...researchOf(state) }
     const question = plain(draft.question, MAX_TEXT).trim()
+
+    if (refusedLong(state, say, 'research', 'the question', draft.question)) return
     const cap = capUsd(draft.cap)
     const refused = researchWhy(question, cap)
     const skill = MISSION_SKILLS.find(candidate => candidate.id === 'deep-research')
@@ -230,19 +254,21 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
     if (refused !== null || cap === null || skill === undefined) return say('research', false, refused ?? 'deep-research is not a ruflo-goals skill')
     if (!isAvailable(state, skill)) return say(`${slashOf(skill)} is not available`, false, `install the ${GOALS_PLUGIN} plugin (Plugin Catalog) and /reload-plugins`)
 
-    void screenText(state, host, question).then(screen => {
+    return screenText(state, host, question).then(screen => {
       const now = researchOf(state)
 
       // The inputs moved while AIDefence looked: that verdict is about another question.
       if (now.question !== draft.question || now.depth !== draft.depth || now.cap !== draft.cap) return
       if (blocksGuidance(screen)) return say('AIDefence blocked the question', false, `${screen.detail}. Change the question.`)
 
-      launch(slashOf(skill), 'deep research', { args: researchArgs(question, draft.depth, cap), note: researchConfirm(draft.depth, cap, screen) })
+      launch(slashOf(skill), 'deep research', { args: researchArgs(question, draft.depth, cap), note: researchConfirm(draft.depth, cap, screen), byModel, byCall })
     })
   }
 
   const actions: MissionActions = {
     goal: text => {
+      if (refusedLong(state, say, 'goal not planned', 'the goal', text)) return
+
       setGoal(state, text)
       mc.tab = 'plan'
       mc.screen = null
@@ -283,11 +309,18 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       mc.tab = tab
       host.invalidate()
     },
-    create: () => runner.ask(blocksCreate(mc.screen) ? null : createSpec(state, host, () => undefined), blocksCreate(mc.screen) ? 'AIDefence flagged the goal: change it first' : 'type a goal first: the plan is made from it'),
+    create: () => runner.ask(blocksCreate(mc.screen) ? null : createSpec(state, host, () => { const made = activeMission(state); if (made !== null) checkpointPlan(state, host, made) }), blocksCreate(mc.screen) ? 'AIDefence flagged the goal: change it first' : (createWhy(state) ?? 'type a goal first: the plan is made from it')),
     select: id => {
       if (mc.missions.has(id)) mc.active = id
       saveLedger(state, host)
       host.invalidate()
+    },
+    adoptLegacy: id => {
+      void adoptLegacy(state, host, id).then(result => say(...ADOPT_SAYS[result]))
+    },
+    dismissLegacy: id => {
+      dismissLegacy(state, host, id)
+      say('not this project\'s', true, `${id === undefined ? 'the older missions stay' : 'it stays'} in the shared ledger for the project ${id === undefined ? 'they were' : 'it was'} made in`)
     },
     next: () => {
       const mission = activeMission(state)
@@ -301,7 +334,7 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       runner.ask(dispatchSpec(state, host, mission, task, text => host.submitPrompt(text)), 'nothing to hand out')
     },
     pause: () => setPaused(state, host, true),
-    resume: () => setPaused(state, host, false),
+    resume: by => setPaused(state, host, false, by),
     cancel: () => {
       const mission = activeMission(state)
 
@@ -318,6 +351,8 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       host.invalidate()
     },
     aside: question => {
+      if (refusedLong(state, say, 'ask aside', 'the question', question)) return
+
       const q = plain(question, MAX_TEXT).trim()
 
       if (q === '') return say('ask aside', false, 'type a question first')
@@ -345,21 +380,27 @@ export function missionActions(state: State, host: Host, runner: Runner): Missio
       launch(slashOf(skill), skill.title)
     },
     guide: text => {
-      const t = plain(text, MAX_TEXT).trim()
+      // A prompt to the session keeps the person's own line breaks.
+      if (refusedLong(state, say, 'send Claude', 'the instruction', text)) return
+
+      const t = keepLines(withBreaks(text))
 
       if (t !== '') mc.lastGuide = t
+
+      const byModel = state.control.viaModel
+      const byCall = state.control.callTag ?? undefined
 
       const ask = () =>
         runner.ask(
           t === ''
             ? null
-            : { label: `send Claude: ${plain(t, 70)}`, scope: 'guide', args: [], shows: `to the Claude Code session, as a visible prompt: “${t}”`, expect: 'the instruction in the transcript', note: 'Starts a Claude Code turn (billed as any turn is).', run: async () => host.submitPrompt(t) },
+            : { label: `send Claude: ${plain(t, 70)}`, byModel, byCall, scope: 'guide', args: [], shows: `to the Claude Code session, as a visible prompt: “${t}”`, expect: 'the instruction in the transcript', note: 'Starts a Claude Code turn (billed as any turn is).', run: async () => host.submitPrompt(t) },
           'type the instruction first',
         )
 
       if (t === '' || !mc.isScreenOn) return ask()
 
-      void screenText(state, host, t).then(screen => (blocksGuidance(screen) ? say('AIDefence blocked the instruction', false, screen.detail) : ask()))
+      return screenText(state, host, t).then(screen => (blocksGuidance(screen) ? say('AIDefence blocked the instruction', false, screen.detail) : ask()))
     },
 
   }
@@ -375,8 +416,14 @@ export function advance(state: State, host: Host): void {
 
   if (mission === null || !mission.auto || state.turnActive) return
 
-  // The spend cap (ADR-443): a reading at or past the person's cap pauses the mission instead of handing out the next task.
-  if (isCapReached(state, mission)) {
+  // The spend cap (ADR-443): a fresh reading at or past the person's cap pauses the mission instead of handing out the next task; with a cap set
+  // and no fresh reading nothing is handed out (the cost probe keeps running while auto-run is on) (#3818).
+  const gate = capGate(state, mission)
+
+  // The Missions page reads the spend only while it is in front; with a cap set, auto-run reads it itself, so it never decides on an old number.
+  if (capOf(state) !== null) void refreshCost(state, host, mission)
+
+  if (gate === 'reached') {
     mission.paused = true
     record(mission, { type: 'cap.reached', note: 'spend cap reached: auto-run paused' })
     saveLedger(state, host)
@@ -385,9 +432,28 @@ export function advance(state: State, host: Host): void {
     return
   }
 
+  if (gate === 'hold') {
+    const wait = { label: 'auto-run is waiting', ok: false, detail: 'a spend cap is set and there is no fresh cost reading for this mission yet: nothing is handed out until there is one' }
+
+    if (mcOf(state).last?.label !== wait.label) mcOf(state).last = wait
+    host.invalidate()
+
+    return
+  }
+
   const task = nextTask(mission, state.snapshot?.tasks ?? [])
 
   if (task === null || isInflight(task)) return
+
+  // A task that keeps coming back unfinished is not handed out for ever: after MAX_HANDOUTS the mission pauses, with an event, and waits for the person.
+  if ((task.handouts ?? 0) >= MAX_HANDOUTS) {
+    mission.paused = true
+    record(mission, { type: 'handout.limit', taskId: task.id, note: `task ${task.id} was handed out ${MAX_HANDOUTS} times and is still not done: auto-run paused` })
+    saveLedger(state, host)
+    host.invalidate()
+
+    return
+  }
 
   void dispatchSpec(state, host, mission, task, text => host.submitPrompt(text)).run?.()
 }

@@ -58,3 +58,45 @@ The pure rules and the whole flow are tested with fakes (no host, no network): w
 - **Rules:** a version is only `major.minor.patch`; a bump is patch, minor or major and never a downgrade, a pre-release or garbage; the manifest is ours or null; the daily gate, including a stored time in the future; another session updating holds off for ten minutes and no longer; `off` does nothing, `auto` installs minor and patch but asks for a major, and anything not exactly `auto` or `off` is `ask`; the question ends in a question mark, names the repository and what Always means, and has no Always for a major version; the installed list prefers the user scope, then an enabled entry, and ignores other plugins.
 - **Flow:** does not even look when off, non-interactive, or a development checkout; at most once a day; skips a version already installed; fails quietly, and tries again next time, when GitHub cannot be reached, hangs (on the host's clock, not `setTimeout`), or sends something that is not our manifest; never throws, even when the store does; Not now, a dismissed dialog and typed text install nothing; Update now runs exactly the list, the marketplace update, the plugin update in the installed scope, and the list; Always turns auto on and installs; auto installs without asking and toasts; auto still asks for a major version, and "Always" cannot be taken for one; "check now" ignores the gate and off but asks and skips a development checkout.
 - **What it will not do:** no `-y`, `--yes` or `--accept-command` in any run (checked by adding `-y` and watching two tests fail, then restoring it); Claude Code's own confirmation is reported with the command to run; it does not say installed when the list still shows the old version; it has nothing to update, and says why, when the plugin is not installed from the marketplace (a `--plugin-dir` session); it stops, saying why, when the marketplace will not update; and it always releases the other sessions, whether the install worked or not.
+
+## Update 2026-10-07: what the code does now, and who reads its state
+
+Checked against `plugins/ruflo-console/hooks/{updates,update-flow,register,state}.ts`. The decision above stands. Four things in the
+text are behind the code, and one new reader of the state exists.
+
+**Drift from sections 2.1 to 2.4**
+
+- **A long session re-checks.** `register.ts` starts a timer every `RECHECK_EVERY_MS` (6 hours, `updates.ts`) that runs the check in
+  `quiet` mode. A quiet check never opens the dialog in the middle of someone's work: when the answer would be "ask", it only notes the
+  newer version, once per version (the store key `ruflo-console/update-notified`), as an `info` toast and as the band link to Settings, and
+  it leaves the daily gate open so the next session start asks properly. In `auto` mode the quiet check installs as before. The daily
+  gate in 2.1 applies to the re-check too (it returns `checked in the last day` when the gate is closed). Because a quiet note leaves the
+  gate open, a session that has a newer version pending and unanswered fetches the manifest again on each 6-hour tick until the person
+  installs, declines for good (`off`) or the version is installed; when nothing newer exists the gate closes and the ticks do no network work.
+- **Every install that is behind is updated, not one scope.** Section 2.4 says one `claude plugin update ... --scope <that scope>`.
+  `applyUpdate` now lists every install that applies to the session (the user one and the project's, `installedEntries` in `updates.ts`),
+  and runs `claude plugin update ruflo-console@ruflo --scope <s>` for each scope whose version is behind; one already at the new version is
+  left alone. The rest of 2.4 is unchanged: still no `-y` or `--accept-command`, still not "installed" until the list afterwards shows the
+  new version in every scope (otherwise the result is `unverified` and says what the list shows).
+- **Where the setting lives.** "Settings → Updates" in sections 2.3 and 2.4, and in the toast text, is the Updates row, which is now inside
+  the section **Interface & updates** (ADR-407, update of 2026-10-07). The toast still says "Settings → Updates".
+- **The toasts go through ADR-477.** The toasts in 2.3 and in the flow are no longer direct `$.ui.toast` calls: `host.toast` runs them
+  through the shared policy, so they obey the person's Toasts setting and are recorded on the Events page whether drawn or not. Levels:
+  "is available" and "Updating" are `info`, "installed" is `ok`, any other result is `warn`. With toasts set to `off` or the console muted,
+  the quiet note is therefore silent, but the band link and `state.updateAvailable` still show it.
+
+**The state, and its readers.** A check leaves these in the console's state (`state.ts`, set in `runUpdateCheck`):
+
+- `updates`: the mode (`ask`, `auto`, `off`);
+- `updateNote`: the one line Settings shows for the last result (`result.detail`);
+- `updateAvailable`: the version a declined or quiet-noted check found, or `''`. It is set when the outcome is `declined` and cleared
+  when the outcome is `installed`, `current` or `unverified`; a `skipped` or `failed` check leaves it as it was.
+
+The store (shared by sessions) keeps `update-checked-at`, `update-applying-at`, `update-installed` and the notified version.
+
+The What's new page (ADR-478) reads this state to say whether a newer version is published, and adds no request of its own: the
+only network call in the update flow is the one `fetchText(MANIFEST_URL)` in `update-flow.ts`, a small file that holds `name` and
+`version` and nothing else (`versionFromManifest` accepts nothing more), so the page cannot get release notes from this check and does not
+try to. That the page makes no call of its own is ADR-478's side of the contract: its code holds no `fetchText`, `httpSend`, `run` or `spawn`
+(`plugins/ruflo-console/scripts/smoke.sh` step 18), and the page's "check for an update now" button is `act.checkUpdates`, this flow's own forced
+check. The band's `⬆ version available` link still goes to Settings, not to What's new.

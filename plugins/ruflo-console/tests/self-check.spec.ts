@@ -72,25 +72,25 @@ describe('self-check: it fails on what is broken', () => {
   const broken = (change: (registries: Registries) => Registries) => selfCheck(change(REGISTRIES))
 
   it('a text verb that builds a command from an empty field', () => {
-    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-bad', argv: () => ['security', 'defend'] }, ...r.secureText.slice(1)] }))
+    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-bad', argv: () => ['security', 'defend'] } as never, ...r.secureText.slice(1)] }))
 
     expect(area(results, 'Security')?.problems.join(' ')).toContain('aid-bad: an empty field must be refused')
   })
 
   it('a text verb that lets text starting with - through, where it could be read as a flag', () => {
-    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-flag', argv: text => ['security', text] }, ...r.secureText.slice(1)] }))
+    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-flag', argv: (text: string) => ['security', text] } as never, ...r.secureText.slice(1)] }))
 
     expect(area(results, 'Security')?.problems.join(' ')).toContain('aid-flag: text starting with - must be refused')
   })
 
   it('a text verb that refuses every input, so its button could never run', () => {
-    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-never', argv: () => null }, ...r.secureText.slice(1)] }))
+    const results = broken(r => ({ ...r, secureText: [{ ...r.secureText[0], id: 'aid-never', argv: () => null } as never, ...r.secureText.slice(1)] }))
 
     expect(area(results, 'Security')?.problems.join(' ')).toContain('aid-never: no sample input')
   })
 
   it('a command with an empty part, and one with no reader', () => {
-    const results = broken(r => ({ ...r, perf: [{ ...r.perf[0], id: 'perf-empty', args: ['performance', ''] }, { ...r.perf[1], id: 'perf-noread', read: undefined as never }, ...r.perf.slice(2)] }))
+    const results = broken(r => ({ ...r, perf: [{ ...r.perf[0], id: 'perf-empty', args: ['performance', ''] } as never, { ...r.perf[1], id: 'perf-noread', read: undefined as never } as never, ...r.perf.slice(2)] }))
     const problems = area(results, 'Performance')?.problems.join(' ') ?? ''
 
     expect(problems).toContain('perf-empty: its command is empty or has an empty')
@@ -101,7 +101,7 @@ describe('self-check: it fails on what is broken', () => {
     const dev = REGISTRIES.dev.find(entry => entry.args !== undefined) as (typeof REGISTRIES.dev)[number]
     const results = broken(r => ({
       ...r,
-      dev: [{ ...dev, id: 'dt-never', args: () => null }, { ...dev, id: 'dt-silent', input: undefined, args: fields => (fields.task === '' ? null : ['git', 'status']) }, { ...dev, id: 'dt-na', na: ' ', args: undefined }, ...r.dev],
+      dev: [{ ...dev, id: 'dt-never', args: () => null } as never, { ...dev, id: 'dt-silent', input: undefined, args: (fields: Record<string, string>) => (fields.task === '' ? null : ['git', 'status']) } as never, { ...dev, id: 'dt-na', na: ' ', args: undefined } as never, ...r.dev],
     }))
     const problems = area(results, 'Dev Tools')?.problems.join(' ') ?? ''
 
@@ -112,7 +112,7 @@ describe('self-check: it fails on what is broken', () => {
 
   it('a lab verb that cannot run and gives no reason, and one with nothing to run or type', () => {
     const lab = REGISTRIES.lab[0]
-    const results = broken(r => ({ ...r, lab: [{ ...lab, id: 'mh-mute', args: () => null, why: undefined }, { ...lab, id: 'mh-empty', args: undefined, types: undefined }, ...r.lab] }))
+    const results = broken(r => ({ ...r, lab: [{ ...lab, id: 'mh-mute', args: () => null, why: undefined } as never, { ...lab, id: 'mh-empty', args: undefined, types: undefined } as never, ...r.lab] }))
     const problems = area(results, 'MetaHarness')?.problems.join(' ') ?? ''
 
     expect(problems).toContain('mh-mute: it cannot run now and says nothing about why')
@@ -120,9 +120,9 @@ describe('self-check: it fails on what is broken', () => {
   })
 
   it('two entries sharing an id (a palette keyword), which fails each registry-owning area', () => {
-    const results = broken(r => ({ ...r, perf: [{ ...r.perf[0], id: r.secure[0].id }, ...r.perf.slice(1)] }))
+    const results = broken(r => ({ ...r, perf: [{ ...r.perf[0], id: r.secure[0]?.id } as never, ...r.perf.slice(1)] }))
 
-    expect(area(results, 'Security')?.problems.join(' ')).toContain(`${REGISTRIES.secure[0].id}: used by two entries`)
+    expect(area(results, 'Security')?.problems.join(' ')).toContain(`${REGISTRIES.secure[0]?.id}: used by two entries`)
     expect(area(results, 'Performance')?.ok).toBe(false)
     expect(area(results, 'Missions')?.ok).toBe(true)
   })

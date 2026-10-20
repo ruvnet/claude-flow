@@ -5,6 +5,7 @@
  * installs is hooks/update-flow.ts. The install itself is Claude Code's own `claude plugin update`, never code of ours, and its own
  * confirmation for a marketplace-declared command is never bypassed (no `-y`, no `--accept-command`).
  */
+import { ESCAPES, HIDDEN } from './data/parse'
 import { RUFLO_MARKET } from './data/snapshot'
 
 export type UpdatesMode = 'ask' | 'auto' | 'off'
@@ -155,9 +156,10 @@ export const needsConfirmation = (output: string): boolean => /shownCommand|must
 export function firstLine(text: string, max = 140): string {
   const line =
     text
-      .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+      .replace(ESCAPES, '')
       .split('\n')
-      .map(entry => entry.replace(/[\u0000-\u001f\u007f‪-‮]/g, '').trim())
+      // The console's one strip set (data/parse.ts): the line reaches update toasts and outcome details.
+      .map(entry => entry.replace(HIDDEN, '').trim())
       .find(entry => entry !== '') ?? ''
 
   return line.length > max ? `${line.slice(0, max - 1)}…` : line

@@ -4,6 +4,7 @@ import type { MemoryEntry, MemoryStats, Namespaces } from '../data/cli'
 import { gauge, recency, sparkline } from '../memory-lines'
 import { agentdbModRows } from './agentdb-mod'
 import { ago, button, clip, col, count, kv, live, row, rule, sourceLine, text, THEME, type Ctx } from './common'
+import { memmapRows } from './memmap'
 import { areaPanel, memoryLabRows } from './memory-lab'
 
 /** Entries in the browse list at once; ◂ ▸ page the rest. */
@@ -141,5 +142,5 @@ export function memoryView(ctx: Ctx): RenderElement {
   const spaces = live<Namespaces>(ctx.state.probes.get('namespaces'))
   const entries = spaces?.entries ?? []
 
-  return col(ctx, [...storeRows(ctx, memory, spaces), ...agentdbModRows(ctx), ...namespaceRows(ctx, spaces), ...timelineRows(ctx, entries), ...browseRows(ctx, entries), ...areaPanel(ctx, 'browse'), ...memoryLabRows(ctx), text(ctx, 'spend, budget gauge and burn: Cost (9)', { dimColor: true })], 'memory')
+  return col(ctx, [...storeRows(ctx, memory, spaces), ...agentdbModRows(ctx), ...namespaceRows(ctx, spaces), ...memmapRows(ctx), ...timelineRows(ctx, entries), ...browseRows(ctx, entries), ...areaPanel(ctx, 'browse'), ...memoryLabRows(ctx), text(ctx, 'spend, budget gauge and burn: Cost (9)', { dimColor: true })], 'memory')
 }

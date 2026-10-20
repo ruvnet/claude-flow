@@ -22,7 +22,7 @@ const header = (): string => {
 
 describe('console version', () => {
   it('matches the plugin manifest, so the header shows the build that is running', () => {
-    const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.claude-plugin/plugin.json', import.meta.url)), 'utf8')) as { version: string }
+    const manifest = JSON.parse(readFileSync(fileURLToPath(new URL('../.claude-plugin/plugin.json', import.meta.url) as never), 'utf8')) as { version: string }
 
     expect(CONSOLE_VERSION).toBe(manifest.version)
   })

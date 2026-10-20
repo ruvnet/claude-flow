@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural + security smoke for ruflo-mods v0.3.14 (ADR-404, ADR-447).
+# Structural + security smoke for ruflo-mods v0.6.2 (ADR-404, ADR-447).
 # Static only: CI has no Claude Code, so the hooks module's behaviour is held
 # by v3/@claude-flow/cli/__tests__/mods/*.test.ts and, where function hooks are
 # on, by `claude plugin test plugins/ruflo-mods`.
@@ -12,9 +12,9 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 HOOKS="$ROOT/hooks"
 
-step "1. plugin.json declares ruflo-mods 0.3.14"
+step "1. plugin.json declares ruflo-mods 0.6.2"
 grep -q '"name": "ruflo-mods"' "$ROOT/.claude-plugin/plugin.json" \
-  && grep -q '"version": "0.3.14"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "name/version"
+  && grep -q '"version": "0.6.2"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "name/version"
 
 step "2. hooks.json names exactly one module and no classic hook commands"
 grep -q '"modules": \["./register.ts"\]' "$HOOKS/hooks.json" && ! grep -q '"command"' "$HOOKS/hooks.json" \
@@ -74,6 +74,26 @@ for key in $(grep -oE "^    \"[A-Za-z]+\": \\{" "$ROOT/.claude-plugin/plugin.jso
   [[ "$(grep -c "^| \`$key\` |" "$ROOT/README.md")" == "1" ]] || missing="$missing $key"
 done
 [[ -z "$missing" ]] && ok || bad "README option row missing or duplicated:$missing"
+
+step "14. every plugin's toast policy copy is byte-identical to the canonical hooks/toast/policy.ts (ADR-477)"
+if [[ -f "$ROOT/../../scripts/sync-toast-policy.mjs" ]] && command -v node >/dev/null 2>&1; then
+  out=$(node "$ROOT/../../scripts/sync-toast-policy.mjs" --check 2>&1) && ok || bad "$out"
+else printf "SKIP (no node or no repo scripts/)\n"; fi
+
+step "15. the optional ruvnet-brain status is detect-only: no hook, verdict, write, call or prompt from grounding.ts, no brain tool id anywhere (ADR-487)"
+hits=$(grep -nE "\\bon\\(|decision|deny|\\\$\\.|\\.write|spawn|tool\\.call|submit" "$HOOKS/grounding.ts" | grep -vE '^[0-9]+:\s*(\*|//|/\*)' || true)
+ids=$(grep -rnE "mcp__plugin_ruvnet|plugin_ruvnet-brain|search_ruvnet" "$HOOKS" || true)
+[[ -z "$hits" && -z "$ids" ]] && ok || bad "grounding.ts must only read and report: $hits $ids"
+
+step "16. the /ruflo-mods command stays an alias of /ruflo mods (ADR-406): the mod registers it and the console delegates mods to the mod"
+CONSOLE="$ROOT/../ruflo-console/hooks"
+if [[ -d "$CONSOLE" ]]; then
+  grep -q "name: 'ruflo-mods'" "$HOOKS/session.ts" && grep -q "owner: 'ruflo-mods'" "$CONSOLE/commands.ts" && ok || bad "alias registration or console delegation missing"
+else printf "SKIP (no sibling ruflo-console)\n"; fi
+
+step "17. the startup self-check is read-only and fixed-text: no write, no env set, no engine handle, no repository text in the line (ADR-404 addendum)"
+hits=$(grep -nE "\\.write|env\\.set|\\\$\\.|tool\\.call|spawn" "$HOOKS/selfcheck.ts" | grep -vE '^[0-9]+:\s*(\*|//|/\*)' || true)
+[[ -z "$hits" ]] && grep -q "export function selfCheckLine" "$HOOKS/selfcheck.ts" && ok || bad "selfcheck.ts must only read and speak a fixed line: $hits"
 
 printf "\n%d passed, %d failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]

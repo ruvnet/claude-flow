@@ -37,7 +37,7 @@ claude --plugin-dir plugins/ruflo-cost-tracker
 | `cost-diff` | `/cost-diff --baseline <path> --current <path> [--alert-on-pct N] [--alert-on-usd N]` | **PR regression detection** — diffs two cost-summary JSON snapshots. Per-tier + per-model breakdowns sorted by `\|delta\|`. Optional pct/USD alert thresholds for CI gating. |
 | `cost-session` | `/cost-session [--session-id <id>] [--top 20] [--since <iso-ts>]` | **Drill-down** — per-message cost breakdown within ONE session. Surfaces top-N expensive messages with cache_write column so $16 messages stop looking like 569-token outputs. Pair with cost-anomaly. |
 | `cost-health` | `/cost-health [--alert-acceleration 100] [--alert-outliers 1] [--skip burn,anomaly]` | **Composite CI gate** — runs budget+burn+anomaly+projection in parallel, returns `max(exit)`. One shell-out covers all four alert ladders. |
-| `cost-ledger` | `/cost-ledger [--since 7d] [--provider claude\|codex\|all]` | **Multi-provider** spend, tokens and cache hit ratio from the local Claude Code and Codex logs; unpriced models flagged, USD and credits never mixed. |
+| `cost-ledger` | `/cost-ledger [--since 7d] [--provider claude\|codex\|grok\|all]` | **Multi-provider** spend, tokens and cache hit ratio from the local Claude Code, Codex and Grok logs; unpriced models flagged, USD and credits never mixed. |
 | `cost-advise` | `/cost-advise [--since 7d]` | **Optimisation findings** from your own logs (cache discipline, 1h cache TTL, sub-agent tier, Codex reasoning share, context bloat) with what-if savings. |
 | `cost-openrouter` | `/cost-openrouter key\|generation <id>\|credits` | OpenRouter's own billed cost, key limits and credits. Network + key: asks first (`--yes`), key only from the environment. |
 | `cost-local` | `/cost-local --tok-per-s <n> [--busy 0.25] [--compare <model>]` | Cost per 1M tokens on your own hardware (fixed + marginal) and the utilisation at which it beats a hosted model. |
@@ -46,6 +46,8 @@ claude --plugin-dir plugins/ruflo-cost-tracker
 | `cost-federation` | `/cost-federation` | ADR-097 Phase 3 consumer — per-peer 1h/24h/7d federation_spend rolling windows |
 | `cost-summary` | `/cost-summary [--format json\|markdown]` | Single-shot programmatic dump of all cost data (stable JSON contract for inter-plugin consumption) |
 | `cost-compact-context` | `/cost-compact-context <query>` | Wrap `getTokenOptimizer().getCompactContext()` for retrieval-compacted analysis (graceful fallback when agentic-flow not installed) |
+
+Grok prices are xAI list prices, not what a subscription bills; every Grok row is flagged **approximate** in the ledger output.
 
 ## Commands (23 subcommands)
 
@@ -160,7 +162,7 @@ Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadow
 
 ```bash
 bash plugins/ruflo-cost-tracker/scripts/smoke.sh
-# Expected: "44 passed, 0 failed"
+# Expected: "63 passed, 0 failed"
 
 CI: see [`.github/workflows/cost-tracker-smoke.yml`](../../.github/workflows/cost-tracker-smoke.yml).
 On every PR touching this plugin, GitHub Actions runs smoke + booster-only bench

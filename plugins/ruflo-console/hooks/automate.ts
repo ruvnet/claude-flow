@@ -9,6 +9,7 @@
  * What cannot work is said, not faked: `hooks worker status` and `cancel` keep workers in a per-process map, so a fresh
  * `ruflo` run never sees a worker another run dispatched; the cards read the daemon's own state file instead.
  */
+import { ARGV_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import { configKeyOf, freeText, keyValueOf, isSecretKey, laneOf, looksSecret, MASK, objectIn, parseAutopilot, parseConfig, parseSessions, parseTemplates, parseWorkflows, relPathOf, shownValue, WORKER_ABOUT, WORKER_NAMES } from './data/automate'
 import { idOf, plain, type AgentRecord, type TaskRecord } from './data/parse'
@@ -135,13 +136,13 @@ function fixedEntries(state: State): AutoEntry[] {
 }
 
 export function historySpec(text: string): ActionSpec | null {
-  const query = freeText(text, 120)
+  const query = freeText(text, ARGV_TEXT_MAX)
 
   return query === null ? null : autoSpec('auto-ap-history', `autopilot history for "${query.slice(0, 40)}"`, 'read', ['autopilot', 'history', '--query', query, '--json'])
 }
 
 export function sessionSave(state: State, text: string): ActionSpec | null {
-  const name = freeText(text, 64)
+  const name = freeText(text, 256)
 
   return name === null
     ? null
@@ -189,7 +190,7 @@ const TASK_TYPES = ['feature', 'bugfix', 'research', 'refactor', 'test', 'docs']
 export function taskCreate(text: string): ActionSpec | null {
   const match = /^(\w+):\s*(.*)$/.exec(text.trim())
   const type = match !== null && (TASK_TYPES as readonly string[]).includes(match[1]?.toLowerCase() ?? '') ? (match[1] ?? 'feature').toLowerCase() : 'feature'
-  const description = freeText(match !== null && type !== 'feature' ? (match[2] ?? '') : text, 300)
+  const description = freeText(match !== null && type !== 'feature' ? (match[2] ?? '') : text, ARGV_TEXT_MAX)
 
   return description === null
     ? null
@@ -202,7 +203,7 @@ export function taskCreate(text: string): ActionSpec | null {
 
 /** One task step for the agent picked on the board (a run needs one); the prompt is the person's, the name its first words. */
 export function workflowCreate(state: State, text: string): ActionSpec | null {
-  const prompt = freeText(text, 300)
+  const prompt = freeText(text, ARGV_TEXT_MAX)
   const agentId = idOf(selection(state).agent?.id)
 
   if (prompt === null) return null

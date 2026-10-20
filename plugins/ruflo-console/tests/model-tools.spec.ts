@@ -11,7 +11,7 @@ import { settingsOf } from '../hooks/settings'
 import { newState, type State } from '../hooks/state'
 import type { Actions } from '../hooks/views/common'
 import { viewText } from '../hooks/views/pane'
-import { setup } from './fixtures/control-setup'
+import type { Level } from './fixtures/control-setup'
 
 /** A controller whose runner behaves like the real one: read-only entries finish at once, the rest wait in `state.pending`. */
 function setup(level: Level, confirm: 'ask' | 'auto' = 'ask', entries: Record<string, { label: string; readOnly?: boolean; note?: string }> = {}, followUp?: { label: string; note?: string }) {
@@ -194,11 +194,11 @@ describe('what Claude may do at each level', () => {
     expect({ goal: calls.goal, profile: calls.profile, draft: calls.draft }).toEqual({ goal: ['add a dark mode toggle'], profile: ['bugfix'], draft: [['task', 'review my PR']] })
   })
 
-  it('caps a value at 500 characters and strips control characters', async () => {
+  it('keeps a value whole up to the shared limit and strips control characters', async () => {
     const { deps, calls } = setup('write')
 
     await callTool('console_set', { field: 'goal', value: `a\u001b[31m${'b'.repeat(900)}` }, deps)
-    expect(calls.goal[0]?.length).toBeLessThanOrEqual(500)
+    expect(calls.goal[0]?.length).toBe(901)
     expect(calls.goal[0]).not.toContain('\u001b')
   })
 })

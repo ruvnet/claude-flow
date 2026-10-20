@@ -86,14 +86,23 @@ export function flushObservations(s: GuidanceState, path: string, fs: { read: (p
   s.flush = s.flush.then(async () => {
     if (!s.pending.length) return
     let previous: Observation[] = []
+    let existing: string | undefined
     try {
-      const text = await fs.read(path)
-      if (text.length > MAX_QUEUE_CHARS) return
-      const parsed = JSON.parse(text)
+      existing = await fs.read(path)
+    } catch (error) {
+      // Only the read can say "no queue yet"; a parse error can quote the file's own text.
+      if (!isMissing(error, path)) return
+    }
+    if (existing !== undefined) {
+      if (existing.length > MAX_QUEUE_CHARS) return
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(existing)
+      } catch {
+        return
+      }
       if (!Array.isArray(parsed) || parsed.length > MAX_OBSERVATIONS || parsed.some(r => !validObservation(r) || r.runId !== s.runId) || new Set(parsed.map(r => r.id)).size !== parsed.length) return
       previous = parsed
-    } catch (error) {
-      if (!isMissing(error)) return
     }
     const ids = new Set(previous.map(r => r.id))
     const additions = s.pending.filter(r => !ids.has(r.id))

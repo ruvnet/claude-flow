@@ -9,7 +9,6 @@ import {
   analyzeDiff,
   assessFileRisk,
   assessOverallRisk,
-  classifyDiff,
   suggestReviewers,
   getGitDiffNumstat,
   type DiffFile,
@@ -22,7 +21,7 @@ import {
  */
 export const analyzeDiffTool: MCPTool = {
   name: 'analyze_diff',
-  description: 'Analyze git diff for change risk assessment and classification Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Heuristically analyze git diff paths, changed lines, and one-commit subjects for risk and classification. Use when preparing a review that needs a quick evidence-based summary; inspect the diff for final judgment.',
   category: 'analyze',
   tags: ['diff', 'risk', 'classification', 'git'],
   inputSchema: {
@@ -98,7 +97,7 @@ export const analyzeDiffTool: MCPTool = {
  */
 export const diffRiskTool: MCPTool = {
   name: 'analyze_diff-risk',
-  description: 'Quick risk assessment for git diff Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Heuristically assess git diff risk from changed file paths, sizes, and status. Use when triaging which files merit closer human review; this is not a security guarantee.',
   category: 'analyze',
   tags: ['diff', 'risk', 'git'],
   inputSchema: {
@@ -141,7 +140,7 @@ export const diffRiskTool: MCPTool = {
  */
 export const diffClassifyTool: MCPTool = {
   name: 'analyze_diff-classify',
-  description: 'Classify git diff change type Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Heuristically classify a git diff from changed lines, file paths, and a single-commit subject when available. Use when you need a coarse change category; inspect the diff to confirm.',
   category: 'analyze',
   tags: ['diff', 'classification', 'git'],
   inputSchema: {
@@ -159,13 +158,12 @@ export const diffClassifyTool: MCPTool = {
     const ref = (params.ref as string) || 'HEAD';
 
     try {
-      const files = getGitDiffNumstat(ref);
-      const classification = classifyDiff(files);
+      const result = await analyzeDiff({ ref });
 
       return {
         ref,
-        classification,
-        files: files.length,
+        classification: result.classification,
+        files: result.files.length,
       };
     } catch (error) {
       return {
@@ -183,7 +181,7 @@ export const diffClassifyTool: MCPTool = {
  */
 export const diffReviewersTool: MCPTool = {
   name: 'analyze_diff-reviewers',
-  description: 'Suggest reviewers for git diff changes Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Suggest reviewer roles from git diff paths and risk; does not identify people or read CODEOWNERS. Use when triaging expertise for a change, then consult CODEOWNERS to assign people.',
   category: 'analyze',
   tags: ['diff', 'reviewers', 'git'],
   inputSchema: {
@@ -232,7 +230,7 @@ export const diffReviewersTool: MCPTool = {
  */
 export const fileRiskTool: MCPTool = {
   name: 'analyze_file-risk',
-  description: 'Assess risk for a specific file change Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Heuristically assess risk for a file path and optional change metadata. Use when triaging a changed file for focused review; inspect the source for final judgment.',
   category: 'analyze',
   tags: ['file', 'risk'],
   inputSchema: {
@@ -289,7 +287,7 @@ export const fileRiskTool: MCPTool = {
  */
 export const diffStatsTool: MCPTool = {
   name: 'analyze_diff-stats',
-  description: 'Get quick statistics for git diff Use when native `git diff` / `grep` / static analysis is wrong because you want LLM-graded change classification, reviewer recommendations, or risk scoring. For literal-text inspection, native tools are fine.',
+  description: 'Count changed files, additions, and deletions in a git diff. Use when you need a quick size summary before inspecting the full patch.',
   category: 'analyze',
   tags: ['diff', 'stats', 'git'],
   inputSchema: {

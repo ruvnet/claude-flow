@@ -2,6 +2,8 @@ import { describe, expect, test, tier } from 'claude-code/testing'
 import type { Plugin } from 'claude-code/testing'
 
 import { HELPER, prompt, ROOT, START, world } from './fixtures/world'
+import { cachedFile, isMissing } from '../hooks/files'
+import { flushObservations, guidanceState } from '../hooks/guidance/observations'
 
 tier('user')
 
@@ -134,6 +136,24 @@ describe('register', () => {
     expect((await $.tool.check({ tool: 'Read', input: { file_path: 'a.ts' } })).decision).toBe('ask')
   })
 
+  test('tool.check: a parse error that quotes "ENOENT" is still unreadable, never "no policy"', async ($, on) => {
+    const PATH = `${ROOT}/.claude-flow/policy/claude-code.json`
+    const rule = { id: 'no-push', effect: 'deny', actions: ['claude-code.tool.Bash'], resources: ['git push*'] }
+    const w = world(on, {}, { [PATH]: JSON.stringify({ version: 1, mode: 'enforce', rules: [rule] }) })
+    on('tool.check', () => ({ decision: 'allow' }))
+    await $.session.start(START)
+    const push = { tool: 'Bash', input: { command: 'git push origin' } }
+    expect((await $.tool.check(push)).decision).toBe('deny')
+
+    // JSON.parse and the validator both put the file's own text in their message.
+    for (const text of ['{"version": 1, "mode": "enforce", ENOENT', JSON.stringify({ version: 'ENOENT', mode: 'enforce', rules: [rule] })]) {
+      w.files.set(PATH, text)
+      const out = await $.tool.check(push)
+      expect(out.decision, text).toBe('ask')
+      expect(out.reason).toContain('unreadable')
+    }
+  })
+
   test('tool.check: a legacy or unknown-mode projection is unreadable, so the call asks; the report names the state (ADR-450 T10)', async ($, on) => {
     const PATH = `${ROOT}/.claude-flow/policy/claude-code.json`
     const rule = { id: 'no-push', effect: 'deny', actions: ['claude-code.tool.Bash'], resources: ['git push*'] }
@@ -201,5 +221,65 @@ describe('register', () => {
     expect((await run('mods')).text).toContain('owns:        route, post-edit')
     expect((await run('claims')).text).toBe('beneath: claims')
     expect((await $.command.run({ command: 'ruflo-console', args: 'mods', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })).text).toBe(alias.text)
+  })
+})
+
+describe('missing means the read said ENOENT, not that some text did (#3793)', () => {
+  test('a quoted path containing ENOENT is not "missing"; a real ENOENT still is', async () => {
+    const path = '/home/u/ENOENT-repo/.claude-flow/policy/claude-code.json'
+    expect(isMissing(new Error(`EACCES: permission denied, open '${path}'`), path)).toBe(false)
+    expect(isMissing(new Error(`ENOENT: no such file or directory, open '${path}'`), path)).toBe(true)
+    const read = cachedFile(() => path, text => text)
+    const fs = { stat: async () => ({ kind: 'file', size: 1, mtimeMs: 1, isLink: false }) as never, read: async () => { throw new Error(`EACCES: permission denied, open '${path}'`) } }
+    expect((await read(fs)).kind).toBe('error')
+  })
+
+  test('a corrupt observation queue whose text quotes ENOENT is never overwritten', async () => {
+    const s = guidanceState()
+    s.runId = 'mod-a-b-c'
+    s.pending = [{ id: 'x' } as never]
+    const writes: string[] = []
+    await flushObservations(s, '/q.json', { read: async () => '[{"id": ENOENT', write: async (_p, t) => void writes.push(t) })
+    expect(writes).toEqual([])
+  })
+})
+
+/** settings.json as `ruflo init` wrote it before the hook-handler.cjs switch (Feb 2026). */
+const LEGACY = {
+  hooks: {
+    UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'npx @claude-flow/cli@latest hooks route --task "$PROMPT"' }] }],
+    PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: 'npx @claude-flow/cli@latest hooks post-edit --file "$TOOL_INPUT_file_path" --success "${TOOL_SUCCESS:-true}"' }] }],
+  },
+}
+
+describe('ownership: the legacy CLI hooks route (pre-hook-handler init)', () => {
+  test('a legacy `npx @claude-flow/cli hooks route` hook (no handshake) keeps route; the mod does not route too', async ($, on) => {
+    const w = world(on, LEGACY)
+    const seen: (readonly string[] | undefined)[] = []
+    on('prompt.submit', ($, e) => (seen.push(e.context), { text: e.text }))
+    await $.session.start(START)
+    await $.prompt.submit(prompt('implement the api'))
+
+    expect(w.env.get('RUFLO_MODS_OWNS') ?? '').not.toContain('route')
+    expect(seen[0]).toBeUndefined()
+  })
+})
+
+/** settings-generator hookCmd on Windows: project copy, else %USERPROFILE%'s. */
+const WIN_ROUTE = {
+  hooks: {
+    UserPromptSubmit: [{ hooks: [{ command: 'cmd /c "IF EXIST \\"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\\" (node \\"%CLAUDE_PROJECT_DIR%\\.claude\\helpers\\hook-handler.cjs\\" route) ELSE (node \\"%USERPROFILE%\\.claude\\helpers\\hook-handler.cjs\\" route)"' }] }],
+  },
+}
+
+describe('ownership: Windows %USERPROFILE% helper', () => {
+  test('an old helper under %USERPROFILE% (HOME unset, as on Windows) makes the mod stand down for route', async ($, on) => {
+    // A POSIX-style path: the test engine resolves paths as POSIX (C:/... would read as relative and never exist).
+    const PROFILE = '/c/Users/me'
+    const w = world(on, WIN_ROUTE, { [`${PROFILE}/.claude/helpers/hook-handler.cjs`]: '// an older helper' })
+    w.env.set('USERPROFILE', PROFILE)
+    await $.session.start(START)
+
+    expect(w.env.get('RUFLO_MODS_OWNS') ?? '').not.toContain('route')
   })
 })

@@ -3,7 +3,8 @@
  * helpers manifest, and Claude Code's own plugin records. Same rules as ./parse: any shape tolerated, nothing guessed,
  * every string cleaned. A value a file does not hold is absent, and the view says n/a.
  */
-import { jsonObject, msOf, numberOf, plain, recordOf, stringOf } from './parse'
+import { jsonObject, msOf, plain, recordOf, stringOf } from './parse'
+import { countOf, ratioOf } from './safe'
 
 export type NeuralStats = { trajectories?: number; patterns?: number; signals?: number; lastAdaptationMs?: number }
 
@@ -16,9 +17,9 @@ export function parseNeural(text: string | null): NeuralStats | null {
   }
 
   const stats: NeuralStats = {}
-  const trajectories = numberOf(value.trajectoriesRecorded)
-  const patterns = numberOf(value.patternsLearned)
-  const signals = numberOf(value.signalsProcessed)
+  const trajectories = countOf(value.trajectoriesRecorded)
+  const patterns = countOf(value.patternsLearned)
+  const signals = countOf(value.signalsProcessed)
   const last = msOf(value.lastAdaptation)
 
   if (trajectories !== undefined) stats.trajectories = trajectories
@@ -41,7 +42,7 @@ export function parseRouter(text: string | null): RouterState | null {
 
   const distribution = Object.entries(recordOf(value.modelDistribution) ?? {})
     .slice(0, 12)
-    .flatMap(([model, count]) => (numberOf(count) !== undefined ? [{ model: plain(model, 20), count: numberOf(count) as number }] : []))
+    .flatMap(([model, count]) => (countOf(count) !== undefined ? [{ model: plain(model, 20), count: countOf(count) as number }] : []))
   const history = (Array.isArray(value.learningHistory) ? value.learningHistory : []).slice(-200).flatMap(entry => {
     const row = recordOf(entry)
     const atMs = msOf(row?.timestamp)
@@ -49,8 +50,8 @@ export function parseRouter(text: string | null): RouterState | null {
     return row === null || atMs === undefined || typeof row.outcome !== 'string' ? [] : [{ ok: row.outcome === 'success', atMs }]
   })
   const state: RouterState = { distribution, history }
-  const decisions = numberOf(value.totalDecisions)
-  const confidence = numberOf(value.avgConfidence)
+  const decisions = countOf(value.totalDecisions)
+  const confidence = ratioOf(value.avgConfidence)
   const updated = msOf(value.lastUpdated)
 
   if (decisions !== undefined) state.decisions = decisions
@@ -78,7 +79,7 @@ export function parseOutcomes(text: string | null): Outcomes | null {
       return []
     }
 
-    const quality = numberOf(row.quality)
+    const quality = ratioOf(row.quality)
 
     return [{ ok: row.success, agent: stringOf(row.agent, 30) ?? '?', atMs, ...(quality !== undefined && { quality }) }]
   })
@@ -113,7 +114,7 @@ export function parseDaemon(text: string | null): Daemon | null {
 
       return worker === null
         ? []
-        : [{ name: plain(name, 20), runs: numberOf(worker.runCount) ?? 0, failures: numberOf(worker.failureCount) ?? 0, ...(lastRunMs !== undefined && { lastRunMs }) }]
+        : [{ name: plain(name, 20), runs: countOf(worker.runCount) ?? 0, failures: countOf(worker.failureCount) ?? 0, ...(lastRunMs !== undefined && { lastRunMs }) }]
     })
   const daemon: Daemon = { running: value.running === true, workers }
   const savedAtMs = msOf(value.savedAt) ?? msOf(value.startedAt)
@@ -240,7 +241,7 @@ export function parseActivity(text: string | null): { agentCount?: number; isAct
     return null
   }
 
-  const agentCount = numberOf(swarm.agent_count)
+  const agentCount = countOf(swarm.agent_count)
   const atMs = msOf(value.timestamp)
 
   return { isActive: swarm.active === true, ...(agentCount !== undefined && { agentCount }), ...(atMs !== undefined && { atMs }) }

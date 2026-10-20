@@ -2,6 +2,7 @@ import type { RenderElement } from 'claude-code'
 
 import { MEM_GROUPS, MEM_LAB, memSpecOf, textOfFields, type MemCost, type MemEntry, type MemField } from '../memory-lab'
 import { ago, button, clip, confirmHere, type Ctx, row, rule, section, tagChip, text, THEME } from './common'
+import { healthRows } from './memory-health'
 import { frameResult } from './status-card'
 
 /** Result lines in view at once; j/k scroll the rest. */
@@ -142,7 +143,7 @@ function resultRows(ctx: Ctx): RenderElement[] {
  */
 export function memoryLabRows(ctx: Ctx): RenderElement[] {
   const lead = Math.max(15, Math.min(18, ctx.columns - 40))
-  const rows: RenderElement[] = [...searchRows(ctx), ...areaPanel(ctx, 'search'), ...entryRows(ctx), ...areaPanel(ctx, 'entry')]
+  const rows: RenderElement[] = [...section(ctx, 'mem-g-health', 'Memory health', 'duplicates, stale, never recalled · analysis reads no values; consolidate asks first', [...healthRows(ctx), ...areaPanel(ctx, 'health')], true), ...searchRows(ctx), ...areaPanel(ctx, 'search'), ...entryRows(ctx), ...areaPanel(ctx, 'entry')]
 
   rows.push(rule(ctx, 'Lab text', 'the input for the rows below that take text'))
   rows.push(field(ctx, 'text', 'text', 'a query or pattern · a node id · a | b to compare · source relation target', 'keep', value => ctx.act.memory.draft('text', value)))

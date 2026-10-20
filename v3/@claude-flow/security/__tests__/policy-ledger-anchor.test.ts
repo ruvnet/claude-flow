@@ -68,30 +68,45 @@ describe('policy decision ledger anchor (#3568)', () => {
     expect(engine.verifyLedger().error).toBe('policy-ledger-truncated');
   });
 
-  it('anchors a legacy ledger written before the anchor existed, once', () => {
+  it('never re-anchors receipts that have no anchor on its own (#3602)', () => {
+    const state = ledgerOf(16);
+    delete state.ledgerHead;
+    delete state.ledgerLength;
+    state.receipts.splice(10);
+
+    const engine = AgenticPolicyEngine.fromState(state);
+    expect(engine.verifyLedger()).toEqual({ valid: false, length: 10, error: 'anchor-missing' });
+    expect(engine.exportState().ledgerLength).toBeUndefined();
+  });
+
+  it('anchors receipts only on an explicit establish, once', () => {
     const state = ledgerOf(16);
     delete state.ledgerHead;
     delete state.ledgerLength;
 
     const engine = AgenticPolicyEngine.fromState(state);
-    expect(engine.verifyLedger()).toEqual({ valid: true, length: 16, anchor: 'established-now' });
+    expect(engine.verifyLedger({ establishAnchor: true })).toEqual({ valid: true, length: 16, anchor: 'established-now' });
 
     const anchored = engine.exportState();
     expect(anchored.ledgerLength).toBe(16);
     expect(anchored.ledgerHead).toBe(anchored.receipts.at(-1)!.hash);
     expect(AgenticPolicyEngine.fromState(anchored).verifyLedger()).toEqual({ valid: true, length: 16 });
 
-    // From here on, truncation is detected.
     anchored.receipts.pop();
     expect(AgenticPolicyEngine.fromState(anchored).verifyLedger().error).toBe('policy-ledger-truncated');
   });
 
-  it('keeps the anchor in step when a legacy ledger receives a new decision', () => {
+  it('refuses to append to receipts that have no anchor, so appending cannot re-anchor them', () => {
     const state = ledgerOf(3);
     delete state.ledgerHead;
     delete state.ledgerLength;
     const engine = AgenticPolicyEngine.fromState(state);
-    engine.evaluate(request(3));
-    expect(engine.verifyLedger()).toEqual({ valid: true, length: 4 });
+    expect(() => engine.evaluate(request(3))).toThrow('policy-ledger-anchor-missing');
+  });
+
+  it('a first decision on a genesis ledger anchors it', () => {
+    const engine = new AgenticPolicyEngine({ mode: 'legacy' });
+    engine.evaluate(request(0));
+    expect(engine.verifyLedger()).toEqual({ valid: true, length: 1 });
   });
 });

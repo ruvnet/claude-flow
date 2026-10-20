@@ -22,7 +22,7 @@ Re-drive a recorded session trajectory. Used for regression testing, determinist
 
 1. **Locate the source session**:
    ```bash
-   npx -y ruvector@0.2.25 rvf status <session-id>.rvf
+   npx -y ruvector@0.2.27 rvf status <session-id>.rvf
    ```
 2. **Load the trajectory**:
    ```bash

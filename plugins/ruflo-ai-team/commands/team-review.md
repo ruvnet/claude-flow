@@ -1,6 +1,6 @@
 ---
 name: team-review
-description: Verify a RuFlo AI Team's deliverables and unresolved work.
+description: Verify an AI team run's deliverables against its acceptance criteria. Pass a run ID.
 ---
 
-Use review-team-deliverables for run `$ARGUMENTS`. Separate verified evidence, stored assertions, uncertainty, and missing criteria.
+Use the review-team-deliverables skill for run: $ARGUMENTS. If no run was given, ask which run. Separate verified evidence, stored assertions, uncertainty, and missing criteria.

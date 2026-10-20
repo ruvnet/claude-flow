@@ -3,6 +3,7 @@ import type { RenderElement } from 'claude-code'
 import { EPOCHS, PATTERNS, sparkline } from '../data/automate'
 import { field, resultRows, strip } from './automate'
 import { spinAt } from '../spinner'
+import { lifecycleRows, recallRows } from './recall-rows'
 import { ago, col, count, kv, row, section, text, THEME, type Ctx } from './common'
 
 const BAR = 24
@@ -105,6 +106,8 @@ export const neuralActionRows = (ctx: Ctx, nested = false): RenderElement[] => {
     ...section(ctx, 'nn-intel', 'Intelligence', neural === null ? 'no .claude-flow/neural/stats.json' : 'neural/stats.json', intelligenceRows(ctx), true),
     ...section(ctx, 'nn-train', 'Training', `${trains.length} run${trains.length === 1 ? '' : 's'} this session${isTraining ? ' · running' : ''}`, trainingRows(ctx), nested || isTraining),
     ...section(ctx, 'nn-self', 'Self-learning', 'bootstrap, consolidate and teach the ReasoningBank · local, no model calls', selfLearnRows(ctx), nested),
+    ...section(ctx, 'nn-recall', 'Explain a recall', 'what the hook surfaced · ranked-context.json', recallRows(ctx), true),
+    ...section(ctx, 'nn-life', 'Pattern lifecycle', 'neural/models.json · prune and promote ask first', lifecycleRows(ctx), nested),
     ...section(ctx, 'nn-router', 'Router', 'which agent for this task? · $0, local', routerRows(ctx), true),
   ]
 }

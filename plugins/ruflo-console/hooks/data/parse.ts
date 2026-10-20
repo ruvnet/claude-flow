@@ -5,6 +5,7 @@
  * draws, with the claim record extended by its timestamps and context. Every one takes text another process wrote, so
  * each tolerates any shape: what it cannot read is left out, never guessed. Nothing here keeps the hive's `hiveToken`.
  */
+import { countOf, ratioOf, timeOf } from './safe'
 
 /** Text longer than this is not parsed: a store that size is not one the CLI wrote, and parsing it would stall a hook. */
 export const MAX_TEXT = 4_000_000
@@ -15,10 +16,13 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/
 
 // Whole escape sequences go first (the CLI colours its output; a hostile file may carry a hyperlink or a title): stripping only the ESC byte
 // would leave `[1m` or `]8;;https://…` in the text. Written as \u escapes so no invisible character sits in this source.
-const ESCAPES = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)|\\u009d[^\\u0007\\u009c]*[\\u0007\\u009c]|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
+export const ESCAPES = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\|(?=\\u001b)|$)|\\u009d[^\\u0007\\u009c\\u009d]*(?:[\\u0007\\u009c]|(?=\\u009d)|$)|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
 // Controls, DEL, C1, soft hyphen, combining grapheme joiner, Arabic letter mark, zero-width and bidi characters, invisible operators,
 // variation selectors, Hangul fillers and BOM: nothing a person could read, all of them fit for hiding or reordering text.
-const HIDDEN = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u2069\\u3164\\ufe00-\\ufe0d\\ufeff\\uffa0]|[\\u{e0000}-\\u{e0fff}]', 'gu')
+export const HIDDEN = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0d\\ufeff\\uffa0\\ufff9-\\ufffb]|[\\u{e0000}-\\u{e0fff}]', 'gu')
+
+/** The zero-width and format characters that can split a credential or a keyword without being seen: removed (not spaced) before any mask or pattern runs. */
+export const INVISIBLE = new RegExp('[\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0f\\ufeff\\uffa0\\ufff9-\\ufffb]|[\\u{e0000}-\\u{e0fff}]', 'gu')
 
 /** Plain printable text of at most `max` characters: no escape sequence, control, hidden or bidi-override character reaches the terminal. */
 export function plain(value: unknown, max = 200): string {
@@ -26,7 +30,7 @@ export function plain(value: unknown, max = 200): string {
     return ''
   }
 
-  const cleaned = value.replace(ESCAPES, '').replace(HIDDEN, ' ').replace(/\s+/g, ' ').trim()
+  const cleaned = value.replace(ESCAPES, '').replace(INVISIBLE, '').replace(HIDDEN, ' ').replace(/\s+/g, ' ').trim()
 
   return cleaned.length <= max ? cleaned : `${cleaned.slice(0, Math.max(0, max - 1))}…`
 }
@@ -63,7 +67,7 @@ export const valuesOf = (value: unknown): unknown[] => {
 /** An ISO time to epoch milliseconds, or undefined. */
 export const msOf = (value: unknown): number | undefined => {
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return value
+    return timeOf(value)
   }
 
   const parsed = typeof value === 'string' ? Date.parse(value) : Number.NaN
@@ -165,7 +169,7 @@ export function parseSwarmStore(text: string | null): SwarmInfo | null {
         return agentId !== null ? [agentId] : []
       }),
     }
-    const maxAgents = numberOf(swarm.maxAgents)
+    const maxAgents = countOf(swarm.maxAgents)
     const strategy = stringOf(config?.strategy, 40)
     const updatedAt = stringOf(swarm.updatedAt, 40)
 
@@ -175,7 +179,8 @@ export function parseSwarmStore(text: string | null): SwarmInfo | null {
 
     return [info]
   })
-  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+  // By instant, not text: "…T10:00+02:00" is older than "…T09:00Z" though it sorts after it as a string. Unparseable sorts last.
+  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (msOf(b.updatedAt) ?? -Infinity) - (msOf(a.updatedAt) ?? -Infinity) || 0
 
   return [...swarms.filter(swarm => swarm.status === 'running')].sort(byRecency)[0] ?? [...swarms].sort(byRecency)[0] ?? null
 }
@@ -213,8 +218,8 @@ export function parseAgents(text: string | null): AgentRecord[] {
 
     const record: AgentRecord = { id, type: stringOf(agent.agentType, 40) ?? 'agent', status: stringOf(agent.status, 20) ?? 'unknown' }
     const name = stringOf(agent.name, 40)
-    const health = numberOf(agent.health)
-    const taskCount = numberOf(agent.taskCount)
+    const health = ratioOf(agent.health)
+    const taskCount = countOf(agent.taskCount)
     const createdAtMs = msOf(agent.createdAt)
 
     if (name !== undefined) record.name = name
@@ -392,8 +397,8 @@ function decisionOf(entry: unknown): Decision | null {
     id,
     type: stringOf(decision.type, 40) ?? 'proposal',
     result: stringOf(decision.result, 20) ?? 'unknown',
-    votesFor: numberOf(votes?.for) ?? 0,
-    votesAgainst: numberOf(votes?.against) ?? 0,
+    votesFor: countOf(votes?.for) ?? 0,
+    votesAgainst: countOf(votes?.against) ?? 0,
     byzantine: idsOf(decision.byzantineDetected).length,
   }
   const strategy = stringOf(decision.strategy, 20)

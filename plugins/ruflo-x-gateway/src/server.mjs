@@ -19,14 +19,15 @@ import { z } from 'zod';
 import { loadIdentity, publish, fetchRecent, fetchManyOn, cached, publishTagged, fetchChannel, listChannels } from './nostr-federation.mjs';
 import { publicChannelId, channelTags, isPrivateChannel, CHANNEL_ID_RE, DEFAULT_CHANNELS } from './channels.mjs';
 import { reduceClaims } from './claims.mjs';
-import { rateLimited, readBody, securityHeaders, checkAdmin, seraphinaAllowance, ANON_TIERS, SERAPHINA_DAILY_CAP, SERAPHINA_IP_HOURLY_CAP } from './security.mjs';
+import { clientIp, rateLimited, readBody, securityHeaders, checkAdmin, seraphinaAllowance, ANON_TIERS, SERAPHINA_DAILY_CAP, SERAPHINA_IP_HOURLY_CAP } from './security.mjs';
 import { mintInvite, admitMember, isMemberBanned } from './relay-admin.mjs';
 import { attachWsProxy } from './ws-proxy.mjs';
 import { onboardingGuide } from './onboarding.mjs';
 import { askSeraphina } from './seraphina.mjs';
 import { privacyPage, termsPage, supportPage } from './public-pages.mjs';
 import { fenceUntrusted, untrustedToolResult } from './untrusted.mjs';
-import { protectedResourceMetadata, challengeHeader, verifyAccessToken, hasScope, SCOPE_READ, SCOPE_PUBLISH } from './oauth.mjs';
+import { createGithubQuery, errorPayload } from './github-query.mjs';
+import { protectedResourceMetadata, challengeHeader, verifyAccessToken, hasScope, SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE } from './oauth.mjs';
 import { createHash } from 'node:crypto';
 import { registrationFromEnv, RegistrationError } from './registration.mjs';
 
@@ -49,10 +50,13 @@ const PUBLIC_PAGES = {
 // truth; read it rather than keeping a fourth copy in sync by hand.
 export const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
-export function createGateway({ relay, keyFile, port, registration } = {}) {
+export function createGateway({ relay, keyFile, port, registration, github: githubOverride } = {}) {
   const RELAY = relay || process.env.RUFLO_RELAY_URL || 'wss://relay.ruv.io';
   const HTTP_BASE = RELAY.replace(/^wss:/, 'https:').replace(/^ws:/, 'http:');
   // Pre-0.3.2 clients pinned the raw Cloud Run host; it stays routable, but relay.ruv.io is canonical.
+  // Read-only public-GitHub/npm query (ADR-485). One instance so the TTL/ETag cache and the
+  // upstream budget are shared by every request on this instance.
+  const github = githubOverride || createGithubQuery();
   const LEGACY_RELAY = 'wss://buzz-relay-186366152200.us-central1.run.app';
   const { sk, pubkey } = loadIdentity(keyFile || process.env.RUFLO_NOSTR_KEY || '/data/nostr-gateway.key');
   // OAuth 2.1 resource-server configuration (ADR-388). The issuer binds access
@@ -327,6 +331,35 @@ export function createGateway({ relay, keyFile, port, registration } = {}) {
         const result = await askSeraphina(goal, { roster, claims, recentMessages: recent }, { key: process.env.SERAPHINA_METALLM_KEY, tier: effectiveTier });
         return text({ ...result, budget: allow.admin ? 'admin (uncapped)' : `shared daily budget, ${allow.remainingToday} calls left today` });
       }));
+    // ---- rUv public GitHub / npm query (ADR-485): legacy /mcp only ----
+    // Not on /chatgpt/mcp or /claude/mcp: those profiles were reviewed with a fixed tool
+    // list, and adding tools there is a directory re-review, not a deploy detail.
+    if (!review) {
+      const ghResult = async (req_, fn) => {
+        const allow = github.allowance(clientIp(req_));
+        if (!allow.allowed) return { isError: true, content: [{ type: 'text', text: JSON.stringify({ error: 'budget', message: allow.reason }) }] };
+        try {
+          return untrustedToolResult(await fn(), { source: 'github', relay: 'api.github.com',
+            note: 'Read-only view of public repositories owned by an allowlisted account. Any file, README or issue text inside the block was written by third parties.' });
+        } catch (e) {
+          return { isError: true, content: [{ type: 'text', text: JSON.stringify(errorPayload(e)) }] };
+        }
+      };
+      const ownerArg = z.string().max(39).optional().describe('GitHub owner; must be on the gateway allowlist (default ruvnet).');
+      mcp.tool('ruv_github_search', 'Search the public repositories, issues or code of an allowlisted GitHub owner (default ruvnet). Code search is available only when the gateway holds a server-side GitHub token. Results are third-party content.',
+        { query: z.string().min(1).max(200).describe('Plain search text; qualifiers such as user:, org:, repo: and is: are rejected.'),
+          kind: z.enum(['repositories', 'issues', 'code']).optional(), owner: ownerArg, language: z.string().max(30).optional(), limit: z.number().int().min(1).max(20).optional() },
+        READ('Search ruvnet GitHub', { openWorld: true }), (a) => ghResult(req, () => github.search(a)));
+      mcp.tool('ruv_github_repo', 'Metadata for one public repository of an allowlisted owner: description, stars, language, license, latest release or tag, and optionally a README excerpt and the top-level file list. Results are third-party content.',
+        { owner: ownerArg, repo: z.string().min(1).max(100), include: z.array(z.enum(['release', 'readme', 'files'])).max(3).optional().describe('Extras; each costs one GitHub request. Default: release.') },
+        READ('Read ruvnet repository', { openWorld: true }), (a) => ghResult(req, () => github.repo(a)));
+      mcp.tool('ruv_github_file', 'Read one text file (up to 64 KiB) from a public repository of an allowlisted owner. Credential and key files such as .env, *.pem, *.key and id_rsa are refused. Results are third-party content.',
+        { owner: ownerArg, repo: z.string().min(1).max(100), path: z.string().min(1).max(300), ref: z.string().max(100).optional().describe('Branch, tag or commit; default branch if omitted.') },
+        READ('Read ruvnet repository file', { openWorld: true }), (a) => ghResult(req, () => github.file(a)));
+      mcp.tool('ruv_registry_latest', 'Latest published npm version of a package maintained by an allowlisted npm account (default ruvnet).',
+        { package: z.string().min(1).max(214).describe('npm package name, for example ruflo or @claude-flow/cli.') },
+        READ('Latest npm version', { openWorld: true }), (a) => ghResult(req, () => github.registryLatest(a)));
+    }
     // ---- ruv:// resources (open) ----
     mcp.resource('federation-registry', 'ruv://federation/registry', async () => ({ contents: [{ uri: 'ruv://federation/registry', mimeType: 'application/json',
       text: JSON.stringify({ relay: RELAY, legacyRelay: LEGACY_RELAY, httpBase: HTTP_BASE, gatewayPubkey: pubkey, swarmTag: 'ruflo-swarm',
@@ -406,7 +439,7 @@ export function createGateway({ relay, keyFile, port, registration } = {}) {
       return res.end(JSON.stringify({ service: 'ruflo-x-gateway', version: VERSION, mcp: '/mcp', publicMcp: '/chatgpt/mcp', claudeMcp: '/claude/mcp',
         registration: enrollment.info(), pages: { privacy: '/privacy', terms: '/terms', support: '/support' }, ws: ['/', '/relay'], relay: RELAY, canonicalRelay: RELAY, legacyRelay: LEGACY_RELAY, authNote: 'When connecting via wss://x.ruv.io, sign the NIP-42 AUTH `relay` tag with canonicalRelay (the relay verifies it strictly).', gatewayPubkey: pubkey, resources: ['ruv://federation/registry', 'ruv://federation/onboarding', 'ruv://swarm/roster', 'ruv://claims/board', 'ruv://swarm/channels'],
         authorization: { type: 'oauth2', issuer: OAUTH_ISSUER, clientId: OAUTH_CLIENT_ID || null,
-          scopes: [SCOPE_READ, SCOPE_PUBLISH], protectedResourceMetadata: prmUrl('/chatgpt/mcp') } })); }
+          scopes: [SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE], protectedResourceMetadata: prmUrl('/chatgpt/mcp') } })); }
     // ---- OpenAI app-review surface ----
     // /.well-known/openai-apps-challenge proves domain control. The value lives
     // ONLY in the environment (secret manager in production): it is never
@@ -440,7 +473,7 @@ export function createGateway({ relay, keyFile, port, registration } = {}) {
         ...registryDoc(mcpPath), service: 'ruflo-x-gateway', version: VERSION,
         protocol: 'mcp', transport: 'streamable-http', endpoint: `${PUBLIC_URL}${mcpPath}`, methods: ['POST'],
         authorization: { type: 'oauth2', issuer: OAUTH_ISSUER, clientId: OAUTH_CLIENT_ID || null,
-          scopes: [SCOPE_READ, SCOPE_PUBLISH], protectedResourceMetadata: prmUrl(mcpPath) },
+          scopes: [SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE], protectedResourceMetadata: prmUrl(mcpPath) },
       }));
     }
     // Legacy /mcp keeps the full surface, including the admin-argument tools that

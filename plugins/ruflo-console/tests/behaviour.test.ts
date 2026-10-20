@@ -227,7 +227,7 @@ describe('behaviour', () => {
 
     const swarm = textOf(await $.ui.render(paneAt(110)))
 
-    expect(swarm).toContain('c1 EVIL')  // the whole colour sequence is gone, not just its ESC byte
+    expect(swarm).toContain('c1EVIL')  // the whole colour sequence, the bidi override and the NUL are removed outright (not spaced), so no credential can hide behind an invisible split
     expect(swarm).not.toContain('[31m')
     expect(swarm).not.toMatch(/[\u0000-\u001f‪-‮](?<!\n)/)
     await $.command.run(command('claims'))
@@ -282,7 +282,9 @@ describe('behaviour', () => {
     await band.unmount()
   })
 
-  test('on the desktop surface, which has no Raster, every picture becomes a text line and the tree is accepted', { options: { boot: false } }, async ($, on) => {
+  // The host completes the desktop's table with a Raster that draws an empty fragment, so "no Raster in the tree" held even while every
+  // picture vanished (#4111): the pictures must arrive as Svg.
+  test('on the desktop surface, which draws no Raster, every picture arrives as an Svg and the tree is accepted', { options: { boot: false } }, async ($, on) => {
     worldOf(on, RUFLO_FILES)
     mock.clock(on)
     await $.session.start(SESSION)
@@ -295,6 +297,7 @@ describe('behaviour', () => {
 
       expect(pane.surface).toBe('desktop')
       expect(elementsOf(tree, 'Raster')).toHaveLength(0)
+      expect(elementsOf(tree, 'Svg').length).toBeGreaterThan(0)
       await pane.unmount()
     }
   })

@@ -4,9 +4,9 @@
  * shown on the band's notice row for a short while, and linked to the view it is about. They come only from changes the console observed
  * between two reads: nothing is synthesised, and the first read announces nothing. Pure, apart from the helpers that edit `state`.
  */
-import { alertsOf, approvalsOf } from './data/alerts'
+import { alertsOf, waitingApprovalsOf } from './data/alerts'
 import { agentLabels } from './data/parse'
-import { activeMission, progressOf } from './mission-control'
+import { activeMission, failedOf, progressOf } from './mission-control'
 import type { State, ViewId } from './state'
 
 export type NoticeLevel = 'ok' | 'info' | 'warn' | 'bad'
@@ -26,7 +26,8 @@ export const DEDUPE_MS = 60_000
 export type Facts = {
   approvals: number
   alerts: number
-  mission: { id: string; done: number; total: number } | null
+  /** `failed` is the count of failed tasks (absent: none known). */
+  mission: { id: string; done: number; total: number; failed?: number } | null
   anatole: { blocked: number; critical: number; degraded: string | null } | null
 }
 
@@ -37,9 +38,9 @@ export function factsOf(state: State, nowMs: number = Date.now()): Facts {
   const status = state.snapshot?.anatole?.status ?? null
 
   return {
-    approvals: approvalsOf(state).length,
+    approvals: waitingApprovalsOf(state).length,
     alerts: alertsOf(state, nowMs, state.loadedAtMs).filter(alert => alert.level !== 'info').length,
-    mission: mission === null || progress === null ? null : { id: mission.id, done: progress.done, total: progress.total },
+    mission: mission === null || progress === null ? null : { id: mission.id, done: progress.done, total: progress.total, failed: failedOf(mission, tasks) },
     anatole: status === null ? null : { blocked: status.blocked, critical: status.open.critical, degraded: status.degraded === false ? null : String(status.degraded).slice(0, 60) },
   }
 }
@@ -57,6 +58,10 @@ export function noticesBetween(before: Facts, after: Facts, newestRule: string |
     out.push({ level: 'ok', text: `🎯 mission finished: ${after.mission.done}/${after.mission.total} tasks`, key: 'mission-done', go: 'missions' })
   }
 
+  if (before.mission !== null && after.mission !== null && after.mission.id === before.mission.id && (after.mission.failed ?? 0) > (before.mission.failed ?? 0)) {
+    out.push({ level: 'bad', text: `🎯 mission task failed: ${plural(after.mission.failed ?? 0, 'task')} failed, ${after.mission.done}/${after.mission.total} done`, key: 'mission-failed', go: 'missions' })
+  }
+
   if (before.anatole !== null && after.anatole !== null) {
     if (after.anatole.blocked > before.anatole.blocked) out.push({ level: 'bad', text: `🛡 Anatole blocked ${plural(after.anatole.blocked - before.anatole.blocked, 'call')}${newestRule === null ? '' : ` · ${newestRule}`}`, key: 'anatole-blocked', go: 'secure' })
     else if (after.anatole.critical > before.anatole.critical) out.push({ level: 'bad', text: '🛡 Anatole: a new critical alert', key: 'anatole-critical', go: 'secure' })
@@ -66,11 +71,14 @@ export function noticesBetween(before: Facts, after: Facts, newestRule: string |
   return out
 }
 
-/** After a read: announces what changed since `before` (the newest open Anatole alert's rule rides on a block). */
-export function announceChanges(state: State, before: Facts, nowMs: number): void {
+/** The notices a person should hear about wherever they are looking, not only on the band: a mission ending well or badly (ADR-477). */
+export const TOASTED_KEYS: ReadonlySet<string> = new Set(['mission-done', 'mission-failed'])
+
+/** After a read: announces what changed since `before` (the newest open Anatole alert's rule rides on a block). Returns the notices that were recorded. */
+export function announceChanges(state: State, before: Facts, nowMs: number): NoticeDraft[] {
   const open = (state.snapshot?.anatole?.alerts ?? []).filter(alert => alert.state === 'open')
 
-  for (const draft of noticesBetween(before, factsOf(state, nowMs), open.at(-1)?.rule ?? null)) addNotice(state, draft, nowMs)
+  return noticesBetween(before, factsOf(state, nowMs), open.at(-1)?.rule ?? null).filter(draft => addNotice(state, draft, nowMs))
 }
 
 /** Records a notice, unless one with the same key was raised a minute ago. The ring keeps the newest 30. Returns whether it was recorded. */
@@ -175,3 +183,11 @@ const sorted = (values: readonly number[]) => [...values].sort((a, b) => a - b)
 
 export const median = (values: readonly number[]) => sorted(values)[Math.floor(values.length / 2)] ?? 0
 export const p95 = (values: readonly number[]) => sorted(values)[Math.min(values.length - 1, Math.floor(values.length * 0.95))] ?? 0
+
+/** With the band off, the console's words ride ruflo-mods' status line instead: claims and a stale marketplace only. */
+export function segmentOf(state: State): string | null {
+  const claims = state.snapshot?.claims ?? []
+  const parts = [claims.length > 0 ? `${claims.length} claims` : '', state.snapshot?.plugins.missingFromClone.length ? 'marketplace stale' : ''].filter(Boolean)
+
+  return parts.length === 0 ? null : parts.join(' · ')
+}

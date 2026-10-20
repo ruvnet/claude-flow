@@ -160,7 +160,7 @@ describe('cursor and window', () => {
   it('starts the window at the top when the cursor is near it', () => {
     const many = Array.from({ length: 25 }, (_, i) => mission({ id: `m${i}`, updatedAtMs: 100 - i }))
 
-    expect(listLayout(many, 0).rows[0].index).toBe(0)
-    expect(listLayout(many, 99).rows[LIST_WINDOW - 1].index).toBe(24)
+    expect(listLayout(many, 0).rows[0]!.index).toBe(0)
+    expect(listLayout(many, 99).rows[LIST_WINDOW - 1]!.index).toBe(24)
   })
 })

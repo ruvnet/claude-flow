@@ -8,11 +8,11 @@ import { VIEWS, type State, type ViewId } from './state'
 
 /** The nav's groups, the main menu's own, each in rows short enough to spell their names: every view but the menu is in exactly one. */
 export const NAV_GROUPS: readonly { title: string; icon: string; rows: readonly (readonly ViewId[])[] }[] = [
-  { title: 'SWARM', icon: '🐝', rows: [['missions', 'overview', 'swarm', 'hive', 'claims', 'approvals']] },
+  { title: 'SWARM', icon: '🐝', rows: [['missions', 'overview', 'swarm', 'workflows'], ['hive', 'claims', 'approvals']] },
   { title: 'MIND', icon: '🧠', rows: [['learning', 'neural', 'metaharness', 'evolve', 'memory', 'vector']] },
   { title: 'SAFETY', icon: '🛡️', rows: [['secure', 'cost', 'perf', 'timeline', 'events', 'room']] },
   { title: 'NETWORK', icon: '🌐', rows: [['federation', 'xruv', 'sandbox', 'skills', 'market']] },
-  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'automate', 'devtools', 'plugins', 'settings']] },
+  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'automate', 'devtools', 'plugins'], ['adrs', 'whatsnew', 'themes', 'settings']] },
 ]
 
 export const groupOf = (view: ViewId): string | null => NAV_GROUPS.find(group => group.rows.some(row => row.includes(view)))?.title ?? null

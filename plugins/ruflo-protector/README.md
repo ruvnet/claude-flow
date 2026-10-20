@@ -1,6 +1,6 @@
 # ruflo-protector: Project Anatole
 
-**Project Anatole** is an optional, learning watchdog for unattended agents (`/loop` ticks, headless `claude -p` workers, overnight swarms). It is a mod ([ADR-404](../../v3/docs/adr/ADR-404-ruflo-as-a-mod.md) pattern) that watches what the agent does, applies a small set of deterministic, OWASP-mapped rules, remembers what is normal for the project, and leaves a record you can read when you come back. Design and threat model: [ADR-453](../../v3/docs/adr/ADR-453-project-anatole.md). Version 0.1.0, **default off** (not in any install bundle).
+**Project Anatole** is an optional, learning watchdog for unattended agents (`/loop` ticks, headless `claude -p` workers, overnight swarms). It is a mod ([ADR-404](../../v3/docs/adr/ADR-404-ruflo-as-a-mod.md) pattern) that watches what the agent does, applies a small set of deterministic, OWASP-mapped rules, remembers what is normal for the project, and leaves a record you can read when you come back. Design and threat model: [ADR-453](../../v3/docs/adr/ADR-453-project-anatole.md). Version 0.1.1, **default off** (not in any install bundle).
 
 > The technical id stays `ruflo-protector` (command `/protector`, files `.claude-flow/protector-mod/`, rule ids `PR-001..013`). "Project Anatole" is what a person sees.
 
@@ -56,6 +56,12 @@ Answered locally, no model turn.
 | `ack <id>` / `unack <id>` | mark an alert a false positive (and teach the baseline) / undo |
 | `allow <fp>` | allow a fingerprint without an alert |
 | `reset-baseline` | forget the baseline and start learning again |
+
+## Toasts (ADR-477)
+
+Project Anatole draws its toasts through the shared toast policy (one copy of `hooks/toast-policy.ts`, kept identical across the ruflo mods by `scripts/sync-toast-policy.mjs`): a level prefix (`›` info, `✓` ok, `⚠` warn, `✗` error), one clean line of at most 120 characters with secrets masked, an identical toast not repeated for a minute, and at most four a minute per source (errors are held and counted, never dropped). A blocked call is an `error`, an alert that only notified is a `warn`, and the baseline graduating to `notify` is an `info` marked always-show.
+
+The person's choice is the console's **Settings → Interface and updates → Toasts**: `all`, `important` (warnings and errors) or `off`, and a mute chip per source. Every toast, drawn or not, is kept as a digest the console shows on its Events page, flagged with what became of it; without the console nothing is written and the defaults apply.
 
 ## Options
 

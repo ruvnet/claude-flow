@@ -93,10 +93,10 @@ Key invariants per ADR-099:
 
 ```bash
 bash plugins/ruflo-goals/scripts/smoke.sh
-# Expected: "12 passed, 0 failed"
+# Expected: "16 passed, 0 failed"
 ```
 
-## As a mod (0.4.2)
+## As a mod (0.4.3)
 
 A function-hook mod ships beside the skills (ADR-445 pattern). Needs a Claude Code with mods (2.1.287+); older builds ignore it. No network, no process spawning: it only tightens calls to this plugin's own tools and reads through tools already connected.
 

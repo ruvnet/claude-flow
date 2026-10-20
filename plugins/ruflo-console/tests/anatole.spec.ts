@@ -154,7 +154,7 @@ describe('the section', () => {
 
   it('computes a rule row from the shipped table, its override and the alert tail', async () => {
     const { state } = await draw({ 'rules.json': JSON.stringify({ schemaVersion: 1, rules: { 'PR-001': { mode: 'notify' } } }), 'alerts.jsonl': alert({ rule: 'PR-001' }) })
-    const rows = ruleRows(state.snapshot!.anatole)
+    const rows = ruleRows(state.snapshot!.anatole!)
 
     expect(rows).toHaveLength(13)
     expect(rows[0]).toMatchObject({ mode: 'notify', changed: true, hits: 1, ackedShare: 0 })

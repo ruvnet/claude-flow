@@ -1,6 +1,6 @@
 ---
 name: harness-bench
-description: Manage `@metaharness/darwin` bench suites — `bench create <repo>` scaffolds a JSON suite from a repo's test corpus; `bench verify <suite.json>` checks suite well-formedness. Bench suites are the fixed evaluation corpora that `harness-evolve --bench <suite.json>` scores variants against, decoupling evolution from the repo's natural tests. Degrades gracefully when @metaharness/darwin is absent.
+description: Manage `@metaharness/darwin` bench suites — `bench create {repo}` scaffolds a JSON suite from a repo's test corpus; `bench verify {suite.json}` checks suite well-formedness. Bench suites are the fixed evaluation corpora that `harness-evolve --bench {suite.json}` scores variants against, decoupling evolution from the repo's natural tests. Degrades gracefully when @metaharness/darwin is absent.
 argument-hint: "--op create --repo <path> [--out <path>]  |  --op verify --suite <path>"
 allowed-tools: Bash
 ---

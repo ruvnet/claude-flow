@@ -18,6 +18,7 @@ Two files carry the number 430 (the menu's accents, and the menu-design amendmen
 | 451 | Mod capability roadmap | Proposed (items 1–3, 5–7 shipped, all default off; 4, 8, 9, 10 not built) | 10-04 | 404, 445, 446, 447; related 449, 450, 452 | — | #3716 (ADR + `toolHints`, 0.3.0); `agentTrim` item 2 (0.3.1, `33a60c715`); `deliveryScreen` item 3 (0.3.3, `cd01a4aea`); `capabilityProbe` item 5 #3763 (0.3.7); `sessionRollup` item 6 #3766 (0.3.8); `compactCarry` item 7 #3768 (0.3.9); agentTrim live fixes #3733 and measurement #3760; fixes 0.3.2, 0.3.4 | ruflo-mods 0.3.9 | `describe`, `agents`, `delivery`, `probe`, `rollup`, `compact` tests |
 | 452 | Mod-system overnight hardening: findings, changes, open items | Accepted (record) | 10-05 | 404, 444, 445, 446, 450, 451 | — | #3735; records #3706, #3711, #3713, #3714, #3715, #3717, #3719, #3727, #3732, #3733, #3734 (all merged) | no code of its own | `probe-mod-guards`, `sync-mod-screen --check` |
 | 453 | Project Anatole: an optional, learning watchdog for unattended agents | Proposed | 10-05 | 404, 444, 445, 446, 450, 451, 452; related 449 | — | this PR (ADR only) | not built | — |
+| 491 | ruflo-mods across Claude Code and Codex: a host-neutral core and a thin Codex adapter | Proposed | 10-11 | 404, 406, 444, 447, 451, 488, 490; related 489 | — | this PR (ADR only) | not built; evidence table measured by ADR-490's loop | `scripts/e2e/leg-codex.mjs` policy probes |
 
 ## Console: mission control and Claude control
 
@@ -64,8 +65,20 @@ Two files carry the number 430 (the menu's accents, and the menu-design amendmen
 | 443 | Missions Claude knows about; verified evidence; spend | Accepted | 10-04 | 406, 437, 441 | — | #3695 | console 0.29.0, cost-tracker 0.27.1 | `mission-context`, `mission-cost`, `mission-loop` |
 | 444 | Claude controls the console | Accepted | 10-04 | 406, 443 | — | #3696 | console 0.30.0 (autopilot default 0.32.0) | `model-tools`, `e2e-control.sh` |
 | 448 | The Room: a shared live feed | Accepted | 10-04 | 407, 416, 444 | — | #3704 (doc), #3705 (page) | console 0.33.0 (expiry event 0.32.2) | `room`, `nav`, `runner`, `watch` |
+| 477 | Mods: one toast system, with levels, de-duplication, a record and a setting | Accepted | 10-07 | 404, 453, 474, 466 | — | #3889 | console 0.37.0, swarm 0.3.4, protector 0.1.1, mods 0.3.16 | `toast-policy.spec`, `toasts.spec`, `toasts.test`, `toast.test` |
+| 478 | Console What's new page, plugin changelogs | Accepted | 10-07 | 428, 477 | — | — | [ADR-478](ADR-478-console-whats-new.md) | — |
+| 480 | Console ADRs page: your project's ADRs, and missions, loops and swarms that follow them | Accepted | 10-07 | 407, 443, 444, 450, 474, 477, 478 | — | this PR | console 0.39.0, swarm 0.3.5, workflows 0.6.4 | `adr.spec`, `adr-write.spec`, `adr-integration.spec`, `adr-page.spec`, `adr-mutation.spec`, `adr-digest.spec` |
+| 483 | Console advisor checkpoints for mission loops (plan, repeated failure, before done) | Accepted | 10-08 | 441, 443, 444, 477, 480, 481 | — | this PR | console 0.40.0 | `mission-advisor.spec`, `mission-advisor-mutation.spec` |
+| 486 | Session workspace: attention queue, session browser and preview on the Room (Claude, Codex and Ruflo sessions) | Accepted | 10-09 | 406, 444, 448, 473, 477, 481 | — | this PR | console 0.41.0, mods 0.4.0 | `sessions.spec`, `sessions-safety.spec`, `sessions-real-fs.spec`, `attention.test` |
 
 Other ADRs outside 404-451 that the mod ADRs lean on: 150 (removable integrations), 174 (failures as a learning signal), 322 and 322A/B/C (flywheel, evaluation and promotion, receipts), 324 and 325 (policy engine, claims plane), 103 (witness). The console's Mods section (`hooks/data/mods.ts`, console 0.33.1, PR #3707) reads the status files ADR 446 defines.
+
+## MCP server
+
+| ADR | Title | Status | Date | Builds on / extends | Superseded by | PR | Shipped in | Tests |
+|---|---|---|---|---|---|---|---|---|
+| 479 | MCP HTTP transport: bearer token, and refusal to serve a network without one | Accepted | 10-07 | related 012, 476 | — | #3599 (#3598) | cli 3.55.0, mcp 3.1.0 | `mcp-http-nonloopback-auth-gate.test.ts`, `http-transport-auth.test.ts` |
+| 490 | A three-host e2e integration loop (Claude Code, Codex, OpenRouter) | Accepted | 10-11 | 404, 406, 444, 448, 451; related 489, 491 | — | this PR | `scripts/e2e/`; fixes in cli (MCP resources capability), codex (marketplace clone budget) | `host-matrix.mjs`, `mcp-resources-capability-honesty.test.ts`, `mcp-bin-resources-capability.test.ts`, `plugin-install-timeout.test.ts` |
 
 ## Notes
 
@@ -74,3 +87,7 @@ Other ADRs outside 404-451 that the mod ADRs lean on: 150 (removable integration
 - **Forward links.** 449, 450 and 451 are on `main`. 447 names all three as followers. They do not yet cite each other: 449 cites 404, 446, 447 but not 450 or 451; 450 cites 444 to 448 but not 449 or 451; 451 cites 445 to 447 but not 449 or 450; 452 cites 450 and 451. As of this update 450 and 451 name 449 and 452 and each other in a `Related`/`Builds on` line; 449 still does not name 450 or 451 (not edited here).
 - **ADR files whose own Status line differs from this index:** none for 450 and 451, whose Status lines now carry the same implementation summary (section 9 of 450, section 8 of 451 hold the tables). 405, 406 and 449 are "Proposed" in both.
 - **ADRs with no stated parent:** 434, 436, 437, 438, 439, 440, 441 carry no `Builds on` or `Extends` line.
+- **2026-10-07 additions.** Rows for 477, 478 and 479 were added. 478's link is to a file added by the change that builds that page. 479 is not a mod ADR; it is listed because 476 (hive-mind gating) and the toasts sit on the same MCP and console surfaces. ADRs 454 to 476 are not in these tables.
+- **2026-10-11 additions.** Rows for 490 and 491 were added. 490 is listed under the MCP section because its loop found and fixed an MCP capability defect; it also records the Codex install defect. 491 is Proposed: its evidence table is measured, nothing in it is built.
+| 487 | Optional ruvnet-brain grounding (detect-only) in the console and mods | Accepted | 10-09 | 404, 443, 444, 481 | — | this PR | console 0.42.0, mods 0.5.0 | `grounding.spec`, `grounding.test.ts` |
+| 489 | `ruflo tui`: the console in a terminal of its own, over the same `Host` boundary (standalone adapter, read-only Overview and Cost) | Accepted (phase 1 in PR #4059) | 10-11 | 407, 446, 448, 481, 486; related 150 | — | PR #4059 | not shipped | `tui-boundary.spec`, `tui-host.spec`, `tui-render.spec`, `tui-session.spec`, `tui-command.test.ts` |

@@ -50,6 +50,15 @@ beforeEach(() => {
 afterAll(() => rmSync(tempDir, { recursive: true, force: true }));
 
 describe('namespace path-traversal validation on write paths (#3570)', () => {
+  it('passes explicit structured native append controls and preserves default embeddings', async () => {
+    await storeCommand.action!({ args: [], flags: { key: 'structured', value: 'state', embedding: false,
+      requireNative: true, appendOnly: true, appendConditions: JSON.stringify([{ namespace: 'project', absent: true, latestPrefix: 'published-' }]) } } as any);
+    expect(mocks.storeEntry).toHaveBeenLastCalledWith(expect.objectContaining({ generateEmbeddingFlag: false,
+      requireNative: true, appendOnly: true, appendConditions: [{ namespace: 'project', absent: true, latestPrefix: 'published-' }] }));
+    await storeCommand.action!({ args: [], flags: { key: 'ordinary', value: 'text' } } as any);
+    expect(mocks.storeEntry).toHaveBeenLastCalledWith(expect.objectContaining({ generateEmbeddingFlag: true,
+      requireNative: false, appendOnly: false }));
+  });
   it('memory export already rejects the traversal namespace (the reference behaviour)', async () => {
     await expect(
       exportTool.handler({ outputPath: join(tempDir, 'x.json'), namespace: '../../..' }),

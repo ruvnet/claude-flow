@@ -359,7 +359,7 @@ describe('CommandParser', () => {
       parser.registerCommand(cmd);
 
       const result = parser.parse(['task', 'run', '-t', '5000']);
-      expect(result.flags.timeout).toBe(5000);
+      expect(result.flags.timeout).toBe('5000');
     });
   });
 

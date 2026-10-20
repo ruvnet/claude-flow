@@ -13,6 +13,8 @@ export type LoopRecord = {
   role: string
   name?: string
   description?: string
+  /** The numbers of the accepted ADRs the agent was told about when it was spawned (ruflo-console, ADR-480). */
+  adrs?: number[]
   status: string
   calls: number
   errors: number
@@ -102,7 +104,7 @@ function loopFor(activity: Activity, id: string, nowMs: number): LoopRecord {
 }
 
 /** A subagent the engine started (`agent.spawn`'s answer), with the type and name it was asked for. */
-export function noteSpawn(activity: Activity, id: string, type: string, nowMs: number, name?: string, description?: string): void {
+export function noteSpawn(activity: Activity, id: string, type: string, nowMs: number, name?: string, description?: string, adrs: readonly number[] = []): void {
   const loop = loopFor(activity, id, nowMs)
 
   loop.role = roleOf(type)
@@ -115,6 +117,11 @@ export function noteSpawn(activity: Activity, id: string, type: string, nowMs: n
 
   if (description !== undefined) {
     loop.description = description
+  }
+
+  if (adrs.length > 0) {
+    loop.adrs = adrs.slice(0, 8)
+    loop.description = `${loop.description ?? ''}${loop.description === undefined ? '' : ' '}[guided by ADR ${adrs.slice(0, 8).join(', ')}]`.slice(0, 200)
   }
 }
 
@@ -145,6 +152,28 @@ export function noteResult(activity: Activity, agentId: string | undefined, tool
   }
 
   activity.recent.set(id, [...(activity.recent.get(id) ?? []), { tool, subject, isError, atMs: nowMs }].slice(-RECENT))
+}
+
+/** How many failures in a row of one call make a loop stuck (ADR-477). */
+export const STUCK_AFTER = 3
+
+/** What a loop is called to the person, as its tile says it (a loop known only from its tool calls is said to be a subagent). */
+export function loopLabel(activity: Activity, id: string): string {
+  const loop = activity.loops.get(id)
+
+  if (id === LEAD) return 'claude (main)'
+
+  return loop === undefined ? `subagent …${id.slice(-4)}` : (loop.name ?? (loop.role === 'agent' ? `subagent …${id.slice(-4)}` : loop.role))
+}
+
+/** The call a loop has just failed STUCK_AFTER times running with the same subject (nothing in between), else null: the sign of a loop going round in circles. */
+export function stuckCall(activity: Activity, agentId: string | undefined): { tool: string; subject: string } | null {
+  const last = (activity.recent.get(agentId ?? LEAD) ?? []).slice(-STUCK_AFTER)
+  const [first] = last
+
+  if (first === undefined || last.length < STUCK_AFTER) return null
+
+  return last.every(call => call.isError && call.tool === first.tool && call.subject === first.subject) ? { tool: first.tool, subject: first.subject } : null
 }
 
 /** A loop's own `turn.complete`: a subagent's answer is in. */

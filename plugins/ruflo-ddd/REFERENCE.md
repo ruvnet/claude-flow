@@ -44,18 +44,16 @@ src/<context-name>/
 
 Persist the domain model as a navigable graph so subsequent sessions can traverse it via the pathfinder agent:
 
-```bash
-# Store bounded context hierarchy
-mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "domain" \
-  --child "context:ordering" --relation "contains"
-mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store --parent "context:ordering" \
-  --child "aggregate:order" --relation "contains"
+```
+# Store bounded context hierarchy (hierarchical-store takes key/value/tier)
+mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store({ key: "domain/context-ordering", value: "Bounded context ordering (parent: domain)", tier: "semantic" })
+mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store({ key: "domain/context-ordering/aggregate-order", value: "Aggregate order (parent: context-ordering)", tier: "semantic" })
 
-# Store context dependencies
-mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge --from "context:ordering" \
-  --to "context:inventory" --type "depends-on"
-mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge --from "context:ordering" \
-  --to "context:payments" --type "publishes-events-to"
+# Store context dependencies (causal-edge takes domain-prefixed sourceId/targetId, relation, optional weight)
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge({ sourceId: "entity:context-ordering", targetId: "entity:context-inventory", relation: "depends-on" })
+mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge({ sourceId: "entity:context-ordering", targetId: "entity:context-payments", relation: "publishes-events-to" })
+
+# Traverse later with agentdb_graph-query({ nodeId: "entity:context-ordering", mode: "k-hop", depth: 2, relation: "depends-on" })
 ```
 
 Edge types worth standardizing across a project:

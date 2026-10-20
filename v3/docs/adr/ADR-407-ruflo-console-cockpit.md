@@ -239,3 +239,63 @@ The recording driver aborts rather than type into Claude's own prompt. It never 
 
 - `plugins/ruflo-console/hooks/{state,harness,stream,bindings,controller}.ts`, `hooks/views/{pane,frames,menu,bar,terminal,xruv}.ts`, `hooks/gfx/{neon,boot,pictures}.ts`
 - PRs #3625–#3632 (band, BBS look, Wildcat round, neon boot, AI terminal, compact and focus fixes) and the 0.7.0 release (Skills, Hive-Mind, MetaHarness lab, scrollable framed terminal, clickable band and strip, now-first band, grouped menu)
+
+## Update 2026-10-07: the Settings page's section order (PR #3887)
+
+Section 11c describes Settings as an editor driven by `claude plugin configure`; it does not fix an order. The order is now deliberate, most
+consequential first, and long lists last. Checked against `plugins/ruflo-console/hooks/views/settings.ts` (the render function from the
+`rows.push(...section(...))` calls near its end; the change is commit 5a0e5bff4, merged as #3887).
+
+With no search text, the page shows these sections, top to bottom. Each is a folding section (`section()` in `hooks/views/common.ts`):
+its header toggles it for the session, and all are open by default except where noted.
+
+| # | section (header) | what is in it |
+|---|---|---|
+| 1 | Claude control & spending | the five items `ai-model-control`, `ai-model-confirm`, `ai-accept`, `ai-budget`, `ai-mission-cap`, and a dim line saying claude runs read-only in plan mode and codex in a read-only sandbox, which this view never widens |
+| 2 | AI terminal | the remaining `ai-*` items (model and other per-turn settings, saved here and applied to the next turn) |
+| 3 | Interface & updates | the `ui-*` items: nav style, Updates (ADR-428), Toasts and the per-source mute chips (ADR-477). Its right-hand note reads "the main nav, update checks, toasts" |
+| 4 | Remembered actions | the kinds the person chose "Always allow" for; folded by default when there are none |
+| 5 | ruflo config | the curated `ruflo config get / set` keys (`core-*`) |
+| 6 | Plugin options | the plugin picker, then the selected plugin's options from `claude plugin configure <plugin> --json` |
+
+What changed: Plugin options and ruflo config used to be the first two sections and are now the last two; the model-control, confirm,
+auto-accept and budget items moved out of AI terminal into their own first section; "Interface" became "Interface & updates". The
+levels (simple or advanced), "changed only", "read again" and the search box are unchanged and sit above the sections.
+
+With search text the page is a flat list grouped by source (`── UI`, `── ruflo-console`, and so on), not sections, so the order above does
+not apply and any setting is found in either level. `hooks/settings-palette.ts` lists headless commands (`settings-set` and the like), not
+sections; it needs no change and has none.
+
+## Update 2026-10-08: how a confirmed action reaches the ruflo CLI (0.40.1, #3914)
+
+§8 says every change runs as one fixed argv. The prefix of that argv comes from the ruflo CLI option (`CLI_PREFIXES`: `npx-offline` (default),
+`npx`, `ruflo`, `claude-flow`), and the runner's limit for an action without its own `timeoutMs` is 90 s. With `npx` in a project whose
+npm cache lacked `@claude-flow/cli`, a settings write started a cold download (about 2.5 GB; 36 s on a fast link, longer on a slow or loaded
+one), was aborted at 90 s and showed the raw "still running after 90000ms". Now (`hooks/launcher.ts`, used by `hooks/runner.ts`):
+
+- The explicit choices `npx-offline`, `ruflo` and `claude-flow` run exactly as chosen. Only `npx` (the person allowed the network) resolves a
+  launcher once per session, cheapest first: `ruflo` on PATH, `node_modules/.bin/ruflo`, `node_modules/.bin/claude-flow`, the cached
+  `npx --offline` copy (each probed with `--version`), and last the online `npx`, called a cold run.
+- A cold run gets a 300 s limit and the outcome line reads "first run downloads the ruflo CLI: this can take a few minutes". It is not kept:
+  the next write re-resolves, finds the warmed cache and runs at the ordinary limit.
+- A timeout, or `ENOTCACHED` from `npx --offline`, ends the action as an error naming the fix: `npm i -g ruflo`, or
+  `npx -y @claude-flow/cli@latest --version` once. Read probes keep their own limits and the existing "ruflo CLI not cached" hint.
+- Reads and other callers that build `[...CLI_PREFIXES[cli], ...]` themselves (drill logs, the terminal harness, mission specs) are unchanged.
+
+## Update 2026-10-08: a Yes names its card (0.40.2)
+
+§8's confirm step ran whatever was pending when the Yes arrived. A second ask that replaced the first card (the person's own ask can still replace a
+waiting card) made a Yes pressed on the first card run the second: a `memory store` argv ran from a Yes meant for something else. Now
+(`hooks/runner.ts`):
+
+- Every ask the runner queues gets an id (`Pending.id`, a counter that only rises). The confirm row's Yes, "Always allow" and "Always accept
+  AI turns" buttons carry the id of the card they were drawn for, and `runner.confirm(seen)` runs only when `seen` is the id of the card now
+  waiting. Otherwise it runs nothing, leaves the new card in place, answers "the card changed before your Yes", and records an event.
+  "Always allow" and "Always accept" on a replaced card also remember nothing and keep the draft.
+- A Yes without an id (`/ruflo yes`, the terminal's Enter on the asked line) still answers the card that is waiting; those read the card on
+  screen in the same step. A second Yes on a card that already ran finds nothing waiting and is a quiet no-op, so it cannot overwrite the answer.
+- An ask of Claude's that was screened first and so landed after its tool call returned is checked against the level and Stop as they are
+  when it lands (`landingRefusal`, model-tools.ts); a level lowered while the screen looked wins.
+
+Regression tests: `tests/deferred-asks.spec.ts`. The same release wraps Approvals and a mission's objective at narrow widths instead of
+cutting them with "…" (#3899, `paragraph` in `views/common.ts`, `tests/narrow-width.spec.ts`).

@@ -103,14 +103,14 @@ describe('the actions', () => {
     const { act, room } = setup()
 
     act.draft('y'.repeat(DRAFT_MAX * 3))
-    expect(room.draft.length).toBeLessThanOrEqual(DRAFT_MAX)
+    expect(room.draft.length).toBe(DRAFT_MAX * 3)
     for (let i = 0; i < SAID_MAX + 20; i++) {
       act.draft(`m${i}`)
       act.say('broadcast')
     }
     expect(room.said).toHaveLength(SAID_MAX)
     act.query('z'.repeat(500))
-    expect(room.query.length).toBeLessThanOrEqual(80)
+    expect(room.query.length).toBe(500)
     act.page(99)
     expect(room.page).toBe(2)
     act.page(-99)

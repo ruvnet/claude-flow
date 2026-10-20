@@ -145,32 +145,24 @@ function step3(w: string): string {
   return w;
 }
 
+// Longest suffixes first: Porter step 4 selects the longest matching suffix
+// ONCE and applies its condition; a failed condition must not fall through to
+// a shorter suffix (e.g. "argument": "ment" fails m>1, so "ent" is not tried).
 const STEP4_SUFFIXES = [
-  'al', 'ance', 'ence', 'er', 'ic', 'able', 'ible', 'ant', 'ement', 'ment',
-  'ent', 'ou', 'ism', 'ate', 'iti', 'ous', 'ive', 'ize',
+  'ement', 'ance', 'ence', 'able', 'ible', 'ment', 'ant', 'ent', 'ism',
+  'ate', 'iti', 'ous', 'ive', 'ize', 'ion', 'al', 'er', 'ic', 'ou',
 ];
 
 function step4(w: string): string {
   for (const suf of STEP4_SUFFIXES) {
-    if (w.endsWith(suf)) {
-      const stem = w.slice(0, w.length - suf.length);
-      if (measure(stem) > 1) {
-        if (suf === 'ion') {
-          const last = stem[stem.length - 1];
-          if (last === 's' || last === 't') return stem;
-        } else {
-          return stem;
-        }
-      }
-    }
-  }
-  // ION special-case
-  if (w.endsWith('ion')) {
-    const stem = w.slice(0, -3);
+    if (!w.endsWith(suf)) continue;
+    const stem = w.slice(0, w.length - suf.length);
     if (measure(stem) > 1) {
+      if (suf !== 'ion') return stem;
       const last = stem[stem.length - 1];
       if (last === 's' || last === 't') return stem;
     }
+    return w;
   }
   return w;
 }

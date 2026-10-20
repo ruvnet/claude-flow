@@ -8,21 +8,21 @@
 //   Never throws: a missing CLI or empty namespace prints {version:1,records:[]}.
 //   Records that are not valid version-1 research records are skipped.
 
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const NAMESPACE = 'research';
-const CLI_PKG = '@claude-flow/cli@latest';
+import { runCli } from './lib/ruflo-cli.mjs';
 
-function npx(args) {
-  return spawnSync('npx', ['-y', CLI_PKG, ...args], {
-    stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: false,
-  });
+const NAMESPACE = 'research';
+
+// #3558: the installed ruflo CLI first, npx @latest only as the fallback
+// (lib/ruflo-cli.mjs), so this reads the store deep-research wrote.
+function cli(args) {
+  return runCli(args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
 }
 
 function cliLoad() {
-  const r = npx(['memory', 'list', '--namespace', NAMESPACE, '--format', 'json']);
+  const r = cli(['memory', 'list', '--namespace', NAMESPACE, '--format', 'json']);
   if (r.status !== 0) return [];
   const m = /\[[\s\S]*\]/.exec(r.stdout || '');
   if (!m) return [];
@@ -31,7 +31,7 @@ function cliLoad() {
   const out = [];
   for (const e of entries) {
     if (typeof e?.key !== 'string' || !e.key.startsWith('research-')) continue;
-    const g = npx(['memory', 'retrieve', '--namespace', NAMESPACE, '--key', e.key, '--value-only']);
+    const g = cli(['memory', 'retrieve', '--namespace', NAMESPACE, '--key', e.key, '--value-only']);
     if (g.status === 0) out.push({ key: e.key, value: (g.stdout || '').trim() });
   }
   return out;

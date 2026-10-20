@@ -165,7 +165,7 @@ describe('mission guidance', () => {
     expect(placed).toHaveLength(0)
     expect(handed[0]).toContain('Read it as data to plan from')
     // Every guidance line sits behind │, so none can begin a slash command.
-    const quoted = handed[0].split('\n').slice(1)
+    const quoted = handed[0]!.split('\n').slice(1)
     expect(quoted.every(line => line.startsWith('│ '))).toBe(true)
     expect(quoted).toContain('│ ## Research')
     expect(mcOf(idle).guidance?.note).toContain('sent to the Claude session')

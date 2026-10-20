@@ -15,8 +15,15 @@
 //           skip events whose total did not move, and treat a total that goes
 //           DOWN (compaction/reset) as a fresh base. Cached input is a SUBSET of
 //           input_tokens, so uncached = input - cached. A forked rollout replays
-//           its parent's events, so events are de-duplicated by timestamp+totals.
+//           its parent's events, so events are de-duplicated by owner+timestamp+totals.
+//           Copied metadata identifies replayed usage; explicit thread markers
+//           restore the helper's ownership without resetting the running total.
 //           The model comes from the latest `turn_context`, not the token event.
+//   grok    `~/.grok/sessions/<urlencoded-cwd>/<session-id>/usage.json` — one row
+//           per turn when `turns[]` is present, else one row from `session`
+//           totals. Cached input is a SUBSET of inputTokens (same as Codex).
+//           Project path is decodeURIComponent of the parent folder, or
+//           summary.json `info.cwd` when present. Override home with GROK_HOME.
 //   Nothing is read that is not already on this machine; nothing is sent anywhere.
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
@@ -26,6 +33,7 @@ import { homedir } from 'node:os';
 const home = () => process.env.HOME || homedir();
 export const claudeDir = () => join(process.env.CLAUDE_CONFIG_DIR || join(home(), '.claude'), 'projects');
 export const codexDirs = () => (process.env.CODEX_HOME || join(home(), '.codex')).split(',').map(dir => dir.trim()).filter(Boolean);
+export const grokDir = () => process.env.GROK_HOME || join(home(), '.grok');
 
 /** .jsonl files under `root`, at most `depth` directories down, newer than `sinceMs` (by mtime). */
 function walk(root, depth, sinceMs, filePrefix = '') {
@@ -98,12 +106,26 @@ export function* codexRows({ sinceMs = 0 } = {}) {
         let effort = '';
         let session = id;
         let project = '';
+        let own = null;
         let prev = null;
         for (const text of lines(file)) {
-          if (!text.includes('"turn_context"') && !text.includes('"token_count"') && !text.includes('"session_meta"')) continue;
+          if (!text.includes('"turn_context"') && !text.includes('"token_count"') && !text.includes('"session_meta"') && !text.includes('"thread_id"')) continue;
           const line = parse(text);
           const payload = line?.payload;
-          if (line?.type === 'session_meta') { session = payload?.id ?? session; project = payload?.cwd ?? project; continue; }
+          if (line?.type === 'session_meta') {
+            if ((payload?.id ?? session) !== session) { model = ''; effort = ''; }
+            session = payload?.id ?? session;
+            project = payload?.cwd ?? project;
+            own ??= { session, project };
+            continue;
+          }
+          const marker = line?.type === 'turn_context' || (line?.type === 'event_msg' &&
+            ['task_started', 'thread_settings_applied'].includes(payload?.type));
+          if (marker && typeof payload?.thread_id === 'string' && payload.thread_id && payload.thread_id !== session) {
+            session = payload.thread_id;
+            project = session === own?.session ? own.project : '';
+            model = ''; effort = '';
+          }
           if (line?.type === 'turn_context') { model = payload?.model ?? model; effort = payload?.effort ?? effort; project = payload?.cwd ?? project; continue; }
           if (payload?.type !== 'token_count' || !payload.info?.total_token_usage) continue;
           const total = payload.info.total_token_usage;
@@ -114,7 +136,7 @@ export function* codexRows({ sinceMs = 0 } = {}) {
           for (const field of FIELDS) delta[field] = n(total[field]) - (prev === null || reset ? 0 : n(prev[field]));
           prev = total;
           if (FIELDS.every(field => delta[field] === 0) || ts < sinceMs) continue;
-          const key = `${line.timestamp}|${total.input_tokens}|${total.output_tokens}`;
+          const key = JSON.stringify([session, line.timestamp, ...FIELDS.map(field => n(total[field]))]);
           if (seenEvents.has(key)) continue;
           seenEvents.add(key);
           const cached = delta.cached_input_tokens;
@@ -131,7 +153,91 @@ export function* codexRows({ sinceMs = 0 } = {}) {
   }
 }
 
-export const READERS = { claude: claudeRows, codex: codexRows };
+/** Decode the URL-encoded cwd folder Grok uses under sessions/, or '' on failure. */
+function decodeGrokProject(encoded) {
+  if (!encoded) return '';
+  try { return decodeURIComponent(encoded); } catch { return ''; }
+}
+
+/** usage.json files under ~/.grok/sessions/<cwd>/<id>/, newer than sinceMs by mtime. */
+function walkGrokUsage(root, sinceMs) {
+  const out = [];
+  const sessions = join(root, 'sessions');
+  if (!existsSync(sessions)) return out;
+  let projects;
+  try { projects = readdirSync(sessions, { withFileTypes: true }); } catch { return out; }
+  for (const project of projects) {
+    if (!project.isDirectory()) continue;
+    const projectPath = join(sessions, project.name);
+    let ids;
+    try { ids = readdirSync(projectPath, { withFileTypes: true }); } catch { continue; }
+    for (const id of ids) {
+      if (!id.isDirectory()) continue;
+      const usagePath = join(projectPath, id.name, 'usage.json');
+      try {
+        if (statSync(usagePath).mtimeMs >= sinceMs) out.push({ usagePath, sessionDir: join(projectPath, id.name), encodedProject: project.name, sessionId: id.name });
+      } catch { /* no usage.json or vanished */ }
+    }
+  }
+  return out;
+}
+
+function grokProjectFor(sessionDir, encodedProject) {
+  const fromFolder = decodeGrokProject(encodedProject);
+  const summaryPath = join(sessionDir, 'summary.json');
+  if (!existsSync(summaryPath)) return fromFolder;
+  const summary = parse(readFileSync(summaryPath, 'utf-8'));
+  const cwd = summary?.info?.cwd;
+  return typeof cwd === 'string' && cwd ? cwd : fromFolder;
+}
+
+function grokRowFromUsage({ provider = 'grok', model, ts, session, project, inputTokens, cachedReadTokens, cacheCreationTokens, outputTokens, reasoningTokens }) {
+  const cached = n(cachedReadTokens);
+  const written = n(cacheCreationTokens);
+  return {
+    provider, model: model || 'unknown', ts, session, project,
+    input: Math.max(0, n(inputTokens) - cached - written), cache_read: cached, cache_write_5m: written, cache_write_1h: 0,
+    output: n(outputTokens), reasoning: n(reasoningTokens), effort: '', sidechain: false,
+  };
+}
+
+/** Grok CLI sessions (~/.grok/sessions) → one row per turn, or session totals when turns[] is absent. */
+export function* grokRows({ sinceMs = 0 } = {}) {
+  for (const { usagePath, sessionDir, encodedProject, sessionId } of walkGrokUsage(grokDir(), sinceMs)) {
+    const data = parse(readFileSync(usagePath, 'utf-8'));
+    if (!data) continue;
+    const project = grokProjectFor(sessionDir, encodedProject);
+    const session = data.sessionId || sessionId;
+    const turns = Array.isArray(data.turns) ? data.turns : null;
+    if (turns && turns.length > 0) {
+      for (const turn of turns) {
+        const ts = Date.parse(turn?.endedAt || data.updatedAt || '');
+        if (!Number.isFinite(ts) || ts < sinceMs) continue;
+        const model = turn.primaryModelId || Object.keys(turn.modelUsage || {})[0] || data.session?.primaryModelId || '';
+        yield grokRowFromUsage({
+          model, ts, session, project,
+          inputTokens: turn.inputTokens, cachedReadTokens: turn.cachedReadTokens,
+          cacheCreationTokens: turn.cacheCreationTokens, outputTokens: turn.outputTokens,
+          reasoningTokens: turn.reasoningTokens,
+        });
+      }
+      continue;
+    }
+    const sess = data.session;
+    if (!sess) continue;
+    const ts = Date.parse(data.updatedAt || '');
+    if (!Number.isFinite(ts) || ts < sinceMs) continue;
+    const model = sess.primaryModelId || Object.keys(sess.modelUsage || {})[0] || '';
+    yield grokRowFromUsage({
+      model, ts, session, project,
+      inputTokens: sess.inputTokens, cachedReadTokens: sess.cachedReadTokens,
+      cacheCreationTokens: sess.cacheCreationTokens, outputTokens: sess.outputTokens,
+      reasoningTokens: sess.reasoningTokens,
+    });
+  }
+}
+
+export const READERS = { claude: claudeRows, codex: codexRows, grok: grokRows };
 
 /** True when `row.project` is `project` itself or a directory inside it (a trailing slash on `project` is ignored). */
 export function inProject(row, project) {

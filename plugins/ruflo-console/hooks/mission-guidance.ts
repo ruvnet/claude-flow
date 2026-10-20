@@ -136,7 +136,7 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
     session: () => undefined,
     done: ({ costUsd, isError, message }) => {
       guidance.status = isError === true ? 'failed' : 'done'
-      guidance.note = isError === true ? `✗ ${message ?? 'failed'}` : `✓ ${Math.round((Date.now() - startedAtMs) / 1000)} s${costUsd !== undefined ? ` · $${costUsd.toFixed(3)}` : ''}`
+      guidance.note = isError === true ? `✗ ${termText(message ?? 'failed', 200)}` : `✓ ${Math.round((Date.now() - startedAtMs) / 1000)} s${costUsd !== undefined ? ` · $${costUsd.toFixed(3)}` : ''}`
     },
   }
 
@@ -160,7 +160,7 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
     stream = host.spawn(guidanceArgv(state), guidancePrompt(state, mc, plan))
   } catch (error) {
     guidance.status = 'failed'
-    guidance.note = `claude did not start: ${error instanceof Error ? error.message : String(error)}`
+    guidance.note = `claude did not start: ${termText(error instanceof Error ? error.message : String(error), 160)}`
     host.invalidate()
 
     return
@@ -206,7 +206,7 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
       if (guidance.status === 'done') handOver(state, host, guidance)
     } catch (error) {
       guidance.status = 'failed'
-      guidance.note = `✗ claude: ${error instanceof Error ? error.message : String(error)} (is it installed and on PATH?)`
+      guidance.note = `✗ claude: ${termText(error instanceof Error ? error.message : String(error), 160)} (is it installed and on PATH?)`
     } finally {
       cap.cancel()
       guidance.stop = null

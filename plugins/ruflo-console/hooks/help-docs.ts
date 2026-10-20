@@ -44,6 +44,7 @@ export const VIEW_TOPIC: Partial<Record<ViewId, string>> = {
   missions: 'mission',
   overview: 'setup',
   swarm: 'swarm',
+  workflows: 'swarm',
   hive: 'hive',
   claims: 'claims',
   approvals: 'approvals',
@@ -66,6 +67,9 @@ export const VIEW_TOPIC: Partial<Record<ViewId, string>> = {
   devtools: 'devtools',
   sandbox: 'sandbox',
   settings: 'settings',
+  whatsnew: 'whatsnew',
+  adrs: 'adrs',
+  themes: 'themes',
   timeline: 'watch',
   events: 'watch',
   room: 'room',
@@ -133,7 +137,8 @@ export function topicText(topic: HelpTopic): string {
   return [`${topic.title}: ${topic.summary}`, ...topic.steps.map((step, i) => `  ${i + 1}. ${step.text}`), ...(topic.tips ?? []).map(tip => `  tip: ${tip}`)].join('\n')
 }
 
-const MAX_QUESTION = 300
+// The whole question: help-actions refuses one over LONG_TEXT_MAX before this runs.
+const MAX_QUESTION = Number.MAX_SAFE_INTEGER
 
 /**
  * The prompt for "ask Claude with these docs": ruHelp's persona and rules first, the question, then the best guides as quoted data

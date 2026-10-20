@@ -58,7 +58,7 @@ export function parseMissions(text: string | null): MissionObservation | null {
     })
     const out: Mission = {
       id,
-      objective: plain(mission.objective, 200),
+      objective: plain(mission.objective, 2_000),
       state: stringOf(mission.state, 30) ?? 'unknown',
       revision: numberOf(mission.revision) ?? 0,
       executionMode: stringOf(mission.executionMode, 30) ?? 'unknown',

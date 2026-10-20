@@ -7,6 +7,7 @@
  */
 import { need } from './data/devtools'
 import { plain } from './data/parse'
+import { isoOf } from './data/safe'
 import type { Host } from './host'
 import type { DevEntry } from './devtools'
 import type { State } from './state'
@@ -34,7 +35,7 @@ export function sandboxLines(stdout: string, stderr: string, ok: boolean): strin
   return rows.map(([name = '', windows = '?', created = '0']) => {
     const at = Number(created)
 
-    return `${plain(name.slice(SANDBOX_PREFIX.length), 40)} · ${windows} window${windows === '1' ? '' : 's'}${Number.isFinite(at) && at > 0 ? ` · started ${new Date(at * 1000).toISOString().slice(0, 16).replace('T', ' ')}Z` : ''}`
+    return `${plain(name.slice(SANDBOX_PREFIX.length), 40)} · ${windows} window${windows === '1' ? '' : 's'}${Number.isFinite(at) && at > 0 ? ` · started ${isoOf(at * 1000).slice(0, 16).replace('T', ' ')}Z` : ''}`
   })
 }
 

@@ -60,7 +60,8 @@ describe('loop manager', () => {
     const long = loopInput({ ...cfg, task: 'a'.repeat(900), stop: 'until 09:00' }, [])
 
     expect(long).toMatchObject({ ok: true })
-    expect((long as { text: string }).text.length).toBeLessThanOrEqual(600)
+    expect((long as { text: string }).text).toContain('a'.repeat(900))
+    expect(loopInput({ ...cfg, task: 'a'.repeat(4001) }, [])).toMatchObject({ ok: false, why: expect.stringContaining('1 over') })
   })
 
   it('a task that starts with / must be one listed plugin command with plain words; control characters never reach the loop', () => {

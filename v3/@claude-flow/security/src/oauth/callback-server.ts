@@ -1,6 +1,6 @@
 /**
  * Ephemeral-port localhost callback server for the browser-based OAuth flow
- * (ADR-306). A minimal single-request HTTP server — deliberately not a full
+ * (ADR-306). A minimal single-callback HTTP server — deliberately not a full
  * framework for one GET route that lives for one request and then shuts
  * down. A TypeScript port of meta-proxy's `src/oauth/callback_server.rs`.
  *
@@ -37,11 +37,56 @@ export class CallbackTimeoutError extends Error {
 }
 
 export class CallbackServer {
+  private readonly callback: Promise<CallbackResult>;
   private constructor(
     private readonly server: Server,
     public readonly redirectUri: string,
     public readonly port: number,
-  ) {}
+  ) {
+    // Install the listener before bind() returns: opening the browser can
+    // deliver a callback before the caller reaches awaitCallback().
+    this.callback = new Promise((resolve) => {
+      let received = false;
+      this.server.on('request', (req, res) => {
+        let url: URL;
+        try {
+          url = new URL(req.url ?? '/', 'http://127.0.0.1');
+        } catch {
+          res.writeHead(400, { connection: 'close' });
+          res.end();
+          return;
+        }
+        if (url.pathname !== '/oauth/callback') {
+          res.writeHead(404, { connection: 'close' });
+          res.end();
+          return;
+        }
+        if (req.method !== 'GET') {
+          res.writeHead(405, { allow: 'GET', connection: 'close' });
+          res.end();
+          return;
+        }
+        if (received) {
+          res.writeHead(409, { connection: 'close' });
+          res.end();
+          return;
+        }
+        received = true;
+        const result: CallbackResult = {
+          code: url.searchParams.get('code'),
+          state: url.searchParams.get('state'),
+          error: url.searchParams.get('error'),
+        };
+        res.writeHead(200, {
+          'content-type': 'text/html; charset=utf-8',
+          connection: 'close',
+        });
+        res.end(SUCCESS_PAGE);
+        this.server.close();
+        resolve(result);
+      });
+    });
+  }
 
   /**
    * Binds `127.0.0.1:0` (OS-assigned ephemeral port) and returns the server
@@ -75,22 +120,9 @@ export class CallbackServer {
         reject(new CallbackTimeoutError());
       }, waitForMs);
 
-      this.server.once('request', (req, res) => {
+      this.callback.then((result) => {
         clearTimeout(timer);
-        const url = new URL(req.url ?? '/oauth/callback', 'http://127.0.0.1');
-        const result: CallbackResult = {
-          code: url.searchParams.get('code'),
-          state: url.searchParams.get('state'),
-          error: url.searchParams.get('error'),
-        };
-        res.writeHead(200, {
-          'content-type': 'text/html; charset=utf-8',
-          connection: 'close',
-        });
-        res.end(SUCCESS_PAGE, () => {
-          this.server.close();
-          resolve(result);
-        });
+        resolve(result);
       });
     });
   }

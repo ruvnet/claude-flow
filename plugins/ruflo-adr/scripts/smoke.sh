@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-adr v0.5.3 (ADR-0001, ADR-0002).
+# Structural smoke test for ruflo-adr v0.5.5 (ADR-0001, ADR-0002).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -9,10 +9,10 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # 1. plugin.json bump + new keywords
-step "1. plugin.json declares 0.5.3 with new keywords"
+step "1. plugin.json declares 0.5.8 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.5.3" ]]; then
-  bad "expected 0.5.3, got '$v'"
+if [[ "$v" != "0.5.8" ]]; then
+  bad "expected 0.5.8, got '$v'"
 else
   miss=""
   for k in lifecycle compliance causal-graph mcp; do
@@ -165,12 +165,13 @@ grep -q "from './lib/parse-adrs.mjs'" "$ROOT/scripts/reindex.mjs" || miss="$miss
 # .git/.swarm ancestor of ROOT) so a scan root can differ from the memory-db root;
 # either an explicit ROOT or DB_ROOT satisfies the "not the inherited process cwd"
 # contract this step checks.
-step "20. import.mjs + verify.mjs pass cwd: ROOT/DB_ROOT to every npx memory subprocess"
+step "20. import.mjs + verify.mjs pass cwd: ROOT/DB_ROOT to every memory subprocess (npx or the installed CLI, #3558)"
 miss=""
-imp_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/import.mjs")
+# #3558: the memory calls go through spawnCliSync() (installed CLI first, npx fallback); count both shapes.
+imp_calls=$(grep -c "spawnSync('npx'\|spawnCliSync(" "$ROOT/scripts/import.mjs")
 imp_cwd=$(grep -c "cwd: ROOT\|cwd: DB_ROOT" "$ROOT/scripts/import.mjs")
 [[ "$imp_calls" -gt 0 && "$imp_cwd" -ge "$imp_calls" ]] || miss="$miss import.mjs($imp_cwd/$imp_calls)"
-ver_calls=$(grep -c "spawnSync('npx'" "$ROOT/scripts/verify.mjs")
+ver_calls=$(grep -c "spawnSync('npx'\|spawnCliSync(" "$ROOT/scripts/verify.mjs")
 ver_cwd=$(grep -c "cwd: ROOT\|cwd: DB_ROOT" "$ROOT/scripts/verify.mjs")
 [[ "$ver_calls" -gt 0 && "$ver_cwd" -ge "$ver_calls" ]] || miss="$miss verify.mjs($ver_cwd/$ver_calls)"
 [[ -z "$miss" ]] && ok || bad "$miss"

@@ -2,7 +2,7 @@
 
 Graph Intelligence Engine for RuFlo: single-entry personalized PageRank, streaming delta updates and witness-signed reasoning artifacts (ADR-123), built on sublinear-time-solver. Library: `npm test`, `npm run build`.
 
-## As a mod (0.2.0-alpha.4)
+## As a mod (0.2.0-alpha.6)
 
 A function-hook mod ships beside the skills (ADR-445 pattern). Needs a Claude Code with mods (2.1.287+); older builds ignore it. No network, no process spawning: it only tightens calls to this plugin's own tools and reads through tools already connected.
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Runtime test for the multi-provider ledger: builds throwaway Claude and Codex
-// logs and asserts every counting rule that trackers commonly get wrong.
+// Runtime test for the multi-provider ledger: builds throwaway Claude, Codex and
+// Grok logs and asserts every counting rule that trackers commonly get wrong.
 //   node plugins/ruflo-cost-tracker/scripts/test-ledger.mjs
 
 import assert from 'node:assert/strict';
@@ -14,9 +14,12 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), 'ledger-'));
 process.env.CLAUDE_CONFIG_DIR = join(tmp, 'claude');
 process.env.CODEX_HOME = join(tmp, 'codex');
+process.env.GROK_HOME = join(tmp, 'grok');
 mkdirSync(join(process.env.CLAUDE_CONFIG_DIR, 'projects', 'p'), { recursive: true });
 mkdirSync(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03'), { recursive: true });
 mkdirSync(join(process.env.CODEX_HOME, 'archived_sessions'), { recursive: true });
+const grokSession = join(process.env.GROK_HOME, 'sessions', encodeURIComponent('/proj/g'), 'gs1');
+mkdirSync(grokSession, { recursive: true });
 
 const { collect } = await import('./_ledger.mjs');
 const { priceUsage, lookup } = await import('./_pricebook.mjs');
@@ -46,11 +49,39 @@ const rollout = [
 ];
 jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-a.jsonl'), rollout);
 jsonl(join(process.env.CODEX_HOME, 'archived_sessions', 'rollout-a.jsonl'), rollout); // same rollout archived: active copy wins
-jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-fork.jsonl'), [{ type: 'turn_context', payload: { model: 'gpt-5.3-codex' } }, event(10, total(1000, 800, 100)), event(11, total(3000, 2600, 300))]); // replayed parent history
+jsonl(join(process.env.CODEX_HOME, 'sessions', '2026', '10', '03', 'rollout-fork.jsonl'), [
+  { type: 'session_meta', payload: { id: 'fork', cwd: '/y' } },
+  ...rollout.slice(0, 5), // copied parent metadata and usage, before any helper activity
+]);
+
+// ── Grok: usage.json with turns[] → one row per turn; cached ⊂ input; project from encoded folder / summary.
+writeFileSync(join(grokSession, 'usage.json'), JSON.stringify({
+  sessionId: 'gs1',
+  updatedAt: '2026-10-03T00:00:20.000Z',
+  session: {
+    inputTokens: 3000, outputTokens: 300, cachedReadTokens: 2000, cacheCreationTokens: 100,
+    reasoningTokens: 50, primaryModelId: 'grok-4.7-build',
+  },
+  turns: [
+    { turnNumber: 1, endedAt: '2026-10-03T00:00:10.000Z', inputTokens: 1000, outputTokens: 100, cachedReadTokens: 800, cacheCreationTokens: 0, reasoningTokens: 20, primaryModelId: 'grok-4.7-build' },
+    { turnNumber: 2, endedAt: '2026-10-03T00:00:20.000Z', inputTokens: 2000, outputTokens: 200, cachedReadTokens: 1200, cacheCreationTokens: 100, reasoningTokens: 30, primaryModelId: 'grok-4.7-build' },
+  ],
+}) + '\n');
+writeFileSync(join(grokSession, 'summary.json'), JSON.stringify({ info: { id: 'gs1', cwd: '/proj/g' } }) + '\n');
+// Session without turns[] falls back to session totals (and folder-decoded project when summary lacks cwd).
+const grokSession2 = join(process.env.GROK_HOME, 'sessions', encodeURIComponent('/proj/h'), 'gs2');
+mkdirSync(grokSession2, { recursive: true });
+writeFileSync(join(grokSession2, 'usage.json'), JSON.stringify({
+  sessionId: 'gs2',
+  updatedAt: '2026-10-03T00:00:30.000Z',
+  session: { inputTokens: 500, outputTokens: 50, cachedReadTokens: 100, cacheCreationTokens: 0, reasoningTokens: 0, primaryModelId: 'grok-4.6-build' },
+  turns: [],
+}) + '\n');
 
 const rows = collect();
 const claude = rows.filter(row => row.provider === 'claude');
 const codex = rows.filter(row => row.provider === 'codex');
+const grok = rows.filter(row => row.provider === 'grok');
 
 test('claude: duplicate message ids count once; <synthetic> and non-assistant lines are skipped', () => assert.equal(claude.length, 2));
 test('claude: 5m and 1h cache writes are priced separately', () => {
@@ -67,6 +98,27 @@ test('codex: deltas of the running total, replay and archived copies de-duplicat
 });
 test('codex: cached input is a subset (uncached = input - cached)', () => assert.deepEqual([codex[0].input, codex[0].cache_read], [200, 800]));
 test('codex: model comes from turn_context', () => assert.equal(codex[0].model, 'gpt-5.3-codex'));
+test('grok: turns[] emit one row each; empty turns fall back to session totals', () => {
+  assert.equal(grok.length, 3);
+  assert.deepEqual(grok.map(row => row.session), ['gs1', 'gs1', 'gs2']);
+});
+test('grok: cached input is a subset (uncached = input - cached - creation)', () => {
+  assert.deepEqual([grok[0].input, grok[0].cache_read, grok[0].cache_write_5m, grok[0].output, grok[0].reasoning], [200, 800, 0, 100, 20]);
+  assert.deepEqual([grok[1].input, grok[1].cache_read, grok[1].cache_write_5m], [700, 1200, 100]);
+});
+test('grok: model and project come from usage / summary (or decoded folder)', () => {
+  assert.equal(grok[0].model, 'grok-4.7-build');
+  assert.equal(grok[0].project, '/proj/g');
+  assert.equal(grok[2].model, 'grok-4.6-build');
+  assert.equal(grok[2].project, '/proj/h');
+});
+test('price: grok-4.7-build is priced (approx Fast/Build list)', () => {
+  const p = priceUsage('grok-4.7-build', grok[0], 'grok');
+  assert.equal(p.priced, true);
+  assert.equal(p.approx, true);
+  const expected = (200 * 4 + 100 * 12 + 800 * 1) / 1e6;
+  assert.ok(Math.abs(p.cost - expected) < 1e-9, `${p.cost} vs ${expected}`);
+});
 test('price: an unknown model is UNPRICED, not $0', () => assert.equal(priceUsage('mystery-9', { input: 1e6 }, 'codex').priced, false));
 test('price: gpt-5.6-sol is not mistaken for gpt-5', () => assert.equal(lookup('gpt-5.6-sol', 'codex'), null));
 test('price: family fallback is flagged approximate', () => assert.equal(priceUsage('claude-sonnet-3-5', { input: 1e6 }, 'claude').approx, true));
@@ -99,6 +151,7 @@ test('openrouter: a key in the environment is never echoed', () => {
 const win = mkdtempSync(join(tmpdir(), 'ledger-window-'));
 mkdirSync(join(win, 'claude', 'projects', 'q'), { recursive: true });
 mkdirSync(join(win, 'codex'), { recursive: true });
+mkdirSync(join(win, 'grok', 'sessions'), { recursive: true });
 const at = (iso, id, cwd) => ({ type: 'assistant', sessionId: `s-${id}`, cwd, requestId: `r-${id}`, timestamp: iso, message: { id, role: 'assistant', model: 'claude-opus-5-5', usage: { input_tokens: 1000, output_tokens: 0 } } });
 jsonl(join(win, 'claude', 'projects', 'q', 'w.jsonl'), [
   at('2026-10-01T00:00:00.000Z', 'before', '/proj/a'),
@@ -110,7 +163,7 @@ jsonl(join(win, 'claude', 'projects', 'q', 'w.jsonl'), [
   at('2026-10-04T00:00:00.000Z', 'after', '/proj/a'),
 ]);
 const ledger = (...flags) => {
-  const r = spawnSync(process.execPath, [join(HERE, 'ledger.mjs'), '--format', 'json', ...flags], { encoding: 'utf-8', env: { PATH: process.env.PATH, CLAUDE_CONFIG_DIR: join(win, 'claude'), CODEX_HOME: join(win, 'codex') } });
+  const r = spawnSync(process.execPath, [join(HERE, 'ledger.mjs'), '--format', 'json', ...flags], { encoding: 'utf-8', env: { PATH: process.env.PATH, CLAUDE_CONFIG_DIR: join(win, 'claude'), CODEX_HOME: join(win, 'codex'), GROK_HOME: join(win, 'grok') } });
 
   return { ...r, json: r.status === 0 ? JSON.parse(r.stdout) : null };
 };

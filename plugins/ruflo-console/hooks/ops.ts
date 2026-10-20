@@ -5,15 +5,26 @@
  */
 import { exec, type ActionSpec } from './actions'
 import { idOf, plain, type AgentRecord, type ClaimRecord } from './data/parse'
+import { ARGV_TEXT_MAX, checkLimit, countOf } from './full-text'
 
 export const AGENT_TYPES = ['coder', 'tester', 'reviewer', 'researcher', 'architect', 'planner', 'security-auditor', 'performance-engineer'] as const
 export const WORKERS = ['audit', 'optimize', 'testgaps', 'map', 'consolidate', 'document', 'benchmark', 'deepdive'] as const
 
-/** Free text as one argv element: cleaned, bounded, and never one the CLI would read as a flag. */
-export function textArg(value: string, max = 200): string | null {
-  const text = plain(value, max)
+/**
+ * Free text as one argv element: cleaned (control characters and line breaks become spaces), never one the CLI would read as a flag, and NEVER cut
+ * (ADR-481): text over `max` (ARGV_TEXT_MAX by default, the largest one argv element carries on every platform) gives null, and `textRefusal` says by how much.
+ */
+export function textArg(value: string, max = ARGV_TEXT_MAX): string | null {
+  const text = plain(value, Number.MAX_SAFE_INTEGER)
 
-  return text === '' || text.startsWith('-') ? null : text
+  return text === '' || text.startsWith('-') || countOf(text) > max ? null : text
+}
+
+/** The exact refusal for text over `max` ("the text is 9,001 characters; the limit is 8,000 ..."), or null when it fits `max`. */
+export function textRefusal(value: string, what = 'the text', max = ARGV_TEXT_MAX): string | null {
+  const fit = checkLimit(plain(value, Number.MAX_SAFE_INTEGER), max, what, max === ARGV_TEXT_MAX ? 'one command argument carries at most that much on every platform' : 'the most the record takes')
+
+  return fit.ok ? null : fit.message
 }
 
 export function spawnAgent(type: string, nowMs: number): ActionSpec | null {
@@ -59,7 +70,7 @@ export function setClaimStatus(claim: ClaimRecord, status: 'paused' | 'active'):
 
 /** Asks the router again for a task's words: it answers a pick and changes nothing the console reads. */
 export function reroute(description: string): ActionSpec | null {
-  const task = textArg(description, 300)
+  const task = textArg(description)
 
   return task === null ? null : { label: `route "${task.slice(0, 40)}"`, args: ['hooks', 'route', '--task', task, '--format', 'json'], expect: 'a pick printed by the router', isReadOnly: true }
 }
@@ -103,14 +114,14 @@ export function dispatchWorker(worker: string): ActionSpec | null {
 }
 
 export function memoryStore(value: string, nowMs: number): ActionSpec | null {
-  const text = textArg(value, 500)
+  const text = textArg(value)
   const key = `console-${nowMs}`
 
   return text === null ? null : { label: `store "${text.slice(0, 40)}" as ${key} in namespace console`, args: ['memory', 'store', '--key', key, '--value', text, '--namespace', 'console'], expect: 'one more memory entry' }
 }
 
 export function memorySearch(query: string): ActionSpec | null {
-  const text = textArg(query, 200)
+  const text = textArg(query)
 
   return text === null ? null : { label: `search memory for "${text.slice(0, 40)}"`, args: ['memory', 'search', '--query', text, '--limit', '5'], expect: 'the matches', isReadOnly: true }
 }

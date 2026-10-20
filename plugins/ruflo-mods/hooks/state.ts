@@ -1,9 +1,11 @@
 import type { BudgetLevel } from './cost/budget'
+import type { ToastInput } from './toast/policy'
 import type { EditRecord } from './learn/insights'
 import { guidanceState, type GuidanceState } from './guidance/observations'
 import type { Ownable } from './ownership'
 import { rollupState, type RollupState } from './rollup'
 import { ledgerLines } from './rollup/record'
+import { groundingLine, groundingState, type GroundingState } from './grounding'
 import { probeLine, probeState, type ProbeState } from './probe'
 import type { RouteResult } from './route/route-task'
 
@@ -41,6 +43,8 @@ export type ModState = {
   compact: { enabled: boolean; carried: number }
   /** Capability probe (ADR-451 item 5): engine version and which registered events fired. */
   probe: ProbeState
+  /** Optional ruvnet-brain status (ADR-487): detect-only, off unless the grounding option is on. */
+  grounding: GroundingState
   /** Session rollup (ADR-451 item 6): counters for the `$.store` ledger written at session end. */
   rollup: RollupState
   /** Other mods' status segments, by id (`$.ruflo.segment`). */
@@ -50,6 +54,8 @@ export type ModState = {
    * beneath; a refused `ui.status` is swallowed, never failing a hook.
    */
   draw: (text: string | undefined) => void
+  /** Says a toast through the shared policy (ADR-477). Installed by `engine.create`; never rejects; a no-op until then. */
+  say: (input: ToastInput) => Promise<void>
 }
 
 export function createState(): ModState {
@@ -70,9 +76,11 @@ export function createState(): ModState {
     delivery: { enabled: false, consumed: 0, blocked: 0 },
     compact: { enabled: false, carried: 0 },
     probe: probeState(),
+    grounding: groundingState(),
     rollup: rollupState(),
     segments: new Map(),
     draw: () => undefined,
+    say: async () => undefined,
   }
 }
 
@@ -162,6 +170,7 @@ export function report(s: ModState): string {
     `  delivery:    ${s.delivery.enabled ? `${s.delivery.consumed} dropped, ${s.delivery.blocked} refused` : 'off (set the deliveryScreen option)'}`,
     `  compact:     ${s.compact.enabled ? `${s.compact.carried} compaction(s) carried a block` : 'off (set the compactCarry option)'}`,
     `  probe:       ${probeLine(s.probe)}`,
+    `  grounding:   ${groundingLine(s.grounding)}`,
     `  sessions:    ${s.rollup.enabled ? ledgerLines(s.rollup.recent).join('\n               ') : 'off (set the sessionRollup option)'}`,
     `  segments:    ${segments.join(', ') || 'none'}`,
     `  guidance:    ${s.guidance.status}; ${s.guidance.saved} unverified observation(s), ${s.guidance.pending.length} pending, ${s.guidance.dropped} dropped`,

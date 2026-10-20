@@ -6,7 +6,7 @@ import type { RenderElement } from 'claude-code'
 import { ACCENT, badgesOf, chip, LOUD, MUTED, PALETTE } from '../menu-style'
 import { VIEWS, type ViewId } from '../state'
 import { barParts } from './bar'
-import { button, clip, col, isBbs, picture, row, text, THEME, type Ctx } from './common'
+import { art, button, clip, col, isBbs, isOrbital, row, text, THEME, type Ctx } from './common'
 import { missionStrip } from './mission-control'
 
 type Item = { label: string; go: string }
@@ -24,8 +24,9 @@ export const GROUPS: readonly { title: string; sections: readonly { name: string
   {
     title: 'SWARM',
     sections: [
-      { name: 'start here', items: [{ label: 'Missions', go: 'missions' }, { label: 'Overview', go: 'overview' }, { label: 'Swarm Topology', go: 'swarm' }] },
+      { name: 'start here', items: [{ label: 'Missions', go: 'missions' }, { label: 'Overview', go: 'overview' }] },
       { name: 'coordinate', items: [{ label: 'Hive-Mind', go: 'hive' }, { label: 'Claims Board', go: 'claims' }, { label: 'Approvals', go: 'approvals' }] },
+      { name: 'observe', items: [{ label: 'Swarm Topology', go: 'swarm' }, { label: 'Workflows', go: 'workflows' }] },
     ],
   },
   {
@@ -51,7 +52,7 @@ export const GROUPS: readonly { title: string; sections: readonly { name: string
   },
   {
     title: 'TOOLS',
-    sections: [{ name: 'tools', items: [{ label: 'AI Terminal', go: 'terminal' }, { label: 'Automation', go: 'automate' }, { label: 'Dev Tools', go: 'devtools' }, { label: 'Plugins & Mods', go: 'plugins' }, { label: 'Settings', go: 'settings' }, { label: 'Command Palette', go: 'palette' }, { label: 'Help', go: 'help' }, { label: 'Log Off', go: 'close' }] }],
+    sections: [{ name: 'tools', items: [{ label: 'AI Terminal', go: 'terminal' }, { label: 'Automation', go: 'automate' }, { label: 'Dev Tools', go: 'devtools' }, { label: 'Plugins & Mods', go: 'plugins' }, { label: 'ADRs', go: 'adrs' }, { label: 'What’s new', go: 'whatsnew' }, { label: 'Theme Studio', go: 'themes' }, { label: 'Settings', go: 'settings' }, { label: 'Command Palette', go: 'palette' }, { label: 'Help', go: 'help' }, { label: 'Log Off', go: 'close' }] }],
   },
 ]
 
@@ -100,7 +101,7 @@ export function menuView(ctx: Ctx): RenderElement {
     const started = entry === null || entry >= groupStart(gi)
     let seen = 0
     const accent = ACCENT[group.title] ?? '#d0d0d0'
-    const title = clip(`▓▒░ ${group.title} ░▒▓`, width - 8)
+    const title = clip(isOrbital() ? group.title : `▓▒░ ${group.title} ░▒▓`, width - 8)
     const isOpen = isGroupOpen(group, gi)
     const count = group.sections.reduce((n, section) => n + section.items.filter(isShown).length, 0)
 
@@ -108,7 +109,7 @@ export function menuView(ctx: Ctx): RenderElement {
       flexDirection: 'column',
       width,
       borderStyle: 'single',
-      borderColor: bbs && started ? accent : 'inactive',
+      borderColor: isOrbital() ? THEME.head : bbs && started ? accent : 'inactive',
       paddingX: 1,
       key: `menu-${group.title}`,
       children: [
@@ -163,9 +164,8 @@ export function menuView(ctx: Ctx): RenderElement {
   // the frame loop and costs one element). A surface that cannot draw pictures gets the still strip.
   if (bbs) {
     rows.push(
-      ctx.pictures.has('palette') && ctx.kit.Raster !== undefined
-        ? picture(ctx, 'palette', '')
-        : ctx.kit.Box({ flexDirection: 'row', key: 'menu-palette', children: PALETTE.map((color, i) => ctx.kit.Box({ key: `menu-palette-${i}`, children: [ctx.kit.Text({ color, children: '▀'.repeat(Math.max(1, Math.floor((ctx.columns - 2) / PALETTE.length))) })] })) }),
+      art(ctx, ctx.pictures.get('palette'), 'palette', 'the accent palette') ??
+        ctx.kit.Box({ flexDirection: 'row', key: 'menu-palette', children: PALETTE.map((color, i) => ctx.kit.Box({ key: `menu-palette-${i}`, children: [ctx.kit.Text({ color, children: '▀'.repeat(Math.max(1, Math.floor((ctx.columns - 2) / PALETTE.length))) })] })) }),
     )
   }
 

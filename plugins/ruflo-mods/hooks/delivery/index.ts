@@ -1,4 +1,4 @@
-import type { EngineInterface, On } from 'claude-code'
+import type { On } from 'claude-code'
 
 import type { ModState } from '../state'
 import { isScreenedOrigin, screenInbound, screenOutbound } from './screen'
@@ -23,7 +23,7 @@ export function registerDelivery(on: On, state: ModState) {
     const rule = isScreenedOrigin(e.origin.kind) ? screenInbound(e.text) : undefined
     if (!rule) return next(e)
     d.consumed += 1
-    toast($, `ruflo deliveryScreen: dropped a ${e.origin.kind} delivery (rule: ${rule})`)
+    await state.say({ level: 'error', text: `ruflo deliveryScreen: dropped a ${e.origin.kind} delivery (rule: ${rule})` })
     return { consumed: `ruflo deliveryScreen: ${rule}` }
   }).catch(($, e, next) => next(e)) // fail open
 
@@ -31,15 +31,8 @@ export function registerDelivery(on: On, state: ModState) {
     const rule = screenOutbound(e.text)
     if (!rule) return next(e)
     d.blocked += 1
-    toast($, `ruflo deliveryScreen: held back an outgoing message (rule: ${rule})`)
+    await state.say({ level: 'error', text: `ruflo deliveryScreen: held back an outgoing message (rule: ${rule})` })
     return { isDelivered: false, reason: `ruflo deliveryScreen refused to send this message (${rule}); remove it and send again` }
   }).catch(($, e, next) => next(e))
 }
 
-function toast($: EngineInterface, text: string) {
-  try {
-    $.ui.toast(text)
-  } catch {
-    // a refused toast never changes the verdict
-  }
-}

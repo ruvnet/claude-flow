@@ -65,3 +65,23 @@ With `ask` as the default, a person who had turned control on found Claude parke
 ## Update (2026-10-05): the default is read + ask
 
 Default `modelControl` is now `read` and default `modelConfirm` is `ask`, at the owner's request, so Claude can open pages and read the state of a console without anyone first finding the setting. `read` never acts, so the earlier "parked on every write" problem that moved the confirm default to `auto` cannot arise at the default level; a pending ask is now also shown as a banner in the console. A missing confirm mode is `ask`: only a saved `auto` is auto, and a saved `off` stays off. Raising the level (write and above) remains the person's choice in Settings → Claude control. The four tools now register in every session by default, which adds their few hundred tokens to each request.
+
+## Update 2026-10-08: one path to the model (0.40.2)
+
+Not every string the tools returned went through the sanitiser: a failed run's `stderr:` detail, the "already waiting" refusal, the "Waiting for
+the person" and "Started" answers, refusals that quote what the model typed (an unknown id, field or chip), a palette entry id and a thrown
+error each quoted their text with `plain()` alone, so a token or an x.ruv.io invite code in a label, an expectation or stderr reached the
+model; an invite split by a control character (C0, C1, zero-width) was not masked; and a version such as `v2.1.0-beta.3` was masked as one.
+`hooks/model-tools.ts` now has one function, `modelLine(raw, max)`:
+
+1. escape sequences are stripped (the shared `ESCAPES`, now linear: an unterminated OSC ends at the next introducer or the end of the text);
+2. tab and line breaks become a space, every other control and invisible character is removed without a space, so none can split a credential
+   past a mask;
+3. the line is cut to `max`;
+4. it is withheld whole (`(line withheld: it looks like a secret: not shown)`) when the original, the joined or the cut form holds a secret
+   shape or an invite code (a version such as `v2.1.0-beta.3` is not one; a code the terminal already masked is not either).
+
+`console_state` builds every field with it, every `callTool` answer leaves through `modelLines` (each line again), `refuse` quotes through it,
+and a palette entry whose id holds a secret shape is left out of the list. A new builder that skips it fails `tests/model-facing.spec.ts`,
+which feeds each builder a token, an invite code (whole and split) and an escape sequence. See also ADR-450 T17 and ADR-407's 2026-10-08 update
+(a Yes runs only the card it was pressed on).

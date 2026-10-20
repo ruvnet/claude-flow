@@ -1,7 +1,7 @@
 {
   "name": "ruflo-console",
   "description": "ruflo's cockpit inside Claude Code and the one /ruflo command for every ruflo mod (function hooks, early access). Views: overview with health alerts, swarm topology graph, claims flow with TTL rings, federation map, plugin health matrix, learning curve and pipeline, MetaHarness radar and audit trend, memory, cost gauge, agent timeline, approvals queue, event stream, a main menu, an x.ruv.io federation board, an AI terminal (codex, claude or both in remembered sessions, streamed), Skills (npx skills), a Hive-Mind view, a MetaHarness lab, agent drill-down; a command palette for confirm-gated actions through the ruflo CLI; a band above the prompt. Reads ruflo's files and the CLI's local JSON; anything not measured reads n/a. The one network call it makes by itself is a daily read of the published plugin.json at github.com/ruvnet/ruflo to offer an update (Settings → Updates: ask, auto, or off); it installs only through Claude Code's own claude plugin update, and never a new major version without asking.",
-  "version": "0.33.23",
+  "version": "0.44.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -24,6 +24,12 @@
     "timeline"
   ],
   "userConfig": {
+    "convoTargets": {
+      "type": "string",
+      "title": "Conversation targets",
+      "description": "endpoint:<name>=<base-url>|<KEY_ENV>|<model>; bbs:<room>; x:<channel>. Names of environment variables, never keys. Default empty: only OpenRouter (OPENROUTER_API_KEY) is offered.",
+      "default": ""
+    },
     "cli": {
       "type": "string",
       "title": "ruflo CLI",
@@ -79,18 +85,55 @@
     "look": {
       "type": "string",
       "title": "Look",
-      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds).",
+      "description": "bbs is the neon BBS look: an ASCII-art banner, ▓▒░ section headers and a cyberpunk palette. plain uses your terminal theme colours and plain rules (better on light backgrounds). orbital uses black telemetry panels, square red borders, muted values and green health indicators; best with a dark terminal.",
       "default": "bbs",
       "options": [
         "bbs",
-        "plain"
+        "plain",
+        "orbital"
       ]
     },
     "boot": {
       "type": "boolean",
       "title": "Boot screen",
-      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s.",
+      "description": "With the bbs look, play a dial-up boot screen (modem connect, the RUFLO logo drawing in, every area of the console coming online in a log, a loading bar for the first ruflo reads) when the cockpit opens. At least 5.4 s, at most 8 s. Orbital uses a rotating ASCII globe for 1.5 seconds, up to 6 seconds while initial data is pending; fps 0 skips it.",
       "default": true
+    },
+    "eventsPersist": {
+      "type": "boolean",
+      "title": "Keep Events history",
+      "description": "Keep the Events and Timeline history on disk in this project (.claude-flow/console/: events.jsonl, lanes.jsonl, events-prefs.json, exports/) so a restart does not empty the pages. Text is masked before it is written (credentials, home-directory user names, control characters); nothing leaves the machine and no model reads it. Off writes nothing; the pages still work for the session.",
+      "default": true
+    },
+    "sessionWorkspace": {
+      "type": "boolean",
+      "title": "Session workspace",
+      "description": "The Room lists the sessions on this machine (Claude Code, Codex, ruflo missions and workers), started in Ruflo or not, with a Needs you queue (approvals, questions, failures, finished work) and a preview of the one you pick. Local and read-only: it reads session files, makes no model call, starts nothing and wakes no agent. Nothing it reads is written anywhere except which finished sessions you have looked at.",
+      "default": true
+    },
+    "sessionPreview": {
+      "type": "boolean",
+      "title": "Session preview",
+      "description": "Show the latest response, current tool, edited files and test result of the selected session. Off draws none of a session's response, tool, files or test output; the list (with session titles) and the queue still work. Transcript text never goes to a model and is never saved.",
+      "default": true
+    },
+    "wfBudgetRunUsd": {
+      "type": "number",
+      "title": "Workflow budget per run (USD)",
+      "description": "The Workflows page flags a run whose measured cost passes this many dollars (0.01 to 10000; 0 turns the guard off). It only warns: the console cannot stop a running workflow.",
+      "default": 0
+    },
+    "wfBudgetDayUsd": {
+      "type": "number",
+      "title": "Workflow budget per day (USD)",
+      "description": "The Workflows page flags the day's measured workflow cost past this many dollars (0.01 to 10000; 0 turns the guard off). It only warns.",
+      "default": 0
+    },
+    "wfAlertRules": {
+      "type": "string",
+      "title": "Workflow alert rules",
+      "description": "Space-separated rules for the Workflows page: stuck>20m (no progress for 20 minutes), tokens>2M (agent context size), dirty (a worktree has uncommitted changes). Empty turns them all off.",
+      "default": ""
     }
   }
 }

@@ -1,5 +1,6 @@
 import { readBounded, under, type ReadCache, type ReaderFs } from './files'
 import { jsonObject, plain, recordOf } from './parse'
+import { timeOf } from './safe'
 
 /** The most mod folders read, and the most bytes of one status file (a larger one is refused, not trimmed). */
 export const MODS_MAX_FILES = 60
@@ -25,7 +26,7 @@ export type ModsFacts = { rows: ModRow[]; refused: number; truncated: boolean }
 
 export const NO_MODS: ModsFacts = { rows: [], refused: 0, truncated: false }
 
-const whole = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : null)
+const whole = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(Math.floor(v), Number.MAX_SAFE_INTEGER) : null)
 
 /** Most keys of a `calls` object that are summed, and the ceiling of any summed or widened count (a hostile 1e300 must not become a display value). */
 const CALLS_KEYS_MAX = 64
@@ -88,8 +89,8 @@ export function parseModStatus(name: string, text: string | null, fileMs: number
     guard: typeof value.guard === 'boolean' ? value.guard : null,
     calls: callsOf(value),
     blocked: whole(value.blocked) ?? 0,
-    updatedMs: whole(value.updatedMs),
-    startedMs: whole(value.startedMs),
+    updatedMs: timeOf(value.updatedMs) ?? null,
+    startedMs: timeOf(value.startedMs) ?? null,
     ...(modVersionOf(value.modVersion) !== null && { modVersion: modVersionOf(value.modVersion) as string }),
     ...(plain(value.summary, SUMMARY_MAX) !== '' && { summary: plain(value.summary, SUMMARY_MAX) }),
     ...(denied !== null && { lastDenied: denied }),

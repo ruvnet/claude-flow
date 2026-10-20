@@ -112,6 +112,8 @@ export async function readDoc(fs: ReaderFs, plugin: CatalogPlugin, kind: 'skill'
   const stat = await fs.stat(path).catch(() => undefined)
 
   if (stat === undefined || (stat.size ?? 0) > DOC_BYTES) return null
+  // A link, or anything but a plain file, is never read: its target may be outside the plugin and its text would be drawn and handed to the model (#3817).
+  if (stat.isLink === true || (stat.kind !== undefined && stat.kind !== 'file')) return null
 
   const text = await fs.read(path).catch(() => null)
 

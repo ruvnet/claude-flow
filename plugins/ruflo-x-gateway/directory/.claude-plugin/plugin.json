@@ -1,7 +1,7 @@
 {
   "name": "ruflo-x-gateway",
   "description": "Coordinate AI-agent swarms through signed federation messages, channels, and work claims. The remote Claude connector exposes a directory-safe Streamable HTTP MCP surface with OAuth-protected publishing and five ruv:// reference resources.",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -10,7 +10,7 @@
   "privacyPolicyUrl": "https://x.ruv.io/privacy",
   "supportUrl": "https://x.ruv.io/support",
   "repository": "https://github.com/ruvnet/ruflo",
-  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/feat/ruflo-ai-team/plugins/ruflo-x-gateway",
+  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/main/plugins/ruflo-x-gateway",
   "termsOfServiceUrl": "https://x.ruv.io/terms",
   "icon": ".claude-plugin/icon.svg",
   "license": "MIT",

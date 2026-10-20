@@ -59,7 +59,7 @@ describe('readers', () => {
   })
 
   it('plain strips control and bidi characters; idOf admits only id-shaped strings', () => {
-    expect(plain('a\u001b[31m‮b\u0000c')).toBe('a b c')
+    expect(plain('a\u001b[31m‮b\u0000c')).toBe('ab c')
     expect(plain('x'.repeat(50), 10)).toHaveLength(10)
     expect(idOf('agent-1790903032181-97m25s')).toBe('agent-1790903032181-97m25s')
     for (const bad of ['bad id!', '-rf', '', 'a'.repeat(200), '../etc', 42]) expect(idOf(bad)).toBeNull()

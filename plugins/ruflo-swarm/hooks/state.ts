@@ -33,6 +33,8 @@ export type Options = {
   injectSpawnContext: boolean
   /** Records a bounded, content-free trail of engine events into ruflo memory. */
   audit: boolean
+  /** Appends the ADRs attached to the active ruflo-console mission to the prompt of each subagent (default on; nothing is added without an attached ADR). */
+  injectAdrs: boolean
 }
 
 const PANELS = new Set(['auto', 'command', 'off'])
@@ -51,6 +53,7 @@ export function optionsOf(raw: PluginOptions): Options {
     routeThreshold: Number.isFinite(threshold) && threshold >= 0 && threshold <= 1 ? threshold : 0.5,
     injectSpawnContext: value.injectSpawnContext === true,
     audit: value.audit === true,
+    injectAdrs: value.injectAdrs !== false,
   }
 }
 

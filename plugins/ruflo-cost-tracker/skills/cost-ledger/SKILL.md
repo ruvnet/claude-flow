@@ -1,7 +1,7 @@
 ---
 name: cost-ledger
-description: One cost view across Claude Code and Codex on this machine — spend, tokens, cache hit ratio per provider and model, with unpriced models flagged. Use when asked "what did I spend", "how much did Codex cost", or to compare providers. Local logs only, nothing is sent.
-argument-hint: "[--since 7d|24h|all] [--from <ISO> --to <ISO>] [--project <path>] [--provider claude|codex|all] [--format json|markdown]"
+description: One cost view across Claude Code, Codex and Grok on this machine — spend, tokens, cache hit ratio per provider and model, with unpriced models flagged. Use when asked "what did I spend", "how much did Codex cost", or to compare providers. Local logs only, nothing is sent.
+argument-hint: "[--since 7d|24h|all] [--from <ISO> --to <ISO>] [--project <path>] [--provider claude|codex|grok|all] [--format json|markdown]"
 allowed-tools: Bash
 ---
 

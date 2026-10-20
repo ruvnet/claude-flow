@@ -8,6 +8,7 @@ import { CONFIG_FILES, scanConfig } from './scan'
 import { isTaintSource, normalise, recvEv, spawnEv } from './shapes'
 import { alertsText, allowText, FILES, overridesText, parseAllow, parseAlerts, parseOverrides, parseRing, ringText, statusText } from './store'
 import { INJECTION } from './screen'
+import { createToastKit, lineOf, type Toaster, type ToastLevel } from './toast-policy'
 
 type Dollar = Parameters<Hook<'session.start'>>[0]
 
@@ -44,9 +45,12 @@ async function persistAll($: Dollar, e: Engine): Promise<void> {
   await write($, e, FILES.allow, allowText(e.allow))
 }
 
-const toast = ($: Dollar, text: string) => {
+
+/** A toast never changes a verdict: it goes through the policy (levels, dedupe, rate limit, the person's setting, a digest for the console), and a refusal is swallowed. */
+function toast($: Dollar, held: { toaster?: Toaster }, level: ToastLevel, text: string, always = false): void {
   try {
-    $.ui.toast(text)
+    if (held.toaster !== undefined) void held.toaster.toast({ level, text, ...(always && { always }) })
+    else $.ui.toast(lineOf(level, text))
   } catch {
     /* a refused toast never changes a verdict */
   }
@@ -59,11 +63,22 @@ const toast = ($: Dollar, text: string) => {
 export const register: Register = (on, options) => {
   const opts = readOptions(options)
   const e = new Engine(opts)
+  /** The shared toast policy (ADR-477), bound to the engine at session.start; until then a toast is drawn plainly. */
+  const held: { toaster?: Toaster } = {}
 
   on('session.start', async ($, ev, next) => {
     const result = await next(ev)
     try {
       e.root = ((await $.session.root()) as string | undefined) ?? ''
+      const at = (path: string) => (e.root === '' ? path : `${e.root}/${path}`)
+
+      held.toaster = createToastKit({
+        source: 'protector',
+        now: () => $.clock.now(),
+        show: (line, options) => $.ui.toast(line, options),
+        after: (ms, fn) => $.clock.after(ms, fn),
+        io: { read: path => $.fs.read(at(path)), write: (path, text) => $.fs.write(at(path), text), exists: path => $.fs.exists(at(path)) },
+      })
       const now = await $.clock.now()
       const sid = `${now.toString(36)}`
       if (e.root !== '') {
@@ -96,7 +111,7 @@ export const register: Register = (on, options) => {
     try {
       const now = await $.clock.now()
       if (e.graduate(now)) {
-        toast($, 'Project Anatole: the baseline is mature, so mode moved from learn to notify (never enforce). /protector mode learn to undo.')
+        toast($, held, 'info', 'Project Anatole: the baseline is mature, so mode moved from learn to notify (never enforce). /protector mode learn to undo.', true)
         await persistAll($, e)
       } else await flush($, e, true)
     } catch {
@@ -125,7 +140,7 @@ export const register: Register = (on, options) => {
       const out = e.evaluate(normalise(tool, ev.input, e.root, now), now, chain.decision === 'deny')
       if (isTaintSource(tool, ev.input)) e.tainted = true
       if (out.alert) {
-        toast($, `Project Anatole ${out.alert.action === 'blocked' ? 'blocked' : 'noticed'}: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
+        toast($, held, out.alert.action === 'blocked' ? 'error' : 'warn', `Project Anatole ${out.alert.action === 'blocked' ? 'blocked' : 'noticed'}: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
         await flush($, e, true)
       }
       if (out.verdict === 'block' && chain.decision !== 'deny') return { decision: 'deny', reason: out.deny }
@@ -142,7 +157,7 @@ export const register: Register = (on, options) => {
         const now = await $.clock.now()
         const out = e.evaluate(spawnEv(String(ev.subagentType ?? ''), ev.permissionMode, now), now, false)
         if (out.alert) {
-          toast($, `Project Anatole noticed: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
+          toast($, held, 'warn', `Project Anatole noticed: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
           await flush($, e, true)
         }
       } catch {
@@ -161,7 +176,7 @@ export const register: Register = (on, options) => {
           const now = await $.clock.now()
           const out = e.evaluate(recvEv(true, now), now, false)
           if (out.alert) {
-            toast($, `Project Anatole noticed: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
+            toast($, held, 'warn', `Project Anatole noticed: ${out.alert.rule} (${out.alert.severity}). /protector alerts`)
             await flush($, e, true)
           }
         }

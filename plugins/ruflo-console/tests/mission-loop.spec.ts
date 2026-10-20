@@ -105,7 +105,9 @@ describe('the recurring prompt', () => {
   it('caps the text and strips control characters from the objective', () => {
     const prompt = loopPrompt(mission({ objective: `a\u001b[31mred\u0000\u0007 ${'x'.repeat(5000)}\nline` }), DEFAULT_LOOP)
 
-    expect(prompt.length).toBeLessThanOrEqual(1000)
+    // The whole objective rides (ADR-481); only a ruflo objective's own 2,000-character bound applies.
+    expect(prompt.length).toBeLessThanOrEqual(3000)
+    expect(prompt).toContain('x'.repeat(1900))
     // eslint-disable-next-line no-control-regex
     expect(/[\u0000-\u001f\u007f-\u009f]/.test(prompt)).toBe(false)
     expect(prompt).not.toContain('[31m')

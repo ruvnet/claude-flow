@@ -135,7 +135,7 @@ describe('band: a panel of two rows, standing facts that stay, and links', () =>
     state.events.push({ atMs: Date.now() - 300_000, kind: 'claims', text: 'claude: Bash' })
 
     // Narrow: the standing row uses its compact forms; nothing is cut in the middle of a word.
-    const panel = barView(kit, state, 70, null, () => undefined, () => undefined) as El
+    const panel = barView(kit, state, 70, null, () => undefined, () => undefined) as unknown as El
     const [top, bottom] = panel.props.children as El[]
     const narrow = readable(bottom)
 
@@ -156,7 +156,7 @@ describe('band: a panel of two rows, standing facts that stay, and links', () =>
   })
 
   it('is a bordered panel with a ground, in two rows', () => {
-    const panel = barView(kit, newState({}), 100, null, () => undefined, () => undefined) as El
+    const panel = barView(kit, newState({}), 100, null, () => undefined, () => undefined) as unknown as El
 
     expect(panel.props).toMatchObject({ borderStyle: 'round', borderColor: PANEL.border, backgroundColor: PANEL.ground, flexDirection: 'column' })
     expect((panel.props.children as unknown[]).length).toBe(2)

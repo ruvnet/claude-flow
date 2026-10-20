@@ -69,6 +69,25 @@ export function installedOf(state: State): { installed: Set<string>; enabled: Se
   }
 }
 
+/**
+ * The catalog plugins whose mod Claude Code loaded in this session without installing the plugin (mod sync: the provenance reads
+ * `<plugin>@synced` or `<plugin>@inline`). Installed plugins are left out: they are already shown by their install state.
+ */
+export function syncedOf(state: State): Set<string> {
+  const { installed } = installedOf(state)
+  const names = new Set<string>()
+
+  for (const mod of state.mods) {
+    if (!mod.isLoaded) continue
+
+    const bare = /^(.+)@(?:synced|inline)$/.exec(mod.provenance)?.[1]
+
+    if (bare !== undefined && !installed.has(bare)) names.add(bare)
+  }
+
+  return names
+}
+
 export const listOf = (state: State): CatalogPlugin[] => {
   const catalog = catalogOf(state)
   const { installed } = installedOf(state)
@@ -173,7 +192,7 @@ export function catalogActions(state: State, host: Host, runner: Runner, load: (
       host.invalidate()
     },
     filter: text => {
-      catalog.filter = plain(text, 80)
+      catalog.filter = plain(text, Number.MAX_SAFE_INTEGER)
       catalog.page = 0
       host.invalidate()
     },

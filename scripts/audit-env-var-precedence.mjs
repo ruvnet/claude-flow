@@ -61,6 +61,7 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'SERAPHINA_METALLM_URL',        // Trust boundary: credential-bearing Meta-LLM requests pin destinations to server config.
   'RUFLO_X_ADMIN_TOKEN',          // credential: gateway admin token for x.ruv.io gateway-identity writes (x_federation_publish/invite_mint/admit). Env-only by design — a secret must never be a CLI flag (shell history / process lists). Gateway destination is trusted server config; --gateway/tool arguments must match it.
   'SERAPHINA_METALLM_KEY',        // credential: cognitum meta-llm API key for seraphina_guidance. Env-only by design (same reasoning). Meta-LLM destination is trusted server config; metaLlmUrl must match it.
+  'RUFLO_HIVE_BOOTSTRAP_SECRET',  // credential (ADR-476): operator secret gating remote hive-mind_* MCP calls, read server-side in hive-mind-tools.ts's readBootstrapSecret(). Env-only by design — a secret must never be a CLI flag (shell history / process lists); it configures the server, not one invocation, and the caller-supplied `bootstrapSecret` tool argument (not this env var) is how a remote caller presents its credential per call.
   'RUFLO_HOOK_SKIP_NPX',          // CI: suppress cold-install latency in smoke tests
   'RUFLO_HOOK_CLI_OVERRIDE',      // #2721 test-only: point plugins/ruflo-core/scripts/ruflo-hook.cjs at a local CLI build instead of the ruflo/claude-flow/npx PATH probe. Hook scripts have no CLI-flag surface (invoked by hooks.json, never a user-typed command)
   'RUFLO_HOOK_DEBUG_STDOUT',      // #2721 test-only: surface the invoked CLI's stdout/stderr from ruflo-hook.cjs instead of swallowing it, so test-hooks.mjs can assert on recorded values. Same no-CLI-surface reasoning as RUFLO_HOOK_CLI_OVERRIDE above — production never sets this
@@ -83,6 +84,8 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'RUFLO_AI_BUDGET_DIR',            // #2663 — repo-supervisor state directory relocation (services/global-ai-budget.ts, services/repo-supervisor.ts, services/workspace-lease.ts). Test/CI isolation seam analogous to RUFLO_STATE_DIR above; the supervisor is a background service, not a user-invoked CLI command with a `--budget-dir` flag surface
   'RUFLO_AI_BUDGET_DISABLE',        // #2663 — hard kill switch for the repository-supervisor AI-cost fuse (services/global-ai-budget.ts). Ops-level "disable this whole subsystem" toggle, same pattern as RUFLO_AI_DEDUP_DISABLE above
   'RUFLO_METAHARNESS_SKIP_LOCAL',   // plugins/ruflo-metaharness/scripts/_invoke.mjs — CI seam that forces the invoke shim off the local vendored metaharness and onto the pinned-cache resolver. Plugin script has no CLI-flag surface (invoked internally by MCP tools)
+  'RUFLO_PLUGIN_SKIP_LOCAL_CLI',    // #3558 test-only seam: makes the plugin CLI resolvers (ruflo-adr/ruflo-goals scripts/lib/ruflo-cli.mjs, ruflo-cost-tracker _ruflo-cli.mjs, ruflo-metaharness _invoke.mjs) skip the repo-local CLI build so tests can exercise the PATH and npx fallbacks. Plugin scripts have no CLI-flag surface (invoked by hooks/MCP tools); production never sets it
+  'RUFLO_PLUGIN_SKIP_PATH_CLI',     // #3558 test-only seam: same resolvers, skips the `ruflo` PATH lookup so tests can force the `npx @claude-flow/cli@latest` fallback. Same no-CLI-surface reasoning as RUFLO_PLUGIN_SKIP_LOCAL_CLI above
   'RUFLO_HELPERS_LOCKED',           // v3.30.0 — env-level opt-out for the .claude/helpers/ auto-refresh (init/helper-refresh.ts). Sibling to the `.LOCKED` marker file; helper-refresh runs from a hook, not a user-typed CLI command — no per-invocation flag surface. See CLAUDE.md "Concurrent-session helper corruption" for rationale
   'CLAUDE_FLOW_DISABLE_NATIVE_ROUTER', // Test/lock-constrained MCP escape hatch: forces hooks routing onto the deterministic pure-JS backend. The router is process-lifetime state, not owned by one CLI invocation.
   'CLAUDE_FLOW_ROUTER_EMBEDDER',    // ADR-390/391: selects the hooks_route semantic-index embedder (minilm|hash; default hash). Same process-lifetime MCP router state as CLAUDE_FLOW_DISABLE_NATIVE_ROUTER — the index is built once per process, not per CLI invocation; the ADR-391 bench passes the embedder explicitly instead.
@@ -120,6 +123,9 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_HEADLESS',         // Set/read within same process invocation lifecycle
   'CLAUDE_FLOW_FORCE_UPDATE',     // Set by --force flag internally, then cleared — not external
   'CLAUDE_FLOW_AUTO_UPDATE',      // Auto-update cadence — env-only documented design
+  'RUFLO_DAEMON_LOCK_WAIT_MS',    // How long `daemon start` waits on another start's spawn lock; operator tuning knob, env-only by design (no `daemon start` flag)
+  'CLAUDE_FLOW_POLICY_LEDGER_RETENTION', // Operator policy-writer retention window, shared by CLI and long-lived MCP transactions; no per-request flag owns the writer lifecycle. Pruned receipts remain archived and authenticated (#3164/#3892).
+  'CLAUDE_FLOW_POLICY_AUDIT_MAX_RECORD_BYTES', // Operator memory-safety bound shared by archive preflight and full-audit replay, including MCP calls. Intentionally process-wide, not caller-overridable; validated 1 KiB–64 MiB with an unchanged 16 MiB default (#3892).
 
   // ── Logging / diagnostics ───────────────────────────────────────────────────
   'CLAUDE_FLOW_LOG_LEVEL',

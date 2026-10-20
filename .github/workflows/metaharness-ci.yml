@@ -50,6 +50,9 @@ jobs:
       - name: CLI help and invalid arguments have no side effects
         run: node --test plugins/ruflo-metaharness/scripts/test-cli-help.mjs
 
+      - name: Memory calls prefer the installed ruflo CLI over npx @latest (#3558)
+        run: node --test plugins/ruflo-metaharness/scripts/test-cli-resolution-3558.mjs
+
       - name: Plugin structural smoke
         run: bash plugins/ruflo-metaharness/scripts/smoke.sh
 

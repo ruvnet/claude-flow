@@ -356,8 +356,8 @@ export function gatesOf(p: Plan): string[] {
   return gates
 }
 
-/** The one line that starts the loop: `/loop <interval> <objective>`, the objective on one line and bounded. */
-export const loopCommand = (goal: string, prefs: LoopPrefs): string => `/loop ${prefs.loopInterval} ${goal.replace(/\s+/g, ' ').trim().slice(0, 200)}`
+/** The one line that starts the loop: `/loop <interval> <objective>`, the whole objective on one line (line breaks become spaces; ADR-481). */
+export const loopCommand = (goal: string, prefs: LoopPrefs): string => `/loop ${prefs.loopInterval} ${goal.replace(/\s+/g, ' ').trim()}`
 
 /** The stages a plan runs, in lifecycle order, each with how many steps it holds. */
 export const lifecycleOf = (p: Plan): { stage: Stage; steps: number }[] =>

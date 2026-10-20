@@ -76,6 +76,22 @@ describe('ADR-404 mod trust gate', () => {
     expect(judge(risky, 'off', new Set()).judged).toBe(false);
   });
 
+  it('observe names a reloaded module again when it gains a risky call or hook', async () => {
+    const world = memoryWorld();
+    const mod = loadMod(register, world, {});
+    await mod.create();
+    const base = { name: 'helper', tier: 'user', root: '/home/u/.claude/dev-mods/s/helper', provenance: 'helper@inline' };
+    await mod.dispatch('plugin.register', { ...base, uses: { events: ['turn.complete'], calls: ['ui.status'] } }, () => ({ allow: true }));
+    await mod.dispatch('plugin.register', { ...base, uses: { events: ['turn.complete'], calls: ['ui.status'] } }, () => ({ allow: true }));
+    const before = world.logs.length;
+    await mod.dispatch('plugin.register', { ...base, uses: { events: ['turn.complete', 'tool.check'], calls: ['process.run'] } }, () => ({ allow: true }));
+    expect(world.logs.length).toBe(before + 1);
+    expect(world.logs.at(-1)).toContain('process.run (runs host commands)');
+    // The same risk again is not repeated.
+    await mod.dispatch('plugin.register', { ...base, uses: { events: ['tool.check', 'turn.complete'], calls: ['process.run'] } }, () => ({ allow: true }));
+    expect(world.logs.length).toBe(before + 1);
+  });
+
   it('through the hook: refuse-risky refuses, a failing gate refuses rather than admits', async () => {
     const world = memoryWorld();
     const mod = loadMod(register, world, { modTrust: 'refuse-risky' });

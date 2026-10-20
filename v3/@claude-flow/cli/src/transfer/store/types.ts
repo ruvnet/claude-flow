@@ -45,6 +45,9 @@ export interface PatternEntry {
   trustLevel: TrustLevel;
   signature?: string;
   publicKey?: string;
+
+  /** Where the entry came from. 'builtin-fallback' = the offline placeholder, not live registry data (#4157). */
+  source?: 'registry' | 'builtin-fallback';
 }
 
 /**
@@ -76,6 +79,8 @@ export interface PatternCategory {
  * Stored on IPFS with IPNS pointer for updates
  */
 export interface PatternRegistry {
+  /** 'builtin-fallback' when discovery could not reach a registry and used the offline placeholder (#4157). */
+  source?: 'registry' | 'builtin-fallback';
   // Registry metadata
   version: string;
   updatedAt: string;

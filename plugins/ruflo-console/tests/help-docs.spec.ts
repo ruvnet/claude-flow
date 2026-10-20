@@ -113,7 +113,8 @@ describe('the prompt for asking Claude with the docs', () => {
 
     expect(guideLines.length).toBeGreaterThan(2)
     expect(lines.filter(line => line.startsWith('Question: ')).length).toBe(1)
-    expect(lines.find(line => line.startsWith('Question: '))?.length).toBeLessThanOrEqual(320)
+    // The whole question rides in (ADR-481): nothing is cut.
+    expect(lines.find(line => line.startsWith('Question: '))?.length).toBeGreaterThan(400)
     expect(lines.filter(line => !line.startsWith('│ ') && line.startsWith('/'))).toEqual([])
     expect(prompt).toContain(topicText(hits[0]!.topic).split('\n')[0]!)
   })

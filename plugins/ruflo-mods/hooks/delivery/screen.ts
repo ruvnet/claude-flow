@@ -1,4 +1,4 @@
-import { scan } from '../guidance/screen'
+import { anyWindow, scanWindows, windows } from '../guidance/screen'
 
 /** Delivery origins that are the person's own or the lead's harness: never screened, so a screen cannot eat the user's prompt. */
 const TRUSTED_ORIGINS: ReadonlySet<string> = new Set(['bridge', 'coordinator', 'scheduled-trigger'])
@@ -17,9 +17,6 @@ const PEER_RULES: readonly (readonly [string, RegExp])[] = [
   ['covert action', /\b(?:silently|quietly|secretly|covertly)\b[^.\n]{0,30}\b(?:run|add|delete|remove|install|send|upload|write|execute|copy)\b/i],
 ]
 
-// Same invisible set the shared screen strips, so a zero-width character cannot split a phrase past the peer rules.
-const INVISIBLE = new RegExp('[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2064\\ufeff]', 'g')
-
 const SSN = /\b\d{3}-\d{2}-\d{4}\b/
 
 /** Whether a `session.receive` origin kind is screened. Unknown kinds are screened (the safe side for a tighten-only screen). */
@@ -30,15 +27,17 @@ export const isScreenedOrigin = (kind: string) => !TRUSTED_ORIGINS.has(kind)
  * Names only: the matched text is never returned. In-process, no network, no model.
  */
 export function screenInbound(text: string): string | undefined {
-  const shared = scan(text).injection[0]
+  // The shared screen's windows, built once: invisible characters cannot split a phrase past the peer rules, and padding cannot hide one.
+  const parts = windows(text)
+  const shared = scanWindows(parts).injection[0]
   if (shared) return shared
-  const bounded = (text.length > 20_000 ? text.slice(0, 20_000) : text).replace(INVISIBLE, '')
-  return PEER_RULES.find(([, re]) => re.test(bounded))?.[0]
+  return PEER_RULES.find(([, re]) => anyWindow(parts, re))?.[0]
 }
 
 /** Rule id of the first secret shape (or US social security number) in an outbound message, or undefined. */
 export function screenOutbound(text: string): string | undefined {
-  const found = scan(text)
+  const parts = windows(text)
+  const found = scanWindows(parts)
   if (found.secrets.length) return found.secrets[0]
-  return SSN.test(text.slice(0, 20_000)) ? 'us social security number' : undefined
+  return anyWindow(parts, SSN) ? 'us social security number' : undefined
 }

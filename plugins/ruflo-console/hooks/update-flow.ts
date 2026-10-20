@@ -32,6 +32,7 @@ import {
 import { getBuild } from './build'
 import { CONSOLE_VERSION } from './version'
 import type { State } from './state'
+import type { ToastLevel } from './toast-policy'
 
 export type RunResult = { exitCode: number | null; stdout: string; stderr: string }
 
@@ -53,7 +54,7 @@ export type UpdateDeps = {
   fetchText: Host['fetchText']
   ask: Host['askChoice']
   run: (argv: readonly string[], timeoutMs: number) => Promise<RunResult>
-  toast: (text: string, timeoutMs?: number) => void
+  toast: (text: string, timeoutMs?: number, level?: ToastLevel) => void
 }
 
 export type UpdateOutcome = 'skipped' | 'current' | 'declined' | 'installed' | 'unverified' | 'failed'
@@ -169,7 +170,7 @@ export async function checkForUpdate(deps: UpdateDeps, options: { force?: boolea
     if (isQuietNote) {
       if ((await deps.get(NOTIFIED_KEY)) !== remote) {
         await deps.set(NOTIFIED_KEY, remote)
-        deps.toast(`ruflo-console ${remote} is available: Settings → Updates, or restart Claude Code`, 10_000)
+        deps.toast(`ruflo-console ${remote} is available: Settings → Updates, or restart Claude Code`, 10_000, 'info')
       }
 
       return { outcome: 'declined', remote, detail: `${remote} is available; Settings → Updates installs it` }
@@ -185,12 +186,12 @@ export async function checkForUpdate(deps: UpdateDeps, options: { force?: boolea
       if (choice === LABEL.always && kind !== 'major') await deps.setMode('auto')
       else if (choice !== LABEL.now) return { outcome: 'declined', remote, detail: `${remote} is available; not now` }
     } else {
-      deps.toast(`Updating ruflo-console to ${remote}…`)
+      deps.toast(`Updating ruflo-console to ${remote}…`, undefined, 'info')
     }
 
     const result = await applyUpdate(deps, remote)
 
-    deps.toast(result.outcome === 'installed' ? `ruflo-console ${result.detail}` : `ruflo-console update: ${result.detail}`, result.outcome === 'installed' ? 10_000 : 8_000)
+    deps.toast(result.outcome === 'installed' ? `ruflo-console ${result.detail}` : `ruflo-console update: ${result.detail}`, result.outcome === 'installed' ? 10_000 : 8_000, result.outcome === 'installed' ? 'ok' : 'warn')
 
     return result
   } catch (error) {
@@ -222,7 +223,7 @@ export function updateDeps(state: State, host: Host): UpdateDeps {
 
       return { exitCode: result.exitCode ?? null, stdout: result.stdout, stderr: result.stderr }
     },
-    toast: (text, timeoutMs) => host.toast(text, timeoutMs),
+    toast: (text, timeoutMs, level) => host.toast(text, timeoutMs, level),
   }
 }
 

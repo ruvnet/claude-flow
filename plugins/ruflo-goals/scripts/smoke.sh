@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.4.2 with new keywords"
+step "1. plugin.json declares 0.4.5 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.4.2" ]]; then bad "expected 0.4.2, got '$v'"; else
+if [[ "$v" != "0.4.5" ]]; then bad "expected 0.4.5, got '$v'"; else
   miss=""
   for k in mcp evidence-grading legacy-namespaces; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -97,6 +97,9 @@ grep -E '^  - .*aidefence_scan' "$ROOT/agents/deep-researcher.md" >/dev/null || 
 
 step "12. research-list.mjs runtime test passes"
 out=$(node "$ROOT/scripts/test-research-list.mjs" 2>&1) && ok || bad "$out"
+
+step "12b. research-list.mjs prefers the installed ruflo CLI over npx @latest (#3558)"
+out=$(node "$ROOT/scripts/test-cli-resolution-3558.mjs" 2>&1) && ok || bad "$out"
 
 
 # M1. The mod (ADR-445 pattern): hooks module registered, files within the 500-line rule

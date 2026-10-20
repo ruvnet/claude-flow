@@ -33,7 +33,7 @@ test('stable ADR keys are explicitly upserted when mutable metadata changes', ()
 
 test('edge identity is deterministic and duplicate semantic triples collapse', () => {
   const edge = { relation: 'depends-on', from: 'ADR-007', to: 'ADR-003' };
-  assert.equal(edgeKey(edge), 'depends-on:ADR-007->ADR-003');
+  assert.equal(edgeKey(edge), 'depends-on:ADR-007__ADR-003');
   assert.equal(edgeKey({ ...edge }), edgeKey(edge));
 
   const unique = uniqueEdges([
@@ -42,19 +42,19 @@ test('edge identity is deterministic and duplicate semantic triples collapse', (
     { relation: 'related', from: 'ADR-007', to: 'ADR-003' },
   ]);
   assert.deepEqual(unique.map(edgeKey), [
-    'depends-on:ADR-007->ADR-003',
-    'related:ADR-007->ADR-003',
+    'depends-on:ADR-007__ADR-003',
+    'related:ADR-007__ADR-003',
   ]);
 
   const args = memoryStoreArgs('adr-edges', edgeKey(edge), edge);
   assert.ok(args.includes('--upsert'));
-  assert.ok(args.includes('--key=depends-on:ADR-007->ADR-003'));
+  assert.ok(args.includes('--key=depends-on:ADR-007__ADR-003'));
 
-  assert.deepEqual(parseEdgeKey('depends-on:ADR-007->ADR-003'), {
+  assert.deepEqual(parseEdgeKey('depends-on:ADR-007__ADR-003'), {
     relation: 'depends-on',
     from: 'ADR-007',
     to: 'ADR-003',
-    key: 'depends-on:ADR-007->ADR-003',
+    key: 'depends-on:ADR-007__ADR-003',
   });
   assert.deepEqual(parseEdgeKey('depends-on:ADR-007->ADR-003:1721061000000-a1b2c3'), {
     relation: 'depends-on',
@@ -62,4 +62,19 @@ test('edge identity is deterministic and duplicate semantic triples collapse', (
     to: 'ADR-003',
     key: 'depends-on:ADR-007->ADR-003:1721061000000-a1b2c3',
   });
+});
+
+test('edge keys pass the memory key validator and legacy -> keys still parse', () => {
+  // Copy of DANGEROUS_KEY_PATTERN in @claude-flow/cli mcp-tools/memory-tools.
+  const dangerous = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/;
+  const edge = { relation: 'related', from: 'ADR-002', to: 'ADR-001' };
+  assert.equal(dangerous.test(edgeKey(edge)), false);
+
+  assert.deepEqual(parseEdgeKey('related:ADR-002->ADR-001'), {
+    relation: 'related',
+    from: 'ADR-002',
+    to: 'ADR-001',
+    key: 'related:ADR-002->ADR-001',
+  });
+  assert.deepEqual(parseEdgeKey(edgeKey(edge)), { ...edge, key: edgeKey(edge) });
 });

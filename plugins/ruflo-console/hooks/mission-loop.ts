@@ -4,14 +4,16 @@
  * ticks that arrive carrying the mission's marker, and says when the loop is overdue, about to expire or gone.
  */
 import { plain } from './data/parse'
+import { MISSION_OBJECTIVE_MAX } from './full-text'
 import { DEFAULT_LOOP, type LoopPrefs } from './goap'
+import { doneDue, escalationOf, stopReason } from './mission-advisor'
 import type { Derived, MissionRecord } from './mission-types'
 
 export type LoopStatus = 'idle' | 'armed' | 'stopped' | 'expired' | 'done'
 export type LoopState = { missionId: string; interval: string; startedAtMs: number; expiresAtMs: number; ticks: number; lastTickMs: number | null; status: LoopStatus }
 export type LoopLevel = 'ok' | 'warn' | 'bad'
 export type LoopReport = { text: string; level: LoopLevel; nextTickMs: number | null; msToExpiry: number; isOverdue: boolean; isExpiring: boolean }
-export type TickAction = 'run-next' | 'run-gates' | 'wait' | 'stop' | 'rearm'
+export type TickAction = 'run-next' | 'run-gates' | 'wait' | 'stop' | 'rearm' | 'consult-advisor'
 
 /** A recurring `/loop` task expires after 7 days. */
 export const LOOP_LIFETIME_MS = 7 * 24 * 3600 * 1000
@@ -54,22 +56,25 @@ export function normalizeInterval(interval: unknown, fallback: string = DEFAULT_
 export const loopMarker = (missionId: string): string => `[mission:${idOf(missionId)} loop]`
 
 /** The recurring prompt: the marker, then the per-tick checklist of ADR-441. Push and publish are named only when the settings allow them. */
-export function loopPrompt(mission: MissionRecord, prefs: LoopPrefs): string {
+export function loopPrompt(mission: MissionRecord, prefs: LoopPrefs & { subagentSummaries?: boolean }): string {
   const commit = prefs.loopCommit ? 'commit to the mission branch only' : 'make no commits, leave changes in the worktree'
   const push = prefs.loopPush ? 'the mission branch may be pushed to its remote' : 'do not push'
   const publish = prefs.loopPublish ? 'releases or packages the mission names may be published' : 'do not publish, release or deploy'
   const parts = [
-    `${loopMarker(mission.id)} Mission ${idOf(mission.id)}: ${plain(mission.objective, 200)}.`,
+    `${loopMarker(mission.id)} Mission ${idOf(mission.id)}: ${plain(mission.objective, MISSION_OBJECTIVE_MAX)}.`,
     'Each tick: 1 check progress against the plan; 2 fix what failed; 3 run the gates and read their real output; 4 repeat until every acceptance check passes and every gate is green on the same clean commit, then stop the loop and report.',
     'Stop and ask only when a gate fails the same way three ticks running or an action would leave the branch.',
     `${commit}; ${push}; ${publish}.`,
+    // ADR-483: an instruction to Claude, not something the console can enforce on a subagent.
+    ...(prefs.subagentSummaries === true ? ['Subagents you start do discovery and lookups only and return a structured summary (findings, file paths, a verdict), never raw file contents or logs.'] : []),
   ]
 
-  return plain(parts.join(' '), 1000)
+  // The whole objective rides in the prompt (a ruflo mission's objective is at most MISSION_OBJECTIVE_MAX); the fixed checklist is the other 1,000.
+  return plain(parts.join(' '), MISSION_OBJECTIVE_MAX + 1000)
 }
 
 /** The line that starts the loop: `/loop <interval> <prompt>`, the interval well formed and never below 1m. */
-export const startCommand = (mission: MissionRecord, prefs: LoopPrefs, interval: string): string => `/loop ${normalizeInterval(interval, prefs.loopInterval)} ${loopPrompt(mission, prefs)}`
+export const startCommand = (mission: MissionRecord, prefs: LoopPrefs & { subagentSummaries?: boolean }, interval: string): string => `/loop ${normalizeInterval(interval, prefs.loopInterval)} ${loopPrompt(mission, prefs)}`
 
 /** True only when the first marker in the text is this mission's: another mission's marker, or this one quoted later in a longer message, is not a tick. */
 export function isTick(promptText: string, missionId: string): boolean {
@@ -188,6 +193,8 @@ export type TickInput = {
   nowMs: number
   /** Each task's status from the ruflo task store (`derive`); without it the ledger events decide. */
   taskStatus?: ReadonlyMap<string, Derived>
+  /** ADR-483: advisor checkpoints are on (Settings). Off or absent: the plan is exactly what it was before. */
+  advisor?: boolean
 }
 
 /** Task statuses from the ledger alone: the latest event of a task decides, a dispatch without a later result is running. */
@@ -217,13 +224,22 @@ export function tickPlan(input: TickInput): { action: TickAction; reason: string
   const every = intervalMs(loop.interval) ?? (intervalMs(DEFAULT_LOOP.loopInterval) as number)
 
   if (mission.cancelled) return { action: 'stop', reason: 'the mission is cancelled' }
-  if (mission.tasks.length > 0 && values.every(value => value === 'done')) return { action: 'stop', reason: 'every task is done: report and stop the loop' }
+  if (mission.tasks.length > 0 && values.every(value => value === 'done')) {
+    if (input.advisor === true && doneDue(mission, states)) return { action: 'consult-advisor', reason: 'every task is done: the advisor checks before the loop stops' }
+
+    return { action: 'stop', reason: 'every task is done: report and stop the loop' }
+  }
   if (spendUsd !== null && capUsd !== null && capUsd > 0 && spendUsd >= capUsd) return { action: 'stop', reason: `spend $${spendUsd.toFixed(2)} reached the cap $${capUsd.toFixed(2)}` }
+  const escalation = input.advisor === true ? escalationOf(mission) : null
+
+  if (escalation?.state === 'stop') return { action: 'stop', reason: stopReason(escalation) }
   if (loop.status === 'stopped' || loop.status === 'done') return { action: 'stop', reason: `the loop was ${loop.status}: cancel its recurring task` }
   if (mission.paused) return { action: 'wait', reason: 'the mission is paused' }
   if (loop.status === 'expired' || nowMs >= loop.expiresAtMs) return { action: 'rearm', reason: 'the 7-day loop task has expired' }
   if (values.includes('running')) return { action: 'wait', reason: 'a task is still running' }
   if (loop.lastTickMs !== null && nowMs - loop.lastTickMs < every * 0.9) return { action: 'wait', reason: `the ${loop.interval} interval has not elapsed` }
+
+  if (escalation?.state === 'consult') return { action: 'consult-advisor', reason: `${escalation.stream?.label ?? 'a check'} failed ${escalation.count} times in a row: root-cause it with the advisor before a third try` }
 
   const lastEvent = mission.events.reduce<{ seq: number; type: string } | null>((best, event) => (best === null || event.seq > best.seq ? event : best), null)
   const gatesRanSince = lastEvent?.type === GATE_EVENT

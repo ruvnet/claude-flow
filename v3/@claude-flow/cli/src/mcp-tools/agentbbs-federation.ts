@@ -54,7 +54,14 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createRequire } from 'node:module';
+import type { Server, IncomingMessage, ServerResponse } from 'node:http';
+
+// Lazy, CommonJS-style load of node:http: an ESM `import … from 'node:http'`
+// materialises every export of the builtin, which trips http's lazy undici
+// getters (~2.5 MB heap / ~6 MB RSS) at MCP startup even when no server is
+// ever started. require() of the builtin does not touch those getters.
+const loadHttp = (): typeof import('node:http') => createRequire(import.meta.url)('node:http');
 
 /** Max envelopes accepted from one peer in one sync. */
 export const MAX_ENVELOPES_PER_SYNC = 5_000;
@@ -425,7 +432,7 @@ export function serveFederation(
   opts: { port?: number; bindHost?: string } = {},
 ): Promise<{ server: Server; port: number; host: string }> {
   const host = opts.bindHost ?? '127.0.0.1';
-  const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+  const server = loadHttp().createServer((req: IncomingMessage, res: ServerResponse) => {
     const send = (code: number, obj: unknown) => {
       const buf = Buffer.from(JSON.stringify(obj));
       res.writeHead(code, { 'content-type': 'application/json', 'content-length': buf.length });

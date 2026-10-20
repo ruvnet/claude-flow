@@ -43,9 +43,9 @@ describe('result display in the real engine', () => {
     expect(text).toContain('2 patterns shown, see neural train')
     expect(text).not.toContain('**2 patterns**')
     // And the result sits in one rounded frame, green because the run passed (the text surface does not draw borders, so the tree is checked).
-    const frames = elementsOf(tree, 'Box').filter(box => (box.props as { key?: string }).key === 'result-frame')
+    const frames = elementsOf(tree, 'Box').filter(box => (box as unknown as { props: { key?: string } }).props.key === 'result-frame')
 
     expect(frames).toHaveLength(1)
-    expect(frames[0]?.props).toMatchObject({ borderStyle: 'round', borderColor: expect.stringMatching(/.+/) })
+    expect((frames[0] as unknown as { props: object } | undefined)?.props).toMatchObject({ borderStyle: 'round', borderColor: expect.stringMatching(/.+/) })
   })
 })

@@ -410,6 +410,18 @@ const statusCommand: Command = {
         includeMetrics: true
       });
 
+      // The MCP tool answers an unknown id with status "not_found" and no other fields.
+      // Rendering that as a record printed "Task: undefined", "Invalid Date" and
+      // "undefined%" and exited 0, so scripts and agents took it as success.
+      if (((result as { status?: string }).status) === 'not_found') {
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        } else {
+          output.printError(`Task not found: ${taskId}`);
+        }
+        return { success: false, exitCode: 1 };
+      }
+
       if (ctx.flags.format === 'json') {
         output.printJson(result);
         return { success: true, data: result };

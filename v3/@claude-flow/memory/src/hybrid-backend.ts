@@ -213,10 +213,16 @@ export class HybridBackend extends EventEmitter implements IMemoryBackend {
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
 
-    await Promise.all([this.sqlite.shutdown(), this.agentdb.shutdown()]);
+    // Settle both so one backend's failure (e.g. an AgentDB persist failure,
+    // which must not be swallowed) never leaves the other open or this
+    // backend stuck "initialized"; the first failure is rethrown afterwards.
+    const results = await Promise.allSettled([this.sqlite.shutdown(), this.agentdb.shutdown()]);
 
     this.initialized = false;
     this.emit('shutdown');
+
+    const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+    if (failed) throw failed.reason;
   }
 
   /**

@@ -54,7 +54,7 @@ describe('views', () => {
     const { text, rasters, tree } = await drawn($, 'swarm')
 
     expect(rasters).toEqual(['title', 'topology'])
-    expect(text).toContain('hierarchical · specialized · running · max 6')
+    expect(text).toContain('hierarchical · specialized · running · 2 agents · max 6 · updated ')
     // One label per agent (no repeated type), then status; a short id instead of the full one.
     expect(text).toMatch(/▸● \ncoder\s+idle\s+tasks/)
     expect(text).toMatch(/· #[a-z0-9]{4,6}/)
@@ -180,11 +180,10 @@ describe('views', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const folded = await drawn($, 'learning')
-    expect(folded.rasters).toEqual(['title', 'curve'])
-    const { text, rasters } = await drawn($, 'learning', 110, ['learn-pipeline'])
+    // The pipeline section is open by default since ADR-455 (its stages are a picture of their own); the old test clicked it open.
+    const { text, rasters } = await drawn($, 'learning', 110)
 
-    expect(rasters).toEqual(['title', 'curve', 'pipeline', 'patterns'])
+    expect(rasters).toEqual(['title', 'route', 'curve', 'pipeline-stages', 'patterns'])
     expect(text).toContain('tester 60% · keyword match')
     expect(text).toMatch(/\d+\/9 succeeded \(\d+% success rate, N=9\)/)
     expect(text).toContain('consolidate: EWC consolidations')
@@ -252,10 +251,14 @@ describe('views', () => {
 
   test('timeline, approvals and events draw from what was seen; the drill-down opens an agent', { options: { boot: false } }, async ($, on) => {
     const world = worldOf(on, RUFLO_FILES)
-    mock.clock(on)
+    const clock = mock.clock(on)
     await $.session.start(SESSION)
 
-    expect((await drawn($, 'timeline')).rasters).toEqual(['title', 'gantt'])
+    // The lanes come from a status read taken on the 1.5 s activity tick (ADR-474): with the agents read, the lane picture is drawn.
+    await $.command.run(command('status'))
+    await clock.advance(2000)
+    await clock.advance(2000)
+    expect((await drawn($, 'timeline')).rasters).toEqual(['title', 'tl-picture'])
 
     const approvals = await drawn($, 'approvals')
 

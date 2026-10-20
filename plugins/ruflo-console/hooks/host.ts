@@ -1,6 +1,7 @@
 import type { CommandSpec, HookStream, PaneOpenArgs, ProcessRunResult, ProcessSpawnChunk, ProcessSpawnResult, Timer, UiBlitArgs } from 'claude-code'
 
 import type { ReaderFs } from './data/files'
+import type { ToastLevel } from './toast-policy'
 import type { RufloRoute, RufloSnapshot } from '../types'
 
 /** What `$.ui.open` answers: drawn, or held back with the reason. A build that answers nothing has drawn it. */
@@ -22,7 +23,7 @@ export type Host = {
   /** The engine's own choice dialog: the label chosen. Rejects when dismissed, and when nobody can be asked (a -p run). */
   askChoice: (question: string, options: readonly string[]) => Promise<string>
   /** A short note over the transcript's corner; it leaves the transcript and the model untouched. */
-  toast: (text: string, timeoutMs?: number) => void
+  toast: (text: string, timeoutMs?: number, level?: ToastLevel) => void
   invalidate: () => void
   /** Scrolls the pane back to its first row: a page that was switched to (or opened over this one) starts at its top, not where the last one was left. */
   scrollTop: () => void
@@ -56,4 +57,17 @@ export type Host = {
   listCommands: () => Promise<string[]>
   /** Runs a slash command as if typed (built-in, plugin or MCP); queued until the session is idle. */
   runSlash: (command: string, args: string) => Promise<{ text?: string } | void>
+  /**
+   * Calls an engine tool as the session would ($.tool.call: every hook, the permission check and its dialog, then the tool), from a clock tick
+   * (a tool call waits on the turn). A refusal comes back as `deny`, a failure as `isError`; a missing tool or an aborted call rejects.
+   * Optional: a build that does not bind it makes the control actions fall back to a prompt-box prefill (ADR-465).
+   */
+  toolCall?: (input: { tool: string } & Record<string, unknown>) => Promise<ToolReply>
+  /** The engine's permission verdict for a tool call now, with nothing run and no dialog ($.tool.check). */
+  toolCheck?: (tool: string, input: unknown) => Promise<{ decision: 'allow' | 'ask' | 'deny'; reason?: string }>
+  /** A request with a method, headers and a text body through the host (the OpenAI-compatible targets); the key rides a header and is never logged. */
+  httpSend?: (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; status: number; text: string }>
 }
+
+/** What a tool call answered: the refusal, or the output (text and structure) and whether it was an error. */
+export type ToolReply = { deny?: string; text?: string; result?: unknown; isError?: boolean }

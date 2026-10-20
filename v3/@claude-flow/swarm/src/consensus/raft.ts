@@ -59,6 +59,9 @@ export class RaftConsensus extends EventEmitter {
 
   constructor(nodeId: string, config: RaftConfig = {}) {
     super();
+    // awaitConsensus() adds one 'consensus.achieved' listener per in-flight
+    // proposal; uncap so concurrent proposals don't trip MaxListenersExceededWarning.
+    this.setMaxListeners(0);
     this.config = {
       threshold: config.threshold ?? SWARM_CONSTANTS.DEFAULT_CONSENSUS_THRESHOLD,
       timeoutMs: config.timeoutMs ?? SWARM_CONSTANTS.DEFAULT_CONSENSUS_TIMEOUT_MS,
@@ -242,27 +245,33 @@ export class RaftConsensus extends EventEmitter {
   async awaitConsensus(proposalId: string): Promise<ConsensusResult> {
     const startTime = Date.now();
 
-    return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        const proposal = this.proposals.get(proposalId);
-        if (!proposal) {
-          clearInterval(checkInterval);
-          reject(new Error(`Proposal ${proposalId} not found`));
-          return;
-        }
+    const proposal = this.proposals.get(proposalId);
+    if (!proposal) {
+      throw new Error(`Proposal ${proposalId} not found`);
+    }
 
-        if (proposal.status !== 'pending') {
-          clearInterval(checkInterval);
-          resolve(this.createResult(proposal, Date.now() - startTime));
-          return;
-        }
+    if (proposal.status !== 'pending') {
+      return this.createResult(proposal, Date.now() - startTime);
+    }
 
-        if (Date.now() - startTime > (this.config.timeoutMs ?? 30000)) {
-          clearInterval(checkInterval);
-          proposal.status = 'expired';
-          resolve(this.createResult(proposal, Date.now() - startTime));
-        }
-      }, 10);
+    // Resolve from the 'consensus.achieved' event checkConsensus() already emits
+    // on every accept/reject transition, instead of polling this.proposals on a
+    // setInterval (see sibling fixes: UnifiedSwarmCoordinator#3378, MessageBus#3563).
+    return new Promise(resolve => {
+      const onAchieved = (event: { proposalId: string }): void => {
+        if (event.proposalId !== proposalId) return;
+        clearTimeout(timer);
+        this.off('consensus.achieved', onAchieved);
+        resolve(this.createResult(this.proposals.get(proposalId) ?? proposal, Date.now() - startTime));
+      };
+
+      const timer = setTimeout(() => {
+        this.off('consensus.achieved', onAchieved);
+        proposal.status = 'expired';
+        resolve(this.createResult(proposal, Date.now() - startTime));
+      }, this.config.timeoutMs ?? 30000);
+
+      this.on('consensus.achieved', onAchieved);
     });
   }
 

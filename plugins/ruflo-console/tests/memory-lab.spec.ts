@@ -117,7 +117,7 @@ describe('the input validators', () => {
     expect(parseInput('entry', 'auth beta extra')).toBeNull()
     expect(parseInput('kv', 'notes alpha')).toBeNull()
     expect(parseInput('kv', 'notes alpha --upsert')).toBeNull()
-    expect(parseInput('kv', 'notes alpha x'.padEnd(2100, 'y'))).toBeNull()
+    expect(parseInput('kv', 'notes alpha x'.padEnd(8100, 'y'))).toBeNull()
   })
 
   it('a button builds the same text from the fields that a headless run would type', () => {

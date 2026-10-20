@@ -112,7 +112,7 @@ const shown = (cost: ReturnType<typeof parseMissionCost>, cap: number | null, no
 
 describe('missionCostRows', () => {
   it('shows spend, cap and the ladder, and says it is an estimate', () => {
-    const lines = shown({ usd: 8, credits: null, unpriced: [], rows: 3 }, 10)
+    const lines = shown({ usd: 8, credits: null, unpriced: [], rows: 3, fromMs: null }, 10)
     const all = lines.join('\n')
 
     expect(all).toContain('Mission spend')
@@ -133,7 +133,7 @@ describe('missionCostRows', () => {
   })
 
   it('shows no bar without a cap, lists unpriced models and keeps credits separate', () => {
-    const all = shown({ usd: 1, credits: 40, unpriced: ['mystery-9'], rows: 2 }, null).join('\n')
+    const all = shown({ usd: 1, credits: 40, unpriced: ['mystery-9'], rows: 2, fromMs: null }, null).join('\n')
 
     expect(all).toMatch(/cap\s*none set/)
     expect(all).toContain('mystery-9')
@@ -142,7 +142,7 @@ describe('missionCostRows', () => {
   })
 
   it('keeps every note and disclaimer under 50 characters, even for a long source note or model list', () => {
-    const lines = shown({ usd: 1, credits: null, unpriced: ['m'.repeat(50), 'n'.repeat(50)], rows: 1 }, null, 'x'.repeat(200))
+    const lines = shown({ usd: 1, credits: null, unpriced: ['m'.repeat(50), 'n'.repeat(50)], rows: 1, fromMs: null }, null, 'x'.repeat(200))
     const notes = lines.filter(line => /^ (?!Marks)/.test(line) && !line.includes('Mission spend'))
 
     expect(notes.length).toBeGreaterThan(2)

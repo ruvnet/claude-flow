@@ -33,6 +33,7 @@ export const BOOT_MODULES: readonly { name: string; note: string }[] = [
   { name: 'Missions', note: 'goal → SPARC plan → tasks' },
   { name: 'Overview', note: 'subsystems, health, Optimizer' },
   { name: 'Swarm', note: 'topology, agents, tasks' },
+  { name: 'Workflows', note: 'Claude Code runs and the swarm' },
   { name: 'Hive-Mind', note: 'queen, workers, votes, quorum' },
   { name: 'Claims', note: 'one owner per resource' },
   { name: 'Approvals', note: 'votes and asks in one place' },
@@ -57,6 +58,9 @@ export const BOOT_MODULES: readonly { name: string; note: string }[] = [
   { name: 'The Room', note: 'who says and does what, and what waits for a yes' },
   { name: 'Performance', note: 'metrics and bottlenecks' },
   { name: 'AI Terminal', note: 'ruflo, codex, claude' },
+  { name: 'ADRs', note: 'decisions your project made' },
+  { name: 'What’s new', note: 'changes in your plugins' },
+  { name: 'Themes', note: 'look, colors, motion' },
   { name: 'Settings', note: 'every option a button' },
 ]
 const NAME_WIDTH = 15

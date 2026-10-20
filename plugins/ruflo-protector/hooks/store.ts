@@ -45,7 +45,7 @@ export type Status = {
   version: string
 }
 
-export const MOD_VERSION = '0.1.0'
+export const MOD_VERSION = '0.1.1'
 
 export function statusText(s: Status, now: number): string {
   const m = maturity(s.baseline, now)

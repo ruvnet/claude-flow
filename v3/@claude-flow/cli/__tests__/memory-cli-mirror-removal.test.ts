@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -71,20 +72,56 @@ describe('CLI removal of default memory and its AgentDB mirror', () => {
     } finally { db.close(); }
   });
 
-  it.each(['delete', 'purge', 'preview'])('%s refuses to rewrite a mirror with native WAL sidecars', async command => {
+  // The guard is liveness-based (#3161), not presence-based: a hand-touched
+  // `-wal` file next to a non-WAL-mode db is inert under the probe and no
+  // longer proves anything, so these simulate a genuinely live native
+  // holder instead — a real WAL-mode connection with an open, uncommitted
+  // transaction on the mirror. `setup` first stabilizes the mirror in real
+  // WAL mode with a committed baseline (closed cleanly, so no sidecars
+  // remain) so enabling WAL mode itself doesn't show up as an unrelated
+  // byte diff in the `before`/`after` comparison below.
+  it.each(['delete', 'purge', 'preview'])('%s refuses to rewrite a mirror while a native WAL writer holds an open transaction', async command => {
+    const Database = createRequire(import.meta.url)('better-sqlite3');
+    const setup = new Database(mirror);
+    setup.pragma('journal_mode = WAL');
+    setup.exec('CREATE TABLE IF NOT EXISTS _wal_probe_marker(x)');
+    setup.close();
+
     const before = readFileSync(mirror);
-    writeFileSync(`${mirror}-wal`, 'owned by another native process');
-    expect(await invoke(command === 'preview' ? 'purge' : command, { dryRun: command === 'preview' }))
-      .toMatchObject({ success: false, exitCode: 1 });
-    expect(readFileSync(mirror)).toEqual(before);
+    const live = new Database(mirror);
+    live.pragma('journal_mode = WAL');
+    live.exec('BEGIN');
+    live.exec('INSERT INTO _wal_probe_marker VALUES (1)');
+    try {
+      expect(await invoke(command === 'preview' ? 'purge' : command, { dryRun: command === 'preview' }))
+        .toMatchObject({ success: false, exitCode: 1 });
+      expect(readFileSync(mirror)).toEqual(before);
+    } finally {
+      live.exec('ROLLBACK');
+      live.close();
+    }
   });
 
-  it('refuses native WAL sidecars in the purge fallback after preview', async () => {
+  it('refuses a native WAL writer with an open transaction in the purge fallback after preview', async () => {
+    const Database = createRequire(import.meta.url)('better-sqlite3');
+    const setup = new Database(mirror);
+    setup.pragma('journal_mode = WAL');
+    setup.exec('CREATE TABLE IF NOT EXISTS _wal_probe_marker(x)');
+    setup.close();
+
     const before = readFileSync(mirror);
-    writeFileSync(`${mirror}-wal`, 'native writer acquired after preview');
-    expect(await purgeNamespace({ namespace: 'scratch', dbPath: mirror, encryptWrites: false }))
-      .toMatchObject({ success: false });
-    expect(readFileSync(mirror)).toEqual(before);
+    const live = new Database(mirror);
+    live.pragma('journal_mode = WAL');
+    live.exec('BEGIN');
+    live.exec('INSERT INTO _wal_probe_marker VALUES (1)');
+    try {
+      expect(await purgeNamespace({ namespace: 'scratch', dbPath: mirror, encryptWrites: false }))
+        .toMatchObject({ success: false });
+      expect(readFileSync(mirror)).toEqual(before);
+    } finally {
+      live.exec('ROLLBACK');
+      live.close();
+    }
   });
 
   it('refuses an unconfirmed purge without changing either store', async () => {

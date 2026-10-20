@@ -8,9 +8,10 @@
 import { activeMission, derive, progressOf } from '../mission-control'
 import type { RenderElement } from 'claude-code'
 
-import { alertsOf, approvalsOf } from '../data/alerts'
+import { alertsOf, waitingApprovalsOf } from '../data/alerts'
 import { agentLabels } from '../data/parse'
-import { secMemo } from '../secure'
+import { swarmStatusOf } from '../data/swarm-status'
+import { secMemo, securityBand } from '../secure'
 import type { State, ViewId } from '../state'
 import { sparkline } from '../memory-lines'
 import { visibleNotice, type Notice } from '../notices'
@@ -93,12 +94,20 @@ export function missionPart(state: State): BarPart | null {
   return { text: `🎯 ${done}/${total}${mission.paused ? ' paused' : running !== undefined ? ` · ${running.id} ${clip(running.title, 28)}` : ''} (1)`, tone: running !== undefined ? 'live' : 'plain', go: 'missions' }
 }
 
+/**
+ * A module's own band parts (the autopilot's segment, views/ap-band.ts): registered once at import, drawn on the first row after the
+ * mission. A source returns nothing when it has nothing to say, and one that throws is skipped, so it can never blank the band.
+ */
+const sources: ((state: State, nowMs: number) => BarPart[])[] = []
+
+export const registerBarSource = (source: (state: State, nowMs: number) => BarPart[]): void => void (sources.includes(source) || sources.push(source))
+
 export function barParts(state: State, nowMs: number = Date.now()): BarPart[] {
   const snap = state.snapshot
   const parts: BarPart[] = []
 
   // What needs a person: approvals waiting and warn/bad alerts. Info alerts (a claim held for days) stay in the pane.
-  const approvals = approvalsOf(state).length
+  const approvals = waitingApprovalsOf(state).length
   const alerts = alertsOf(state, nowMs, state.loadedAtMs).filter(alert => alert.level !== 'info').length
 
   if (approvals > 0) parts.push({ text: `${approvals} to approve (q)`, tone: 'attention', go: 'approvals' })
@@ -108,6 +117,14 @@ export function barParts(state: State, nowMs: number = Date.now()): BarPart[] {
   const missing = missionPart(state)
 
   if (missing !== null) parts.push(missing)
+
+  for (const source of sources) {
+    try {
+      parts.push(...source(state, nowMs))
+    } catch {
+      // A source that fails draws nothing.
+    }
+  }
 
   // What is happening now: how long Claude has been on this turn, agents at work, the AI terminal's runs, and the newest event while it is fresh.
   if (state.turnActive && state.turnStartedMs !== null) parts.push({ text: `▶ Claude working${since(state.turnStartedMs, nowMs)}`, tone: 'live', go: 'events' })
@@ -123,9 +140,12 @@ export function barParts(state: State, nowMs: number = Date.now()): BarPart[] {
 
   // Nothing moving: say so, with how many agents stand ready. (When something did happen, the last event is a standing part below.)
   if (!parts.some(part => part.tone === 'live') && !isFresh && snap?.swarm != null) {
-    const ready = snap.agents.length
+    // The swarm's own members (data/swarm-status.ts), not the agent store (every agent ever spawned, in any swarm). Only an agent the store
+    // holds can be "ready": a listed id it lacks is counted as listed, never as ready.
+    const { listed, found } = swarmStatusOf(snap.swarm, nowMs, snap.agents)
+    const note = listed === found ? '' : ` (${listed} listed, ${found} found)`
 
-    parts.push({ text: ready > 0 ? `idle · ${ready} agent${ready === 1 ? '' : 's'} ready` : 'swarm, no agents', tone: 'plain', go: 'swarm' })
+    parts.push({ text: found > 0 ? `idle · ${found} agent${found === 1 ? '' : 's'} ready${note}` : listed > 0 ? `swarm, ${listed} listed, none found` : 'swarm, no agents', tone: 'plain', go: 'swarm' })
   }
 
   // Standing context, on its own row: the last tool call or event with how long ago (it used to vanish after a minute, taking what Claude
@@ -153,10 +173,9 @@ export function barParts(state: State, nowMs: number = Date.now()): BarPart[] {
     parts.push({ text: `ctx ${Math.round(context)}%${context >= 85 ? ' · /compact soon' : ''}`, tone: context >= 80 ? 'attention' : 'plain', go: 'cost', row: 'standing', compact: `ctx ${Math.round(context)}%` })
   }
 
-  const findings = secMemo(state).findings
-  const serious = findings === null ? 0 : findings.counts.critical + findings.counts.high
+  const security = securityBand(secMemo(state).findings)
 
-  if (findings !== null && serious > 0) parts.push({ text: `🔒 ${serious} high or critical`, tone: findings.counts.critical > 0 ? 'attention' : 'plain', go: 'secure', row: 'standing', compact: `🔒 ${serious}` })
+  if (security !== null) parts.push({ text: security.text, tone: security.isAttention ? 'attention' : 'plain', go: 'secure', row: 'standing', compact: security.compact })
   if (state.updateAvailable !== '') parts.push({ text: `⬆ ${state.updateAvailable} available`, tone: 'attention', go: 'settings', row: 'standing' })
 
   return parts

@@ -37,11 +37,7 @@ export function registerAgents(on: On, state: ModState, options: ModOptions) {
     const first = state.agentTrim.hidden.size === 0
     state.agentTrim.hidden.add(e.agent)
     if (first) {
-      try {
-        $.ui.toast('ruflo agentTrim: unused agent types are hidden from the model (see /ruflo-mods)')
-      } catch {
-        // a refused toast never changes the answer
-      }
+      await state.say({ level: 'info', text: 'ruflo agentTrim: unused agent types are hidden from the model (see /ruflo-mods)' })
     }
     return { ...result, isOffered: false }
   }).catch(($, e, next) => next(e)) // fail open: a broken trim offers the type

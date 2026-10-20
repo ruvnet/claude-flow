@@ -1,7 +1,9 @@
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
+import { tolerantPress } from './press-guard'
 import { ANSWER_KEYS } from './views/attention'
-
+import { rootedPath } from './data/abs-path'
 import { createController, type Controller } from './controller'
+import { startSessions } from './sessions'
 import { record } from './data/events'
 import { plain } from './data/parse'
 import { dispatch } from './dispatch'
@@ -12,14 +14,18 @@ import { newState, PANE_ID, restore, restoreSessions, storeKeyOf, termStoreKeyOf
 import { BAR_KEY, barView } from './views/bar'
 import { addNotice, dismissNotices } from './notices'
 import { setBootChecks } from './boot-checks'
+import { startWriteFlavorDetection } from './data/write-flavor'
 import { buildOf, isOurCheckout, setBuild } from './build'
 import { runUpdateCheck } from './update-flow'
-import { announceModelTools, confirmOf, levelOf, lowerOnly, parseControlEnv, serveModelTools } from './model-tools'
-import { loadAiPrefs, settingsOf } from './settings'
+import { announceModelTools, parseControlEnv, serveModelTools } from './model-tools'
+import { loadAiPrefs, setControlCap } from './settings'
+import { hydrateWhatsNew } from './whatsnew'
+import { prefsFromStore, recordToast, saveToastPrefs, TOASTS_KEY } from './toasts'
 import { contextSection, onPromptSubmit, onTurnComplete } from './mission-claude'
 import { parseMode, RECHECK_EVERY_MS, UPDATES_KEY } from './updates'
 import { selfCheckResults } from './self-check'
-import type { Kit } from './views/common'
+import { kitForSurface, type Kit } from './views/common'
+import { createToaster, type Digest, type ToastLevel, type ToastPrefs } from './toast-policy'
 import { picturesOf } from './views/frames'
 import { withClearing } from './views/clearing'
 import { NARROW, paneView } from './views/pane'
@@ -33,8 +39,8 @@ const RUFLO_TOOL = /^mcp__(claude-flow|ruflo|plugin_ruflo[\w-]*)__/
 /** True while the console itself scrolls the pane to its top, so the terminal's own wheel handling does not take that for the person's wheel. */
 let isResettingScroll = false
 
-function hostOf($: EngineInterface, cwd: string): Host {
-  const rooted = (path: string) => (path.startsWith('/') ? path : `${cwd.replace(/\/+$/, '')}/${path}`)
+function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
+  const rooted = (path: string) => rootedPath(cwd, path)
   const quietly = (fn: () => unknown) => {
     try {
       const result = fn()
@@ -44,6 +50,17 @@ function hostOf($: EngineInterface, cwd: string): Host {
       // Refused: there is nothing to do about a draw nobody may make.
     }
   }
+
+  // ADR-477: every toast of the console goes through the shared policy (levels, one clean line, de-duplication, a rate limit, the person's
+  // Toasts setting); drawn or not, each is recorded for the Events page. A refused draw is a refused toast, never a crash.
+  const toaster = createToaster({
+    source: 'console',
+    now: () => Date.now(),
+    show: (line, options) => $.ui.toast(line, options),
+    after: (ms, fn) => $.clock.after(ms, fn),
+    prefs: toasts.prefs,
+    persist: toasts.record,
+  })
 
   return {
     fs: { read: async path => $.fs.read(rooted(path)), stat: async path => $.fs.stat(rooted(path)), list: async path => $.fs.list(rooted(path)) },
@@ -57,7 +74,7 @@ function hostOf($: EngineInterface, cwd: string): Host {
       return { ok: response.ok, status: response.status, text: response.text }
     },
     askChoice: async (question, options) => $.ui.ask(question, options),
-    toast: (text, timeoutMs) => quietly(() => $.ui.toast(text, timeoutMs === undefined ? undefined : { timeoutMs })),
+    toast: (text, timeoutMs, level: ToastLevel = 'info') => quietly(() => void toaster.toast({ level, text, ...(timeoutMs !== undefined && { timeoutMs }) })),
     invalidate: () => quietly(() => $.ui.invalidate('ui.render')),
     // Once now and once after the new page has drawn: a page taller than the one before keeps the old offset until it is moved.
     scrollTop: () => {
@@ -112,6 +129,17 @@ function hostOf($: EngineInterface, cwd: string): Host {
         $.clock.after(1, () => void $.command.run({ command, args }).then(resolve, reject))
       }),
     listCommands: async () => (await $.command.list()).map(command => command.name),
+    // ADR-465. A tool call waits on the turn like submitPrompt, so it starts from a clock tick, never inside the hook that asked.
+    toolCall: input =>
+      new Promise((resolve, reject) => {
+        $.clock.after(1, () => void $.tool.call(input as never).then(reply => resolve(reply as never), reject))
+      }),
+    toolCheck: async (tool, input) => $.tool.check({ tool, input }),
+    httpSend: async (url, init) => {
+      const response = await $.http.fetch(url, init)
+
+      return { ok: response.ok, status: response.status, text: response.text }
+    },
   }
 }
 
@@ -138,7 +166,11 @@ export const register: Register = (on, raw: PluginOptions) => {
 
   on('session.start', async ($, e, next) => {
     control?.stop()
-    host = hostOf($, e.cwd)
+    host = hostOf($, e.cwd, { prefs: () => state.toastPrefs, record: digest => recordToast(state, digest) })
+    // Which write argv the host takes (GNU dd/install on Linux, the constant sh scripts on macOS/BSD). Started before the controller (whose
+    // timers write) exists; every write awaits it (writeFlavorReady), so none is built with a guessed flavor.
+    const detecting = host
+    void startWriteFlavorDetection((argv, timeoutMs) => detecting.run(argv, timeoutMs))
     state.cwd = e.cwd
     state.nostrKeyVerifiedAtMs = null
     state.isInteractive = e.isInteractive !== false
@@ -151,7 +183,7 @@ export const register: Register = (on, raw: PluginOptions) => {
 
     const built = here
       .run(['git', '-C', root, 'rev-parse', '--show-prefix'], 3_000)
-      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
+      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
       .then(described => {
         setBuild(described !== null && described.exitCode === 0 ? buildOf(described.stdout) : '')
         here.invalidate()
@@ -168,6 +200,20 @@ export const register: Register = (on, raw: PluginOptions) => {
       () => undefined,
     )
 
+    // The Toasts setting is the person's, kept in the plugin's store and mirrored to a file the other plugins read (ADR-477).
+    const toasted = here.storeGet(TOASTS_KEY).then(
+      value => {
+        state.toastPrefs = prefsFromStore(value)
+        if (state.toastPrefs.mode !== 'all' || state.toastPrefs.muted.length > 0) void saveToastPrefs(state, here)
+      },
+      () => undefined,
+    )
+
+    // What's new (ADR-478): the record of what was looked at, read once; the controller's first disk read then takes the baseline.
+    const looked = hydrateWhatsNew(state, here).catch(() => undefined)
+
+    void toasted
+    void looked
     void Promise.all([built, moded]).then(() => {
       if (!state.isInteractive) return
 
@@ -204,6 +250,7 @@ export const register: Register = (on, raw: PluginOptions) => {
       bound.rufloTools().then(counted => void (state.rufloTools = counted), () => undefined),
     ])
     control.start()
+    startSessions(state, bound)
     await control.refresh()
     control.autoOpen()
 
@@ -213,10 +260,8 @@ export const register: Register = (on, raw: PluginOptions) => {
     const forced = parseControlEnv(await (async () => $.env.get('RUFLO_CONSOLE_CONTROL'))().catch(() => undefined))
 
     // The override may only lower what the person saved (ADR-450 T12): a project's settings env must not raise Claude's control.
-    const ai = settingsOf(state).ai
-    const effective = lowerOnly({ level: levelOf(ai.modelControl), confirm: confirmOf(ai.modelConfirm) }, forced)
-
-    Object.assign(ai, { modelControl: effective.level, modelConfirm: effective.confirm })
+    // It is kept as session state and applied on every load and save of the preferences, so opening Settings cannot lift it (#3814).
+    setControlCap(state, forced === null ? null : { level: forced.level, confirm: forced.confirm })
     await announceModelTools(tool => $.tool.register(tool), state).catch(() => 0)
 
     return next(e)
@@ -250,7 +295,8 @@ export const register: Register = (on, raw: PluginOptions) => {
   on('ui.press', { component: 'Pane' }, ($, e, next) => {
     if (!ANSWER_KEYS.has(e.element)) state.lastPressed = e.element
 
-    return next(e)
+    // A click that reaches the engine after its drawing was replaced (a resize) finds no handler: answered quietly (press-guard.ts).
+    return tolerantPress(() => next(e), { element: e.element })
   })
 
   on('ui.input', { component: 'Pane' }, ($, e, next) => {
@@ -265,7 +311,7 @@ export const register: Register = (on, raw: PluginOptions) => {
     }
 
     const started = Date.now()
-    const table = $.ui.resolve(e) as unknown as Kit
+    const table = kitForSurface($.ui.resolve(e) as unknown as Kit, e.surface)
     const columns = Math.max(20, Math.floor(Number(e.props.bodyColumns) || 0) - 1)
     const isNarrow = columns < NARROW
     const kit: Kit = isNarrow ? { Box: table.Box, Text: table.Text, Button: table.Button, ...(table.Input !== undefined && { Input: table.Input }) } : table
@@ -275,17 +321,18 @@ export const register: Register = (on, raw: PluginOptions) => {
     state.pane.isFocused = e.props.isFocused === true
     state.pane.columns = columns
     state.pane.placement = e.props.placement
+    // Height-dependent art must use this render's allocation before its Raster size is recorded.
+    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
     // A reload while the pane stayed up: timers are gone, so resume them from here.
     if (!state.timers.has('watch')) control.resume()
 
-    const pictures = isNarrow ? new Map() : picturesOf(state, columns, Date.now(), Date.now())
+    const pictures = isNarrow ? new Map() : picturesOf(state, columns, Date.now(), Date.now(), kit.Raster === undefined)
 
-    state.mounted = new Map([...pictures].map(([key, grid]) => [key, { columns: grid.columns, rows: grid.rows }]))
+    state.mounted = kit.Raster === undefined ? new Map() : new Map([...pictures].map(([key, grid]) => [key, { columns: grid.columns, rows: grid.rows }]))
+    state.pictured = pictures.size
     control.animate()
 
-    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
-
-    const tree = paneView({ kit: withClearing(kit, state, control.actions.clearField), state, nowMs: Date.now(), columns, pictures, act: control.actions })
+    const tree = paneView({ kit: withClearing(kit, state, control.actions.clearField, { columns, repaint: () => host?.invalidate() }), state, nowMs: Date.now(), columns, pictures, act: control.actions })
 
     state.stats.renders.push(Date.now() - started)
     if (state.stats.renders.length > 200) state.stats.renders.shift()
@@ -314,7 +361,7 @@ export const register: Register = (on, raw: PluginOptions) => {
       return next(e)
     }
 
-    const table = $.ui.resolve(e) as unknown as Kit
+    const table = kitForSurface($.ui.resolve(e) as unknown as Kit, e.surface)
     const bound = control
 
     state.barDrawnAtMs = Date.now()

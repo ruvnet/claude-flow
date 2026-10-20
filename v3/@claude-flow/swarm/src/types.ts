@@ -357,6 +357,8 @@ export type SwarmEventType =
   | 'agent.status_changed'
   | 'agent.heartbeat'
   | 'agent.domain_assigned'
+  | 'agent.domain_pool_full'
+  | 'agent.domain_release_failed'
   | 'task.created'
   | 'task.assigned'
   | 'task.started'
@@ -393,6 +395,19 @@ export interface AgentPoolConfig {
   scaleDownThreshold: number;
   cooldownMs: number;
   healthCheckIntervalMs: number;
+  /**
+   * Allow acquire()/checkScaling() to create or remove agents automatically.
+   * Domain pools must keep this false: their membership is owned explicitly by
+   * UnifiedSwarmCoordinator (spawnAgent/registerAgentWithDomain), so a
+   * pool-created agent would be absent from state.agents, topology, the message
+   * bus and the consensus engine, and could never report task completion.
+   */
+  autoScale?: boolean;
+  /**
+   * Run the pool's own heartbeat-based replacement loop. Domain pools set this
+   * false because the coordinator owns domain-agent liveness/recovery.
+   */
+  healthChecks?: boolean;
 }
 
 export interface AgentPoolState {
@@ -518,7 +533,7 @@ export interface IMessageBus {
 export interface IAgentPool {
   initialize(config: AgentPoolConfig): Promise<void>;
   acquire(): Promise<AgentState | undefined>;
-  release(agentId: string): Promise<void>;
+  release(agentId: string, options?: { rescale?: boolean }): Promise<void>;
   add(agent: AgentState): Promise<void>;
   remove(agentId: string): Promise<void>;
   scale(delta: number): Promise<void>;

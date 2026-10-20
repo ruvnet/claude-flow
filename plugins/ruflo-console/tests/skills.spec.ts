@@ -3,9 +3,12 @@
  * runs, what the search and name fields refuse, and a change run end to end on a fake Host (asked, confirmed, run, the
  * lists read again, the outcome checked against them). Nothing here runs the real CLI.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
-import { addArgv, findArgv, initArgv, listArgv, newNameOf, parseFind, parseInstalled, removeArgv, skillIdOf, skillNameOf, typedOf, updateArgv } from '../hooks/data/skills'
+import { addArgv, findArgv, initArgv, listArgv, PINNED_SKILLS, useArgv, newNameOf, parseFind, parseInstalled, removeArgv, skillIdOf, skillNameOf, typedOf, updateArgv } from '../hooks/data/skills'
 import type { Host } from '../hooks/host'
 import { createRunner } from '../hooks/runner'
 import { addSpec, editPrompt, findSkills, initSpec, listSkills, removeSpec, skillActions } from '../hooks/skills'
@@ -42,25 +45,36 @@ describe('reading the skills CLI', () => {
 })
 
 describe('argv and validation', () => {
-  it('every action is a fixed npx -y skills argv, its scope named', () => {
-    expect(listArgv('project')).toEqual(['npx', '-y', 'skills', 'ls', '--json'])
-    expect(listArgv('global')).toEqual(['npx', '-y', 'skills', 'ls', '-g', '--json'])
-    expect(addArgv('vercel-labs/skills@find-skills', 'project')).toEqual(['npx', '-y', 'skills', 'add', 'vercel-labs/skills@find-skills', '-y'])
-    expect(addArgv('vercel-labs/skills@find-skills', 'global')).toEqual(['npx', '-y', 'skills', 'add', 'vercel-labs/skills@find-skills', '-g', '-y'])
-    expect(removeArgv('tdd', 'global')).toEqual(['npx', '-y', 'skills', 'remove', 'tdd', '-g', '-y'])
-    expect(updateArgv('tdd', 'project')).toEqual(['npx', '-y', 'skills', 'update', 'tdd', '-p', '-y'])
-    expect(updateArgv('tdd', 'global')).toEqual(['npx', '-y', 'skills', 'update', 'tdd', '-g', '-y'])
-    expect(initArgv('my-skill')).toEqual(['npx', '-y', 'skills', 'init', 'my-skill'])
+  it('every action is a fixed npx -y skills@1.7.2 argv, its scope named', () => {
+    expect(listArgv('project')).toEqual(['npx', '-y', 'skills@1.7.2', 'ls', '--json'])
+    expect(listArgv('global')).toEqual(['npx', '-y', 'skills@1.7.2', 'ls', '-g', '--json'])
+    expect(addArgv('vercel-labs/skills@find-skills', 'project')).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'vercel-labs/skills@find-skills', '-y'])
+    expect(addArgv('vercel-labs/skills@find-skills', 'global')).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'vercel-labs/skills@find-skills', '-g', '-y'])
+    expect(removeArgv('tdd', 'global')).toEqual(['npx', '-y', 'skills@1.7.2', 'remove', 'tdd', '-g', '-y'])
+    expect(updateArgv('tdd', 'project')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', 'tdd', '-p', '-y'])
+    expect(updateArgv('tdd', 'global')).toEqual(['npx', '-y', 'skills@1.7.2', 'update', 'tdd', '-g', '-y'])
+    expect(initArgv('my-skill')).toEqual(['npx', '-y', 'skills@1.7.2', 'init', 'my-skill'])
+  })
+
+  it('no view spells the pinned version out: the hints name it from PINNED_SKILLS, so raising the pin cannot leave a stale hint', () => {
+    for (const file of ['views/skills.ts', 'views/skills-more.ts']) expect(readFileSync(join(__dirname, '..', 'hooks', file), 'utf8'), file).not.toMatch(/skills@\d/)
+  })
+
+  it('every action runs the pinned skills release, never whatever npm `latest` is', () => {
+    expect(PINNED_SKILLS).toMatch(/^\d+\.\d+\.\d+$/)
+    for (const argv of [listArgv('project'), listArgv('global'), addArgv('o/r@s', 'project'), removeArgv('tdd', 'project'), updateArgv('tdd', 'global'), initArgv('my-skill'), useArgv('o/r@s'), findArgv('react')]) {
+      expect(argv?.slice(0, 3)).toEqual(['npx', '-y', `skills@${PINNED_SKILLS}`])
+    }
   })
 
   it('search: the text is one argv element; owner:<name> becomes --owner; flags, odd characters and long text are refused', () => {
-    expect(findArgv('  react hooks ')).toEqual(['npx', '-y', 'skills', 'find', 'react hooks'])
-    expect(findArgv('owner:vercel-labs deploy')).toEqual(['npx', '-y', 'skills', 'find', 'deploy', '--owner', 'vercel-labs'])
+    expect(findArgv('  react hooks ')).toEqual(['npx', '-y', 'skills@1.7.2', 'find', 'react hooks'])
+    expect(findArgv('owner:vercel-labs deploy')).toEqual(['npx', '-y', 'skills@1.7.2', 'find', 'deploy', '--owner', 'vercel-labs'])
     expect(findArgv('-g')).toBeNull()
     expect(findArgv('--owner x')).toBeNull()
     expect(findArgv('react; rm -rf ~')).toBeNull()
     expect(findArgv('$(whoami)')).toBeNull()
-    expect(findArgv('a'.repeat(65))).toBeNull()
+    expect(findArgv('a'.repeat(513))).toBeNull()
     expect(findArgv('owner:-x react')).toBeNull()
     expect(findArgv('owner:a owner:b react')).toBeNull()
     expect(findArgv('owner:vercel-labs')).toBeNull()
@@ -135,7 +149,7 @@ describe('the skills actions', () => {
     expect(runs).toEqual([])
     expect(findSkills(state, host, 'react')).toBeNull()
     await settle()
-    expect(runs).toEqual([['npx', '-y', 'skills', 'find', 'react']])
+    expect(runs).toEqual([['npx', '-y', 'skills@1.7.2', 'find', 'react']])
     expect(state.skills.found?.length).toBe(4)
   })
 
@@ -150,14 +164,14 @@ describe('the skills actions', () => {
     const spec = addSpec(state, host, { id: 'mattpocock/skills@TDD' }, 'project')
 
     runner.ask(spec, '')
-    expect(state.pending?.shows).toBe('npx -y skills add mattpocock/skills@TDD -y')
+    expect(state.pending?.shows).toBe('npx -y skills@1.7.2 add mattpocock/skills@TDD -y')
     expect(runs).toEqual([])
 
     await runner.confirm()
     for (let i = 0; i < 20 && state.skills.busy !== null; i++) await settle()
     await settle()
 
-    expect(runs[0]).toEqual(['npx', '-y', 'skills', 'add', 'mattpocock/skills@TDD', '-y'])
+    expect(runs[0]).toEqual(['npx', '-y', 'skills@1.7.2', 'add', 'mattpocock/skills@TDD', '-y'])
     expect(runs.slice(1).map(argv => argv[3])).toEqual(['ls', 'ls'])
     expect(state.outcome).toMatchObject({ label: 'add skill mattpocock/skills@TDD to this project', ok: true, verified: 'yes' })
     expect(state.skills.last?.label).toBe(state.outcome?.label)
@@ -176,12 +190,12 @@ describe('the skills actions', () => {
     expect(state.outcome?.detail).toMatch(/no slash/)
 
     act.create('my-skill')
-    expect(state.pending?.shows).toBe('npx -y skills init my-skill')
+    expect(state.pending?.shows).toBe('npx -y skills@1.7.2 init my-skill')
     expect(runs).toEqual([])
 
     act.create('my-skill')
     for (let i = 0; i < 20 && (state.skills.busy !== null || runs.length === 0); i++) await settle()
-    expect(runs[0]).toEqual(['npx', '-y', 'skills', 'init', 'my-skill'])
+    expect(runs[0]).toEqual(['npx', '-y', 'skills@1.7.2', 'init', 'my-skill'])
 
     const skill = { name: 'tdd', path: '/home/dev/.agents/skills/tdd', scope: 'global' as const, agents: [] }
 

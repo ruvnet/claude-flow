@@ -7,19 +7,22 @@ import { actionsOf } from './bindings'
 import type { Catalog } from './data/catalog'
 import { PROBES, probeArgv, probeError, probeReady, type ProbeResult } from './data/cli'
 import { ALL_COST_PROBES as COST_PROBES } from './data/cost-probes'
+import { memmapProbe } from './data/memmap'
+import { memoryHealthProbe } from './data/memory-health'
 import { X_PROBES } from './data/xruv'
 import { diffEvents, record } from './data/events'
-import { agentName, announceChanges, factsOf } from './notices'
+import { agentName, announceChanges, factsOf, segmentOf, TOASTED_KEYS } from './notices'
 import { plain } from './data/parse'
 import { readSnapshot } from './data/snapshot'
+import { sayGroundingHint } from './grounding'
 import { markPicture } from './gfx/pictures'
 import type { Host } from './host'
 import { agentLogs } from './ops'
-import { createRunner, type Runner } from './runner'
-import { advance, loadLedger, mcOf } from './mission-control'
+import { landingRefusal } from './model-tools'
+import { createRunner, EXPIRY_TIMER, type Runner } from './runner'
+import { advance, mcOf } from './mission-control'
 import { hasLiveWork } from './mission-list'
-import { loadAllowed } from './remember'
-import { loadAiPrefs } from './settings'
+import { loadSaved } from './startup-loads'
 import { openLoaders } from './view-open'
 import { listSkills } from './skills'
 import { readDrillLogs } from './drill-logs'
@@ -28,12 +31,14 @@ import { BOOT_MIN_MS, CLI_PREFIXES, isBooting, NAV_KEY, NAV_STYLES, PANE_ID, pus
 import type { Actions } from './views/common'
 import { picturesOf } from './views/frames'
 import { pulseDue } from './pulse'
+import { refreshWorkflows } from './wf-live'
+import { syncWhatsNew } from './whatsnew'
+import { syncAdrDigest } from './adr-mission'
 
 const ACTIVITY_BUCKET_MS = 5_000
 const PANE_WATCH_MS = 1_000
 const MAX_PARALLEL_PROBES = 2
-/** The CLI probes and the x.ruv.io board's two network reads, one cadence and one option gate for all. */
-const ALL_PROBES = [...PROBES, ...X_PROBES, ...COST_PROBES]
+const ALL_PROBES = [...PROBES, ...X_PROBES, ...COST_PROBES, memmapProbe, memoryHealthProbe] // CLI probes, the x.ruv.io board's network reads, cost, the memory map's list: one cadence and option gate
 const BAR_FRESH_MS = 10_000
 const IDLE_REFRESH_MS = 30_000
 const TOOLS_RECOUNT_MS = 30_000
@@ -62,14 +67,6 @@ export type Controller = {
   catalog?: Promise<Catalog>
   /** Blits the band's mark while Claude works; the band calls it with its requestId. */
   markFrame: (requestId: string, isWorking: boolean) => void
-}
-
-/** With the band off, the console's words ride ruflo-mods' status line instead: claims and a stale marketplace only. */
-export function segmentOf(state: State): string | null {
-  const claims = state.snapshot?.claims ?? []
-  const parts = [claims.length > 0 ? `${claims.length} claims` : '', state.snapshot?.plugins.missingFromClone.length ? 'marketplace stale' : ''].filter(Boolean)
-
-  return parts.length === 0 ? null : parts.join(' · ')
 }
 
 export function createController(state: State, host: Host): Controller {
@@ -135,9 +132,13 @@ export function createController(state: State, host: Host): Controller {
       const before = previous === null ? null : factsOf(state, now)
 
       state.snapshot = snapshot
+      syncWhatsNew(state, host)
+      void syncAdrDigest(state, host).catch(() => undefined)
+      sayGroundingHint(state, host)
       record(state.events, diffEvents(previous, snapshot, now))
 
-      if (before !== null) announceChanges(state, before, now)
+      // A mission that finished or lost a task is said in a toast too: the band's notice row reaches only a person looking at the console.
+      if (before !== null) for (const draft of announceChanges(state, before, now)) if (TOASTED_KEYS.has(draft.key)) host.toast(draft.text.slice(0, 120), 8000, draft.level === 'bad' ? 'error' : draft.level)
 
       if (route !== null && route.agent !== state.ruflo.route?.agent) record(state.events, [{ atMs: now, kind: 'learning', text: `router picked ${route.agent} (${Math.round(route.confidence * 100)}%)` }])
 
@@ -145,7 +146,6 @@ export function createController(state: State, host: Host): Controller {
       state.ruflo.snapshot = ruflo
       state.ruflo.route = route ?? ruflo?.lastRoute ?? null
       push(state.writes, snapshot.changed)
-
       for (const agent of snapshot.agents.slice(0, 200)) {
         const log = state.statusLog.get(agent.id) ?? []
 
@@ -154,7 +154,6 @@ export function createController(state: State, host: Host): Controller {
       }
 
       const patterns = snapshot.neural?.patterns
-
       if (patterns !== undefined && state.history.patterns.at(-1)?.value !== patterns) push(state.history.patterns, { atMs: now, value: patterns })
       if (usage?.costUsd !== undefined && state.history.spend.at(-1)?.value !== usage.costUsd) push(state.history.spend, { atMs: now, value: usage.costUsd })
       if ((snapshot.outcomes?.total ?? 0) > state.history.outcomes) {
@@ -276,7 +275,8 @@ export function createController(state: State, host: Host): Controller {
 
     if (pulseDue(state.view, started) || (state.view === 'menu' && entryAge({ look: state.options.look, boot: state.options.boot, ...state.pane }, started, BOOT_MIN_MS) !== null)) host.invalidate()
 
-    for (const [key, grid] of picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
+    // Only a mounted Raster is blitted, so with none (a surface that draws Svg, which redraws with the pane) nothing is rebuilt here.
+    for (const [key, grid] of state.mounted.size === 0 ? [] : picturesOf(state, state.pane.columns, Date.now(), Date.now())) {
       const mounted = state.mounted.get(key)
 
       if (mounted !== undefined && mounted.columns === grid.columns && mounted.rows === grid.rows) {
@@ -292,7 +292,7 @@ export function createController(state: State, host: Host): Controller {
     // Something in progress moves its spinner, pictured or not: a lab action in flight, or a live mission, task or guidance run on the Missions page.
     const moving = state.lab.running !== null || (state.view === 'missions' && hasLiveWork(state.snapshot?.missions?.missions ?? [], mcOf(state).guidance?.status === 'running'))
 
-    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.mounted.size > 0 || moving))) return cancel('frames')
+    if (!(state.options.fps > 0 && isVisible() && (state.pane.isFocused || isBooting(state, Date.now())) && (state.pictured > 0 || moving))) return cancel('frames')
 
     every('frames', Math.round(1000 / state.options.fps), frame)
   }
@@ -317,9 +317,7 @@ export function createController(state: State, host: Host): Controller {
     let lastIdleMs = 0
 
     // The AI terminal's saved model and budget apply from the first turn, not only once Settings was opened.
-    void loadAiPrefs(state, host)
-    void loadAllowed(state, host)
-    void loadLedger(state, host)
+    loadSaved(state, host)
     void host.storeGet(NAV_KEY).then(saved => {
       const style = NAV_STYLES.find(candidate => candidate === saved)
 
@@ -335,6 +333,7 @@ export function createController(state: State, host: Host): Controller {
         lastIdleMs = now
         void refresh().then(() => {
           void probe()
+          void refreshWorkflows(state, host)
           advance(state, host)
         })
       }
@@ -399,8 +398,8 @@ export function createController(state: State, host: Host): Controller {
     state.pane.isShown = false
     state.pane.isClosedByPerson = true
     persist()
-    cancel('frames')
-    cancel('watch')
+    // A waiting card's expiry timer does not outlive the pane either: past its window it is cleared at the next ask or tool call instead.
+    for (const name of ['frames', 'watch', EXPIRY_TIMER]) cancel(name)
     await host.closePane(PANE_ID).catch(() => undefined)
   }
 
@@ -416,6 +415,7 @@ export function createController(state: State, host: Host): Controller {
       state.pane.viewAtMs = Date.now()
       state.select.item = 0
       state.mounted.clear()
+      state.pictured = 0
       persist()
       // A new view asks for its own height inline; the dock ignores it.
       if (state.pane.isOpen) void host.openPane({ id: PANE_ID, title: 'ruflo', rows: rowsOf(view), ...(state.dockColumns > 0 && { columns: state.dockColumns }) }).catch(() => undefined)
@@ -460,10 +460,9 @@ export function createController(state: State, host: Host): Controller {
   }
 
   const runner = createRunner(state, host, {
-    freshRead,
-    setView,
-    drill,
+    freshRead, setView, drill,
     command: name => (name === 'refresh' ? actions.refresh() : name === 'help' ? actions.help() : actions.close()),
+    landingRefusal: pending => landingRefusal(state, pending),
   })
   const actions: Actions = actionsOf(state, host, runner, { freshRead, probe, setView, drill, close, animate })
 

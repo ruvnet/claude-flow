@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.3.2 with new keywords"
+step "1. plugin.json declares 0.3.4 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.3.2" ]]; then bad "expected 0.3.2, got '$v'"; else
+if [[ "$v" != "0.3.4" ]]; then bad "expected 0.3.4, got '$v'"; else
   miss=""
   for k in jsdoc openapi mcp; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -51,11 +51,11 @@ step "7. docs-drift namespace claimed"
 grep -q "docs-drift" "$ROOT/README.md" \
   && ok || bad "docs-drift namespace not claimed"
 
-step "8. document-worker scope table documented"
+step "8. document-worker context table documented"
 F="$ROOT/README.md"
 miss=""
 grep -q "Document-worker contract" "$F" || miss="$miss header"
-grep -qE 'scope.+api|api.+scope' "$F" || miss="$miss api-scope"
+grep -qE 'context.+api|api.+context' "$F" || miss="$miss api-context"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "9. ADR-0001 exists with status Accepted"

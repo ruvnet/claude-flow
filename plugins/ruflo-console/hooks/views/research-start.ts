@@ -19,7 +19,7 @@ export function researchStartRows(ctx: Ctx): RenderElement[] {
   const rows = [rule(ctx, 'Deep research', 'asks first · capped')]
 
   if (ctx.kit.Input !== undefined) {
-    rows.push(ctx.kit.Input({ key: 'research-question', label: 'question', value: draft.question, placeholder: 'what should it find out?', submitLabel: 'ask', onInput: value => setResearch(state, { question: value.slice(0, 500) }), onSubmit: value => { setResearch(state, { question: value.slice(0, 500) }); start() } }))
+    rows.push(ctx.kit.Input({ key: 'research-question', label: 'question', value: draft.question, placeholder: 'what should it find out?', submitLabel: 'ask', onInput: value => { setResearch(state, { question: value }); if (value.length > 40 || /\n|\\n/.test(value) || draft.question.length > 40) redraw() }, onSubmit: value => { setResearch(state, { question: value }); start() } }))
   }
 
   rows.push(row(ctx, [text(ctx, ' depth ', { dimColor: true }), ...RESEARCH_DEPTHS.map(depth => pick(`research-depth-${depth}`, depth, draft.depth === depth, () => { setResearch(state, { depth }); redraw() }))], 'research-depth'))

@@ -3,6 +3,7 @@
  * nothing. "Ask Claude with these docs" is the only thing that starts a model turn, and like every ask in the console it asks first with
  * the exact words, screens a typed question with AIDefence, and mid-turn only fills the prompt box.
  */
+import { checkLimit, LONG_TEXT_MAX } from './full-text'
 import { plain } from './data/parse'
 import { helpPrompt, searchDocs, type Go } from './help-docs'
 import { TOPICS } from './help-topics'
@@ -32,7 +33,8 @@ export function helpActions(state: State, host: Host, runner: Runner, act: () =>
 
   return {
     query: text => {
-      state.help.query = plain(text, 300)
+      // The field is also the live search: never cut as it is typed (ADR-481); an ask over the prompt limit is refused below.
+      state.help.query = plain(text, Number.MAX_SAFE_INTEGER)
       state.help.topic = null
       host.invalidate()
     },
@@ -42,9 +44,13 @@ export function helpActions(state: State, host: Host, runner: Runner, act: () =>
       host.invalidate()
     },
     ask: text => {
-      const typed = plain(text ?? state.help.query, 300).trim()
+      const typed = plain(text ?? state.help.query, Number.MAX_SAFE_INTEGER).trim()
 
       if (typed === '') return say('ask ruHelp something first', false, 'type a question in the ruHelp field')
+
+      const fit = checkLimit(typed, LONG_TEXT_MAX, 'the question', 'sent to Claude as one prompt')
+
+      if (!fit.ok) return say('question not sent', false, fit.message)
 
       const prompt = helpPrompt(typed, searchDocs(TOPICS, typed, 3))
       const ask = () =>

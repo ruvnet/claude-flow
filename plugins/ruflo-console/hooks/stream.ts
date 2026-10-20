@@ -4,6 +4,7 @@
  * cost. `codex exec --json` and `claude -p --output-format stream-json` each have their own events; anything not
  * named here is skipped. Every string is the agent's and is drawn as data.
  */
+import { plain } from './data/parse'
 import type { TermLine } from './state'
 
 export type Sink = {
@@ -17,11 +18,8 @@ export type Sink = {
 const rec = (value: unknown): Record<string, unknown> | null => (value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null)
 const str = (value: unknown): string | undefined => (typeof value === 'string' && value !== '' ? value : undefined)
 const num = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
-const clip = (text: string, max: number): string => {
-  const one = text.replace(/\s+/g, ' ').trim()
-
-  return one.length <= max ? one : `${one.slice(0, max - 1)}…`
-}
+/** One cleaned line: no escape sequence, bidi or tag character survives (the agent's text may be hostile), whitespace collapsed. */
+const clip = (text: string, max: number): string => plain(text, max)
 
 /** One JSON event per line; a line that is not an object is not an event. */
 export function eventOf(line: string): Record<string, unknown> | null {
