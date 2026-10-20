@@ -65,7 +65,10 @@ export function fetchJson(url, { timeoutMs = 15000 } = {}) {
 }
 
 export async function fetchPublishedVersions(name, fetchImpl = fetchJson) {
-  const url = `https://registry.npmjs.org/${name.replace('@', '%40')}`;
+  // encodeURIComponent, not a string .replace('@', ...): replace() only
+  // touches the FIRST match, which happens to be harmless for a leading
+  // scope char but is the wrong tool for escaping a URL path segment.
+  const url = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
   const body = await fetchImpl(url);
   if (body.notFound) return null;
   return Object.keys(body.versions ?? {});
