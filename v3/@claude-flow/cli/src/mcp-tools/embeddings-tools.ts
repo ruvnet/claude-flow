@@ -1022,17 +1022,25 @@ export const embeddingsTools: MCPTool[] = [
       const v = vt(params.query as string, 'query');
       if (!v.valid) return { success: false, error: v.error };
 
-      const { searchRabitq } = await import('../memory/rabitq-index.js');
+      const { ensureRabitqIndex, searchRabitq } = await import('../memory/rabitq-index.js');
       const { generateEmbedding } = await import('../memory/memory-initializer.js');
 
       const queryEmb = await generateEmbedding(params.query as string);
-      const results = await searchRabitq(queryEmb.embedding, {
+      const searchOptions = {
         k: (params.k as number) || 10,
         namespace: params.namespace as string,
-      });
+      };
+
+      // #4203: the index is built on demand, so a search no longer requires a
+      // separate `embeddings_rabitq_build` call first.
+      let results = await searchRabitq(queryEmb.embedding, searchOptions);
+      if (!results) {
+        await ensureRabitqIndex({ dimensions: queryEmb.embedding.length });
+        results = await searchRabitq(queryEmb.embedding, searchOptions);
+      }
 
       if (!results) {
-        return { success: false, error: 'RaBitQ index not built. Call embeddings_rabitq_build first.' };
+        return { success: false, error: 'RaBitQ index not built (needs at least 10 embedded entries). Call embeddings_rabitq_build first.' };
       }
 
       return {
