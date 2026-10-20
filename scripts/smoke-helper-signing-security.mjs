@@ -35,7 +35,7 @@ try {
   mkdirSync(join(fixture, 'scripts'), { recursive: true });
   mkdirSync(join(fixture, '.claude', 'helpers'), { recursive: true });
   cpSync(signer, join(fixture, 'scripts', 'sign-helpers.mjs'));
-  for (const name of ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.js']) {
+  for (const name of ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.cjs']) {
     cpSync(join(cli, '.claude', 'helpers', name), join(fixture, '.claude', 'helpers', name));
   }
   writeFileSync(join(fixture, 'package.json'), JSON.stringify({ version: '0.0.0-security-test' }));

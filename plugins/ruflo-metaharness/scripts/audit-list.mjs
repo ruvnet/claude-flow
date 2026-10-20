@@ -16,6 +16,8 @@
 //   0  ok
 //   2  config error
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runRufloCli } from './_invoke.mjs';
 
 const NS = process.env.AUDIT_LIST_NAMESPACE || 'metaharness-audit';
@@ -23,6 +25,12 @@ const NS = process.env.AUDIT_LIST_NAMESPACE || 'metaharness-audit';
 // that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
 // resolution per call, possible version skew, fails without registry access).
 // CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--limit': 'value',
+  '--since': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { limit: 20, since: null, format: 'table' };

@@ -85,12 +85,19 @@ program
   .option('-s, --skills <skills>', 'Comma-separated list of skills to include')
   .option('-f, --force', 'Overwrite existing files', false)
   .option('--dual', 'Generate both Codex and Claude Code configurations', false)
+  .option('--codex-trust <level>', 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals) or full (danger-full-access, no approvals)')
   .option('-p, --path <path>', 'Project path', process.cwd())
   .option('-q, --quiet', 'Suppress verbose output', false)
   .action(async (options) => {
     try {
       if (!options.quiet) {
         printBanner();
+      }
+
+      if (options.codexTrust !== undefined && !['standard', 'full'].includes(options.codexTrust)) {
+        console.error(chalk.red(`Invalid --codex-trust: ${options.codexTrust}`));
+        console.log(chalk.gray('Valid levels: standard, full'));
+        process.exit(1);
       }
 
       // Validate template
@@ -136,6 +143,7 @@ program
         skills,
         force: options.force,
         dual: options.dual,
+        codexTrust: options.codexTrust,
       });
 
       if (result.success) {
@@ -695,6 +703,10 @@ program.addCommand(createDualModeCommand());
 // Codex /loop-compatible runner
 import { createLoopCommand } from './loop/cli.js';
 program.addCommand(createLoopCommand());
+
+// Read-only activity from an already-running Codex session.
+import { createActivityCommand } from './activity/cli.js';
+program.addCommand(createActivityCommand());
 
 // Policy-governed worktree isolation for concurrent Codex writers (ADR-324)
 import { CodexWorktreeCoordinator } from './worktrees/index.js';

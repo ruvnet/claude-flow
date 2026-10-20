@@ -59,7 +59,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 
 export interface McpPolicy {
   schema?: number;
@@ -67,6 +66,12 @@ export interface McpPolicy {
   harnessId?: string;
   defaultDeny?: boolean;
   auditLog?: boolean;
+  /** Explicit destination; takes precedence over the environment and project default. */
+  auditLogPath?: string;
+  /** Maximum bytes per audit segment. Default 10 MiB; oversized records fail closed. */
+  auditLogMaxBytes?: number;
+  /** Rotated segments retained in addition to the active log. Default 5, maximum 100. */
+  auditLogMaxFiles?: number;
   requireApprovalForDangerous?: boolean;
   toolTimeoutMs?: number;
   /**
@@ -168,6 +173,7 @@ export interface AuditLogEntry {
   toolName: string;
   allowed: boolean;
   reason?: string;
+  projectPath?: string;
 }
 
 let auditLogPathOverride: string | null = null;
@@ -177,12 +183,17 @@ export function setAuditLogPathForTesting(p: string | null): void {
   auditLogPathOverride = p;
 }
 
-function defaultAuditLogPath(): string {
-  return path.join(os.tmpdir(), 'ruflo-mcp-audit.jsonl');
-}
-
-export function getAuditLogPath(): string {
-  return auditLogPathOverride ?? defaultAuditLogPath();
+export function getAuditLogPath(options: Pick<McpPolicy, 'auditLogPath'> = {}): string {
+  if (auditLogPathOverride !== null) return auditLogPathOverride;
+  if (options.auditLogPath !== undefined &&
+      (typeof options.auditLogPath !== 'string' || options.auditLogPath.trim().length === 0)) {
+    throw new Error('auditLogPath must be a non-empty string');
+  }
+  // Precedence: explicit caller/policy destination, environment, project default.
+  const configured = options.auditLogPath ?? process.env.RUFLO_MCP_AUDIT_LOG_PATH;
+  return configured
+    ? path.resolve(process.cwd(), configured)
+    : path.join(process.cwd(), '.claude-flow', 'logs', 'mcp-audit.jsonl');
 }
 
 /**
@@ -195,8 +206,52 @@ export function getAuditLogPath(): string {
 export function appendAuditLog(policy: McpPolicy, entry: AuditLogEntry): boolean {
   if (!policy.auditLog) return true;
   try {
-    fs.appendFileSync(getAuditLogPath(), `${JSON.stringify(entry)}\n`, 'utf-8');
-    return true;
+    const maxBytes = policy.auditLogMaxBytes ?? 10 * 1024 * 1024;
+    const maxFiles = policy.auditLogMaxFiles ?? 5;
+    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0 ||
+        !Number.isSafeInteger(maxFiles) || maxFiles < 1 || maxFiles > 100) return false;
+    const line = `${JSON.stringify({ ...entry, projectPath: path.resolve(process.cwd()) })}\n`;
+    const bytes = Buffer.byteLength(line, 'utf8');
+    if (bytes > maxBytes) return false;
+
+    const logPath = getAuditLogPath(policy);
+    fs.mkdirSync(path.dirname(logPath), { recursive: true, mode: 0o700 });
+    // All writers of a configured path serialize rotation AND append. On
+    // contention (or a stale lock after a crash), deny rather than lose audit
+    // evidence by racing a rename. Only the lock owner removes its lock.
+    const lockPath = `${logPath}.lock`;
+    const lock = fs.openSync(lockPath, 'wx', 0o600);
+    try {
+      let size = 0;
+      try {
+        const stat = fs.lstatSync(logPath);
+        if (!stat.isFile()) throw new Error('Audit log is not a regular file');
+        size = stat.size;
+      }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      if (size + bytes > maxBytes) {
+        // Validate the entire chain before moving or expiring any evidence.
+        for (let index = 1; index <= maxFiles; index++) {
+          try { if (!fs.lstatSync(`${logPath}.${index}`).isFile()) throw new Error('Audit segment is not a regular file'); }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+        }
+        for (let index = maxFiles; index >= 1; index--) {
+          const source = index === 1 ? logPath : `${logPath}.${index - 1}`;
+          const target = `${logPath}.${index}`;
+          if (index === maxFiles) {
+            try { fs.unlinkSync(target); }
+            catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+          }
+          try { fs.renameSync(source, target); }
+          catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+        }
+      }
+      fs.appendFileSync(logPath, line, { encoding: 'utf8', mode: 0o600 });
+      return true;
+    } finally {
+      fs.closeSync(lock);
+      fs.unlinkSync(lockPath);
+    }
   } catch {
     return false;
   }

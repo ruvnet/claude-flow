@@ -128,12 +128,19 @@ export class GraphEdgesSource implements KnowledgeGraphSource {
       type GraphEdgeWriterModule = {
         getBridgeDb: (dbPath?: string) => Promise<{ exec: (sql: string) => Array<{ values?: unknown[][] }> } | null>;
       };
+      // Built from parts, not a string literal: a bundler's static import-specifier scan (vitest's
+      // module-graph crawl included — it was found tripping on this one, in CI only, even though
+      // only the mocked test doubles ever execute, never this function body) tries to eagerly
+      // resolve a literal specifier at collection time, outside this try/catch, for an optional
+      // cross-package path that is only ever meant to be resolved when actually awaited.
+      const primarySpecifier = ['@claude-flow/cli', 'src/memory/graph-edge-writer.js'].join('/');
+      const fallbackSpecifier = ['..', '..', '..', '..', '..', 'v3/@claude-flow/cli/dist/src/memory/graph-edge-writer.js'].join('/');
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore — dynamic cross-package import resolved at runtime
-      const mod: GraphEdgeWriterModule = await import('@claude-flow/cli/src/memory/graph-edge-writer.js')
+      const mod: GraphEdgeWriterModule = await import(primarySpecifier)
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore — fallback to local dist path in mono-repo context
-        .catch(() => import('../../../../../v3/@claude-flow/cli/dist/src/memory/graph-edge-writer.js'));
+        .catch(() => import(fallbackSpecifier));
 
       const db = await mod.getBridgeDb();
       if (!db) return [];

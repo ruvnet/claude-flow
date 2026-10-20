@@ -100,3 +100,19 @@ describe('root secret ignore (#2637)', () => {
     expect(result.created.files).toContain('.gitignore (updated)');
   });
 });
+
+describe('.claude-flow/.gitignore template (ruflo-console 0.36 history folder)', () => {
+  it('ignores console/ (the console\'s own events, lanes, prefs and exports) along with the other runtime folders', async () => {
+    const options = structuredClone(MINIMAL_INIT_OPTIONS);
+    options.targetDir = projectPath;
+    options.skipGlobalClaudeMd = true;
+
+    const result = await executeInit(options);
+
+    expect(result.success).toBe(true);
+    const lines = readFileSync(join(projectPath, '.claude-flow', '.gitignore'), 'utf8').split('\n');
+    for (const entry of ['data/', 'logs/', 'sessions/', 'neural/', 'console/', '*.log', '*.tmp']) {
+      expect(lines).toContain(entry);
+    }
+  });
+});

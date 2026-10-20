@@ -106,13 +106,17 @@ const TOOL_GROUPS = {
     source: "gemini-mcp",
   },
 
-  // --- OpenAI Codex ---
+  // --- OpenAI Codex (MCP server mode removed from current CLI; #3509) ---
   codex: {
-    enabled: process.env.MCP_GROUP_CODEX === "true",
-    description: "OpenAI Codex coding agent — code generation and execution (requires OPENAI_API_KEY)",
+    enabled: false,
+    description: "Unavailable: Codex CLI has no MCP server mode. Use Codex dual-mode workers instead.",
     source: "codex",
   },
 };
+
+if (process.env.MCP_GROUP_CODEX === "true") {
+  console.warn("[codex] Codex CLI has no MCP server mode; MCP_GROUP_CODEX is disabled. Use Codex dual-mode workers (codex exec) instead.");
+}
 
 // =============================================================================
 // STDIO MCP CLIENT — Connects to external MCP servers via child process
@@ -257,7 +261,6 @@ const BACKEND_DEFS = [
   { name: "agentic-flow",   command: "npx", args: ["-y", "agentic-flow@alpha", "mcp", "start"], groups: ["agentic-flow"] },
   { name: "claude",         command: "claude", args: ["mcp", "serve"],                  groups: ["claude-code"] },
   { name: "gemini-mcp",     command: "npx", args: ["-y", "gemini-mcp-server"],          groups: ["gemini"] },
-  { name: "codex",          command: "npx", args: ["-y", "@openai/codex", "mcp-server"], groups: ["codex"] },
 ];
 
 const mcpBackends = new Map();
@@ -602,19 +605,7 @@ Requires: GOOGLE_API_KEY environment variable (already set for Gemini models).
 
     codex: `# Codex Group
 
-OpenAI Codex coding agent.
-
-Requires: OPENAI_API_KEY environment variable (already set for OpenAI models).
-
-## Capabilities
-- Code generation and execution
-- Code completion
-- Code explanation
-
-## When to Use
-- Code generation tasks
-- Quick code completions
-- Code explanation and documentation`,
+Unavailable: current Codex CLI has no MCP server mode (#3509). This group is disabled even if MCP_GROUP_CODEX=true, so it exposes no tools. Use the separate Codex dual-mode worker through codex exec. A future MCP adapter requires its own execution and security design.`,
   };
 
   if (topic === "tool" && toolName) {
@@ -899,6 +890,7 @@ app.use((req, res, next) => {
 const CORS_ALLOWLIST = (process.env.MCP_CORS_ORIGIN || "*")
   .split(",").map(s => s.trim()).filter(Boolean);
 const CORS_WILDCARD = CORS_ALLOWLIST.length === 1 && CORS_ALLOWLIST[0] === "*";
+app.use((req, res, next) => localBrowserGuard(req, res, next));
 app.use((req, res, next) => {
   const origin = req.get("origin") || "";
   if (CORS_WILDCARD) {
@@ -916,6 +908,43 @@ app.use((req, res, next) => {
 // ---------- Auth middleware ----------
 // No-op in local-only mode (MCP_AUTH_TOKEN unset). Enforces 401 when token is set.
 const MCP_TOKEN = process.env.MCP_AUTH_TOKEN || "";
+
+// ---------- Local-only browser guard (#4226) ----------
+// Binding to loopback does not keep web pages out: any page the user opens
+// can send requests to 127.0.0.1, and a DNS-rebinding page can even make the
+// request look same-origin. CORS only decides whether the page may READ the
+// reply; a "simple" cross-origin POST runs without a preflight. So when there
+// is no MCP_AUTH_TOKEN, refuse requests that a browser sent on behalf of a
+// foreign page:
+//   - the Host header must name a loopback address (stops DNS rebinding);
+//   - a request carrying an Origin header must come from a loopback origin or
+//     from an origin listed explicitly in MCP_CORS_ORIGIN.
+// Native MCP clients (CLI, IDE, curl) send no Origin and a loopback Host.
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
+function hostnameOf(value) {
+  try {
+    return new URL(value.includes("://") ? value : `http://${value}`).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+function isLoopbackHostname(hostname) {
+  return LOOPBACK_HOSTNAMES.has(hostname) || hostname.endsWith(".localhost");
+}
+function localBrowserGuard(req, res, next) {
+  if (MCP_TOKEN) return next();
+  if (!isLoopbackHostname(hostnameOf(req.get("host") || ""))) {
+    return res.status(403).json({ error: "forbidden host" });
+  }
+  const origin = req.get("origin");
+  if (origin !== undefined) {
+    const explicitlyAllowed = !CORS_WILDCARD && CORS_ALLOWLIST.includes(origin);
+    if (!explicitlyAllowed && !isLoopbackHostname(hostnameOf(origin))) {
+      return res.status(403).json({ error: "forbidden origin" });
+    }
+  }
+  next();
+}
 function requireAuth(req, res, next) {
   if (req.path === "/health") return next();
   if (!MCP_TOKEN) return next();

@@ -80,31 +80,25 @@ export class TokenOptimizer extends EventEmitter {
 
   async initialize(): Promise<void> {
     try {
-      // Dynamic import of agentic-flow main module
-      const af = await safeImport<any>('agentic-flow');
-
-      if (af) {
-        this.agenticFlowAvailable = true;
-
-        // Load ReasoningBank (exported path)
-        const rb = await safeImport<any>('agentic-flow/reasoningbank');
-        if (rb && rb.retrieveMemories) {
-          this.reasoningBank = rb;
-        }
-
-        // Load Agent Booster (exported path)
-        const ab = await safeImport<any>('agentic-flow/agent-booster');
-        if (ab) {
-          // Agent booster may export different API
-          this.agentBooster = ab.agentBooster || ab.AgentBooster || ab;
-        }
-
-        // Config tuning is part of main module or agent-booster
-        // Use our fallback with anti-drift defaults
-        if (af.configTuning) {
-          this.configTuning = af.configTuning;
-        }
+      // Only library subpaths: importing the agentic-flow root entry runs its
+      // CLI main() in 3.0.0-alpha.x. No published root exports configTuning,
+      // so the anti-drift defaults below are used.
+      const rb = await safeImport<any>('agentic-flow/reasoningbank');
+      if (rb && rb.retrieveMemories) {
+        this.reasoningBank = rb;
       }
+
+      const ab = await safeImport<any>('agentic-flow/agent-booster');
+      if (ab) {
+        // The real package exports a `getAgentBooster()` factory returning an
+        // instance whose prototype has `apply`/`applyBatch` (#4311) — calling
+        // `.apply` on the un-instantiated export (`ab.AgentBooster`, a class)
+        // would silently resolve to `Function.prototype.apply` instead.
+        this.agentBooster =
+          typeof ab.getAgentBooster === 'function' ? ab.getAgentBooster() : ab.agentBooster || ab.AgentBooster || ab;
+      }
+
+      this.agenticFlowAvailable = rb !== null || ab !== null;
     } catch {
       this.agenticFlowAvailable = false;
     }
@@ -210,23 +204,36 @@ export class TokenOptimizer extends EventEmitter {
       };
     }
 
-    const result = await this.agentBooster.editCode({
-      filePath,
-      oldContent,
-      newContent,
+    // agentic-flow/agent-booster's real API is `apply({ code, edit, language,
+    // filePath? })` → `{ output, success, latency, strategy, ... }` — there is
+    // no `editCode` method and no `speedupFactor`/`executionTimeMs`/`method`
+    // on its result (#4311).
+    const result = await this.agentBooster.apply({
+      code: oldContent,
+      edit: newContent,
       language,
+      filePath,
     });
+
+    // A 'fallback'/'error_avoided' strategy means the booster declined to
+    // optimize this edit, not that it failed outright.
+    const method: EditOptimization['method'] =
+      result.success && result.strategy !== 'fallback' && result.strategy !== 'error_avoided'
+        ? 'agent-booster'
+        : 'traditional';
 
     // Track optimized edits (no fabricated token savings — actual savings
     // come from fewer retries, which we can't measure here)
-    if (result.method === 'agent-booster') {
+    if (method === 'agent-booster') {
       this.stats.editsOptimized++;
     }
 
     return {
-      speedupFactor: result.speedupFactor,
-      executionMs: result.executionTimeMs,
-      method: result.method,
+      // No real speedup measurement is available from this API either;
+      // keep the same "no claim" value the no-booster fallback above uses.
+      speedupFactor: 1,
+      executionMs: result.latency,
+      method,
     };
   }
 

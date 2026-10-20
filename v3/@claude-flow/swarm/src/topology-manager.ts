@@ -203,6 +203,25 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
         this.state.leader = queen.agentId;
         return queen.agentId;
       }
+
+      // Dream Cycle 2026-10-19 (swarm): the cached queenNode is nulled by
+      // removeFromRoleIndex() when the queen dies (see removeNode()), but
+      // nothing ever repopulated it — this fell straight through to the
+      // generic mesh-style ranking below, which sets state.leader to some
+      // node's agentId without ever promoting that node's `.role` or
+      // re-caching queenNode/coordinatorNode. Every hierarchical/centralized
+      // swarm therefore silently lost its "queen controls workers directly"
+      // guarantee (CLAUDE.md) after exactly one queen death, even though
+      // `failoverEnabled` (default true) documents the opposite. Promote a
+      // replacement here, gated on that same flag.
+      if (this.config.failoverEnabled) {
+        const promoted = this.promoteToRole('queen');
+        if (promoted) {
+          this.state.leader = promoted.agentId;
+          this.emit('leader.elected', { leaderId: promoted.agentId });
+          return promoted.agentId;
+        }
+      }
     }
 
     // For centralized topology, the coordinator is the leader (O(1) lookup)
@@ -211,6 +230,16 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
       if (coordinator) {
         this.state.leader = coordinator.agentId;
         return coordinator.agentId;
+      }
+
+      // Same failover gap as the hierarchical branch above.
+      if (this.config.failoverEnabled) {
+        const promoted = this.promoteToRole('coordinator');
+        if (promoted) {
+          this.state.leader = promoted.agentId;
+          this.emit('leader.elected', { leaderId: promoted.agentId });
+          return promoted.agentId;
+        }
       }
     }
 
@@ -619,6 +648,32 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
     } else if (node.role === 'coordinator' && this.coordinatorNode?.agentId === node.agentId) {
       this.coordinatorNode = null;
     }
+  }
+
+  /**
+   * Promote the best remaining active node into a vacated queen/coordinator
+   * role after a failover, re-caching it via the existing role index so
+   * subsequent O(1) lookups (getQueen/getCoordinator, electLeader) see it.
+   *
+   * KNOWN LIMITATION (disclosed by adversarial critique, not fixed here):
+   * this only promotes `.role` + the cache, not `.connections`/adjacencyList.
+   * With the default `autoRebalance: true`, removeNode()'s trailing
+   * rebalance() call rewires the promoted node's edges immediately
+   * afterward, so the gap is self-healing. With `autoRebalance: false`,
+   * the promoted node keeps its stale pre-promotion edges until something
+   * calls rebalance()/addNode() manually.
+   */
+  private promoteToRole(role: 'queen' | 'coordinator'): TopologyNode | undefined {
+    const candidate = this.state.nodes.find(n => n.status === 'active' && n.role !== role);
+    if (!candidate) {
+      return undefined;
+    }
+
+    this.removeFromRoleIndex(candidate);
+    candidate.role = role;
+    this.addToRoleIndex(candidate);
+
+    return candidate;
   }
 
   /**

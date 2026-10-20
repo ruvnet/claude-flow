@@ -36,6 +36,7 @@ describe.skipIf(!haveNative)('backupMemoryDb', () => {
 
     const r = await backupMemoryDb({ dbPath, timestamp: 1_700_000_000_000 });
     expect(r.backedUp).toBe(true);
+    expect(r.method).toBe('native-online-backup');
     expect(existsSync(r.path!)).toBe(true);
     expect(r.sizeBytes!).toBeGreaterThan(0);
 

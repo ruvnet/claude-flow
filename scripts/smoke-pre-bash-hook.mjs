@@ -13,7 +13,7 @@
  * This script pipes real-shaped Claude Code PreToolUse JSON into the
  * locally-built handler and asserts:
  *
- *   - dangerous command → exit 1 + `[BLOCKED] Dangerous command detected:`
+ *   - dangerous command → exit 2 + `[BLOCKED] Dangerous command detected:`
  *   - innocuous command → exit 0 + `[OK] Command validated`
  *   - empty payload    → exit 0 (no crash, no false positive)
  *   - non-string command field → exit 0 (defensive String() wrap holds)
@@ -22,7 +22,9 @@
  *   1. v3/@claude-flow/cli/.claude/helpers/hook-handler.cjs  (the published template)
  *   2. .claude/helpers/hook-handler.cjs                       (the dogfood copy)
  *
- * Failure of either fails the build.
+ * Exit 2 is the Claude Code PreToolUse blocking contract; exit 1 reports a
+ * non-blocking hook error. Commands below are only JSON data and are NEVER
+ * executed. Failure of either handler fails the build.
  */
 
 import { spawnSync } from 'node:child_process';
@@ -39,7 +41,7 @@ const cases = [
   {
     name: 'dangerous rm -rf / → BLOCKED',
     input: { tool_name: 'Bash', tool_input: { command: 'rm -rf / --no-preserve-root' } },
-    expectExit: 1,
+    expectExit: 2,
     expectStderrIncludes: '[BLOCKED]',
   },
   {
@@ -62,27 +64,23 @@ const cases = [
     expectExit: 0,
   },
   {
-    // The exact #2017 shape: the handler reads `toolInput` (object) instead
-    // of `toolInput.command` (string), so `.toLowerCase()` throws TypeError,
-    // global try/catch swallows, exits 0. This case asserts the regression
-    // CAN'T return: a dangerous command sent in real Claude Code's snake_case
-    // shape must still BLOCK. If a future refactor binds command to a
-    // non-string and the safety check no-ops, this case fails loudly.
-    name: '#2017 shape: snake_case tool_input.command dangerous → BLOCKED',
-    input: { tool_name: 'Bash', tool_input: { command: 'rm -rf / --no-preserve-root' } },
-    expectExit: 1,
+    // The legacy camelCase shape must preserve the same blocking contract
+    // as Claude Code's snake_case payload above.
+    name: 'camelCase toolInput.command dangerous → BLOCKED',
+    input: { tool_name: 'Bash', toolInput: { command: 'rm -rf / --no-preserve-root' } },
+    expectExit: 2,
     expectStderrIncludes: '[BLOCKED]',
   },
   {
     name: 'fork-bomb signature → BLOCKED',
     input: { tool_name: 'Bash', tool_input: { command: ':(){:|:&};:' } },
-    expectExit: 1,
+    expectExit: 2,
     expectStderrIncludes: '[BLOCKED]',
   },
   {
     name: 'format c: → BLOCKED',
     input: { tool_name: 'Bash', tool_input: { command: 'format c: /q /y' } },
-    expectExit: 1,
+    expectExit: 2,
     expectStderrIncludes: '[BLOCKED]',
   },
 ];
@@ -116,7 +114,7 @@ function runOne(handlerPath, c) {
   // Also catch the "[OK] Command validated" + dangerous input + exit 0 shape
   // directly — the form the published 3.6.30 actually printed before the
   // global-catch warning was added.
-  if (c.expectExit === 1 && /\[OK\] Command validated/.test(out) && r.status === 0) {
+  if (c.expectExit === 2 && /\[OK\] Command validated/.test(out) && r.status === 0) {
     fails.push('dangerous command produced [OK] + exit 0 (regression of #2017)');
   }
   return { fails, out, err, status: r.status };
@@ -125,7 +123,8 @@ function runOne(handlerPath, c) {
 let failed = 0;
 for (const handlerPath of HANDLERS) {
   if (!existsSync(handlerPath)) {
-    console.error(`[skip] handler not found: ${handlerPath}`);
+    failed++;
+    console.error(`[fail] handler not found: ${handlerPath}`);
     continue;
   }
   console.log(`\n# ${handlerPath}`);
@@ -144,7 +143,7 @@ for (const handlerPath of HANDLERS) {
 }
 
 if (failed > 0) {
-  console.error(`\n${failed} pre-bash smoke case(s) failed — regression of #2017`);
+  console.error(`\n${failed} pre-bash smoke case(s) failed — blocking contract violated`);
   process.exit(1);
 }
 console.log('\nok: pre-bash hook gates dangerous commands across both handler copies');

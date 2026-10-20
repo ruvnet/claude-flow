@@ -18,6 +18,10 @@ const fs = require('fs');
 const os = require('os');
 
 const helpersDir = __dirname;
+// The helper's own install root: the project for a project-local helper,
+// $HOME for a home-level one. CLI resolution starts here, never at the opened
+// project, so a home-level helper does not run code the project supplies.
+const helperRoot = path.resolve(helpersDir, '..', '..');
 
 // Resolve an installed @claude-flow/cli (or ruflo) bin — mirrors
 // statusline-generator.ts's resolveCliBin() candidate list. Used only to
@@ -38,12 +42,11 @@ const helpersDir = __dirname;
 function resolveCliBinForHook() {
   try {
     const home = os.homedir();
-    const cwd = process.cwd();
     const candidates = [
       path.join(home, '.claude', 'plugins', 'marketplaces', 'ruflo', 'bin', 'cli.js'),
-      path.join(cwd, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
-      path.join(cwd, 'node_modules', 'ruflo', 'bin', 'cli.js'),
-      path.join(cwd, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(helperRoot, 'node_modules', '@claude-flow', 'cli', 'bin', 'cli.js'),
+      path.join(helperRoot, 'node_modules', 'ruflo', 'bin', 'cli.js'),
+      path.join(helperRoot, 'v3', '@claude-flow', 'cli', 'bin', 'cli.js'),
       // helpersDir is .claude/helpers/ inside the package itself when this
       // file is running from a real @claude-flow/cli install (not a project
       // that merely copied the helper) — its bin/ is two levels up.
@@ -77,14 +80,19 @@ function resolveCliBinForHook() {
 // render path, where local-first exists purely for per-render latency.
 // `--prefer-offline` avoids a registry round trip for the tarball when
 // already cached while still resolving the current `@latest` version.
+//
+// `--prefix helperRoot` makes npx resolve @claude-flow/cli from the helper's
+// install root instead of the cwd (the opened project); the spawned CLI still
+// runs with the project as its cwd.
+function cliSpawnArgs(cliBin, args, platform = process.platform) {
+  if (cliBin) return [process.execPath, [cliBin, ...args]];
+  return [platform === 'win32' ? 'npx.cmd' : 'npx', ['--prefer-offline', '--prefix', helperRoot, '@claude-flow/cli', ...args]];
+}
+
 function spawnDetachedHookRefresh(subcommand) {
   try {
     const { spawn } = require('child_process');
-    const cliBin = resolveCliBinForHook();
-    const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-    const spawnArgs = cliBin
-      ? [process.execPath, [cliBin, 'hooks', subcommand, '--quiet']]
-      : [cmd, ['--prefer-offline', '@claude-flow/cli', 'hooks', subcommand, '--quiet']];
+    const spawnArgs = cliSpawnArgs(resolveCliBinForHook(), ['hooks', subcommand, '--quiet']);
     const child = spawn(spawnArgs[0], spawnArgs[1], {
       detached: true,
       stdio: 'ignore',
@@ -151,10 +159,7 @@ function firstRunAutoEnableIfEligible() {
     const cliBin = resolveCliBinForHook();
     const runDetached = (args) => {
       try {
-        const spawnArgs = cliBin
-          ? [process.execPath, [cliBin, ...args]]
-          : [process.platform === 'win32' ? 'npx.cmd' : 'npx',
-             ['--prefer-offline', '@claude-flow/cli', ...args]];
+        const spawnArgs = cliSpawnArgs(cliBin, args);
         const child = spawn(spawnArgs[0], spawnArgs[1], {
           detached: true, stdio: 'ignore', env: process.env, windowsHide: true,
         });
@@ -208,6 +213,198 @@ function spawnDetachedAdvisorRefresh() {
   spawnDetachedHookRefresh('refresh-advisor');
 }
 
+// ── Settings-risk scan for the automatic SessionStart hook ────────────────
+//
+// Mirrors v3/@claude-flow/cli/src/init/settings-risk-scanner.ts's
+// `scanSettingsForRisk()`/`formatRiskFindingsAsWarnings()`. That TS scanner
+// already runs at `ruflo init`/`--upgrade` time and (via the
+// `hooks_session-restore` MCP/CLI tool handler) on an explicit
+// `session-restore` call — but neither covers the one path that actually
+// fires automatically, unconditionally, on every real Claude Code session
+// boot: THIS file, invoked as the `SessionStart` hook configured in
+// .claude/settings.json itself. That is precisely the persistence mechanism
+// used by the real 2026 "Mini Shai-Hulud" npm-worm campaign (a malicious
+// SessionStart hook written into settings.json re-fires on every session,
+// surviving removal of the original infected package) and the escalation
+// path closed by CVE-2026-25725 in Claude Code's own sandbox. hook-handler.cjs
+// has no build step and cannot import the TS module, so this is a deliberate
+// CJS port — keep the pattern lists in sync with settings-risk-scanner.ts;
+// see the logic-parity test guarding this.
+//
+// Advisory-only: never mutates settings.json, never blocks session-restore.
+// A missing settings.json or any JSON.parse failure yields zero findings
+// silently. Unlike the opt-in `hooks_session-restore` MCP-tool path (#3835,
+// which narrows its catch to SyntaxError only so a real scanner bug
+// surfaces), THIS path fires unconditionally on every real session boot —
+// an adversarial review of this exact candidate flagged that narrowing the
+// same way here would let a non-SyntaxError JSON.parse failure (e.g. a V8
+// RangeError on deeply-nested JSON) abort session-restore itself, not just
+// skip the scan. "Can't scan it" and "can't parse it" are the same case
+// here, so any parse failure degrades to zero findings.
+const SR_DANGEROUS_COMMAND_WORDS = [
+  'rm', 'rmdir', 'del', 'format', 'mkfs', 'dd', 'chmod', 'chown',
+  'kill', 'killall', 'pkill', 'reboot', 'shutdown', 'poweroff', 'halt',
+  'sudo', 'eval',
+];
+const SR_SHELL_EXEC_WORDS = ['bash', 'sh', 'zsh', 'python', 'python3', 'perl', 'ruby', 'eval'];
+const SR_DOWNLOADER_WORDS = ['curl', 'wget'];
+const SR_STANDALONE_RISK_PATTERNS = [
+  /\bInvoke-Expression\b/i,
+  /\biex\s*\(/i,
+  /\/dev\/tcp\//i,
+  /\bnc\s+-e\b/i,
+  /base64\s+(-d|--decode)\b/i,
+];
+const SR_RISKY_PREAPPROVE_WORDS = [...SR_DANGEROUS_COMMAND_WORDS, ...SR_SHELL_EXEC_WORDS, ...SR_DOWNLOADER_WORDS];
+
+// Encoded PowerShell (`powershell[.exe] ... -e|-enc|-encodedcommand <payload>`),
+// matched on whitespace-separated tokens in ONE linear pass. The earlier regex
+// (`powershell\\s+(?:\\S+\\s+)*?-e...`) is quadratic on repeated "powershell "
+// tokens (every start rescans the tail: 256KB measured ~2.5s, 1MB ~40s) because
+// the lazy token loop re-runs from each start. Same semantics: a token ending in
+// powershell/powershell.exe, then LATER a token that is exactly -e/-enc/
+// -encodedcommand, then at least one more token.
+function srHasEncodedPowershell(command) {
+  let seenPs = false;
+  let pendingEnc = false;
+  for (const raw of String(command).split(/\s+/)) {
+    if (!raw) continue;
+    if (pendingEnc) return true;
+    const t = raw.toLowerCase();
+    if (seenPs && (t === '-e' || t === '-enc' || t === '-encodedcommand')) pendingEnc = true;
+    else if (t.endsWith('powershell') || t.endsWith('powershell.exe')) seenPs = true;
+  }
+  return false;
+}
+
+function srWordBoundaryMatches(text, word) {
+  return new RegExp(`\\b${word}\\b`, 'i').test(text);
+}
+
+function srScanCommandStringForRisk(command) {
+  const reasons = [];
+  if (srHasEncodedPowershell(command) || SR_STANDALONE_RISK_PATTERNS.some((pattern) => pattern.test(command))) {
+    reasons.push('matches a known-dangerous execution pattern (encoded/remote command execution)');
+  }
+  const hasDownloader = SR_DOWNLOADER_WORDS.some((w) => srWordBoundaryMatches(command, w));
+  const hasShellExec = SR_SHELL_EXEC_WORDS.some((w) => srWordBoundaryMatches(command, w));
+  if (hasDownloader && hasShellExec) {
+    reasons.push('combines a downloader (curl/wget) with a shell/interpreter invocation in the same command');
+  }
+  for (const word of SR_DANGEROUS_COMMAND_WORDS) {
+    if (srWordBoundaryMatches(command, word)) {
+      reasons.push(`invokes dangerous command "${word}"`);
+    }
+  }
+  return reasons;
+}
+
+function srScanAllowRuleForRisk(rule) {
+  const trimmed = rule.trim();
+  const reasons = [];
+  if (/^Bash\(\s*\*\s*(:\s*\*\s*)?\)$/i.test(trimmed)) {
+    reasons.push('grants unrestricted Bash execution (wildcard allow rule)');
+  }
+  for (const word of SR_RISKY_PREAPPROVE_WORDS) {
+    if (new RegExp(`^Bash\\(\\s*${word}\\s*(:| |\\))`, 'i').test(trimmed)) {
+      reasons.push(`pre-allows "${word}" with no per-call confirmation`);
+    }
+  }
+  return reasons;
+}
+
+// Strips ANSI/control characters from untrusted text before it's ever
+// embedded in a warning string printed to the terminal (same rationale as
+// settings-risk-scanner.ts's sanitizeForDisplay()).
+function srSanitizeForDisplay(text) {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+function srBuildSnippet(text) {
+  const clean = srSanitizeForDisplay(text);
+  return clean.length > 120 ? `${clean.slice(0, 120)}…` : clean;
+}
+
+function srScanSettingsForRisk(settings) {
+  const findings = [];
+  const hooks = settings && settings.hooks;
+  if (hooks && typeof hooks === 'object') {
+    for (const [eventName, groups] of Object.entries(hooks)) {
+      if (!Array.isArray(groups)) continue;
+      groups.forEach((group, groupIdx) => {
+        const hookList = group && group.hooks;
+        if (!Array.isArray(hookList)) return;
+        hookList.forEach((h, hookIdx) => {
+          if (!h || typeof h.command !== 'string') return;
+          for (const reason of srScanCommandStringForRisk(h.command)) {
+            findings.push({
+              location: `hooks.${eventName}[${groupIdx}].hooks[${hookIdx}]`,
+              snippet: srBuildSnippet(h.command),
+              reason,
+            });
+          }
+        });
+      });
+    }
+  }
+  const allow = settings && settings.permissions && settings.permissions.allow;
+  if (Array.isArray(allow)) {
+    allow.forEach((rule, idx) => {
+      if (typeof rule !== 'string') return;
+      for (const reason of srScanAllowRuleForRisk(rule)) {
+        findings.push({
+          location: `permissions.allow[${idx}]`,
+          snippet: srBuildSnippet(rule),
+          reason,
+        });
+      }
+    });
+  }
+  return findings;
+}
+
+function srFormatRiskFindingsAsWarnings(findings) {
+  return findings.map((f) => `${f.location}: ${f.reason} — "${f.snippet}"`);
+}
+
+// Location + reason only, no snippet — see scanSessionStartSettingsForRisk's
+// doc comment for why the automatic boot path deliberately drops it.
+function srFormatRiskFindingsForAutomaticBoot(findings) {
+  return findings.map((f) => `${f.location}: ${f.reason}`);
+}
+
+// Reads and scans THIS project's own .claude/settings.json. Returns a
+// (possibly empty) array of warning strings; never throws on a
+// missing/malformed file.
+//
+// Deliberately omits the matched snippet (unlike srFormatRiskFindingsAsWarnings,
+// which `init`/`--upgrade` uses and which DOES include it): this function's
+// only caller is the 'session-restore' handler below, whose stdout is read
+// back into the live Claude Code session as context — not a human reading a
+// terminal. Printing up to 120 characters of attacker-controlled settings.json
+// content into that context is a prompt-injection path even with control
+// characters stripped (flagged by review on PR #4053). The location and
+// static reason string are both scanner-generated, never attacker content.
+function scanSessionStartSettingsForRisk() {
+  const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const settingsPath = path.join(projectRoot, '.claude', 'settings.json');
+  let raw;
+  try {
+    raw = fs.readFileSync(settingsPath, 'utf-8');
+  } catch (e) {
+    return []; // no settings.json (or unreadable) — nothing to scan
+  }
+  let settings;
+  try {
+    settings = JSON.parse(raw);
+  } catch (e) {
+    return []; // can't parse it, so can't scan it — never block session-restore for this
+  }
+  if (!settings || typeof settings !== 'object') return [];
+  return srFormatRiskFindingsForAutomaticBoot(srScanSettingsForRisk(settings));
+}
+
 // Safe require with stdout suppression - the helper modules have CLI
 // sections that run unconditionally on require(), so we mute console
 // during the require to prevent noisy output.
@@ -232,9 +429,9 @@ function safeRequire(modulePath) {
   return null;
 }
 
-const router = safeRequire(path.join(helpersDir, 'router.js'));
-const session = safeRequire(path.join(helpersDir, 'session.js'));
-const memory = safeRequire(path.join(helpersDir, 'memory.js'));
+const router = safeRequire(path.join(helpersDir, 'router.cjs'));
+const session = safeRequire(path.join(helpersDir, 'session.cjs'));
+const memory = safeRequire(path.join(helpersDir, 'memory.cjs'));
 const intelligence = safeRequire(path.join(helpersDir, 'intelligence.cjs'));
 
 // ── Intelligence timeout protection (fixes #1530, #1531) ───────────────────
@@ -286,6 +483,17 @@ async function readStdin() {
   });
 }
 
+// ADR-404: the ruflo mod (plugins/ruflo-mods) runs these events in-process
+// inside Claude Code and sets RUFLO_MODS_OWNS on the process, which every hook
+// started after inherits. An event named there is the mod's; returning here
+// keeps it from firing twice. Only side-effect events can be handed over:
+// guards such as pre-bash always run, whatever the variable says.
+const MOD_OWNABLE_EVENTS = new Set(['route', 'post-edit']);
+function ownedByMod(cmd, env = process.env) {
+  if (!MOD_OWNABLE_EVENTS.has(cmd)) return false;
+  return String(env.RUFLO_MODS_OWNS || '').split(',').some((owned) => owned.trim() === cmd);
+}
+
 function claimSideEffectEvent(family, stdinData, event) {
   if (/^(1|true|yes|on)$/i.test(process.env.RUFLO_DISABLE_HOOK_DEDUP || '')) return true;
   try {
@@ -312,6 +520,8 @@ function claimSideEffectEvent(family, stdinData, event) {
 }
 
 async function main() {
+  if (ownedByMod(command)) return;
+
   // Global safety timeout: hooks must NEVER hang (#1530, #1531)
   const safetyTimer = setTimeout(() => {
     process.stderr.write("[WARN] Hook handler global timeout (5s), forcing exit\n");
@@ -366,26 +576,47 @@ async function main() {
 const handlers = {
   'route': () => {
     // Inject ranked intelligence context before routing
-    if (intelligence && intelligence.getContext) {
+    // ADR-472: keep the detailed recall so ONE bounded log record (ids, scores, router pick; never the prompt) is appended after routing.
+    let recall = null;
+    if (intelligence && (intelligence.getContextDetailed || intelligence.getContext)) {
       try {
-        const ctx = intelligence.getContext(prompt);
-        if (ctx) console.log(ctx);
+        if (intelligence.getContextDetailed) {
+          recall = intelligence.getContextDetailed(prompt);
+          if (recall && recall.text) console.log(recall.text);
+        } else {
+          const ctx = intelligence.getContext(prompt);
+          if (ctx) console.log(ctx);
+        }
       } catch (e) { /* non-fatal */ }
     }
+    const logRecall = (result) => {
+      try {
+        if (recall && intelligence.appendRecall) {
+          intelligence.appendRecall(recall, {
+            sessionId: hookInput.session_id || hookInput.sessionId || null,
+            agent: result && result.agent,
+            confidence: result && result.confidence,
+          });
+        }
+      } catch (e) { /* non-fatal: the log never blocks a prompt */ }
+    };
     if (router && router.routeTask) {
       const result = router.routeTask(prompt);
+      logRecall(result);
       // Format output for Claude Code hook consumption — real data only
+      const row = (text) => `| ${text.substring(0, 60).padEnd(60)} |`;
       const output = [
         `[INFO] Routing task: ${prompt.substring(0, 80) || '(no prompt)'}`,
         '',
         '+------------------- Primary Recommendation -------------------+',
-        `| Agent: ${result.agent.padEnd(53)}|`,
-        `| Confidence: ${(result.confidence * 100).toFixed(1)}%${' '.repeat(44)}|`,
-        `| Reason: ${(result.reason || '').substring(0, 53).padEnd(53)}|`,
+        row(`Agent: ${result.agent}`),
+        row(`Confidence: ${(result.confidence * 100).toFixed(1)}%`),
+        row(`Reason: ${result.reason || ''}`),
         '+--------------------------------------------------------------+',
       ];
       console.log(output.join('\n'));
     } else {
+      logRecall(null);
       console.log('[INFO] Router not available, using default routing');
     }
 
@@ -449,10 +680,228 @@ const handlers = {
     // (silently exiting 0 and letting the dangerous command through).
     const cmd = String(hookInput.command || toolInput.command || prompt || '').toLowerCase();
     const dangerous = ['rm -rf /', 'format c:', 'del /s /q c:\\', ':(){:|:&};:'];
+    // Join literal quote fragments and normalize root paths without shell evaluation.
+    function hasRootDelete(command, depth = 0) {
+      // mask has one letter per character of word: 'u' unquoted, 'q' quoted or escaped (only unquoted braces expand).
+      let word = '', mask = '', quote = '', started = false, redirect = false
+      let ansiNul = false // a NUL inside $'...' ends that string, as in bash
+      let inRm = false, optionsEnded = false, recursive = false, force = false, root = false
+      const isRoot = (operand) => {
+        if (!operand.startsWith('/')) return false
+        const parts = []
+        for (const part of operand.split('/')) {
+          if (!part || part === '.') continue
+          if (part === '..') parts.pop()
+          else parts.push(part)
+        }
+        return parts.length === 0 || /[*?\[]/.test(parts[0])
+      }
+      // One backslash escape inside $'...', from the character after the backslash.
+      // Returns the text it stands for and the index of its last character. An unknown escape keeps its backslash.
+      // The command arrives lowercased, so an uppercase-U escape reads as a lowercase one: eight digits starting 0000 are one code point.
+      const ansiEscape = (s, at) => {
+        const c = s[at]
+        const simple = { a: '\x07', b: '\b', e: '\x1b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
+        if (simple[c] !== undefined) return [simple[c], at]
+        const digits = (from, max, pattern) => pattern.exec(s.slice(from, from + max))?.[0]
+        const octal = digits(at, 3, /^[0-7]+/)
+        if (octal) return [String.fromCharCode(parseInt(octal, 8) & 255), at + octal.length - 1]
+        const hex = c === 'x' ? digits(at + 1, 2, /^[0-9a-f]+/) : undefined
+        if (hex) return [String.fromCharCode(parseInt(hex, 16)), at + hex.length]
+        const wide = c === 'u' ? (digits(at + 1, 8, /^0000[0-9a-f]{4}$/) ?? digits(at + 1, 4, /^[0-9a-f]+/)) : undefined
+        if (wide) return [String.fromCodePoint(parseInt(wide, 16)), at + wide.length]
+        if (c === 'c' && at + 1 < s.length) return [String.fromCharCode(s.charCodeAt(at + 1) & 31), at + 1]
+        return ['\\' + c, at]
+      }
+      // Past the rescan bound (or the brace budget), a string is judged by its tokens: an rm and a possible root operand
+      // anywhere in it deny. Quote characters are dropped first, so r"m" is still rm; a path token with braces may expand to /.
+      const looseRootDelete = (text) => {
+        const tokens = text.replace(/["'\\]/g, '').split(/[\s;&|()\x60$]+/)
+        return tokens.some(t => t === 'rm' || t.endsWith('/rm')) && tokens.some(t => isRoot(t) || (t.includes('/') && /[{}]/.test(t)))
+      }
+      // Bash brace expansion of one word ({a,b} lists, nested or glued to text), and nothing else: no {1..3} sequences, and
+      // nothing inside parameter braces after a dollar sign. Only unquoted braces and commas count. Iterative and bounded:
+      // past BRACE_WORDS words or BRACE_CHARS characters of work in this call it returns undefined.
+      const BRACE_WORDS = 4096
+      let braceChars = 1_000_000
+      // The leftmost expandable group: an unquoted {...} with an unquoted comma at its own level, outside any dollar-brace parameter. One pass.
+      const firstGroup = (text, marks) => {
+        const stack = []
+        let dollars = 0
+        let best
+        for (let k = 0; k < text.length; k++) {
+          if (marks[k] !== 'u') continue
+          const c = text[k]
+          if (c === '{') {
+            const dollar = k > 0 && text[k - 1] === '$' && marks[k - 1] === 'u'
+            if (dollar) dollars++
+            stack.push({ open: k, commas: [], dollar: dollar || dollars > 0 })
+          } else if (c === ',' && stack.length > 0) stack[stack.length - 1].commas.push(k)
+          else if (c === '}' && stack.length > 0) {
+            const top = stack.pop()
+            if (top.dollar && text[top.open - 1] === '$' && marks[top.open - 1] === 'u') dollars--
+            if (!top.dollar && top.commas.length > 0 && (best === undefined || top.open < best[0])) best = [top.open, top.commas, k]
+          }
+        }
+        return best
+      }
+      const braceExpand = (text, marks) => {
+        const out = []
+        const todo = [[text, marks]]
+        while (todo.length > 0) {
+          const [t, m] = todo.pop()
+          if ((braceChars -= t.length) < 0) return undefined
+          const group = firstGroup(t, m)
+          if (group === undefined) {
+            out.push(t)
+            if (out.length > BRACE_WORDS) return undefined
+            continue
+          }
+          const [open, commas, close] = group
+          const cuts = [open, ...commas, close]
+          // Pushed in reverse, so the words come out in bash's left-to-right order.
+          for (let c = cuts.length - 2; c >= 0; c--) {
+            const from = cuts[c] + 1, to = cuts[c + 1]
+            todo.push([t.slice(0, open) + t.slice(from, to) + t.slice(close + 1), m.slice(0, open) + m.slice(from, to) + m.slice(close + 1)])
+          }
+          if (todo.length > BRACE_WORDS) return undefined
+        }
+        return out
+      }
+      const takeWord = (w) => {
+        if (!inRm) inRm = w === 'rm' || w.endsWith('/rm')
+        else if (!optionsEnded && w === '--') optionsEnded = true
+        else if (!optionsEnded && w.startsWith('-')) {
+          // GNU getopt accepts any unambiguous long-option prefix: --r, --recur, --forc.
+          recursive = recursive || (w.length > 2 && '--recursive'.startsWith(w)) || (/^-[a-z]*$/.test(w) && w.includes('r'))
+          force = force || (w.length > 2 && '--force'.startsWith(w)) || (/^-[a-z]*$/.test(w) && w.includes('f'))
+        } else root = root || isRoot(w)
+        return inRm && recursive && force && root
+      }
+      const finishWord = () => {
+        if (!started) return false
+        const text = word, marks = mask
+        word = ''; mask = ''; started = false
+        // Literal shell strings (e.g. sh -c 'rm -rf /', or sh -c '{rm,-rf,/}') also carried the old guard.
+        // Bound rescanning to four levels; beyond that judge the string by its tokens.
+        if (/[\s;&|()\x60{]/.test(text)) {
+          if (depth < 4 ? hasRootDelete(text, depth + 1) : looseRootDelete(text)) return true
+        }
+        // An unquoted {a,b} becomes separate words, as bash expands it: rm -rf {/*,} is rm -rf /*.
+        const words = text.includes('{') ? braceExpand(text, marks) : [text]
+        if (words === undefined) {
+          // Too many alternatives to check: one of them may be the root (an rm in progress fails closed), or the
+          // list itself may spell the rm: judge its tokens.
+          if (inRm) root = true
+          if (looseRootDelete(text.replace(/[{},]/g, ' '))) return true
+          return takeWord(text)
+        }
+        for (const w of words) if (w !== '' && takeWord(w)) return true
+        return false
+      }
+      // A command substitution's body, from just after its opening backtick. Bash removes a
+      // backslash only before $, a backtick or a backslash (and " inside double quotes) and
+      // drops backslash-newline; any other backslash stays for the nested scan.
+      const substitution = (from, inDouble) => {
+        let body = '', j = from
+        for (; j < command.length && command[j] !== '\x60'; j++) {
+          const next = command[j + 1]
+          if (command[j] === '\\' && j + 1 < command.length) {
+            if (next === '\n') { j++; continue }
+            if (next === '$' || next === '\x60' || next === '\\' || (inDouble && next === '"')) { body += next; j++; continue }
+          }
+          body += command[j]
+        }
+        return [j, depth < 4 ? hasRootDelete(body, depth + 1) : looseRootDelete(body)]
+      }
+      const finishCommand = () => {
+        const denied = inRm && recursive && force && root
+        inRm = optionsEnded = recursive = force = root = false
+        return denied
+      }
+      for (let i = 0; i < command.length; i++) {
+        const char = command[i]
+        const redirectionAmpersand = char === '&' && (redirect || command[i + 1] === '>')
+        redirect = false
+        if (quote) {
+          if (quote === "$'") {
+            if (char === "'") { quote = ''; ansiNul = false }
+            else if (char === '\\' && i + 1 < command.length) {
+              const [text, last] = ansiEscape(command, i + 1)
+              i = last
+              if (!ansiNul) { const nul = text.indexOf('\0'); const kept = nul < 0 ? text : text.slice(0, nul); word += kept; mask += 'q'.repeat(kept.length); if (nul >= 0) ansiNul = true }
+            } else if (!ansiNul) { word += char; mask += 'q' }
+            continue
+          }
+          if (char === quote) quote = ''
+          else if (quote === '"' && char === '\x60' && command.indexOf('\x60', i + 1) > i) {
+            const [end, denied] = substitution(i + 1, true)
+            if (denied) return true
+            // The substitution is gone from the word, as bash's empty output is (a quoted empty substitution glued to -rf leaves -rf).
+            // A # right after it is still inside the word: a placeholder keeps a rescan (sh -c "...")
+            // from reading it as the start of a comment.
+            if (command[end + 1] === '#') { word += '\u0001'; mask += 'q' }
+            i = end
+          }
+          else if (quote === '"' && char === '\\' && i + 1 < command.length &&
+            (command[i + 1] === '"' || command[i + 1] === '\\' || command[i + 1] === '$' ||
+              command.charCodeAt(i + 1) === 96 || command[i + 1] === '\n')) {
+            const next = command[++i]
+            if (next !== '\n') { word += next; mask += 'q' }
+          } else { word += char; mask += 'q' }
+          continue
+        }
+        if (char === '\\' && i + 1 < command.length) {
+          const next = command[++i]
+          if (next !== '\n') { word += next; mask += 'q'; started = true }
+        } else if (char === '\x60' && command.indexOf('\x60', i + 1) > i) {
+          // Command substitution: scan the body as its own command; the substitution
+          // stays inside the enclosing word, so the rm being parsed keeps its state,
+          // and the word has started (a # right after it is not a comment).
+          const [end, denied] = substitution(i + 1, false)
+          if (denied) return true
+          i = end; started = true
+        } else if (char === '$' && (command[i + 1] === "'" || command[i + 1] === '"')) {
+          // ANSI-C ($'...': escapes decoded) and locale ($"...") quoting: the $ is not part of the word.
+          quote = command[i + 1] === "'" ? "$'" : '"'; started = true; i++
+        } else if (char === '"' || char === "'") {
+          quote = char; started = true
+        } else if (char === '#' && !started) {
+          while (i < command.length && command[i] !== '\n') i++
+          if (finishCommand()) return true
+        } else if (char === ' ' || char === '\t' || char === '\r' || char === '\n' ||
+          ';|&()<>'.includes(char)) {
+          if (finishWord()) return true
+          // Redirections separate words, but later operands still belong to rm.
+          redirect = char === '<' || char === '>'
+          if (!redirectionAmpersand && (char === '\n' || ';|&()'.includes(char)) && finishCommand()) return true
+        } else {
+          word += char; mask += 'u'; started = true
+        }
+      }
+      return finishWord() || finishCommand()
+    }
+
+    // A fork bomb's definition as bash reads it, whatever the spacing or the name: f(){ f|f& }, function f { f|f& },
+    // function f(){ f|f& }. Defining one is the danger: the call may come anywhere later.
+    function hasForkBomb(command) {
+      const s = command.replace(/\s+/g, '')
+      for (let brace = s.indexOf('{'); brace >= 0; brace = s.indexOf('{', brace + 1)) {
+        const end = s.startsWith('()', brace - 2) ? brace - 2 : brace
+        let start = end
+        while (start > 0 && end - start < 72 && /[a-z0-9_:.-]/.test(s[start - 1])) start--
+        const run = s.slice(start, end)
+        for (const name of run.startsWith('function') && run.length > 8 ? [run, run.slice(8)] : [run]) {
+          if (name && s.startsWith(name + '|' + name + '&}', brace + 1)) return true
+        }
+      }
+      return false
+    }
     for (const d of dangerous) {
-      if (cmd.includes(d)) {
+      if (d === 'rm -rf /' ? hasRootDelete(cmd) : d === ':(){:|:&};:' ? hasForkBomb(cmd) : cmd.includes(d)) {
         console.error(`[BLOCKED] Dangerous command detected: ${d}`);
-        process.exit(1);
+        // Claude Code PreToolUse: exit 2 blocks execution; exit 1 is non-blocking.
+        process.exit(2);
       }
     }
     console.log('[OK] Command validated');
@@ -480,6 +929,11 @@ const handlers = {
     // Fully non-blocking (detached spawn) so session-restore latency
     // is unchanged.
     firstRunAutoEnableIfEligible();
+    // Advisory-only settings.json risk scan — see scanSessionStartSettingsForRisk's
+    // own doc comment for why this runs specifically on this automatic path.
+    for (const warning of scanSessionStartSettingsForRisk()) {
+      console.log(`[WARN] ${warning}`);
+    }
     if (session) {
       // Try restore first, fall back to start
       const existing = session.restore && session.restore();
@@ -585,8 +1039,8 @@ const handlers = {
   }
 }
 
-// Hooks must ALWAYS exit 0 — Claude Code treats non-zero as "hook error"
-// and skips all subsequent hooks for the event.
+// Non-blocking hooks exit 0; pre-bash denials exit 2 to block PreToolUse.
+// A denial exits immediately, before the normal completion path below.
 //
 // Only dispatch when run directly (node hook-handler.cjs <cmd>). When
 // require()'d by a test, expose the internals instead of reading stdin and
@@ -603,4 +1057,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS };
+// Which sibling helpers loaded (all CommonJS, shipped as .cjs — #3555).
+const loadedHelpers = { router: !!router, session: !!session, memory: !!memory, intelligence: !!intelligence };
+
+module.exports = { runWithTimeout, INTELLIGENCE_TIMEOUT_MS, loadedHelpers, ownedByMod, MOD_OWNABLE_EVENTS, resolveCliBinForHook, cliSpawnArgs, helperRoot, scanSessionStartSettingsForRisk, srFormatRiskFindingsForAutomaticBoot, srScanSettingsForRisk, srScanCommandStringForRisk, srScanAllowRuleForRisk, SR_DANGEROUS_COMMAND_WORDS, SR_SHELL_EXEC_WORDS, SR_DOWNLOADER_WORDS, SR_STANDALONE_RISK_PATTERNS };

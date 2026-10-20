@@ -224,7 +224,7 @@ export class OutputFormatter {
     const { columns, data, border = true, header = true, padding = 1, maxWidth } = options;
 
     // Calculate column widths
-    const widths = this.calculateColumnWidths(columns, data, maxWidth);
+    const widths = this.calculateColumnWidths(columns, data, maxWidth, padding);
 
     const lines: string[] = [];
     const pad = ' '.repeat(padding);
@@ -294,11 +294,12 @@ export class OutputFormatter {
   private calculateColumnWidths(
     columns: TableColumn[],
     data: Record<string, unknown>[],
-    maxWidth?: number
+    maxWidth?: number,
+    padding: number = 1
   ): number[] {
     const widths = columns.map((col, i) => {
       // Start with header width
-      let width = col.header.length;
+      let width = this.stripAnsi(col.header).length;
 
       // Check all data values
       for (const row of data) {
@@ -320,7 +321,7 @@ export class OutputFormatter {
 
     // Apply max width constraint
     if (maxWidth) {
-      const totalWidth = widths.reduce((a, b) => a + b, 0) + (columns.length * 3) + 1;
+      const totalWidth = widths.reduce((a, b) => a + b, 0) + (columns.length * (2 * padding + 1)) + 1;
       if (totalWidth > maxWidth) {
         const reduction = (totalWidth - maxWidth) / columns.length;
         return widths.map(w => Math.max(3, Math.floor(w - reduction)));
@@ -370,6 +371,7 @@ export class OutputFormatter {
   private truncate(text: string, maxLength: number): string {
     const stripped = this.stripAnsi(text);
     if (stripped.length <= maxLength) return text;
+    if (maxLength <= 3) return '.'.repeat(Math.max(0, maxLength));
     return stripped.slice(0, maxLength - 3) + '...';
   }
 
@@ -385,15 +387,15 @@ export class OutputFormatter {
     return new Progress(this, options);
   }
 
-  progressBar(current: number, total: number, width: number = 40): string {
-    const percent = Math.min(100, Math.max(0, (current / total) * 100));
+  progressBar(current: number, total: number, width: number = 40, showPercentage: boolean = true): string {
+    const percent = total === 0 ? 100 : Math.min(100, Math.max(0, (current / total) * 100));
     const filled = Math.round((width * percent) / 100);
     const empty = width - filled;
 
     const bar = this.color('#'.repeat(filled), 'green') +
                 this.dim('-'.repeat(empty));
 
-    return `[${bar}] ${percent.toFixed(1)}%`;
+    return `[${bar}]${showPercentage ? ` ${percent.toFixed(1)}%` : ''}`;
   }
 
   // ============================================
@@ -442,7 +444,7 @@ export class OutputFormatter {
 
   box(content: string, title?: string): string {
     const lines = content.split('\n');
-    const maxLen = Math.max(...lines.map(l => this.stripAnsi(l).length), title?.length ?? 0);
+    const maxLen = Math.max(...lines.map(l => this.stripAnsi(l).length), this.stripAnsi(title ?? '').length);
     const width = maxLen + 4;
 
     const border = {
@@ -456,8 +458,9 @@ export class OutputFormatter {
     // Top border with optional title
     if (title) {
       const titleText = ` ${title} `;
-      const leftPad = Math.floor((width - titleText.length - 2) / 2);
-      const rightPad = width - titleText.length - leftPad - 2;
+      const titleWidth = this.stripAnsi(titleText).length;
+      const leftPad = Math.floor((width - titleWidth - 2) / 2);
+      const rightPad = width - titleWidth - leftPad - 2;
       result.push(
         border.topLeft +
         border.horizontal.repeat(leftPad) +
@@ -529,7 +532,8 @@ export class Progress {
   }
 
   render(): void {
-    const bar = this.formatter.progressBar(this.current, this.total, this.width);
+    if (!this.formatter.supportsInteractiveOutput() || this.formatter.isQuiet()) return;
+    const bar = this.formatter.progressBar(this.current, this.total, this.width, this.showPercentage);
 
     let output = bar;
 
@@ -546,7 +550,7 @@ export class Progress {
 
     // Clear previous line and write new
     if (this.lastRender) {
-      process.stdout.write('\r' + ' '.repeat(this.lastRender.length) + '\r');
+      process.stdout.write('\r\x1b[2K');
     }
 
     process.stdout.write(output);
@@ -556,7 +560,9 @@ export class Progress {
   finish(): void {
     this.current = this.total;
     this.render();
-    process.stdout.write('\n');
+    if (this.formatter.supportsInteractiveOutput() && !this.formatter.isQuiet()) {
+      process.stdout.write('\n');
+    }
   }
 
   private formatTime(ms: number): string {

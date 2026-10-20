@@ -17,6 +17,7 @@ export {
   PluginDiscoveryService,
   createPluginDiscoveryService,
   DEFAULT_PLUGIN_STORE_CONFIG,
+  registryStatus,
   type PluginDiscoveryResult,
 } from './discovery.js';
 

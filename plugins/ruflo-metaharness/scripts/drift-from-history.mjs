@@ -32,6 +32,8 @@
 //   2  config / input error (no history available, etc.)
 //   3  upstream metaharness absent — degraded payload returned
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { spawnSync, spawn } from 'node:child_process';
 // iter 78 — share the iter-63 SEVERITY_RANK for the new finding-alert gate
 import { rankSeverity } from './_harness.mjs';
@@ -44,6 +46,17 @@ const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const NS = process.env.METAHARNESS_AUDIT_NAMESPACE || 'metaharness-audit';
 // Memory access is delegated to audit-list / oia-audit / audit-trend (they
 // call the shipping ruflo CLI through _invoke.runRufloCli — #3366).
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--baseline-since': 'value',
+  '--baseline-key': 'value',
+  '--baseline-file': 'value',
+  '--threshold': 'value',
+  '--dry-run': null,
+  '--format': 'value',
+  '--alert-on-new-severity': 'value',
+}, "Runs a fresh audit. --dry-run skips persisting it; analysis tools still run.");
 
 const ARGS = (() => {
   const a = {

@@ -1,3 +1,4 @@
+import { feedbackPatternsSchema, validateFeedbackPatterns } from '../memory/feedback-patterns.js';
 /**
  * Hooks MCP Tools
  * Provides intelligent hooks functionality via MCP protocol
@@ -5,9 +6,10 @@
 
 import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import * as nodeFs from 'fs';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validatePath } from './validate-input.js';
+import { commandRecordingDisabled, redactCommandForStorage } from '../services/command-recording.js';
 import { checkCommandLoop, recordCommandOutcome } from './tool-loop-guardrail.js';
 import {
   buildLearnedRoutingPatterns,
@@ -75,6 +77,7 @@ let storeEntryFn: ((options: {
   generateEmbeddingFlag?: boolean;
   tags?: string[];
   ttl?: number;
+  upsert?: boolean;
 }) => Promise<{
   success: boolean;
   id: string;
@@ -508,8 +511,69 @@ interface TrajectoryData {
   endedAt?: string;
 }
 
-// In-memory trajectory tracking (persisted on end)
+// Cache pending trajectories; the existing memory store also persists checkpoints.
 const activeTrajectories = new Map<string, TrajectoryData>();
+const dirtyTrajectories = new Set<string>();
+const trajectoryOperations = new Map<string, Promise<void>>();
+
+/** Serialize read/modify/checkpoint operations for a trajectory in this process. */
+async function withTrajectoryOperation<T>(id: string, operation: () => Promise<T>): Promise<T> {
+  const previous = trajectoryOperations.get(id) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const current = previous.then(() => gate);
+  trajectoryOperations.set(id, current);
+  await previous;
+  try { return await operation(); }
+  finally {
+    release();
+    if (trajectoryOperations.get(id) === current) trajectoryOperations.delete(id);
+  }
+}
+
+
+async function persistPendingTrajectory(trajectory: TrajectoryData): Promise<boolean> {
+  dirtyTrajectories.add(trajectory.id);
+  try {
+    const store = await getRealStoreFunction();
+    const result = await store?.({
+      key: `trajectory-pending-${trajectory.id}`, value: JSON.stringify(trajectory),
+      namespace: 'trajectories', tags: [trajectory.agent, 'pending', 'sona-trajectory'], upsert: true,
+    });
+    if (result?.success === true) dirtyTrajectories.delete(trajectory.id);
+    return result?.success === true;
+  } catch { return false; }
+}
+
+async function loadPendingTrajectory(id: string): Promise<TrajectoryData | undefined> {
+  try {
+    const { getEntry } = await import('../memory/memory-initializer.js');
+    // A completed record is authoritative even if pending-record cleanup failed
+    // or another process still has an old cache entry.
+    const completed = await getEntry({ key: `trajectory-${id}`, namespace: 'trajectories' });
+    if (completed.success && completed.found) {
+      activeTrajectories.delete(id);
+      dirtyTrajectories.delete(id);
+      return undefined;
+    }
+    // Failed checkpoints must not erase already-acknowledged live steps.
+    // Clean caches still reload so another process's later checkpoint is seen.
+    if (dirtyTrajectories.has(id) && activeTrajectories.has(id)) return activeTrajectories.get(id);
+    const pending = await getEntry({ key: `trajectory-pending-${id}`, namespace: 'trajectories' });
+    if (pending.success && pending.found) {
+      const value = JSON.parse(pending.entry?.content ?? 'null');
+      if (!value || value.id !== id || typeof value.task !== 'string' || typeof value.agent !== 'string'
+        || typeof value.startedAt !== 'string' || !Number.isFinite(Date.parse(value.startedAt))
+        || !Array.isArray(value.steps) || !value.steps.every((step: any) => step
+          && typeof step.action === 'string' && typeof step.result === 'string'
+          && typeof step.quality === 'number' && Number.isFinite(step.quality)
+          && typeof step.timestamp === 'string')) return undefined;
+      activeTrajectories.set(id, value);
+      return value;
+    }
+  } catch { /* store unavailable: retain same-process best-effort tracking */ }
+  return activeTrajectories.get(id);
+}
 
 // Memory store types and helpers
 interface MemoryEntry {
@@ -522,6 +586,7 @@ interface MemoryEntry {
   storedAt: string;
   accessCount: number;
   lastAccessed: string;
+  expiresAt?: string;
 }
 
 interface MemoryStore {
@@ -829,12 +894,53 @@ const KEYWORD_MATCHERS = Object.entries(KEYWORD_PATTERNS).map(([keyword, result]
   return { regex: new RegExp(`\\b${body}\\b`, 'i'), result };
 });
 
+/**
+ * Confidence for a task nothing matched (#3567). It must rank below every real
+ * signal: keyword hits are >= 0.8, learned outcomes >= 0.7, and a semantic
+ * match is only eligible above 0.4. Matches the helper router's 0.3 fall-through.
+ */
+export const NO_MATCH_CONFIDENCE = 0.3;
+
+export interface TaskAgentSuggestion {
+  agents: string[];
+  confidence: number;
+  /** false when no keyword or learned pattern matched; the agents are a default, not a decision. */
+  matched: boolean;
+  reason?: 'no-match-default';
+  note?: string;
+}
+
+/** True when the task has at least one letter or digit in any script. */
+export function hasRoutableText(task: string): boolean {
+  return /[\p{L}\p{N}]/u.test(task);
+}
+
+// Keyword matchers are English regexes; letters outside Latin script can never hit them.
+const NON_LATIN_LETTER = /(?![A-Za-zÀ-ɏ])\p{L}/u;
+
+function noMatchNote(task: string): string {
+  if (!hasRoutableText(task)) return 'Task has no words to match.';
+  if (NON_LATIN_LETTER.test(task)) {
+    return 'Keyword matchers are English-only, so non-English text cannot match them.';
+  }
+  return 'No keyword or learned pattern matched.';
+}
+
 /** Exported for tests. */
-export function suggestAgentsForTask(task: string): { agents: string[]; confidence: number } {
+export function suggestAgentsForTask(task: string): TaskAgentSuggestion {
+  const noMatch = (): TaskAgentSuggestion => ({
+    agents: ['coder', 'researcher', 'tester'],
+    confidence: NO_MATCH_CONFIDENCE,
+    matched: false,
+    reason: 'no-match-default',
+    note: noMatchNote(task),
+  });
+  if (!hasRoutableText(task)) return noMatch();
+
   // Check static keyword patterns first
   for (const { regex, result } of KEYWORD_MATCHERS) {
     if (regex.test(task)) {
-      return result;
+      return { ...result, matched: true };
     }
   }
 
@@ -856,12 +962,11 @@ export function suggestAgentsForTask(task: string): { agents: string[]; confiden
 
     // Require at least 2 keyword overlap to prevent false positives
     if (bestAgent && bestOverlap >= 2) {
-      return { agents: [bestAgent], confidence: Math.min(0.6 + bestOverlap * 0.05, 0.85) };
+      return { agents: [bestAgent], confidence: Math.min(0.6 + bestOverlap * 0.05, 0.85), matched: true };
     }
   }
 
-  // Default fallback
-  return { agents: ['coder', 'researcher', 'tester'], confidence: 0.7 };
+  return noMatch();
 }
 
 function assessCommandRisk(command: string): { risk: string; level: number; warnings: string[] } {
@@ -1079,13 +1184,19 @@ export const hooksPostCommand: MCPTool = {
     properties: {
       command: { type: 'string', description: 'Executed command' },
       exitCode: { type: 'number', description: 'Command exit code' },
+      success: { type: 'boolean', description: 'Explicit execution outcome; false records a failure even without a nonzero exit code' },
+      ttl: { type: 'integer', minimum: 1, maximum: 2147483647, description: 'Command history lifetime in seconds (default: 30 days)' },
     },
     required: ['command'],
   },
   handler: async (params: Record<string, unknown>) => {
     const command = params.command as string;
     const exitCode = (params.exitCode as number) || 0;
-    const success = exitCode === 0;
+    const success = exitCode === 0 && params.success !== false;
+    const ttl = params.ttl ?? 30 * 24 * 60 * 60;
+    if (typeof ttl !== 'number' || !Number.isSafeInteger(ttl) || ttl < 1 || ttl > 2147483647) {
+      return { success: false, recorded: false, error: 'ttl must be a positive integer number of seconds (at most 2147483647)' };
+    }
 
     { const v = validateText(command, 'command'); if (!v.valid) return { success: false, error: v.error }; }
 
@@ -1093,24 +1204,60 @@ export const hooksPostCommand: MCPTool = {
     // repeated consecutive failures of the same command.
     recordCommandOutcome(command, success);
 
+    // #4056: command history is opt-out (CLAUDE_FLOW_HOOKS_RECORD_COMMANDS=0,
+    // CLAUDE_FLOW_HOOKS_ENABLED=false, or hooks.recordCommands=false in the
+    // config). The circuit breaker above is in-memory only; nothing below
+    // runs when recording is off, so no command text reaches the store or
+    // the trajectory pipeline.
+    if (commandRecordingDisabled(process.env, getProjectCwd())) {
+      return {
+        recorded: false,
+        disabled: true,
+        command: undefined,
+        exitCode,
+        success,
+        timestamp: new Date().toISOString(),
+        _storedIn: 'none' as const,
+        learningPath: 'recorded-only' as const,
+        trajectoriesDelta: 0,
+        note: 'Command recording is switched off (CLAUDE_FLOW_HOOKS_RECORD_COMMANDS / CLAUDE_FLOW_HOOKS_ENABLED / hooks.recordCommands); nothing was stored.',
+      };
+    }
+
+    // What is stored is the redacted, length-capped form, never the raw text.
+    const storedCommand = redactCommandForStorage(command);
+
     // Persist command outcome via AgentDB
     let _storedIn: 'agentdb' | 'json-store' | 'none' = 'none';
     try {
       const bridge = await import('../memory/memory-bridge.js');
-      await bridge.bridgeStoreEntry({
+      const stored = await bridge.bridgeStoreEntry({
         key: `cmd-${Date.now()}`,
-        value: JSON.stringify({ command, exitCode, success }),
+        value: JSON.stringify({ command: storedCommand, exitCode, success }),
         namespace: 'commands',
         tags: [success ? 'success' : 'error'],
+        ttl,
+        generateEmbeddingFlag: false,
       });
+      if (!stored?.success) throw new Error(stored?.error || 'Native bridge did not store the command');
       _storedIn = 'agentdb';
     } catch {
       // AgentDB not available — store in JSON
       try {
         const store = loadMemoryStore();
-        const key = `cmd-${Date.now()}`;
-        store.entries[key] = { key, value: JSON.stringify({ command, exitCode, success }), namespace: 'commands', createdAt: new Date().toISOString() } as any;
-        const memDir = resolve(MEMORY_DIR);
+        const now = Date.now();
+        for (const [entryKey, entry] of Object.entries(store.entries)) {
+          if (entry.namespace === 'commands' && entry.expiresAt && Date.parse(entry.expiresAt) <= now) {
+            delete store.entries[entryKey];
+          }
+        }
+        const key = `cmd-${now}`;
+        store.entries[key] = {
+          key, value: JSON.stringify({ command: storedCommand, exitCode, success }), namespace: 'commands',
+          storedAt: new Date(now).toISOString(), lastAccessed: new Date(now).toISOString(), accessCount: 0,
+          expiresAt: new Date(now + ttl * 1000).toISOString(),
+        };
+        const memDir = dirname(getMemoryPath());
         if (!existsSync(memDir)) mkdirSync(memDir, { recursive: true });
         writeFileSync(getMemoryPath(), JSON.stringify(store, null, 2), 'utf-8');
         _storedIn = 'json-store';
@@ -1127,8 +1274,8 @@ export const hooksPostCommand: MCPTool = {
       await intel.recordTrajectory(
         [{
           type: 'action',
-          content: `Command \`${command.slice(0, 200)}\` exited ${exitCode} (${success ? 'success' : 'failure'})`,
-          metadata: { hook: 'post-command', command: command.slice(0, 500), exitCode, success },
+          content: `Command \`${storedCommand.slice(0, 200)}\` exited ${exitCode} (${success ? 'success' : 'failure'})`,
+          metadata: { hook: 'post-command', command: storedCommand.slice(0, 500), exitCode, success },
           timestamp: Date.now(),
         }],
         success ? 'success' : 'failure',
@@ -1213,6 +1360,51 @@ export const hooksRoute: MCPTool = {
       } catch {
         // AgentDB router not available — fall through to local routing
       }
+
+      // Trajectory learning persists SONA outcomes separately from the local
+      // semantic index. Only consume an eligible learned pattern here; native,
+      // Q-learning and keyword suggestions retain their existing routing paths.
+      try {
+        const sonaStart = performance.now();
+        const sona = await getSONAOptimizer();
+        const suggestion = await sona?.getRoutingSuggestion(task);
+        const { isSupportedSonaAgent } = await import('../memory/sona-optimizer.js');
+        if (suggestion?.source === 'sona-pattern'
+          && Number.isFinite(suggestion.confidence)
+          && suggestion.confidence >= 0.6 && suggestion.confidence <= 1
+          && isSupportedSonaAgent(suggestion.agent)) {
+          const confidence = Math.round(suggestion.confidence * 100) / 100;
+          const complexity = task.length > 200 ? 'high' : task.length < 50 ? 'low' : 'medium';
+          return {
+            task,
+            routing: { method: 'sona-pattern', backend: 'SONA persisted keyword patterns', latencyMs: performance.now() - sonaStart, throughput: 'N/A' },
+            matched: true,
+            matchedPattern: 'sona-pattern',
+            semanticMatches: [],
+            primaryAgent: {
+              type: suggestion.agent,
+              confidence,
+              reason: `Persisted SONA outcome pattern (${Math.round(suggestion.confidence * 100)}% confidence)`,
+            },
+            alternativeAgents: suggestion.alternatives
+              .filter(alternative => isSupportedSonaAgent(alternative.agent) && Number.isFinite(alternative.score))
+              .map(alternative => ({
+                type: alternative.agent,
+                confidence: Math.round(alternative.score * 100) / 100,
+                reason: 'Alternative from persisted SONA patterns',
+              })),
+            estimatedMetrics: {
+              successProbability: confidence,
+              estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
+              complexity,
+            },
+            swarmRecommendation: null,
+            learning: { source: suggestion.source, matchedKeywords: suggestion.matchedKeywords },
+          };
+        }
+      } catch {
+        // Optional SONA state unavailable — preserve the existing local route.
+      }
     }
 
     return routeTaskLocal(task, context, useSemanticRouter);
@@ -1221,8 +1413,8 @@ export const hooksRoute: MCPTool = {
 
 /**
  * hooks_route's local routing (semantic index + keyword fallback), run after the
- * AgentDB pre-route. Shared with {@link routeTaskForBench} so the benchmark
- * measures exactly the path hooks_route takes. (Body kept at its original
+ * AgentDB and eligible SONA pre-routes. Shared with {@link routeTaskForBench}
+ * so the benchmark measures this local path. (Body kept at its original
  * indentation to keep this refactor's diff small.)
  */
 async function routeTaskLocal(
@@ -1304,6 +1496,7 @@ async function routeTaskLocal(
     let agents: string[];
     let confidence: number;
     let matchedPattern = '';
+    let noMatchDetail: string | null = null;
 
     // Both static and learned patterns are gated on the same similarity
     // score. Learned patterns additionally require support/reliability as a
@@ -1312,7 +1505,9 @@ async function routeTaskLocal(
     // (#2864: a 25pp higher threshold made a top-scoring learned-researcher
     // match at 0.57 lose to a static match at 0.52, discarding the learned
     // store's output on the majority of routes).
-    const eligibleSemantic = semanticResult.find((match) => {
+    // A task with no letters or digits has nothing for the embedder to mean;
+    // any similarity it scores is noise, so it never becomes a semantic match.
+    const eligibleSemantic = !hasRoutableText(task) ? undefined : semanticResult.find((match) => {
       if (match.score <= 0.4) return false;
       const learned = match.intent.startsWith('learned-') || match.metadata.source === 'learned';
       if (!learned) return true;
@@ -1329,9 +1524,15 @@ async function routeTaskLocal(
       const suggestion = suggestAgentsForTask(task);
       agents = suggestion.agents;
       confidence = suggestion.confidence;
-      matchedPattern = 'keyword-fallback';
       routingMethod = 'keyword';
-      backendInfo = 'keyword matching';
+      if (suggestion.matched) {
+        matchedPattern = 'keyword-fallback';
+        backendInfo = 'keyword matching';
+      } else {
+        matchedPattern = 'no-match-default';
+        backendInfo = 'keyword matching (no match)';
+        noMatchDetail = suggestion.note ?? 'No pattern matched.';
+      }
     }
 
     // Determine complexity
@@ -1351,6 +1552,9 @@ async function routeTaskLocal(
         throughput: routingLatencyMs > 0 ? `${Math.round(1000 / routingLatencyMs)} routes/s` : 'N/A',
       },
       matchedPattern,
+      // #3567: callers branch on `matched`; a no-match result is a default, not a decision.
+      matched: noMatchDetail === null,
+      ...(noMatchDetail !== null ? { reason: 'no-match-default', note: noMatchDetail } : {}),
       semanticMatches: semanticResult.slice(0, 3).map(r => ({
         pattern: r.intent,
         score: Math.round(r.score * 100) / 100,
@@ -1360,15 +1564,18 @@ async function routeTaskLocal(
         confidence: Math.round(confidence * 100) / 100,
         reason: routingMethod.startsWith('semantic')
           ? `Semantic similarity to "${matchedPattern}" pattern (${Math.round(confidence * 100)}%)`
-          : `Task contains keywords matching ${agents[0]} specialization`,
+          : noMatchDetail !== null
+            ? `Nothing matched; default suggestion only. ${noMatchDetail}`
+            : `Task contains keywords matching ${agents[0]} specialization`,
       },
       alternativeAgents: agents.slice(1).map((agent, i) => ({
         type: agent,
-        confidence: Math.round((confidence - (0.1 * (i + 1))) * 100) / 100,
-        reason: `Alternative agent for ${agent} capabilities`,
+        confidence: Math.max(0, Math.round((confidence - (0.1 * (i + 1))) * 100) / 100),
+        reason: noMatchDetail !== null ? 'Default suggestion (nothing matched)' : `Alternative agent for ${agent} capabilities`,
       })),
       estimatedMetrics: {
-        successProbability: Math.round(confidence * 100) / 100,
+        // No pattern means no basis for a success estimate.
+        successProbability: noMatchDetail !== null ? null : Math.round(confidence * 100) / 100,
         estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
         complexity,
       },
@@ -1627,12 +1834,15 @@ export const hooksPreTask: MCPTool = {
     return {
       taskId,
       description,
+      agentsMatched: suggestion.matched,
       suggestedAgents: suggestion.agents.map((agent, i) => ({
         type: agent,
         confidence: suggestion.confidence - (0.05 * i),
-        reason: i === 0
-          ? `Primary agent for ${agent} tasks based on learned patterns`
-          : `Alternative agent with ${agent} capabilities`,
+        reason: !suggestion.matched
+          ? 'Default suggestion (nothing matched)'
+          : i === 0
+            ? `Primary agent for ${agent} tasks based on learned patterns`
+            : `Alternative agent with ${agent} capabilities`,
       })),
       complexity,
       estimatedDuration: complexity === 'high' ? '2-4 hours' : complexity === 'medium' ? '30-60 min' : '10-30 min',
@@ -1654,9 +1864,10 @@ export const hooksPostTask: MCPTool = {
     type: 'object',
     properties: {
       taskId: { type: 'string', description: 'Task identifier' },
+      patterns: feedbackPatternsSchema,
       success: { type: 'boolean', description: 'Whether task was successful' },
       agent: { type: 'string', description: 'Agent that completed the task' },
-      quality: { type: 'number', description: 'Quality score (0-1)' },
+      quality: { type: 'number', minimum: 0, maximum: 1, description: 'Quality score (0-1)' },
       task: { type: 'string', description: 'Task description text (used for learning keyword extraction)' },
       duration: { type: 'number', description: 'Observed task duration in milliseconds (used by pheromone-adaptive topology)' },
       latencyBudgetMs: { type: 'number', description: 'Latency budget used to normalize duration (default 60000ms)' },
@@ -1673,8 +1884,15 @@ export const hooksPostTask: MCPTool = {
     const taskId = params.taskId as string;
     const success = params.success !== false;
     const agent = params.agent as string | undefined;
-    const quality = (params.quality as number) || (success ? 0.85 : 0.3);
+    if (params.quality !== undefined && (typeof params.quality !== 'number'
+      || !Number.isFinite(params.quality) || params.quality < 0 || params.quality > 1)) {
+      return { success: false, error: 'quality must be a finite number between 0 and 1' };
+    }
+    const quality = params.quality === undefined ? (success ? 0.85 : 0.3) : params.quality as number;
     const startTime = Date.now();
+    let patterns: string[] | undefined;
+    try { patterns = validateFeedbackPatterns(params.patterns); }
+    catch (error) { return { success: false, error: (error as Error).message }; }
 
     { const v = validateIdentifier(taskId, 'taskId'); if (!v.valid) return { success: false, error: v.error }; }
     if (agent) { const v = validateIdentifier(agent, 'agent'); if (!v.valid) return { success: false, error: v.error }; }
@@ -1706,7 +1924,7 @@ export const hooksPostTask: MCPTool = {
         quality,
         agent,
         duration: (params.duration as number) || undefined,
-        patterns: (params.patterns as string[]) || undefined,
+        patterns,
         // ADR-147 P2: forward spawn-tree lineage so it lands in feedback + memory
         parentAgentId,
         depth,
@@ -1962,8 +2180,35 @@ export const hooksExplain: MCPTool = {
       // File unreadable; leave as null
     }
 
+    // #3567: when nothing matched, say so instead of explaining a match that did not happen.
+    if (!suggestion.matched) {
+      return {
+        task,
+        matched: false,
+        reason: 'no-match-default',
+        explanation: `No keyword or learned pattern matched this task. ${suggestion.note ?? ''} ` +
+          `"${suggestion.agents[0]}" is a default suggestion, not a routing decision.`.trim(),
+        factors: [
+          { factor: 'Keyword Match', weight: 0.4, value: null, impact: 'No keyword matched' },
+          { factor: 'Historical Success', weight: 0.3, value: historicalSuccess, impact: historicalNote },
+          { factor: 'Agent Availability', weight: 0.2, value: null, impact: 'Agent availability tracking not implemented' },
+          { factor: 'Task Complexity', weight: 0.1, value: task.length > 100 ? 0.8 : 0.3, impact: 'Complexity assessment' },
+        ],
+        patterns: matchedPatterns,
+        decision: {
+          agent: suggestion.agents[0],
+          confidence: suggestion.confidence,
+          reasoning: [
+            'No pattern matched; the agent is a default suggestion',
+            `Confidence ${(suggestion.confidence * 100).toFixed(0)}% is below every real match`,
+          ],
+        },
+      };
+    }
+
     return {
       task,
+      matched: true,
       explanation: `The routing decision was made based on keyword analysis of the task description. ` +
         `The task contains keywords that match the "${suggestion.agents[0]}" specialization with ${(suggestion.confidence * 100).toFixed(0)}% confidence.`,
       factors: [
@@ -2582,8 +2827,12 @@ export const hooksSessionEnd: MCPTool = {
       // after the command has completed all logical work (#2691).
       try {
         await bridge?.shutdownBridge();
-      } catch {
-        // Cleanup is best-effort and must not fail session-end.
+      } catch (err) {
+        // Cleanup is best-effort and must not fail session-end, but a failed
+        // AgentDB persist (lock/concurrent writer) is never silent.
+        if ((err as { code?: unknown } | null)?.code === 'AGENTDB_LOCK_UNRECOVERABLE') {
+          process.stderr.write(`[ruflo] warning: ${(err as Error).message}\n`);
+        }
       }
     }
 
@@ -2949,9 +3198,8 @@ export const hooksIntelligenceReset: MCPTool = {
       }
     }
 
-    // Clear in-memory trajectories
-    cleared.trajectories = activeTrajectories.size;
-    activeTrajectories.clear();
+    // Reset learned state without abandoning tasks still recording outcomes.
+    cleared.trajectories = 0;
 
     return {
       reset: true,
@@ -3005,20 +3253,8 @@ export const hooksTrajectoryStart: MCPTool = {
       getTrajectoryTree().openTrajectory({ sessionId, trajectoryId, task, agent });
     } catch { /* prototype path — never blocks trajectory recording */ }
 
-    // Persist pending trajectory to disk so it survives MCP restarts
-    const storeFn = await getRealStoreFunction();
-    if (storeFn) {
-      try {
-        await storeFn({
-          key: `trajectory-pending-${trajectoryId}`,
-          value: JSON.stringify(trajectory),
-          namespace: 'trajectories',
-          tags: [agent, 'pending', 'sona-trajectory'],
-        });
-      } catch {
-        // Best-effort persistence — trajectory still lives in-memory
-      }
-    }
+    // Checkpoint before handing the id to another process.
+    const persisted = await persistPendingTrajectory(trajectory);
 
     return {
       trajectoryId,
@@ -3026,6 +3262,7 @@ export const hooksTrajectoryStart: MCPTool = {
       agent,
       started: startedAt,
       status: 'recording',
+      persisted,
       implementation: 'real-trajectory-tracking',
       activeCount: activeTrajectories.size,
     };
@@ -3041,17 +3278,21 @@ export const hooksTrajectoryStep: MCPTool = {
       trajectoryId: { type: 'string', description: 'Trajectory ID' },
       action: { type: 'string', description: 'Action taken' },
       result: { type: 'string', description: 'Action result' },
-      quality: { type: 'number', description: 'Quality score (0-1)' },
+      quality: { type: 'number', minimum: 0, maximum: 1, description: 'Quality score (0-1)' },
     },
     required: ['trajectoryId', 'action'],
   },
-  handler: async (params: Record<string, unknown>) => {
+  handler: async (params: Record<string, unknown>) => withTrajectoryOperation(params.trajectoryId as string, async () => {
     const trajectoryId = params.trajectoryId as string;
     // #14: scrub extended-thinking blocks so reasoning tokens don't contaminate
     // the learning signal (DISTILL embeds this text).
     const action = scrubReasoningBlocks(params.action as string);
     const result = scrubReasoningBlocks((params.result as string) || 'success');
-    const quality = (params.quality as number) || 0.85;
+    if (params.quality !== undefined && (typeof params.quality !== 'number'
+      || !Number.isFinite(params.quality) || params.quality < 0 || params.quality > 1)) {
+      return { success: false, error: 'quality must be a finite number between 0 and 1' };
+    }
+    const quality = params.quality === undefined ? 0.85 : params.quality as number;
     const timestamp = new Date().toISOString();
     const stepId = `step-${Date.now()}`;
 
@@ -3059,7 +3300,7 @@ export const hooksTrajectoryStep: MCPTool = {
     { const v = validateText(action, 'action'); if (!v.valid) return { success: false, error: v.error }; }
 
     // Add step to real trajectory if it exists
-    const trajectory = activeTrajectories.get(trajectoryId);
+    const trajectory = await loadPendingTrajectory(trajectoryId);
     if (trajectory) {
       trajectory.steps.push({
         action,
@@ -3068,6 +3309,8 @@ export const hooksTrajectoryStep: MCPTool = {
         timestamp,
       });
     }
+
+    const persisted = trajectory ? await persistPendingTrajectory(trajectory) : false;
 
     // MAGE-style execution-state-tree mirror (prototype, non-fatal)
     try {
@@ -3100,11 +3343,12 @@ export const hooksTrajectoryStep: MCPTool = {
       result,
       quality,
       recorded: !!trajectory,
+      persisted,
       timestamp,
       totalSteps: trajectory?.steps.length || 0,
       implementation: trajectory ? 'real-step-recording' : 'trajectory-not-found',
     };
-  },
+  }),
 };
 
 export const hooksTrajectoryEnd: MCPTool = {
@@ -3119,7 +3363,7 @@ export const hooksTrajectoryEnd: MCPTool = {
     },
     required: ['trajectoryId'],
   },
-  handler: async (params: Record<string, unknown>) => {
+  handler: async (params: Record<string, unknown>) => withTrajectoryOperation(params.trajectoryId as string, async () => {
     const trajectoryId = params.trajectoryId as string;
 
     { const v = validateIdentifier(trajectoryId, 'trajectoryId'); if (!v.valid) return { success: false, error: v.error }; }
@@ -3130,7 +3374,7 @@ export const hooksTrajectoryEnd: MCPTool = {
     const startTime = Date.now();
 
     // Get and finalize real trajectory
-    const trajectory = activeTrajectories.get(trajectoryId);
+    const trajectory = await loadPendingTrajectory(trajectoryId);
     let persistResult: { success: boolean; id?: string; error?: string } = { success: false };
 
     if (trajectory) {
@@ -3159,8 +3403,16 @@ export const hooksTrajectoryEnd: MCPTool = {
         }
       }
 
-      // Remove from active trajectories
-      activeTrajectories.delete(trajectoryId);
+      // Failed writes remain retryable. A completed row prevents stale pending
+      // data from being replayed even if cleanup itself fails.
+      if (persistResult.success) {
+        activeTrajectories.delete(trajectoryId);
+        dirtyTrajectories.delete(trajectoryId);
+        try {
+          const { deleteEntry } = await import('../memory/memory-initializer.js');
+          await deleteEntry({ key: `trajectory-pending-${trajectoryId}`, namespace: 'trajectories' });
+        } catch { /* completed record is the replay guard */ }
+      }
     }
 
     // MAGE-style execution-state-tree mirror (prototype, non-fatal)
@@ -3170,7 +3422,7 @@ export const hooksTrajectoryEnd: MCPTool = {
     } catch { /* prototype path — never blocks trajectory finalization */ }
 
     // SONA Learning - process trajectory outcome for routing optimization
-    let sonaResult: { learned: boolean; patternKey: string; confidence: number } = {
+    let sonaResult: { learned: boolean; patternKey: string; confidence: number; reinforcedNeighbour?: boolean; routingGate?: { threshold: number; confidence: number; reached: boolean; successesNeeded: number } } = {
       learned: false, patternKey: '', confidence: 0
     };
     let ewcResult: { consolidated: boolean; penalty: number } = {
@@ -3198,6 +3450,8 @@ export const hooksTrajectoryEnd: MCPTool = {
             learned: result.learned,
             patternKey: result.patternKey,
             confidence: result.confidence,
+            reinforcedNeighbour: result.reinforcedNeighbour,
+            routingGate: result.routingGate,
           };
         } catch {
           // SONA learning failed, continue without it
@@ -3275,19 +3529,23 @@ export const hooksTrajectoryEnd: MCPTool = {
       } catch { /* intelligence module not loadable — keep sona-only behaviour */ }
     }
 
-    // #2351: when an agent calls trajectory-end with no recorded steps but a
-    // non-empty `feedback` string, the feedback was previously dropped on the
-    // floor — `patternsExtracted` reported 0 and `pattern-search` never
-    // surfaced it. Step-less trajectories are the common case for LLM agents
-    // (nothing forces step logging mid-task), and feedback is often the most
-    // distilled lesson available. Route it through the same store + embed
-    // path that pattern-store uses so it becomes searchable. Best-effort:
-    // failures here must not turn the trajectory-end call itself into a
-    // failure — the trajectory record was already persisted above.
+    // #2351: when an agent calls trajectory-end with a non-empty `feedback`
+    // string, the feedback was previously dropped on the floor —
+    // `patternsExtracted` reported 0 and `pattern-search` never surfaced it.
+    // Route it through the same store + embed path that pattern-store uses
+    // so it becomes searchable. Best-effort: failures here must not turn the
+    // trajectory-end call itself into a failure — the trajectory record was
+    // already persisted above.
+    //
+    // #3662: #2351's original fix gated this on `!hasSteps` (step-less
+    // trajectories only). The common start -> step -> end path (the one real
+    // agents actually use) therefore recorded SONA state while leaving the
+    // feedback unindexed. Non-empty feedback is promoted regardless of
+    // whether steps were recorded — a trajectory's steps and its distilled
+    // feedback are not mutually exclusive evidence.
     let feedbackDistilled: { stored: boolean; patternId?: string; controller?: string } = { stored: false };
-    const hasSteps = !!trajectory && trajectory.steps.length > 0;
     const trimmedFeedback = typeof feedback === 'string' ? feedback.trim() : '';
-    if (trajectory && !hasSteps && trimmedFeedback.length > 0) {
+    if (trajectory && trimmedFeedback.length > 0) {
       const distilledPatternId = `pattern-feedback-${trajectoryId}-${Date.now()}`;
       const patternMetadata: Record<string, unknown> = {
         sourceTrajectoryId: trajectoryId,
@@ -3362,6 +3620,8 @@ export const hooksTrajectoryEnd: MCPTool = {
         sonaUpdate: sonaResult.learned,
         sonaPatternKey: sonaResult.patternKey || undefined,
         sonaConfidence: sonaResult.confidence || undefined,
+        sonaReinforcedNeighbour: sonaResult.reinforcedNeighbour || undefined,
+        sonaRoutingGate: sonaResult.routingGate,
         ewcConsolidation: ewcResult.consolidated,
         ewcPenalty: ewcResult.penalty || undefined,
         patternsExtracted,
@@ -3383,7 +3643,7 @@ export const hooksTrajectoryEnd: MCPTool = {
         ? `SONA learned pattern "${sonaResult.patternKey}" with ${(sonaResult.confidence * 100).toFixed(1)}% confidence`
         : (persistResult.success ? 'Trajectory persisted for future learning' : (persistResult.error || 'Trajectory not found')),
     };
-  },
+  }),
 };
 
 // Pattern store/search hooks - REAL implementation using storeEntry
@@ -3422,7 +3682,7 @@ export const hooksPatternStore: MCPTool = {
 
     // Fallback: persist using memory-initializer store
     let storeResult: { success: boolean; id?: string; embedding?: { dimensions: number; model: string }; error?: string } = { success: false };
-    if (!reasoningResult) {
+    if (!reasoningResult?.success) {
       const storeFn = await getRealStoreFunction();
       if (storeFn) {
         try {
@@ -4137,12 +4397,12 @@ export const hooksIntelligenceLearn: MCPTool = {
 // Intelligence attention hook
 export const hooksIntelligenceAttention: MCPTool = {
   name: 'hooks_intelligence_attention',
-  description: 'Compute attention-weighted similarity using MoE/Flash/Hyperbolic Use when native Bash hooks (via Claude Code\'s settings.json) are wrong because you need Ruflo-side state — pattern persistence, neural training signals, model-routing learning, cost tracking, audit chain. For one-off shell commands, plain Bash hooks are fine.',
+  description: 'Compute attention-weighted similarity using MoE/Flash. Use when native Bash hooks (via Claude Code\'s settings.json) are wrong because you need Ruflo-side state — pattern persistence, neural training signals, model-routing learning, cost tracking, audit chain. For one-off shell commands, plain Bash hooks are fine.',
   inputSchema: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Query for attention computation' },
-      mode: { type: 'string', description: 'Attention mode (flash, moe, hyperbolic)' },
+      mode: { type: 'string', description: 'Attention mode (flash, moe)' },
       topK: { type: 'number', description: 'Top-k results' },
     },
     required: ['query'],
@@ -4154,6 +4414,12 @@ export const hooksIntelligenceAttention: MCPTool = {
     const startTime = performance.now();
 
     { const v = validateText(query, 'query'); if (!v.valid) return { success: false, error: v.error }; }
+    // #3548: only flash and moe have an implementation. Any other mode
+    // (including the previously advertised 'hyperbolic') used to return an
+    // empty stub whose note blamed a missing package; say so instead.
+    if (mode !== 'flash' && mode !== 'moe') {
+      return { success: false, error: `Attention mode "${mode}" is not implemented; supported modes: flash, moe` };
+    }
 
     let implementation = 'placeholder';
     let embeddingSource: 'onnx' | 'hash-fallback' | 'none' = 'none';
@@ -4333,7 +4599,7 @@ export const hooksIntelligenceAttention: MCPTool = {
         implementation,
         _embeddingSource: embeddingSource,
         _stub: implementation === 'none',
-        _note: implementation === 'none' ? 'No attention backend available. Install @ruvector/attention for real computation.' : undefined,
+        _note: implementation === 'none' ? 'No attention backend available: flash/moe attention from @claude-flow/neural could not be loaded or failed.' : undefined,
         ...(embeddingSource === 'hash-fallback' && implementation !== 'none'
           ? { _embeddingNote: 'Query embeddings are hash-based (not semantic). Install @claude-flow/embeddings for real ONNX embeddings.' }
           : {}),
@@ -5163,7 +5429,17 @@ export const hooksCodemod: MCPTool = {
         const v = validatePath(p, 'path');
         if (!v.valid) return v.error;
         const abs = resolve(cwd, v.sanitized);
-        if (!abs.startsWith(cwd)) return `path escapes project root: ${p}`;
+        // Anchor containment at a path-separator boundary — an unanchored
+        // `abs.startsWith(cwd)` string-prefix check would let an absolute
+        // path like `${cwd}-staging/x.ts` pass as "inside" `cwd`. Matches
+        // the pattern already used correctly elsewhere in this codebase
+        // (@claude-flow/security's `isWithinPrefix`, hooks/workers, plugins/security).
+        // KNOWN LIMITATION (disclosed 2026-10-20, not fixed here): this
+        // compares the resolved-but-not-realpath'd path, so a symlink
+        // inside cwd pointing outside it still escapes containment
+        // (CWE-59, a distinct/broader gap than the CWE-22 prefix bug this
+        // anchors). Needs fs.realpathSync-based containment as a follow-up.
+        if (abs !== cwd && !abs.startsWith(cwd + sep)) return `path escapes project root: ${p}`;
         out.add(abs);
         return undefined;
       };
@@ -5185,7 +5461,7 @@ export const hooksCodemod: MCPTool = {
         }
         for (const m of matches) {
           const abs = resolve(cwd, m);
-          if (abs.startsWith(cwd) && CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) {
+          if ((abs === cwd || abs.startsWith(cwd + sep)) && CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) {
             out.add(abs);
           }
         }

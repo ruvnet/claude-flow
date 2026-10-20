@@ -1,9 +1,9 @@
 import { finalizeEvent } from 'nostr-tools/pure';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { connectAuthed } from './nostr-federation.mjs';
 function nip98(sk, url, method, body) {
   const ev = finalizeEvent({ kind: 27235, created_at: Math.floor(Date.now() / 1000),
-    tags: [['u', url], ['method', method], ...(body ? [['payload', createHash('sha256').update(body).digest('hex')]] : [])], content: '' }, sk);
+    tags: [['u', url], ['method', method], ['nonce', randomUUID()], ...(body ? [['payload', createHash('sha256').update(body).digest('hex')]] : [])], content: '' }, sk);
   return 'Nostr ' + Buffer.from(JSON.stringify(ev)).toString('base64');
 }
 // Mint a v2 invite (caller must be relay admin/owner). Returns {code, expires_at, max_uses}.
@@ -19,8 +19,31 @@ export async function admitMember(relayUrl, sk, pubkey, role = 'member') {
   const ws = await connectAuthed(relayUrl, sk);
   const ev = finalizeEvent({ kind: 9030, created_at: Math.floor(Date.now() / 1000), tags: [['p', pubkey], ['role', role]], content: '' }, sk);
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('admit timeout')); }, 15000);
-    ws.on('message', (d) => { const m = JSON.parse(d.toString()); if (m[0] === 'OK' && m[1] === ev.id) { clearTimeout(t); try { ws.close(); } catch {} m[2] ? resolve({ pubkey, role }) : reject(new Error(m[3] || 'admit rejected')); } });
+    let settled = false;
+    const finish = (error) => {
+      if (settled) return; settled = true; clearTimeout(timer);
+      try { ws.close(); } catch {}
+      error ? reject(error) : resolve({ pubkey, role });
+    };
+    const timer = setTimeout(() => finish(new Error('admit timeout')), 15000);
+    ws.on('message', d => {
+      let m; try { m = JSON.parse(d.toString()); } catch { return; }
+      if (Array.isArray(m) && m[0] === 'OK' && m[1] === ev.id) finish(m[2] === true ? null : new Error('admit rejected'));
+    });
+    ws.on('error', () => finish(new Error('admit connection error')));
+    ws.on('close', () => finish(new Error('closed before admission acknowledgment')));
     ws.send(JSON.stringify(['EVENT', ev]));
   });
+}
+
+// Read live durable restrictions before each new automatic grant. The relay
+// remains authoritative for bans created after the initial import as well.
+export async function isMemberBanned(httpBase, sk, pubkey) {
+  const url = `${httpBase}/moderation/restricted`;
+  const r = await fetch(url, { headers: { Authorization: nip98(sk, url, 'GET') },
+    redirect: 'error', signal: AbortSignal.timeout(10000) });
+  if (!r.ok) throw new Error('relay restrictions unavailable');
+  const rows = await r.json();
+  if (!Array.isArray(rows) || rows.some(x => !x || typeof x.pubkey !== 'string' || typeof x.banned !== 'boolean')) throw new Error('invalid relay restrictions');
+  return rows.some(x => x.pubkey === pubkey && x.banned);
 }

@@ -117,6 +117,22 @@ describe('hyperbolic_embed_hierarchy handler', () => {
     expect(result.isError).toBeUndefined();
   });
 
+  it('keeps same-millisecond hierarchy indexes distinct', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(1900000000000);
+    try {
+      const hierarchy = { nodes: [{ id: 'root', parent: null }] };
+      const first = await tool.handler({ hierarchy, model: 'poincare_ball' });
+      const second = await tool.handler({ hierarchy, model: 'klein' });
+      expect(first.isError).toBeUndefined();
+      expect(second.isError).toBeUndefined();
+      const firstData = JSON.parse(first.content[0].text);
+      const secondData = JSON.parse(second.content[0].text);
+      expect(firstData.indexId).not.toBe(secondData.indexId);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('should handle klein model', async () => {
     const input = {
       hierarchy: {

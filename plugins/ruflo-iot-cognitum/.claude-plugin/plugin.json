@@ -1,7 +1,7 @@
 {
   "name": "ruflo-iot-cognitum",
   "description": "IoT device lifecycle, telemetry anomaly detection, fleet management, and witness chain verification for Cognitum Seed hardware",
-  "version": "0.2.1",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -21,6 +21,33 @@
     "sona",
     "mcp",
     "cognitum-seed",
-    "5-tier-trust"
-  ]
+    "5-tier-trust",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Write guard",
+      "description": "Refuse writes and commands on this plugin's own tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "confirmDestructive": {
+      "type": "string",
+      "title": "Confirm destructive IoT commands",
+      "description": "Refuse cognitum-iot fleet delete and device delete/remove/revoke unless the command carries --confirm or COGNITUM_IOT_CONFIRM=1.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

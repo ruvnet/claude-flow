@@ -1,0 +1,201 @@
+TAP version 13
+# Subtest: \#4086 status enumerates all keys and retrieves exact current values
+ok 1 - \#4086 status enumerates all keys and retrieves exact current values
+  ---
+  duration_ms: 1.739361
+  ...
+# Subtest: \#4087 every explicit phase agent resolves to a shipped plugin agent
+ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
+  ---
+  duration_ms: 1.756661
+  ...
+# Subtest: \#4088 SPARC command references resolve to the shipped command filename
+not ok 3 - \#4088 SPARC command references resolve to the shipped command filename
+  ---
+  duration_ms: 1.749161
+  location: '<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:27:1'
+  failureType: 'testCodeFailure'
+  error: '<repo>/plugins/ruflo-sparc/README.md'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    # ruflo-sparc
+
+    SPARC methodology -- Specification, Pseudocode, Architecture, Refinement, Completion phases with quality gates between each phase.
+
+    ## Overview
+
+    Drives features through a rigorous five-phase development lifecycle. Each phase has a quality gate that must pass before advancing. The orchestrator spawns specialized agents per phase (ruflo-core:researcher, ruflo-goals:goal-planner, ruflo-swarm:architect, ruflo-core:coder, ruflo-testgen:tester, ruflo-core:reviewer) and stores all artifacts and gate results in memory for traceability.
+
+    ## Installation
+
+    ```bash
+    claude --plugin-dir plugins/ruflo-sparc
+    ```
+
+    ## Agents
+
+    | Agent | Model | Role |
+    |-------|-------|------|
+    | `sparc-orchestrator` | sonnet | Orchestrate 5-phase SPARC lifecycle, enforce gate checks, spawn phase-specific agents, track state in memory |
+
+    ## Skills
+
+    | Skill | Usage | Description |
+    |-------|-------|-------------|
+    | `sparc-spec` | `/sparc-spec <feature-description>` | Run the Specification phase -- gather requirements, define acceptance criteria, identify constraints |
+    | `sparc-implement` | `/sparc-implement` | Run the Architecture and Implementation phases -- design modules, write pseudocode, implement, test |
+    | `sparc-refine` | `/sparc-refine` | Run Refinement and Completion -- review code, improve coverage, validate against spec, generate docs |
+
+    ## Commands (5 subcommands)
+
+    ```bash
+    /ruflo-sparc:ruflo-sparc init <feature>         # Initialize a new SPARC workflow
+    /ruflo-sparc:ruflo-sparc status                 # Show current phase and gate history
+    /ruflo-sparc:ruflo-sparc advance                # Attempt gate check, advance to next phase
+    /ruflo-sparc:ruflo-sparc phase <phase-name>     # Jump to a specific phase (spec/pseudo/arch/refine/complete)
+    /ruflo-sparc:ruflo-sparc report                 # Generate full SPARC methodology report with traceability matrix
+    ```
+
+    ## The 5 Phases
+
+    | Phase | Name | Gate Criteria | Spawned Agent |
+    |-------|------|--------------|---------------|
+    | 1 | Specification | >= 3 acceptance criteria, constraints, edge cases | `researcher` |
+    | 2 | Pseudocode | Covers all ACs, error paths explicit, complexity annotated | `planner` |
+    | 3 | Architecture | All constraints addressed, typed API contracts, no circular deps | `system-architect` |
+    | 4 | Refinement | All ACs have passing tests, review approved, coverage >= 80% | `coder` + `tester` |
+    | 5 | Completion | All tests green, docs complete, deployment checklist verified | `reviewer` |
+
+    ## Memory Namespaces
+
+    | Namespace | Purpose |
+    |-----------|---------|
+    | `sparc-state` | Current phase tracking per feature |
+    | `sparc-phases` | Phase artifacts (specs, pseudocode, ADRs, reports) |
+    | `sparc-gates` | Gate check results and history |
+    | `patterns` | Learned SPARC execution patterns |
+
+    ## Compatibility
+
+    - **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor.
+    - **Verification:** `bash plugins/ruflo-sparc/scripts/smoke.sh` is the contract.
+
+    ## Phase-to-plugin alignment
+
+    Each SPARC phase has a canonical handoff plugin that owns its deeper tooling:
+
+    | Phase | Owner | What it provides |
+    |-------|-------|-----------------|
+    | **Specification** | [ruflo-goals](../ruflo-goals/docs/adrs/0001-goals-contract.md) (deep-research) | Multi-source research orchestration to gather requirements |
+    | **Pseudocode** | `ruflo-sparc` (this plugin) | Pseudocode generation + complexity annotation |
+    | **Architecture** | [ruflo-adr](../ruflo-adr/docs/adrs/0001-adr-plugin-pattern.md) + [ruflo-ddd](../ruflo-ddd/docs/adrs/0001-ddd-contract.md) | ADR creation + bounded-context modeling |
+    | **Refinement** | [ruflo-jujutsu](../ruflo-jujutsu/docs/adrs/0001-jujutsu-contract.md) + ruflo-testgen | Diff-aware refactor + test gap analysis |
+    | **Completion** | [ruflo-docs](../ruflo-docs/docs/adrs/0001-docs-contract.md) | Auto-generated documentation |
+
+    This plugin orchestrates the lifecycle; sibling plugins do the deep work per phase.
+
+    ## Namespace coordination
+
+    This plugin owns three AgentDB namespaces, all kebab-case compliant per [ruflo-agentdb ADR-0001 §"Namespace convention"](../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md):
+
+    | Namespace | Purpose |
+    |-----------|---------|
+    | `sparc-state` | Current phase tracking per feature |
+    | `sparc-phases` | Phase artifacts (specs, pseudocode, ADRs, reports) |
+    | `sparc-gates` | Gate check results and history |
+
+    Additionally, the shared `patterns` (plural) namespace is consumed (not owned) for cross-feature SPARC pattern learning — note the pluralization (different from the singular `pattern` ReasoningBank target). Reserved namespaces (`pattern`, `claude-memories`, `default`) MUST NOT be shadowed.
+
+    ## Verification
+
+    ```bash
+    bash plugins/ruflo-sparc/scripts/smoke.sh
+    # Expected: "11 passed, 0 failed"
+    ```
+
+    ## Architecture Decisions
+
+    - [`ADR-0001` — ruflo-sparc plugin contract (phase-to-plugin alignment, namespace coordination, smoke as contract)](./docs/adrs/0001-sparc-contract.md)
+
+    ## Related Plugins
+
+    - `ruflo-agentdb` — namespace convention owner; backing store for sparc-state/-phases/-gates
+    - `ruflo-goals` — Specification phase deep-research
+    - `ruflo-adr` -- Architecture decisions recorded as ADRs in Phase 3
+    - `ruflo-ddd` -- Architecture phase uses DDD bounded context patterns
+    - `ruflo-jujutsu` -- Refinement phase diff analysis
+    - `ruflo-docs` -- Completion phase documentation generation
+
+    ## License
+
+    MIT
+
+    ## As a mod
+
+    This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+    - **Guard (default on, tighten-only).** It refuses to store a spec or phase artifact that holds a secret in a `sparc*` memory namespace. The refusal never repeats the secret.
+    - **Status file.** `.claude-flow/sparc-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+    - **`/sparc-mod`** answers locally: `status`, `scan <text>`, `phases`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+    - **Option.** `guard` (`on` | `off`, default `on`) in the plugin's `userConfig`.
+
+    Test it: `claude plugin validate plugins/ruflo-sparc`, `claude plugin test plugins/ruflo-sparc`, `bash plugins/ruflo-sparc/scripts/smoke.sh`.
+
+    ## Native Codex hooks
+
+    The separate `.codex-plugin/plugin.json` selects `hooks/codex-hooks.json`, replacing
+    the Claude-only module entry for Codex. Claude's manifest and `register.ts` remain
+    unchanged. The synchronous native `PreToolUse` adapter bundles the existing pure
+    guard and shared secret screen; it preserves their tool/namespace scope and emits
+    the native permission-denial envelope before a guarded write. `SessionStart` and
+    guarded calls maintain private per-session counters in `PLUGIN_DATA`; the existing
+    version-1 project status file remains a best-effort courtesy view. Status failure
+    does not permit a denied write. Guarding is enabled for the native adapter.
+
+    Existing skills and command files remain available. Claude's dynamic
+    `$.command.register` / `command.run` mod interception has no native command-hook
+    equivalent: Codex does **not** get that interception. The same deterministic local
+    command helpers are available explicitly via
+    `node <plugin-root>/hooks/codex-hook.cjs --command status` (and the helper's existing
+    subcommands). This is guard/status compatibility, not full SDK-mod parity.
+
+    Maintainers rebuild the committed standalone bundles with
+    `ESBUILD=<esbuild executable> node scripts/build-codex-mod-hooks.mjs`, then run
+    `node --test tests/plugins/codex-mod-hooks.test.mjs`. Set `ESBUILD` in that test run
+    to check byte reproducibility using the same installed builder. Run
+    `scripts/sync-mod-screen.mjs --check` before bundling when the shared screen changes.
+    The adapters need Node.js and contain no runtime SDK dependency.
+
+    This source change requires a released upstream package or an explicitly owned
+    source projection to reach installations. It does not patch foreign cache entries,
+    pin upstream updates, disable plugins, or claim an already published repair.
+
+    Release both host manifests with the same patch version. Codex 0.160's published
+    remote-bundle sync skips downloading a release whose version equals the installed
+    version; merging same-version source does not establish automatic cache refresh.
+    Its explicit native plugin install replaces the cached root atomically even at the
+    same version. An owned projection must therefore refresh its upstream source
+    generation and explicitly reinstall it; refreshing a marketplace catalog alone
+    is not installation proof. No foreign cache entry should be edited in place.
+
+  operator: 'doesNotMatch'
+  stack: |-
+    TestContext.<anonymous> (<repo>/plugins/ruflo-sparc/tests/contracts.regression.cjs:32:12)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 2
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 17.591238

@@ -1,0 +1,6 @@
+{
+  "description": "ADR as a mod (ADR-445 pattern): a tighten-only guard on ADR writes (`agentdb_hierarchical-store`, `agentdb_causal-edge`, `memory_store` into an `adr*` namespace), /adr-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

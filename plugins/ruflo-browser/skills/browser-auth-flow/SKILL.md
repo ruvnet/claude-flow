@@ -23,7 +23,7 @@ Adversarial probe of a site's authentication. Drives the login flow once, record
 
    - **`csrf`**: inspect the login POST in the trajectory; verify a same-origin token field is present and non-empty.
    - **`redirect`**: watch `browser_get-url` after each nav for cross-origin redirects with auth state in the URL or fragment. Flag any token-bearing URL that crosses an origin boundary.
-   - **`cookie`**: walk `document.cookie` via `browser_eval`. For each cookie, check `Secure`, `HttpOnly`, `SameSite`, expiry, and entropy of the value. Flag missing flags or short tokens. Pass each through `aidefence_scan` to flag PII embedded in cookie values.
+   - **`cookie`**: `document.cookie` exposes only name=value of non-`HttpOnly` cookies; it cannot show `Secure`, `SameSite` or expiry. Via `browser_eval`, return only each visible cookie's name, value length and entropy estimate (never the values themselves), and flag any session-looking name that is visible at all, because a visible cookie is by definition not `HttpOnly`. For `Secure`/`HttpOnly`/`SameSite`/expiry, read the `Set-Cookie` response headers (for example `curl -sS -D - -o /dev/null <login-url>` for pre-auth cookies); post-login attributes are not observable with these tools, so mark them `not-assessed` and ask for a HAR or devtools export instead of guessing.
    - **`oauth`**: if the flow involves a third-party provider, capture the authorization request, verify `state` and `nonce` are present and high-entropy, verify `redirect_uri` matches the registered callback domain.
 
 4. **Quarantine** any token / credential / PII captured during probing — it stays inside the RVF container's findings, never returns to the model unredacted (`aidefence_is_safe` gate from `browser-extract` applies if you read the findings back).
@@ -31,6 +31,8 @@ Adversarial probe of a site's authentication. Drives the login flow once, record
 6. **Index** the session in `browser-sessions` with `tag: auth-probe` so future audits compare against it.
 
 ## Caveats
+
+- **Authorization first.** Only probe a site you own or have written permission to test; state which in the report. The skill must refuse third-party production sites.
 
 - This skill probes; it does not exploit. Do not chain follow-up requests using a captured token.
 - Credentials must come from a vaulted handle or interactive entry. Never hardcode them in the field map.

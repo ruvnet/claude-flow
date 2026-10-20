@@ -11,13 +11,18 @@ import { execSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { createBuiltinAIDefence, type DefenceEngine } from '../security/builtin-aidefence.js';
+import { CODE_PATTERNS, codeLinesOf, isGeneratedReportAsset } from './security-code-patterns.js';
 
 // Accepted values for `security scan`'s enum flags — the single source of truth
 // for both validation and the traversal-depth maps below.
 const SCAN_DEPTHS = ['quick', 'standard', 'deep'] as const;
 const SCAN_TYPES = ['code', 'deps', 'all'] as const;
+const SCAN_OUTPUTS = ['text', 'json', 'sarif'] as const;
 type ScanDepth = (typeof SCAN_DEPTHS)[number];
 type ScanType = (typeof SCAN_TYPES)[number];
+type ScanOutput = (typeof SCAN_OUTPUTS)[number];
+type ScanSeverity = 'critical' | 'high' | 'medium' | 'low';
+type ScanFinding = { severity: ScanSeverity; type: string; location: string; description: string };
 
 // Real type predicates, not `as` casts. Array.includes() does not narrow a
 // string to a literal union on its own, so without these the depth-map lookups
@@ -29,6 +34,38 @@ type ScanType = (typeof SCAN_TYPES)[number];
 // is being fixed for.
 const isScanDepth = (v: string): v is ScanDepth => (SCAN_DEPTHS as readonly string[]).includes(v);
 const isScanType = (v: string): v is ScanType => (SCAN_TYPES as readonly string[]).includes(v);
+const isScanOutput = (v: string): v is ScanOutput => (SCAN_OUTPUTS as readonly string[]).includes(v);
+
+function scanSarif(findings: ScanFinding[]) {
+  const ruleId = (type: string) => `RUFLO-${type.toUpperCase().replace(/[^A-Z0-9]+/g, '-')}`;
+  const level = (severity: ScanSeverity) => severity === 'critical' || severity === 'high' ? 'error' :
+    severity === 'medium' ? 'warning' : 'note';
+  const rules = [...new Map(findings.map(finding => [finding.type, {
+    id: ruleId(finding.type),
+    name: finding.type,
+    shortDescription: { text: finding.type },
+  }])).values()];
+  return {
+    version: '2.1.0',
+    $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+    runs: [{
+      tool: { driver: { name: 'Ruflo Security Scan', rules } },
+      results: findings.map(finding => {
+        const lineMatch = /^(.*):(\d+)$/.exec(finding.location);
+        const file = lineMatch?.[1] ?? (finding.location.startsWith('package.json:') ? 'package.json' : finding.location);
+        return {
+          ruleId: ruleId(finding.type),
+          level: level(finding.severity),
+          message: { text: finding.description },
+          locations: [{ physicalLocation: {
+            artifactLocation: { uri: file.replace(/\\/g, '/') },
+            ...(lineMatch ? { region: { startLine: Number(lineMatch[2]) } } : {}),
+          } }],
+        };
+      }),
+    }],
+  };
+}
 
 // `full` was never a supported depth, but the CLI itself printed it — the
 // statusline insight, the announcement, the release-notes blurb, the CLAUDE.md
@@ -72,6 +109,7 @@ const scanCommand: Command = {
     const target = ctx.flags.target as string || '.';
     const requestedDepth = ctx.flags.depth as string || 'standard';
     const scanType = ctx.flags.type as string || 'all';
+    const requestedOutput = ctx.flags.output as string || 'text';
     const fix = ctx.flags.fix as boolean;
 
     // A security scanner must never silently degrade on an unrecognised enum
@@ -111,6 +149,11 @@ const scanCommand: Command = {
       );
       return { success: false, exitCode: 1 };
     }
+    if (!isScanOutput(requestedOutput)) {
+      output.printError(`Invalid --output '${requestedOutput}'. Expected one of: ${SCAN_OUTPUTS.join(', ')}.`);
+      return { success: false, exitCode: 1 };
+    }
+    const outputFormat: ScanOutput = requestedOutput;
 
     // --target names WHAT gets scanned, and was never validated. A path that
     // does not exist (or is a file, not a directory) made every phase read
@@ -128,15 +171,18 @@ const scanCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    output.writeln();
-    output.writeln(output.bold('Security Scan'));
-    output.writeln(output.dim('─'.repeat(50)));
+    if (outputFormat === 'text') {
+      output.writeln();
+      output.writeln(output.bold('Security Scan'));
+      output.writeln(output.dim('─'.repeat(50)));
+    }
 
     const spinner = output.createSpinner({ text: `Scanning ${target}...`, spinner: 'dots' });
-    spinner.start();
+    if (outputFormat === 'text') spinner.start();
 
-    const findings: Array<{ severity: string; type: string; location: string; description: string }> = [];
+    const findings: ScanFinding[] = [];
     let criticalCount = 0, highCount = 0, mediumCount = 0, lowCount = 0;
+    let depsSkipped: string | undefined;
 
     try {
       const fs = await import('fs');
@@ -162,30 +208,33 @@ const scanCommand: Command = {
               auditResult = (auditErr instanceof Error && 'stdout' in auditErr ? (auditErr as { stdout: string }).stdout : undefined) || '{}';
             }
 
-            try {
-              const audit = JSON.parse(auditResult);
-              if (audit.vulnerabilities) {
-                for (const [pkg, vuln] of Object.entries(audit.vulnerabilities as Record<string, { severity: string; via: Array<{ title?: string; url?: string }> }>)) {
-                  const sev = vuln.severity || 'low';
-                  const title = Array.isArray(vuln.via) && vuln.via[0]?.title ? vuln.via[0].title : 'Vulnerability';
-                  if (sev === 'critical') criticalCount++;
-                  else if (sev === 'high') highCount++;
-                  else if (sev === 'moderate' || sev === 'medium') mediumCount++;
-                  else lowCount++;
+            const audit = interpretNpmAudit(auditResult, path.resolve(target));
+            if (!audit.ok) {
+              depsSkipped = audit.reason;
+            } else {
+              for (const [pkg, vuln] of Object.entries(audit.vulnerabilities)) {
+                const sev = vuln.severity || 'low';
+                const first = Array.isArray(vuln.via) ? vuln.via[0] : undefined;
+                const title = typeof first === 'object' && first?.title ? first.title : 'Vulnerability';
+                if (sev === 'critical') criticalCount++;
+                else if (sev === 'high') highCount++;
+                else if (sev === 'moderate' || sev === 'medium') mediumCount++;
+                else lowCount++;
 
-                  findings.push({
-                    severity: sev === 'critical' ? output.error('CRITICAL') :
-                              sev === 'high' ? output.warning('HIGH') :
-                              sev === 'moderate' || sev === 'medium' ? output.warning('MEDIUM') : output.info('LOW'),
-                    type: 'Dependency CVE',
-                    location: `package.json:${pkg}`,
-                    description: title.substring(0, 35),
-                  });
-                }
+                findings.push({
+                  severity: sev === 'critical' ? 'critical' :
+                            sev === 'high' ? 'high' :
+                            sev === 'moderate' || sev === 'medium' ? 'medium' : 'low',
+                  type: 'Dependency CVE',
+                  location: `package.json:${pkg}`,
+                  description: title.substring(0, 35),
+                });
               }
-            } catch { /* JSON parse failed, no vulns */ }
+            }
+          } else {
+            depsSkipped = 'No package.json found in the scan target; dependency scan could not run.';
           }
-        } catch { /* npm audit failed */ }
+        } catch (err) { depsSkipped = `npm audit could not run: ${err instanceof Error ? err.message : String(err)}`; }
       }
 
       // Phase 2: Scan for hardcoded secrets
@@ -226,7 +275,7 @@ const scanCommand: Command = {
                       if (pattern.test(lines[i])) {
                         highCount++;
                         findings.push({
-                          severity: output.warning('HIGH'),
+                          severity: 'high',
                           type: 'Hardcoded Secret',
                           location: `${path.relative(target, fullPath)}:${i + 1}`,
                           description: type,
@@ -248,14 +297,7 @@ const scanCommand: Command = {
       // Phase 3: Check for common security issues in code
       if ((scanType === 'all' || scanType === 'code') && depth !== 'quick') {
         spinner.setText('Analyzing code patterns...');
-        const codePatterns = [
-          { pattern: /eval\s*\(/g, type: 'Eval Usage', severity: 'medium', desc: 'eval() can execute arbitrary code' },
-          { pattern: /innerHTML\s*=/g, type: 'innerHTML', severity: 'medium', desc: 'XSS risk with innerHTML' },
-          { pattern: /dangerouslySetInnerHTML/g, type: 'React XSS', severity: 'medium', desc: 'React XSS risk' },
-          { pattern: /child_process.*exec[^S]/g, type: 'Command Injection', severity: 'high', desc: 'Possible command injection' },
-          { pattern: /\$\{.*\}.*sql|sql.*\$\{/gi, type: 'SQL Injection', severity: 'high', desc: 'Possible SQL injection' },
-        ];
-
+        // The patterns, and the comment stripping they are tested after, live in security-code-patterns.ts.
         const scanCodeDir = (dir: string, depthLimit: number) => {
           // Positive-test rather than `<= 0`: undefined and NaN both fail this,
           // so a bad budget stops the recursion instead of disabling the limiter.
@@ -265,24 +307,25 @@ const scanCommand: Command = {
             for (const entry of entries) {
               if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
               const fullPath = path.join(dir, entry.name);
+              // Coverage and Playwright report assets bundle third-party code (prettify, CodeMirror, React), not the project's.
+              if (isGeneratedReportAsset(path.basename(dir), entry.name, name => fs.existsSync(path.join(dir, name)))) continue;
               if (entry.isDirectory()) {
                 scanCodeDir(fullPath, depthLimit - 1);
               } else if (entry.isFile() && /\.(ts|js|tsx|jsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
                 try {
                   const content = fs.readFileSync(fullPath, 'utf-8');
-                  const lines = content.split('\n');
+                  const lines = codeLinesOf(content);
                   for (let i = 0; i < lines.length; i++) {
-                    for (const { pattern, type, severity, desc } of codePatterns) {
-                      if (pattern.test(lines[i])) {
+                    for (const { match, type, severity, desc } of CODE_PATTERNS) {
+                      if (match(lines[i])) {
                         if (severity === 'high') highCount++;
                         else mediumCount++;
                         findings.push({
-                          severity: severity === 'high' ? output.warning('HIGH') : output.warning('MEDIUM'),
+                          severity: severity === 'high' ? 'high' : 'medium',
                           type,
                           location: `${path.relative(target, fullPath)}:${i + 1}`,
                           description: desc,
                         });
-                        pattern.lastIndex = 0;
                       }
                     }
                   }
@@ -296,37 +339,63 @@ const scanCommand: Command = {
         scanCodeDir(path.resolve(target), scanDepth);
       }
 
-      spinner.succeed('Scan complete');
+      if (outputFormat === 'text') spinner.succeed('Scan complete');
 
       // Display results
-      output.writeln();
-      if (findings.length > 0) {
-        output.printTable({
-          columns: [
-            { key: 'severity', header: 'Severity', width: 12 },
-            { key: 'type', header: 'Type', width: 18 },
-            { key: 'location', header: 'Location', width: 25 },
-            { key: 'description', header: 'Description', width: 35 },
-          ],
-          data: findings.slice(0, 20), // Show first 20
-        });
+      if (outputFormat === 'text') {
+        output.writeln();
+        if (findings.length > 0) {
+          output.printTable({
+            columns: [
+              { key: 'severity', header: 'Severity', width: 12 },
+              { key: 'type', header: 'Type', width: 18 },
+              { key: 'location', header: 'Location', width: 25 },
+              { key: 'description', header: 'Description', width: 35 },
+            ],
+            data: findings.slice(0, 20).map(finding => ({
+              ...finding,
+              severity: finding.severity === 'critical' ? output.error('CRITICAL') :
+                finding.severity === 'high' ? output.warning('HIGH') :
+                finding.severity === 'medium' ? output.warning('MEDIUM') : output.info('LOW'),
+            })), // Show first 20
+          });
 
-        if (findings.length > 20) {
-          output.writeln(output.dim(`... and ${findings.length - 20} more issues`));
+          if (findings.length > 20) {
+            output.writeln(output.dim(`... and ${findings.length - 20} more issues`));
+          }
+        } else if (depsSkipped) {
+          output.writeln(output.warning('No issues found by the checks that ran, but the dependency scan did not run.'));
+        } else {
+          output.writeln(output.success('No security issues found!'));
         }
-      } else {
-        output.writeln(output.success('No security issues found!'));
+        if (depsSkipped) output.writeln(output.warning(`Dependency scan skipped: ${depsSkipped}`));
+
+        output.writeln();
+        output.printBox([
+          `Target: ${target}`,
+          `Depth: ${depth}`,
+          `Type: ${scanType}`,
+          ``,
+          `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
+          `Total Issues: ${findings.length}`,
+        ].join('\n'), 'Scan Summary');
       }
 
-      output.writeln();
-      output.printBox([
-        `Target: ${target}`,
-        `Depth: ${depth}`,
-        `Type: ${scanType}`,
-        ``,
-        `Critical: ${criticalCount}  High: ${highCount}  Medium: ${mediumCount}  Low: ${lowCount}`,
-        `Total Issues: ${findings.length}`,
-      ].join('\n'), 'Scan Summary');
+      const record = {
+        timestamp: new Date().toISOString(),
+        target,
+        depth,
+        type: scanType,
+        summary: {
+          critical: criticalCount,
+          high: highCount,
+          medium: mediumCount,
+          low: lowCount,
+          total: findings.length,
+        },
+        ...(depsSkipped ? { incomplete: true, skipped: { deps: depsSkipped } } : {}),
+        findings,
+      };
 
       // Persist the scan result so downstream consumers (the statusline's
       // getSecurityStatus in funnel/local-signals.ts, which reads
@@ -335,20 +404,6 @@ const scanCommand: Command = {
       try {
         const scanDirOut = path.join(path.resolve(target), '.claude', 'security-scans');
         fs.mkdirSync(scanDirOut, { recursive: true });
-        const record = {
-          timestamp: new Date().toISOString(),
-          target,
-          depth,
-          type: scanType,
-          summary: {
-            critical: criticalCount,
-            high: highCount,
-            medium: mediumCount,
-            low: lowCount,
-            total: findings.length,
-          },
-          findings,
-        };
         // Deterministic name keyed on scan config so repeated runs overwrite
         // rather than accumulate stale reports.
         const outFile = path.join(scanDirOut, `scan-${scanType}-${depth}.json`);
@@ -359,27 +414,71 @@ const scanCommand: Command = {
 
       // Auto-fix if requested
       if (fix && criticalCount + highCount > 0) {
-        output.writeln();
+        if (outputFormat === 'text') output.writeln();
         const fixSpinner = output.createSpinner({ text: 'Attempting to fix vulnerabilities...', spinner: 'dots' });
-        fixSpinner.start();
+        if (outputFormat === 'text') fixSpinner.start();
         try {
           try {
             execSync('npm audit fix', { cwd: path.resolve(target), encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
           } catch { /* npm audit fix may exit non-zero */ }
-          fixSpinner.succeed('Applied available fixes (run scan again to verify)');
+          if (outputFormat === 'text') fixSpinner.succeed('Applied available fixes (run scan again to verify)');
         } catch {
-          fixSpinner.fail('Some fixes could not be applied automatically');
+          if (outputFormat === 'text') fixSpinner.fail('Some fixes could not be applied automatically');
         }
       }
 
+      if (outputFormat === 'json') output.printJson(record);
+      else if (outputFormat === 'sarif') output.printJson(scanSarif(findings));
+
+      if (depsSkipped) {
+        if (outputFormat !== 'text') output.printError(`Dependency scan skipped: ${depsSkipped}`);
+        return { success: false, exitCode: 2 };
+      }
       return { success: findings.length === 0 || (criticalCount === 0 && highCount === 0) };
     } catch (error) {
-      spinner.fail('Scan failed');
+      if (outputFormat === 'text') spinner.fail('Scan failed');
       output.printError(`Error: ${error}`);
       return { success: false };
     }
   },
 };
+
+/**
+ * #4124: `npm audit` can fail without exiting through the vulnerability path.
+ * In a pnpm/yarn/bun project there is no package-lock.json, so it prints
+ * `{"error":{"code":"ENOLOCK",...}}`. That has no `vulnerabilities` key, and
+ * both `scan` and `cve` used to read it as a clean tree. Only a report with a
+ * `vulnerabilities` object counts as a scan; anything else is "could not scan".
+ */
+type NpmAuditVuln = { severity: string; via: Array<{ title?: string; url?: string; source?: number; name?: string } | string> };
+export type NpmAuditResult =
+  | { ok: true; vulnerabilities: Record<string, NpmAuditVuln> }
+  | { ok: false; reason: string };
+export function interpretNpmAudit(raw: string, dir?: string): NpmAuditResult {
+  let audit: { vulnerabilities?: unknown; error?: { code?: string; summary?: string } };
+  try {
+    audit = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: 'npm audit did not return a JSON report.' };
+  }
+  if (audit && typeof audit === 'object' && audit.error) {
+    const code = typeof audit.error.code === 'string' ? audit.error.code : 'error';
+    const summary = typeof audit.error.summary === 'string' ? audit.error.summary : 'npm audit failed.';
+    return { ok: false, reason: `npm audit failed (${code}): ${summary}${code === 'ENOLOCK' ? auditHint(dir) : ''}` };
+  }
+  if (!audit || typeof audit !== 'object' || !audit.vulnerabilities || typeof audit.vulnerabilities !== 'object' || Array.isArray(audit.vulnerabilities)) {
+    return { ok: false, reason: 'npm audit returned no vulnerability report.' };
+  }
+  return { ok: true, vulnerabilities: audit.vulnerabilities as Record<string, NpmAuditVuln> };
+}
+function auditHint(dir?: string): string {
+  if (!dir) return '';
+  const has = (f: string) => existsSync(resolvePath(dir, f));
+  if (has('pnpm-lock.yaml')) return ' This is a pnpm project: run `pnpm audit` instead.';
+  if (has('yarn.lock')) return ' This is a yarn project: run `yarn npm audit` (Berry) or `yarn audit` (v1) instead.';
+  if (has('bun.lock') || has('bun.lockb')) return ' This is a bun project: run `bun audit` instead.';
+  return ' Create one with `npm i --package-lock-only`, or use your package manager\'s audit.';
+}
 
 // CVE subcommand
 const cveCommand: Command = {
@@ -416,23 +515,22 @@ const cveCommand: Command = {
       auditJson = (e instanceof Error && 'stdout' in e ? (e as { stdout: string }).stdout : '') || '{}';
     }
 
-    let audit: { vulnerabilities?: Record<string, { severity: string; via: Array<{ title?: string; url?: string; source?: number; name?: string }> }> };
-    try {
-      audit = JSON.parse(auditJson);
-    } catch {
-      output.writeln(output.warning('⚠ Could not parse `npm audit --json` output.'));
-      output.writeln(output.dim('Make sure you are inside a project with a package.json.'));
+    const audit = interpretNpmAudit(auditJson, process.cwd());
+    if (!audit.ok) {
+      output.writeln(output.warning(`⚠ Could not check dependencies: ${audit.reason}`));
+      output.writeln(output.dim('No result is reported rather than a false all-clear.'));
       return { success: false, exitCode: 2 };
     }
 
-    const vulns = audit.vulnerabilities || {};
+    const vulns = audit.vulnerabilities;
     const cveRows: Array<{ pkg: string; severity: string; cveIds: string[]; title: string; url: string | undefined }> = [];
     const CVE_RE = /CVE-\d{4}-\d{4,7}/g;
 
     for (const [pkg, v] of Object.entries(vulns)) {
       const sev = v.severity || 'low';
-      const titles = (v.via || []).filter((x) => typeof x === 'object' && x?.title).map((x) => x.title!);
-      const urls = (v.via || []).filter((x) => typeof x === 'object' && x?.url).map((x) => x.url!);
+      const via = (v.via || []).filter((x): x is Exclude<typeof x, string> => typeof x === 'object' && x !== null);
+      const titles = via.filter((x) => x.title).map((x) => x.title!);
+      const urls = via.filter((x) => x.url).map((x) => x.url!);
       const allText = `${titles.join(' ')} ${urls.join(' ')}`;
       const cveIds = Array.from(new Set(allText.match(CVE_RE) || []));
       cveRows.push({ pkg, severity: sev, cveIds, title: titles[0] || 'Vulnerability', url: urls[0] });
@@ -1096,7 +1194,7 @@ const defendCommand: Command = {
             low: output.dim,
           }[threat.severity] || output.dim;
 
-          output.writeln(`  ${severityColor(`[${threat.severity.toUpperCase()}]`)} ${threat.type}`);
+          output.writeln(`  ${severityColor.call(output, `[${threat.severity.toUpperCase()}]`)} ${threat.type}`);
           output.writeln(`    ${output.dim(threat.description)}`);
           output.writeln(`    Confidence: ${(threat.confidence * 100).toFixed(1)}%`);
           output.writeln();

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-ddd",
   "description": "Domain-Driven Design scaffolding — bounded contexts, aggregate roots, domain events, value objects, repositories, and anti-corruption layers; navigable domain graph stored in AgentDB",
-  "version": "0.2.1",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -18,6 +18,22 @@
     "acl",
     "value-objects",
     "repositories",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse domain-model memory writes that hold a key, token or password. On by default; it only ever tightens.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

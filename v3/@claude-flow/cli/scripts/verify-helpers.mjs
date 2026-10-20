@@ -22,7 +22,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = resolve(process.argv[2] || join(PKG_ROOT, '.claude', 'helpers'));
 // Keep in sync with sign-helpers.mjs:CRITICAL and src/init/helper-refresh.ts:CRITICAL_HELPERS.
-const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.js'];
+const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.cjs'];
 
 function die(msg) { console.error(`[verify-helpers] ${msg}`); process.exit(1); }
 

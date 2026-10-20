@@ -97,7 +97,7 @@ if (require.main === module) {
     const result = routeTask(task);
     console.log(JSON.stringify(result, null, 2));
   } else {
-    console.log('Usage: router.js <task description>');
+    console.log('Usage: router.cjs <task description>');
     console.log('\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
   }
 }

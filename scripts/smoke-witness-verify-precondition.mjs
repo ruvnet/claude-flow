@@ -95,9 +95,13 @@ try {
       && sourceResult?.signature?.publicKeyReproducible === true,
     `signature=${JSON.stringify(sourceResult?.signature)}`,
   );
-  const strictClean = run(tmp, REAL_MANIFEST, '--source-only', '--strict');
+  // The release witness hashes a historical tree, so legitimate later source
+  // changes may drift. Test the zero-drift path against a fixed signed fixture.
+  const fixtureRoot = resolve(REPO_ROOT, 'scripts/fixtures/witness-source-only');
+  const fixtureManifest = join(fixtureRoot, 'manifest.json');
+  const strictClean = run(fixtureRoot, fixtureManifest, '--source-only', '--strict');
   record(
-    '--strict accepts an unchanged source tree',
+    '--strict accepts the unchanged signed test fixture',
     strictClean.status === 0 && parseOutput(strictClean)?.summary?.drift === 0,
     `exit=${strictClean.status}, output=${strictClean.stdout.slice(0, 300)}`,
   );

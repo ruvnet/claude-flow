@@ -639,19 +639,19 @@ The `@claude-flow/codex` package now includes built-in dual-mode orchestration:
 
 ```bash
 # List available collaboration templates
-npx claude-flow-codex dual templates
+npx @claude-flow/codex dual templates
 
 # Run a feature development swarm
-npx claude-flow-codex dual run --template feature --task "Add user authentication"
+npx @claude-flow/codex dual run --template feature --task "Add user authentication"
 
 # Run a security audit swarm
-npx claude-flow-codex dual run --template security --task "src/auth/"
+npx @claude-flow/codex dual run --template security --task "src/auth/"
 
 # Run a refactoring swarm
-npx claude-flow-codex dual run --template refactor --task "src/legacy/"
+npx @claude-flow/codex dual run --template refactor --task "src/legacy/"
 
 # Check collaboration status
-npx claude-flow-codex dual status
+npx @claude-flow/codex dual status
 ```
 
 ### Codex Loop Runner
@@ -660,15 +660,15 @@ Codex does not expose Claude Code's `ScheduleWakeup`, so `@claude-flow/codex` pr
 
 ```bash
 # Run Codex repeatedly until it creates .codex/loop/default.complete or reaches 10 iterations
-npx claude-flow-codex loop run "Fix failing tests and create the completion marker when done"
+npx @claude-flow/codex loop run "Fix failing tests and create the completion marker when done"
 
 # Use command mode for recurring Ruflo workers or custom scripts
-npx claude-flow-codex loop run --name testgaps --interval 270 --max-iterations 0 \
+npx @claude-flow/codex loop run --name testgaps --interval 270 --max-iterations 0 \
   --command "npx claude-flow hooks worker dispatch --trigger testgaps"
 
 # Inspect or stop a loop from another terminal
-npx claude-flow-codex loop status --name testgaps
-npx claude-flow-codex loop stop --name testgaps
+npx @claude-flow/codex loop status --name testgaps
+npx @claude-flow/codex loop stop --name testgaps
 ```
 
 Loop state is stored in `.codex/loop/<name>.json`; `loop stop` writes `.codex/loop/<name>.stop`, which the runner observes between iterations.
@@ -751,18 +751,35 @@ enabled = true
 
 ### .codex/config.toml (Local Overrides)
 
+`init` creates this gitignored file with **standard** trust by default:
+
 ```toml
 # Local development overrides (gitignored)
 # These settings override .agents/config.toml
 
-approval_policy = "never"
-sandbox_mode = "danger-full-access"
-web_search = "live"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
 
 # Disable MCP in local if needed
 [mcp_servers.claude-flow]
 enabled = false
 ```
+
+Codex can then write inside the workspace only and asks before anything riskier.
+Opt in to the old permissive file (`approval_policy = "never"`,
+`sandbox_mode = "danger-full-access"`, `web_search = "live"`) explicitly:
+
+```bash
+npx ruflo@latest init --dual --codex-trust full     # or: RUFLO_CODEX_TRUST=full
+npx @claude-flow/codex init --codex-trust full
+```
+
+`init` prints which level you got. An existing `.codex/config.toml` is never
+rewritten, not even with `--force` (it holds your own sandbox and approval
+choices), so to change the level of an existing file edit those three keys.
+Unknown `--codex-trust` values are rejected on the command line and fall back to
+`standard` (with a warning) from the environment variable.
 
 ### Environment Variables
 
@@ -1024,6 +1041,84 @@ npx claude-flow memory optimize --rebuild-index
 </details>
 
 ---
+
+## Inspect an existing Codex session
+
+The `activity` command lets you pick a helper and read its assignment, recorded
+state, public progress messages, and tool calls/results. It reads local rollout
+files without starting model sessions or sending commands to agents.
+
+From a checkout containing this change:
+
+```bash
+npm install --prefix v3/@claude-flow/codex --workspaces=false --ignore-scripts --legacy-peer-deps --package-lock=false
+npm run build --prefix v3/@claude-flow/codex
+node v3/@claude-flow/codex/dist/cli.js activity \
+  --session-file /path/to/sessions/parent-rollout.jsonl \
+  --sessions-dir /path/to/sessions
+```
+
+Choose the parent rollout explicitly. Only helpers whose recorded parent chain
+leads back to that session appear. The selected directory must contain both the
+parent and helper files; use the smallest directory that contains them all.
+
+Use **j/k** or the arrow keys to select a helper, then **Enter** to open it.
+In the detail view, **j/k** scroll, **Space** moves down a page, **g** goes to the
+top, **G** follows the latest activity, and **b** or **Escape** returns to the list.
+Press **q** to quit; the Codex session keeps running.
+
+Use `--agent <thread-id>` to open a specific helper, `--once` to print a snapshot
+without an interactive terminal, or `--interval <seconds>` to change the refresh
+interval (default: 2 seconds; range: 0.2–60).
+
+These screenshots use made-up session records:
+
+![Agent picker with a parser-review helper](docs/images/activity-picker.png)
+
+![Helper assignment, public progress, command and result](docs/images/activity-detail.png)
+
+### What the viewer can read
+
+The parser supports CLI rollout files with a `session_meta` header, helper ancestry
+in `source.subagent.thread_spawn.parent_thread_id`, and an own-thread marker
+(`payload.thread_id`) before helper activity. Public message, function/custom tool
+call and result records, and supported task/item events are shown. Formats without
+these attribution fields may produce an empty list or unavailable activity.
+
+Copied parent history, reasoning, and system/developer messages are excluded.
+Ambiguous identities and paths through symlinks are rejected. The viewer strips
+terminal controls and masks common credential patterns before shortening previews.
+Masking cannot catch every secret in arbitrary command output: check the visible
+content before sharing a screenshot.
+
+State is the last **recorded** state, not a heartbeat. Discovery stops after 4,000
+entries or eight directory levels; ancestry is limited to 64 links. Each detail
+refresh reads at most 1 MiB, lines are limited to 64 KiB, previews to 2,400 characters,
+and history to 80 events. The metadata header must include its terminating newline
+within the first 64 KiB; an oversized or incomplete header excludes that file.
+The screen labels incomplete scans, omitted records and logs that are still being
+read. Missing data stays unavailable.
+
+### Check the viewer locally
+
+```bash
+cd v3/@claude-flow/codex
+npm test -- --run tests/activity-files.test.ts tests/activity-parser.test.ts tests/activity-viewer.test.ts
+cd ../../..
+node scripts/smoke-codex-activity.mjs
+```
+
+The Node smoke check runs the built CLI against synthetic files and checks the
+picker, detail output, history isolation, invalid input and read-only access.
+The screenshots above were captured from the interactive viewer using synthetic
+records; screenshot generation is not part of CI.
+
+### Release integration
+
+Ship the viewer in `@claude-flow/codex` with the next coordinated Ruflo release.
+At release, bump the package version and exported `VERSION` together, update the
+bundled dependency pins and lockfile, and include the built package in the release
+train.
 
 ## Related Packages
 

@@ -1,0 +1,4 @@
+{
+  "description": "ruflo-ruvector as a mod (ADR-445): a tighten-only guard that keeps secrets out of its write tools, /ruvector-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

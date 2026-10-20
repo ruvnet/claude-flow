@@ -1,0 +1,6 @@
+{
+  "description": "Project Anatole as a mod (ADR-453): a learning watchdog for unattended agents. Deterministic OWASP-mapped rules (the only thing that can block), a per-project baseline (notify only), /protector, and status.json, alerts.jsonl, baseline.json under .claude-flow/protector-mod/. Default off in every bundle; default mode learn once installed.",
+  "modules": [
+    "./register.ts"
+  ]
+}

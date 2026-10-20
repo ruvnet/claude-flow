@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getGitDiffNumstat, getGitDiffNumstatAsync } from '../src/ruvector/diff-classifier.js';
 
 // ============================================================================
 // 1. Path Traversal Prevention in Session Tools
@@ -60,42 +61,35 @@ describe('Path Traversal Prevention', () => {
 // 2. Command Injection Prevention in Diff Classifier
 // ============================================================================
 describe('Command Injection Prevention - Git Ref Validation', () => {
-  // Reproduce validateGitRef from diff-classifier.ts:367-382
-  function validateGitRef(ref: string): void {
-    if (!/^[a-zA-Z0-9_\-./~^@]+$/.test(ref)) {
-      throw new Error('Invalid git ref: contains unsafe characters');
-    }
-    if (ref.includes('..') && !ref.match(/^[a-zA-Z0-9_\-]+\.\.\.?[a-zA-Z0-9_\-]+$/)) {
-      if (!/^\w+\.\.[.\w]+$/.test(ref)) {
-        throw new Error('Invalid git ref: suspicious pattern');
-      }
-    }
-    if (ref.length > 256) {
-      throw new Error('Invalid git ref: too long');
-    }
-  }
-
   it('should allow valid git refs', () => {
-    expect(() => validateGitRef('HEAD')).not.toThrow();
-    expect(() => validateGitRef('main')).not.toThrow();
-    expect(() => validateGitRef('feature/my-branch')).not.toThrow();
-    expect(() => validateGitRef('v1.0.0')).not.toThrow();
-    expect(() => validateGitRef('HEAD~3')).not.toThrow();
-    expect(() => validateGitRef('HEAD^')).not.toThrow();
-    expect(() => validateGitRef('origin/main')).not.toThrow();
+    for (const ref of ['HEAD', 'HEAD~1', 'HEAD^', 'origin/main',
+      'HEAD~1..', 'HEAD~1..HEAD', 'origin/main..origin/main',
+      'HEAD~3...origin/main']) {
+      expect(() => getGitDiffNumstat(ref), ref).not.toThrow();
+    }
+  });
+
+  it('should allow normal ranges through the async path', async () => {
+    await expect(getGitDiffNumstatAsync('HEAD~1..HEAD')).resolves.toEqual(expect.any(Array));
+    await expect(getGitDiffNumstatAsync('origin/main..origin/main')).resolves.toEqual(expect.any(Array));
   });
 
   it('should reject command injection via shell metacharacters', () => {
-    expect(() => validateGitRef('HEAD; rm -rf /')).toThrow('unsafe characters');
-    expect(() => validateGitRef('HEAD && cat /etc/passwd')).toThrow('unsafe characters');
-    expect(() => validateGitRef('HEAD | whoami')).toThrow('unsafe characters');
-    expect(() => validateGitRef('$(whoami)')).toThrow('unsafe characters');
-    expect(() => validateGitRef('`whoami`')).toThrow('unsafe characters');
+    for (const ref of ['HEAD; rm -rf /', 'HEAD && cat /etc/passwd',
+      'HEAD | whoami', '$(whoami)', '`whoami`', '--help']) {
+      expect(() => getGitDiffNumstat(ref), ref).toThrow('unsafe characters');
+    }
+  });
+
+  it('should reject traversal and multiple range separators', () => {
+    for (const ref of ['foo/../bar', 'HEAD..../feature', 'main..feature..other']) {
+      expect(() => getGitDiffNumstat(ref), ref).toThrow('suspicious pattern');
+    }
   });
 
   it('should reject refs that are too long (DoS prevention)', () => {
     const longRef = 'a'.repeat(257);
-    expect(() => validateGitRef(longRef)).toThrow('too long');
+    expect(() => getGitDiffNumstat(longRef)).toThrow('too long');
   });
 });
 

@@ -24,7 +24,12 @@ vi.mock('node:fs', () => {
   let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
+    readFileSync: vi.fn((p: string) => {
+      if (!memStore.has(p)) {
+        throw Object.assign(new Error(`ENOENT: no such file or directory, open '${p}'`), { code: 'ENOENT' });
+      }
+      return memStore.get(p)!;
+    }),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
     renameSync: vi.fn((from: string, to: string) => {
       memStore.set(to, memStore.get(from) || '');
@@ -57,7 +62,12 @@ vi.mock('fs', () => {
   let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
+    readFileSync: vi.fn((p: string) => {
+      if (!memStore.has(p)) {
+        throw Object.assign(new Error(`ENOENT: no such file or directory, open '${p}'`), { code: 'ENOENT' });
+      }
+      return memStore.get(p)!;
+    }),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
     renameSync: vi.fn((from: string, to: string) => {
       memStore.set(to, memStore.get(from) || '');

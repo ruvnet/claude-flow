@@ -28,6 +28,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { distillTrajectoryContent, serialiseDistilled } from '../memory/structured-distill.js';
+import { loadBetterSqlite3 } from '../memory/shared-sqlite.js';
 
 export type DistillProvenance = 'oracle:test-exec' | 'judge:fable' | 'proxy:structural';
 
@@ -150,8 +151,7 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
 
   let Database: any;
   try {
-    const mod: string = 'better-sqlite3';
-    Database = (await import(mod)).default;
+    Database = await loadBetterSqlite3();
   } catch {
     return emptyReport(dryRun, { skipped: 'better-sqlite3 unavailable' });
   }

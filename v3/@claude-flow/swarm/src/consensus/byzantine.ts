@@ -62,6 +62,9 @@ export class ByzantineConsensus extends EventEmitter {
 
   constructor(nodeId: string, config: ByzantineConfig = {}) {
     super();
+    if (config.maxFaultyNodes !== undefined && (!Number.isSafeInteger(config.maxFaultyNodes) || config.maxFaultyNodes < 0)) {
+      throw new RangeError('maxFaultyNodes must be a non-negative safe integer');
+    }
     this.config = {
       threshold: config.threshold ?? SWARM_CONSTANTS.DEFAULT_CONSENSUS_THRESHOLD,
       timeoutMs: config.timeoutMs ?? SWARM_CONSTANTS.DEFAULT_CONSENSUS_TIMEOUT_MS,
@@ -158,9 +161,15 @@ export class ByzantineConsensus extends EventEmitter {
    */
   private byzantineF(): number {
     const n = this.nodes.size + 1; // self + known peers
-    const derived = Math.max(1, Math.floor((n - 1) / 3));
+    const derived = Math.floor((n - 1) / 3);
     const cap = this.config.maxFaultyNodes;
     return cap === undefined ? derived : Math.min(derived, cap);
+  }
+
+  /** Strictly intersecting quorum for every cluster size, including capped f. */
+  private quorumSize(): number {
+    const n = this.nodes.size + 1;
+    return Math.floor((n + this.byzantineF()) / 2) + 1;
   }
 
   electPrimary(): string {
@@ -233,7 +242,7 @@ export class ByzantineConsensus extends EventEmitter {
 
   // Dream Cycle 2026-08-24 (swarm): per-voter weight for weighted consensus,
   // clamped to [0,1]. The clamp is a hard safety invariant, not a style
-  // choice: byzantine.ts's f-faulty-node quorum (2f+1) assumes each vote
+  // choice: byzantine.ts's f-faulty-node quorum assumes each vote
   // contributes at most one unit — an unclamped weight >1 would let a
   // single high-weight node satisfy quorum alone, defeating the BFT
   // guarantee. Missing weights/voter defaults to 1 (flat vote), reproducing
@@ -252,9 +261,8 @@ export class ByzantineConsensus extends EventEmitter {
     proposal.votes.set(vote.voterId, vote);
 
     // Check consensus
-    const f = this.byzantineF();
     const n = this.nodes.size + 1;
-    const requiredVotes = 2 * f + 1;
+    const requiredVotes = this.quorumSize();
 
     const castVotes = Array.from(proposal.votes.values());
     const approvingWeight = castVotes
@@ -351,11 +359,11 @@ export class ByzantineConsensus extends EventEmitter {
       messages.push(message);
     }
 
-    // Check if prepared (2f + 1 prepare messages)
-    const f = this.byzantineF();
+    // Check the same intersecting quorum used by vote().
+    const requiredMessages = this.quorumSize();
     const prepareCount = messages.filter(m => m.type === 'prepare').length;
 
-    if (prepareCount >= 2 * f + 1) {
+    if (prepareCount >= requiredMessages) {
       const proposalId = `bft_${message.viewNumber}_${message.sequenceNumber}`;
       this.node.preparedMessages.set(key, messages);
 
@@ -388,10 +396,10 @@ export class ByzantineConsensus extends EventEmitter {
   // KNOWN LIMITATION (pre-existing, not fixed here, flagged by adversarial
   // review during dream-cycle 2026-08-24): this PBFT protocol-message commit
   // quorum is a second, fully separate acceptance path from vote()'s
-  // weighted tally below — it accepts on raw commit-message count (2f+1),
-  // with no concept of per-voter weight. Currently unreachable in this
-  // package's unit tests (no transport wired), but a deployment that wires
-  // real multi-node PBFT transport traffic would bypass weighted consensus
+  // weighted tally below — it accepts on raw commit-message count at the same quorum size,
+  // with no concept of per-voter weight. The protocol quorum is now covered
+  // by direct message-handler tests; a deployment that wires real multi-node
+  // PBFT transport traffic would still bypass weighted consensus
   // entirely via this path. "Weighted Byzantine consensus" governs the
   // vote() API only, not the underlying commit-message protocol.
   async handleCommit(message: ByzantineMessage): Promise<void> {
@@ -410,11 +418,11 @@ export class ByzantineConsensus extends EventEmitter {
       messages.push(message);
     }
 
-    // Check if committed (2f + 1 commit messages)
-    const f = this.byzantineF();
+    // Check the same intersecting quorum used by vote().
+    const requiredMessages = this.quorumSize();
     const commitCount = messages.filter(m => m.type === 'commit').length;
 
-    if (commitCount >= 2 * f + 1) {
+    if (commitCount >= requiredMessages) {
       const proposalId = `bft_${message.viewNumber}_${message.sequenceNumber}`;
       this.node.committedMessages.set(key, messages);
 
@@ -526,8 +534,7 @@ export class ByzantineConsensus extends EventEmitter {
   }
 
   getMaxFaultyNodes(): number {
-    const n = this.nodes.size + 1;
-    return Math.floor((n - 1) / 3);
+    return this.byzantineF();
   }
 
   canTolerate(faultyCount: number): boolean {

@@ -8,18 +8,19 @@
  * `ruv://federation/registry` resource), not through these gateway-identity tools.
  */
 import type { MCPTool } from './types.js';
+import { configuredServiceUrl } from './service-url.js';
 
-// ADR-125 precedence: the tool arg `gatewayUrl` (fed by `ruflo federation --gateway`)
-// takes precedence over the RUFLO_X_GATEWAY_URL env var, which precedes the default.
-const GATEWAY = (override?: unknown): string =>
-  ((typeof override === 'string' && override) || process.env.RUFLO_X_GATEWAY_URL || 'https://x.ruv.io').replace(/\/$/, '');
-const gatewayArg = { gatewayUrl: { type: 'string', description: 'Gateway base URL; takes precedence over RUFLO_X_GATEWAY_URL (default https://x.ruv.io).' } } as const;
+// Service destinations are trusted operator configuration, not MCP caller data.
+const GATEWAY = (override?: unknown): string => configuredServiceUrl(
+  process.env.RUFLO_X_GATEWAY_URL || 'https://x.ruv.io', override, 'RUFLO_X_GATEWAY_URL');
+const gatewayArg = { gatewayUrl: { type: 'string', description: 'Compatibility assertion: must match RUFLO_X_GATEWAY_URL (default https://x.ruv.io). Change the server environment to select another gateway.' } } as const;
 const TIMEOUT_MS = 25_000;
 
 /** Minimal MCP-over-Streamable-HTTP client: POST JSON-RPC, parse the SSE `data:` frame. */
 async function gatewayRpc(method: string, params: Record<string, unknown>, gatewayUrl?: unknown): Promise<unknown> {
   const res = await fetch(`${GATEWAY(gatewayUrl)}/mcp`, {
     method: 'POST',
+    redirect: 'error',
     headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
     signal: AbortSignal.timeout(TIMEOUT_MS),

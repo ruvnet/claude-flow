@@ -1,0 +1,4 @@
+{
+  "description": "MetaHarness as a mod (ADR-445): a tighten-only guard on the metaharness tools (promotion needs an explicit confirm, no secrets in inputs), a status file the console reads, and /metaharness-mod.",
+  "modules": ["./register.ts"]
+}

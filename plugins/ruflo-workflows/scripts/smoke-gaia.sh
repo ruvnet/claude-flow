@@ -11,9 +11,9 @@ bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # ── plugin.json ──────────────────────────────────────────────────────────────
 
-step "1. plugin.json at 0.4.0 with gaia keywords"
+step "1. plugin.json is semver >= 0.4.0 with gaia keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.4.0" ]]; then bad "expected 0.4.0, got '$v'"; else
+if [[ -z "$v" ]] || [[ "$(printf '%s\n0.4.0\n' "$v" | sort -V | head -1)" != "0.4.0" ]]; then bad "expected >= 0.4.0, got '$v'"; else
   miss=""
   for k in gaia benchmark hal-leaderboard evaluation; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -21,12 +21,8 @@ if [[ "$v" != "0.4.0" ]]; then bad "expected 0.4.0, got '$v'"; else
   [[ -z "$miss" ]] && ok || bad "missing keywords:$miss"
 fi
 
-step "2. plugin.json has gaia component block with correct keys"
-miss=""
-for k in gaia-run gaia-submit gaia-validate gaia-history gaia-cost gaia-leaderboard; do
-  grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
-done
-[[ -z "$miss" ]] && ok || bad "missing component entries:$miss"
+step "2. plugin.json declares no component arrays (commands are auto-discovered)"
+if grep -qE '"(commands|skills|agents)"[[:space:]]*:[[:space:]]*\[' "$ROOT/.claude-plugin/plugin.json"; then bad "plugin.json lists component arrays"; else ok; fi
 
 # ── commands ─────────────────────────────────────────────────────────────────
 

@@ -78,21 +78,7 @@ function git(args) {
 
 // Time-boxed accepted findings. NOT a mute button: an expired entry is refused
 // and fails the guard, so debt has to be revisited rather than quietly inherited.
-const ACCEPTED = [
-  {
-    package: '@claude-flow/shared',
-    check: 'range-coverage',
-    // Pre-existing when this guard landed (2026-09-21). @claude-flow/shared@3.0.0-alpha.8
-    // IS published and is its `latest`, so the CLI is pinned one release behind a
-    // package that shipped — stale, not unshippable, and materially different from
-    // the #3335/#3390 failure this guard exists to catch. Raising the pin edits
-    // v3/@claude-flow/cli deps, which forces a pnpm-lock.yaml regen in the same
-    // change (#2540 -> #2552: frozen-lockfile otherwise fails ~25 jobs), so it wants
-    // its own PR rather than riding along with a guard.
-    reason: 'cli pins shared 3.0.0-alpha.7; workspace is 3.0.0-alpha.8 (published). Needs a pin bump + lockfile regen in its own PR.',
-    expires: '2026-10-21',
-  },
-];
+const ACCEPTED = [];
 
 const today = new Date().toISOString().slice(0, 10);
 function acceptedFor(pkg, check) {

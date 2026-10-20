@@ -1,7 +1,7 @@
 {
   "name": "ruflo-neural-trader",
-  "description": "Neural trading via npx neural-trader — self-learning strategies, Rust/NAPI backtesting, 112+ MCP tools, swarm coordination, and portfolio optimization",
-  "version": "0.2.1",
+  "description": "Neural trading via npx neural-trader — self-learning strategies, Rust/NAPI backtesting, 112+ MCP tools, swarm coordination, and portfolio optimization. As a mod (ADR-445): a tighten-only guard on its tools, /trader-mod, and a status file the console shows",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -21,6 +21,33 @@
     "swarm",
     "neural-trader-runtime",
     "walk-forward",
-    "monte-carlo"
-  ]
+    "monte-carlo",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse calls and memory writes that hold a secret. On by default.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "liveGuard": {
+      "type": "string",
+      "title": "Live-order guard",
+      "description": "Refuse a live order call unless it carries confirm: true (or paper: true). On by default.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

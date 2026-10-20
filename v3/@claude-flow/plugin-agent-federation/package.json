@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/plugin-agent-federation",
-  "version": "1.0.0-alpha.18",
+  "version": "1.0.1",
   "description": "Cross-installation agent federation with zero-trust security, PII-gated data flow, and compliance-grade audit trails.",
   "homepage": "https://github.com/ruvnet/ruflo",
   "type": "module",
@@ -39,8 +39,8 @@
     }
   },
   "devDependencies": {
-    "@claude-flow/shared": "3.0.0-alpha.8",
-    "@claude-flow/security": "file:../security",
+    "@claude-flow/shared": "^3.0.0",
+    "@claude-flow/security": "^3.0.0",
     "@types/ws": "^8.18.1",
     "agentic-flow": "2.0.12-fix.8",
     "typescript": "^5.4.0",

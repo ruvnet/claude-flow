@@ -1,7 +1,7 @@
 {
   "name": "ruflo-jujutsu",
-  "description": "Advanced git workflows with diff analysis, risk scoring, change classification (feature/bugfix/refactor/...), and reviewer recommendations — wraps 6 analyze_* MCP tools (diff, diff-risk, diff-classify, diff-reviewers, file-risk, diff-stats)",
-  "version": "0.2.1",
+  "description": "Advanced git workflows with diff analysis, risk scoring, change classification (feature/bugfix/refactor/...), and reviewer recommendations — wraps 6 analyze_* MCP tools (diff, diff-risk, diff-classify, diff-reviewers, file-risk, diff-stats). As a mod (ADR-445): a PR-text and merge/close guard, /jujutsu-mod, and a status file the console shows",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,33 @@
     "risk-analysis",
     "mcp",
     "change-classification",
-    "reviewer-recommendation"
-  ]
+    "reviewer-recommendation",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse tool calls that are clearly harmful in this plugin's domain (see README, As a mod).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "confirmPrActions": {
+      "type": "string",
+      "title": "Confirm PR merge and close",
+      "description": "Require confirm: true on github_pr_manage merge and close.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

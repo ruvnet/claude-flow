@@ -20,6 +20,7 @@ import {
   type PluginType,
 } from '../plugins/store/index.js';
 import { getPluginManager, type InstalledPlugin } from '../plugins/manager.js';
+import { DEFAULT_PLUGIN_PERMISSIONS, isStrictPluginMode } from '../plugins/trust-policy.js';
 import { getBulkRatings } from '../services/registry-api.js';
 
 // List subcommand - Now uses IPFS-based registry
@@ -107,7 +108,22 @@ const listCommand: Command = {
         return { success: false, exitCode: 1 };
       }
 
-      spinner.succeed(`Registry discovered: ${result.registry.totalPlugins} plugins available`);
+      if (result.demo) {
+        // The signed registry was unavailable or failed verification (see ruvnet/ruflo#3211):
+        // say so instead of reporting a successful discovery over the built-in list.
+        spinner.stop(
+          output.warning(
+            `Signed plugin registry unavailable or unverified; showing the built-in list ` +
+              `(${result.registry.totalPlugins} plugins)`,
+          ),
+        );
+      } else if (result.verified !== true) {
+        spinner.stop(
+          output.warning(`Registry discovered but not verified: ${result.registry.totalPlugins} plugins available`),
+        );
+      } else {
+        spinner.succeed(`Registry discovered: ${result.registry.totalPlugins} plugins available`);
+      }
 
       output.writeln();
 
@@ -125,6 +141,9 @@ const listCommand: Command = {
       if (official) {
         plugins = getOfficialPlugins(result.registry);
         title = 'Official Plugins';
+        if (result.verified !== true) {
+          output.writeln(output.warning('No plugin is shown as official: only a verified registry can say which are.'));
+        }
       } else if (featured) {
         plugins = getFeaturedPlugins(result.registry);
         title = 'Featured Plugins';
@@ -192,6 +211,22 @@ const listCommand: Command = {
         output.writeln(output.dim('(ratings: cached — cloud unavailable)'));
       }
       output.writeln(output.dim(`Source: ${result.source}${result.fromCache ? ' (cached)' : ''}`));
+      if (result.demo) {
+        output.writeln(
+          output.warning(
+            'Not from the signed registry: download counts and ratings are the ' +
+              "CLI's built-in defaults, not verified registry data.",
+          ),
+        );
+      }
+      if (result.verified !== true) {
+        output.writeln(
+          output.warning(
+            `Registry not verified (${result.unverifiedReason ?? 'unknown reason'}): every entry is ` +
+              'shown as Unverified and installs get no registry trust.',
+          ),
+        );
+      }
       if (result.cid) {
         output.writeln(output.dim(`Registry CID: ${result.cid.slice(0, 30)}...`));
       }
@@ -214,18 +249,41 @@ const installCommand: Command = {
     { name: 'version', short: 'v', type: 'string', description: 'Specific version to install' },
     { name: 'global', short: 'g', type: 'boolean', description: 'Install globally' },
     { name: 'dev', short: 'd', type: 'boolean', description: 'Install as dev dependency' },
-    { name: 'verify', type: 'boolean', description: 'Verify checksum (default: true)', default: true },
+    {
+      name: 'verify',
+      type: 'boolean',
+      description:
+        'Verify before registering (default: true). Registry installs must match the registry sha256 checksum. ' +
+        'Hooks and commands are withheld from a plugin that declares trustLevel "untrusted"/"unverified" or ' +
+        `permissions beyond the default set (${DEFAULT_PLUGIN_PERMISSIONS.join(', ')}) unless --trust is given. ` +
+        '--no-verify skips all of this.',
+      default: true,
+    },
+    { name: 'trust', type: 'boolean', description: 'Register hooks and commands even if the plugin is untrusted or declares elevated permissions', default: false },
+    {
+      name: 'allow-unverified',
+      type: 'boolean',
+      description:
+        'With CLAUDE_FLOW_STRICT_PLUGINS=true, install from npm even though the plugin registry is not verified. ' +
+        'The plugin still gets no registry trust. Strict mode gates on the registry, not the package: while the ' +
+        'registry is unverified every npm install is refused, listed or not; once it verifies, a package it does ' +
+        'not list installs without this flag, but also without registry trust.',
+      default: false,
+    },
     { name: 'registry', short: 'r', type: 'string', description: 'Registry to use' },
   ],
   examples: [
     { command: 'claude-flow plugins install -n community-analytics', description: 'Install plugin from IPFS' },
     { command: 'claude-flow plugins install -n ./my-plugin --dev', description: 'Install local plugin' },
+    { command: 'claude-flow plugins install -n ./my-plugin --trust', description: 'Install a local plugin that declares elevated permissions, registering its hooks' },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
     const version = ctx.flags.version as string || 'latest';
     const registryName = ctx.flags.registry as string;
     const verify = ctx.flags.verify !== false;
+    const trust = ctx.flags.trust === true;
+    const allowUnverified = ctx.flags.allowUnverified === true || ctx.flags['allow-unverified'] === true;
 
     if (!name) {
       output.printError('Plugin name is required');
@@ -260,11 +318,12 @@ const installCommand: Command = {
 
       let result;
       let plugin: PluginEntry | undefined;
+      const registryWarnings: string[] = [];
 
       if (isLocalPath) {
         // Install from local path
         spinner.setText(`Installing from ${name}...`);
-        result = await manager.installFromLocal(name);
+        result = await manager.installFromLocal(name, { verify, trust });
       } else {
         // First, try to find in registry for metadata
         spinner.setText(`Discovering ${name} in registry...`);
@@ -275,13 +334,44 @@ const installCommand: Command = {
           plugin = registryResult.registry.plugins.find(p => p.name === name || p.id === name);
         }
 
+        // Only a verified registry may vouch for a plugin (trust level, permissions, checksum).
+        // An unverified or built-in list is just a claim, so its entries install like any npm
+        // package: no install scripts and no permission vouching without --trust.
+        const registryVerified = registryResult.success && registryResult.verified === true;
+        if (!registryVerified) {
+          const reason = registryResult.unverifiedReason ?? registryResult.error ?? 'registry not verified';
+          if (isStrictPluginMode() && !allowUnverified) {
+            spinner.fail(`Refusing to install ${name}: plugin registry is not verified (${reason})`);
+            output.writeln();
+            output.writeln(output.dim(
+              'CLAUDE_FLOW_STRICT_PLUGINS=true requires a verified registry. Pass --allow-unverified to install it ' +
+              'from npm anyway, without registry trust.',
+            ));
+            return { success: false, exitCode: 1 };
+          }
+          if (plugin) {
+            registryWarnings.push(
+              `${name} is listed only in an unverified registry (${reason}); it was installed without registry trust.`,
+            );
+          }
+        }
+
         if (plugin) {
           spinner.setText(`Found ${plugin.displayName} v${plugin.version}`);
         }
 
-        // Install from npm (since IPFS is demo mode)
         spinner.setText(`Installing ${name} from npm...`);
-        result = await manager.installFromNpm(name, version !== 'latest' ? version : undefined);
+        result = await manager.installFromNpm(name, version !== 'latest' ? version : undefined, {
+          verify,
+          trust,
+          ...(registryVerified && plugin
+            ? {
+                expectedChecksum: plugin.checksum,
+                registryTrustLevel: plugin.trustLevel,
+                registryPermissions: plugin.permissions,
+              }
+            : {}),
+        });
       }
 
       if (!result.success) {
@@ -294,22 +384,44 @@ const installCommand: Command = {
 
       output.writeln();
 
+      if (result.decision?.verificationSkipped) {
+        output.printWarning('Verification skipped (--no-verify): hooks and commands were registered without a trust or checksum check.');
+      }
+      for (const warning of [...registryWarnings, ...(result.warnings ?? [])]) {
+        output.printWarning(warning);
+      }
+
       const boxContent = [
         `Plugin: ${installed.name}`,
         `Version: ${installed.version}`,
         `Source: ${installed.source}`,
         `Path: ${installed.path || 'N/A'}`,
         ``,
+        `Trust: ${installed.trustLevel ?? 'not declared'}`,
+        `Permissions: ${installed.permissions?.join(', ') || 'none declared'}`,
+        `Verification: ${installed.verification ?? 'n/a'}`,
+        `Install scripts: ${installed.source === 'local' ? 'n/a (local link)' : installed.scriptsRun ? 'ran' : 'skipped (use --trust to run)'}`,
+        ``,
         `Hooks registered: ${installed.hooks?.length || 0}`,
         `Commands added: ${installed.commands?.length || 0}`,
       ];
 
-      if (plugin) {
-        boxContent.push(`Trust: ${plugin.trustLevel}`);
-        boxContent.push(`Permissions: ${plugin.permissions.join(', ') || 'none'}`);
-      }
-
       output.printBox(boxContent.join('\n'), 'Installation Complete');
+
+      if (installed.withheld) {
+        output.writeln();
+        output.printWarning(
+          `Withheld ${installed.withheld.hooks.length} hook(s) and ${installed.withheld.commands.length} command(s) ` +
+          `from ${installed.name} because it ${installed.withheld.reasons.join('; ')}.`,
+        );
+        if (installed.withheld.hooks.length > 0) {
+          output.writeln(output.dim(`  Hooks not registered: ${installed.withheld.hooks.join(', ')}`));
+        }
+        if (installed.withheld.commands.length > 0) {
+          output.writeln(output.dim(`  Commands not added: ${installed.withheld.commands.join(', ')}`));
+        }
+        output.writeln(output.dim(`  To register them, uninstall and reinstall with --trust.`));
+      }
 
       return { success: true, data: installed };
     } catch (error) {
@@ -475,6 +587,7 @@ const infoCommand: Command = {
 
       if (!result.success || !result.registry) {
         spinner.fail('Failed to discover registry');
+        if (result.error) output.printError(result.error);
         return { success: false, exitCode: 1 };
       }
 
@@ -511,6 +624,7 @@ const infoCommand: Command = {
           { field: 'Author', value: plugin.author.displayName || plugin.author.id },
           { field: 'Trust Level', value: plugin.trustLevel },
           { field: 'Verified', value: plugin.verified ? '✓ Yes' : '✗ No' },
+          { field: 'Registry', value: result.verified === true ? 'verified' : `unverified (${result.unverifiedReason ?? 'unknown reason'})` },
         ],
       });
 
@@ -680,6 +794,23 @@ const upgradeCommand: Command = {
   options: [
     { name: 'name', short: 'n', type: 'string', description: 'Plugin name', required: true },
     { name: 'version', short: 'v', type: 'string', description: 'Target version (default: latest)' },
+    {
+      name: 'verify',
+      type: 'boolean',
+      description:
+        'Re-apply the install trust policy to the new version (default: true). Its hooks and commands are withheld ' +
+        `if it declares trustLevel "untrusted"/"unverified" or permissions beyond the default set (${DEFAULT_PLUGIN_PERMISSIONS.join(', ')}) ` +
+        'unless --trust is given. --no-verify skips this.',
+      default: true,
+    },
+    {
+      name: 'trust',
+      type: 'boolean',
+      description:
+        "Run the new version's install scripts and register its hooks and commands even if it is untrusted or " +
+        'declares elevated permissions. Not carried over from the original install.',
+      default: false,
+    },
   ],
   examples: [
     { command: 'claude-flow plugins upgrade -n @claude-flow/neural', description: 'Upgrade to latest' },
@@ -688,6 +819,8 @@ const upgradeCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const name = ctx.flags.name as string;
     const version = ctx.flags.version as string;
+    const verify = ctx.flags.verify !== false;
+    const trust = ctx.flags.trust === true;
 
     if (!name) {
       output.printError('Plugin name is required');
@@ -712,7 +845,7 @@ const upgradeCommand: Command = {
       const oldVersion = existing.version;
       spinner.setText(`Upgrading ${name} from v${oldVersion}...`);
 
-      const result = await manager.upgrade(name, version);
+      const result = await manager.upgrade(name, version, { verify, trust });
 
       if (!result.success) {
         spinner.fail(`Upgrade failed: ${result.error}`);
@@ -721,6 +854,19 @@ const upgradeCommand: Command = {
 
       const plugin = result.plugin!;
       spinner.succeed(`Upgraded ${name}: v${oldVersion} -> v${plugin.version}`);
+
+      if (result.decision?.verificationSkipped) {
+        output.printWarning('Verification skipped (--no-verify): hooks and commands were registered without a trust check.');
+      }
+      for (const warning of result.warnings ?? []) {
+        output.printWarning(warning);
+      }
+      if (plugin.withheld) {
+        output.printWarning(
+          `Withheld ${plugin.withheld.hooks.length} hook(s) and ${plugin.withheld.commands.length} command(s) ` +
+          `from ${plugin.name} because it ${plugin.withheld.reasons.join('; ')}. Upgrade with --trust to register them.`,
+        );
+      }
 
       return { success: true, data: plugin };
     } catch (error) {
@@ -769,6 +915,7 @@ const searchCommand: Command = {
 
       if (!result.success || !result.registry) {
         spinner.fail('Failed to discover registry');
+        if (result.error) output.printError(result.error);
         return { success: false, exitCode: 1 };
       }
 

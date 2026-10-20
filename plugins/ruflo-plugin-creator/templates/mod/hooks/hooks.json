@@ -1,0 +1,16 @@
+{
+  "description": "Hybrid: the classic UserPromptSubmit hook runs everywhere; the module loads only where function hooks are on (Claude Code >= 2.1.287, or CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 from 2.1.277). While the module runs it sets MY_MOD_ACTIVE, and the classic hook does nothing, so no event fires twice.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"require(require('path').join(process.env.CLAUDE_PLUGIN_ROOT,'hooks','classic.cjs'))\""
+          }
+        ]
+      }
+    ]
+  },
+  "modules": ["./register.ts"]
+}

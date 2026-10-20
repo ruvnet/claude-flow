@@ -193,6 +193,7 @@ export {
   hashManifest,
   fingerprint,
   findAnchor,
+  isPlaceholderKey,
   type PluginManifest,
   type SignedPluginManifest,
   type TrustAnchor,

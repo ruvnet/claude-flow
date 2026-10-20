@@ -161,7 +161,25 @@ const isMCPMode = !process.stdin.isTTY
   && !explicitNonStdioTransport
   && (process.argv.length === 2 || isExplicitMCP);
 
-if (isMCPMode) {
+// `harness` observes the running system (it is the SessionStart hook), so it
+// skips normal CLI startup entirely: no daemon autostart, update check, policy
+// migration or config adoption, and no heavy imports. With --hook it fails
+// silently (no stack on stderr) so a missing dist/ can't disturb a session.
+const isHarness = cliArgs[0] === 'harness' && !cliArgs.includes('--help') && !cliArgs.includes('-h');
+
+if (isHarness) {
+  const hook = cliArgs.includes('--hook');
+  try {
+    const { runHarnessCli } = await import('../dist/src/commands/harness.js');
+    process.exitCode = runHarnessCli(cliArgs.slice(1));
+  } catch (error) {
+    if (!hook) {
+      const missing = error && error.code === 'ERR_MODULE_NOT_FOUND';
+      console.error(`ruflo harness: ${missing ? 'the CLI is not built (dist/ is missing)' : (error && error.message) || error}`);
+    }
+    process.exitCode = hook ? 0 : 1;
+  }
+} else if (isMCPMode) {
   // Run MCP server mode
   const { listMCPTools, callMCPTool, hasTool } = await import('../dist/src/mcp-client.js');
   const { isPolicyEnforcementEnabled, loadMcpPolicy, evaluateToolCall } =
@@ -257,7 +275,7 @@ if (isMCPMode) {
             serverInfo: { name: 'ruflo', version: VERSION },
             capabilities: {
               tools: { listChanged: true },
-              resources: { subscribe: true, listChanged: true },
+              resources: {},
             },
           },
         };
@@ -301,11 +319,14 @@ if (isMCPMode) {
         }
 
         try {
-          const result = await callMCPTool(toolName, toolParams, { sessionId });
+          const result = await callMCPTool(toolName, toolParams, { sessionId, transport: 'stdio' });
+          // Failed task outcomes are data; an explicit handler error is a tool failure.
+          const isError = result !== null && typeof result === 'object'
+            && typeof result.error === 'string' && result.error.trim().length > 0;
           return {
             jsonrpc: '2.0',
             id: message.id,
-            result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
+            result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }], isError },
           };
         } catch (error) {
           return {
@@ -318,6 +339,16 @@ if (isMCPMode) {
           };
         }
       }
+
+      // A declared capability must be served (ADR-490): no resources are exposed, so list answers are empty and a read is "not found".
+      case 'resources/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resources: [] } };
+
+      case 'resources/templates/list':
+        return { jsonrpc: '2.0', id: message.id, result: { resourceTemplates: [] } };
+
+      case 'resources/read':
+        return { jsonrpc: '2.0', id: message.id, error: { code: -32002, message: 'Resource not found' } };
 
       case 'notifications/initialized':
         return null;

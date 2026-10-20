@@ -95,11 +95,19 @@ describe('ADR-095 G2 — BFT prepare/commit quorum under f-bounded faults', () =
     expect(achieved).toBe(false); // node + 3 = 4 < 5
   });
 
-  it('config.maxFaultyNodes caps f: 10-node cluster + cap 1 → 2f+1=3 reached with only 2 external commits', async () => {
+  it('config.maxFaultyNodes caps f: 10-node cluster + cap 1 still rejects only 3 commit messages', async () => {
     const { achieved, f } = await injectQuorum({ peerCount: 9, maxFaultyNodes: 1, prepareSenders: ['s1', 's2'], commitSenders: ['s1', 's2'] });
     expect(f).toBe(1); // capped, not floor(9/3)=3
+    expect(achieved).toBe(false);
+  });
+
+  it('10-node cluster + cap 1 reaches its six-message intersecting quorum', async () => {
+    const senders = ['s1', 's2', 's3', 's4', 's5'];
+    const { achieved, f } = await injectQuorum({ peerCount: 9, maxFaultyNodes: 1, prepareSenders: senders, commitSenders: senders });
+    expect(f).toBe(1);
     expect(achieved).toBe(true);
   });
+
 });
 
 // ---------------------------------------------------------------------------

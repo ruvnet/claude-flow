@@ -1,0 +1,4 @@
+{
+  "description": "ruflo-rvf as a mod (ADR-445): a tighten-only guard that keeps secrets out of its write tools, /rvf-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

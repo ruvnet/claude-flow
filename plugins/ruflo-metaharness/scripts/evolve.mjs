@@ -48,9 +48,36 @@
 //   2  config error or evolution failure
 //   99 reserved — upstream "safety-disqualified" (propagated)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runDarwinAsync, emitDarwinDegradedJsonAndExit, importGepa } from './_darwin.mjs';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+
+guardCliArgs(import.meta.url, {
+  '--repo': 'value',
+  '--generations': 'value',
+  '--children': 'value',
+  '--concurrency': 'value',
+  '--seed': 'value',
+  '--sandbox': 'value',
+  '--selection': 'value',
+  '--crossover': null,
+  '--epistasis': null,
+  '--curriculum': null,
+  '--risk-budget': 'value',
+  '--fdr': 'value',
+  '--tie': 'value',
+  '--bench': 'value',
+  '--mutator': 'value',
+  '--ruvllm-url': 'value',
+  '--ruvllm-model': 'value',
+  '--confirm': null,
+  '--alert-on-no-improvement': null,
+  '--diagnose': null,
+  '--format': 'value',
+  '--timeout-ms': 'value',
+});
 
 const ARGS = (() => {
   const a = {

@@ -5,6 +5,7 @@ import {
   CONSENSUS_REQUIRED_TYPES,
 } from '../entities/federation-envelope.js';
 import { FederationSession } from '../entities/federation-session.js';
+import { TrustLevel } from '../entities/trust-level.js';
 
 export type RoutingMode = 'direct' | 'broadcast' | 'consensus';
 
@@ -37,6 +38,8 @@ export interface RoutingServiceDeps {
   sendToNode: (nodeId: string, envelope: FederationEnvelope) => Promise<void>;
   getActiveSessions: () => FederationSession[];
   getLocalNodeId: () => string;
+  /** Current peer authority; absent peers/resolvers receive the untrusted PII policy. */
+  getPeerTrustLevel?: (nodeId: string) => TrustLevel | undefined;
 }
 
 export class RoutingService {
@@ -74,7 +77,9 @@ export class RoutingService {
     }
 
     const payloadStr = JSON.stringify(payload);
-    const { transformedText, scanResult } = this.deps.scanPii(payloadStr, session.trustLevel);
+    // Session trust records handshake admission; peer trust can change after it opens.
+    const trustLevel = this.deps.getPeerTrustLevel?.(session.remoteNodeId) ?? TrustLevel.UNTRUSTED;
+    const { transformedText, scanResult } = this.deps.scanPii(payloadStr, trustLevel);
     if (scanResult.piiFound && scanResult.actionsApplied.includes('block')) {
       return { success: false, mode: 'direct', envelopeId: '', targetNodeIds: [session.remoteNodeId], error: 'Message blocked by PII policy' };
     }
