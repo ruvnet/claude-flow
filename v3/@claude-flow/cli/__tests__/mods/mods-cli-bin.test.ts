@@ -11,7 +11,11 @@ import { delimiter, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const CLI_BIN = fileURLToPath(new URL('../../bin/cli.js', import.meta.url));
-const CLI_BUILT = existsSync(CLI_BIN);
+// bin/cli.js is a source wrapper that imports ../dist/src/index.js. Checking
+// only the wrapper made this suite run (and fail) on a source-only checkout
+// where the CLI was never built; wait for the actual dist entry point.
+const CLI_DIST = fileURLToPath(new URL('../../dist/src/index.js', import.meta.url));
+const CLI_BUILT = existsSync(CLI_BIN) && existsSync(CLI_DIST);
 
 function isolated() {
   const home = mkdtempSync(join(tmpdir(), 'ruflo-mods-bin-home-'));

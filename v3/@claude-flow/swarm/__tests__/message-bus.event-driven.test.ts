@@ -16,6 +16,17 @@ import { MessageBus, createMessageBus } from '../src/message-bus.js';
 describe('MessageBus - event-driven dispatch (dream-cycle 2026-09-30)', () => {
   let bus: MessageBus;
 
+  /** Wait for a condition without assuming a fixed scheduler delay. */
+  async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+    const started = Date.now();
+    while (!predicate()) {
+      if (Date.now() - started > timeoutMs) {
+        throw new Error(`condition not met within ${timeoutMs}ms`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+  }
+
   afterEach(async () => {
     await bus.shutdown();
   });
@@ -211,8 +222,10 @@ describe('MessageBus - event-driven dispatch (dream-cycle 2026-09-30)', () => {
       ttlMs: 60000,
     });
 
-    // Let the first attempt fail (retry now pending), then shut down.
-    await new Promise((resolve) => setTimeout(resolve, 2));
+    // Let the first attempt fail (retry now pending), then shut down. Wait for
+    // the actual invocation instead of assuming a 2ms scheduler delay: under a
+    // loaded full-suite worker the first setImmediate can arrive later.
+    await waitFor(() => invocations === 1);
     expect(invocations).toBe(1);
     await bus.shutdown();
     await new Promise((resolve) => setTimeout(resolve, 100));
