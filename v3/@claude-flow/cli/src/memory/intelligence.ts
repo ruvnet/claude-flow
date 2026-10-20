@@ -1313,6 +1313,10 @@ export async function recordTrajectory(
 
     bumpStat('trajectoriesRecorded');
     globalStats.lastAdaptation = Date.now();
+    // #4283: the bank's own save is debounced, and the one-shot bins exit as
+    // soon as the command resolves, so write the patterns now. Otherwise
+    // stats.json counts patterns that never reach patterns.json.
+    reasoningBank?.flushToDisk();
     savePersistedStats();
 
     return true;

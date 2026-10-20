@@ -118,8 +118,39 @@ const spawnSteer: Plugin = {
   },
 }
 
+const callingPlugin = (name: string, call: (on: Parameters<Plugin['register']>[0]) => void): Plugin => ({ name, tier: 'user', register: call })
+/** Starts a subagent: it runs tools, Bash included. */
+const agentStarter = callingPlugin('agent-starter', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.agent.spawn({ prompt: 'p', description: 'd', subagentType: 'coder' } as never)
+    return next(e)
+  })
+})
+/** Submits a prompt the model then acts on. */
+const promptSubmitter = callingPlugin('prompt-submitter', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.prompt.submit({ text: 'p' } as never)
+    return next(e)
+  })
+})
+/** Runs any tool through the permission check. */
+const toolCaller = callingPlugin('tool-caller', on => {
+  on('turn.complete', async ($, e, next) => {
+    await $.tool.call({ tool: 'Bash', input: { command: 'true' } } as never)
+    return next(e)
+  })
+})
+/** Rewrites the tool descriptions the model reads. */
+const describer = callingPlugin('describer', on => {
+  on('tool.describe', ($, e, next) => next(e))
+})
+
 describe('trust: every call and hook that reaches outside the session is risky', () => {
   for (const [plugin, why] of [
+    [agentStarter, /agent\.spawn \(starts subagents/],
+    [promptSubmitter, /prompt\.submit \(submits prompts the model acts on\)/],
+    [toolCaller, /tool\.call \(runs any tool/],
+    [describer, /on tool\.describe \(can rewrite the tool descriptions/],
     [spawner, /process\.spawn \(runs host commands\)/],
     [mcpCaller, /mcp\.call \(calls MCP tools/],
     [promptSteer, /on prompt\.submit \(can add to or rewrite every prompt you send\)/],
@@ -151,6 +182,36 @@ describe('trust: a glob or a negation is judged by what it selects (#3801)', () 
     [agentGlob, /on agent\.\* → agent\.spawn/],
   ] as const) {
     test(`refuse-risky refuses ${plugin.name}`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
+      world(on)
+      await expect($.session.start(START)).rejects.toThrow(new RegExp(`${plugin.name}: refused by ruflo-mods: .*${why.source}`))
+    })
+  }
+
+  const writeHook: Plugin = { name: 'write-hook', tier: 'user', register: on => { on('fs.write', ($, e, next) => next(e)) } }
+  const envHook: Plugin = { name: 'env-hook', tier: 'user', register: on => { on('env.set', ($, e, next) => next(e)) } }
+  const fsGlob: Plugin = { name: 'fs-glob', tier: 'user', register: on => { on('fs.*', ($, e, next) => next(e)) } }
+  for (const [plugin, why] of [
+    [writeHook, /on fs\.write \(can rewrite or answer another mod's fs\.write, which writes files/],
+    [envHook, /on env\.set \(can rewrite or answer another mod's env\.set, which changes/],
+    [fsGlob, /on fs\.\* → fs\.write/],
+  ] as const) {
+    test(`refuse-risky refuses ${plugin.name}: hooking a risky call rewrites it for every other mod`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
+      world(on)
+      await expect($.session.start(START)).rejects.toThrow(new RegExp(`${plugin.name}: refused by ruflo-mods: .*${why.source}`))
+    })
+  }
+
+  const statForger: Plugin = { name: 'stat-forger', tier: 'user', register: on => { on('fs.stat', ($, e, next) => next(e)) } }
+  const readForger: Plugin = { name: 'read-forger', tier: 'user', register: on => { on('fs.read', ($, e, next) => next(e)) } }
+  const rootForger: Plugin = { name: 'root-forger', tier: 'user', register: on => { on('session.root', ($, e, next) => next(e)) } }
+  const compactForger: Plugin = { name: 'compact-forger', tier: 'user', register: on => { on('session.compact', ($, e, next) => next(e)) } }
+  for (const [plugin, why] of [
+    [statForger, /on fs\.stat \(can hide files from other mods/],
+    [readForger, /on fs\.read \(can feed other mods false file contents/],
+    [compactForger, /on session\.compact \(can replace the whole conversation/],
+    [rootForger, /on session\.root \(can move other mods' project root/],
+  ] as const) {
+    test(`refuse-risky refuses ${plugin.name}: a forged read or compaction is a risky hook`, { plugins: [plugin], options: { modTrust: 'refuse-risky' } }, async ($, on) => {
       world(on)
       await expect($.session.start(START)).rejects.toThrow(new RegExp(`${plugin.name}: refused by ruflo-mods: .*${why.source}`))
     })

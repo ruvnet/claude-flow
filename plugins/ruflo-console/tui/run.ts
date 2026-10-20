@@ -91,7 +91,10 @@ export function navHit(x: number, columns: number): TuiView | null {
 export function keyLine(columns: number, place = '', own?: readonly string[]): string {
   const pages = `1-${TUI_VIEWS.length}`
   const menu = '0 menu · : go to any page · Esc back'
-  const tiers = own ?? [`${pages} or o c s e m a page · ${menu} · tab next · r refresh · t look · j/k scroll · q quit · ask first`, `${pages} or o c s e m a page · 0 menu · : go · tab next · r refresh · j/k scroll · q quit · ask first`, `${pages} page · 0 menu · : go · Esc back · tab next · r refresh · j/k scroll · q quit`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
+  // Below 80 columns (and at 80 with a scroll-position suffix) the next tier used to drop every mention of "0 menu": a
+  // terminal at 62-79 columns (a common editor-pane or tmux-split width) had no on-screen way to discover the main menu
+  // at all, even though the key still worked. This tier keeps "0 menu" and drops the go prompt and Back instead.
+  const tiers = own ?? [`${pages} or o c s e m a page · ${menu} · tab next · r refresh · t look · j/k scroll · q quit · ask first`, `${pages} or o c s e m a page · 0 menu · : go · tab next · r refresh · j/k scroll · q quit · ask first`, `${pages} page · 0 menu · : go · Esc back · tab next · r refresh · j/k scroll · q quit`, `${pages} page · 0 menu · tab next · r refresh · j/k scroll · q quit`, `${pages} page · tab next · r refresh · j/k scroll · q quit`, `${pages} page · j/k scroll · q quit`, `${pages} page · q quit`]
   const fits = tiers.find(line => cells(line + place) <= columns) ?? tiers[tiers.length - 1] as string
 
   return `${fits}${place}`.slice(0, columns)
@@ -275,7 +278,10 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
     const memory: Memory = { lines: [], columns: 0, rows: 0 }
     // The go prompt (":" or "/"): a page by its name, id or key, read from the keys, shown in the key line. `notice` is one line of news until the next key.
     let prompt: string | null = null
-    let notice = ''
+    // Mouse clicks are opt-in (SGR reporting can fight a terminal's own text selection), so the first frame says so and
+    // how to turn it on; any key dismisses it like any other notice. The footer key line mentions "0 menu" at every width
+    // down to 62 columns, but a CLI flag has nowhere to live in that line at all, so it gets this one-time notice instead.
+    let notice = options.mouse === true ? '' : 'the mouse is off: pass --mouse to click a page in the bar or scroll with the wheel (every action also has a key)'
     const history: Page[] = []
     const line = () => (prompt !== null ? `go> ${prompt}▌  (a page, or an action to ask for · Enter · Esc cancels)` : notice !== '' ? notice : session.page !== 'ai' && session.pending() !== null ? 'y runs the command in the card · n or Esc cancels · the other keys still work' : '')
     const draw = (tick = false) => void (scroll = paint(session, io, depth, scroll, memory, false, tick, line()))
@@ -304,20 +310,26 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
       else if (found === null || found === 'agent') notice = session.palette(name)
       else open(found)
     }
+    // A terminal's raw-mode `data` events are not one report per event: tmux especially can coalesce a press and its
+    // release (or several quick reports) into one chunk, so matching must find every report in it, not just the whole
+    // chunk against one. `g` scans the chunk for each report in order; a chunk with none is not a mouse chunk at all.
+    const MOUSE_REPORT = /\u001b\[<(\d+);(\d+);(\d+)([Mm])/g
     const onMouse = (chunk: string): boolean => {
-      const hit = /^\u001b\[<(\d+);(\d+);(\d+)([Mm])$/.exec(chunk)
+      const hits = [...chunk.matchAll(MOUSE_REPORT)]
 
-      if (hit === null) return false
+      if (hits.length === 0) return false
 
-      const [button, x, y] = [Number(hit[1]), Number(hit[2]), Number(hit[3])]
+      for (const hit of hits) {
+        const [button, x, y] = [Number(hit[1]), Number(hit[2]), Number(hit[3])]
 
-      if (hit[4] !== 'M') return true
-      if (button === 64) scroll = Math.max(0, scroll - 3)
-      else if (button === 65) scroll += 3
-      else if (button === 0 && y === 1) {
-        const page = navHit(x, Math.min(200, sized(io.stdout.columns, 100)))
+        if (hit[4] !== 'M') continue
+        if (button === 64) scroll = Math.max(0, scroll - 3)
+        else if (button === 65) scroll += 3
+        else if (button === 0 && y === 1) {
+          const page = navHit(x, Math.min(200, sized(io.stdout.columns, 100)))
 
-        if (page !== null) open(page)
+          if (page !== null) open(page)
+        }
       }
 
       draw()
@@ -327,7 +339,9 @@ export async function runTui(options: TuiOptions, io: TuiIO): Promise<number> {
 
     const onKey = (chunk: Buffer | string) => {
       // The AI page takes the keys while you type (digits and letters are text there): Esc hands them back to the shell, and Ctrl-C always quits.
-      if (session.page === 'ai' && session.ai !== null && session.ai.press(chunk.toString()).consumed) return draw()
+      // This branch returns before the general `notice = ''` below, so a session started on `--view ai` clears it here too (otherwise a
+      // mouse-off notice shown at startup would sit in the footer forever: every key you type to dismiss it goes to Codex/OpenRouter instead).
+      if (session.page === 'ai' && session.ai !== null && session.ai.press(chunk.toString()).consumed) return void ((notice = ''), draw())
 
       // Focus reports (the terminal tells us when it is behind another window): a hidden terminal draws nothing, and a refocused one draws at once.
       if (chunk.toString() === `${ESC}[O`) return void (isFocused = false)

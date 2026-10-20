@@ -31,7 +31,7 @@ import {
 import { getInstalledCliVersion, HELPERS_STAMP_FILE } from './helper-refresh.js';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { recordMemoryPackagePath } from './memory-package-resolver.js';
-import { ensureCommonJsCompanions } from './helper-companions.js';
+import { COMMONJS_COMPANION_HELPERS, ensureCommonJsCompanions } from './helper-companions.js';
 import { scanSettingsForRisk, formatRiskFindingsAsWarnings } from './settings-risk-scanner.js';
 import { AUTO_MEMORY_HOOK_TIMEOUT_S, helperHookCommand, helperScopeFor, helperStatusLineCommand, pinToUserHelpers } from './helper-commands.js';
 
@@ -617,10 +617,16 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       }
     }
 
-    // #3555: the refreshed hook-handler requires the .cjs companions; older
-    // installs only have session.js / memory.js, which can't load in ESM.
-    for (const name of await ensureCommonJsCompanions(path.join(targetDir, '.claude', 'helpers'))) {
-      result.created.push(`.claude/helpers/${name}`);
+    // #4198: refresh existing companions too, so upgraded hook handlers never
+    // keep obsolete session/memory logic. Generate from the CLI trust root.
+    const helpersDir = path.join(targetDir, '.claude', 'helpers');
+    const existingCompanions = new Set<string>(COMMONJS_COMPANION_HELPERS.filter(
+      (name) => fs.existsSync(path.join(helpersDir, name)),
+    ));
+    for (const name of await ensureCommonJsCompanions(helpersDir, true)) {
+      const changes = existingCompanions.has(name)
+        ? result.updated : result.created;
+      changes.push(`.claude/helpers/${name}`);
     }
 
     // Stamp the installed version so the startup auto-refresh treats these as

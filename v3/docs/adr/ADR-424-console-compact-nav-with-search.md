@@ -1,8 +1,10 @@
 # ADR 424: A compact nav: groups, one group's pages, and a search
 
-Status: Accepted (ships in ruflo-console 0.25.0)
+Status: Accepted (ships in ruflo-console 0.25.0; separators amended in 0.25.1)
 
 Date: 2026 10 03
+
+Amendment (0.25.1): the nav's pieces are separated by a dim `│`: between the menu, each group and the search on row 1, and between the pages on rows 2 and 3. Each bar sits in the row's gap, so the row's width now counts one column per bar. The separators are presentation only; the groups, the pages, the hotkeys and the search are unchanged.
 
 Decision owner: Ruflo maintainers
 

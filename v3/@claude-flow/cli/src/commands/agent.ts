@@ -154,6 +154,7 @@ const spawnCommand: Command = {
       }>('agent_spawn', {
         agentType,
         id: agentName,
+        name: agentName,
         config: {
           provider: ctx.flags.provider || 'anthropic',
           model: ctx.flags.model,
@@ -245,7 +246,9 @@ const listCommand: Command = {
         }>;
         total: number;
       }>('agent_list', {
-        status: ctx.flags.all ? 'all' : ctx.flags.status || undefined,
+        // agent_list has no 'all' status: --all means "don't hide terminated agents".
+        status: ctx.flags.status || undefined,
+        includeTerminated: ctx.flags.all ? true : undefined,
         agentType: ctx.flags.type || undefined,
         limit: 100,
       });
