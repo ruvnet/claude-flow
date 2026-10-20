@@ -5,6 +5,21 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.58.1] - 2026-10-20
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.58.1. Bug fixes only.
+
+### Fixed
+
+- **Security**: `hooks_codemod`'s `resolveTargets()` path-containment check used an unanchored `abs.startsWith(cwd)` string-prefix comparison — a sibling directory merely starting with the project directory's name (e.g. `cwd`-staging) passed containment, letting this live, CLAUDE.md-recommended tool read **and write** outside the project root (CWE-22). Anchored both call sites at a path-separator boundary, matching the already-correct `isWithinPrefix()` pattern used elsewhere in this codebase (#4312/#4313).
+- `CommandParser.parse()` flipped `parsingFlags = false` on every literal `--` token it saw, not just the first — a later `--` supplied as an ordinary operand (e.g. a search query of exactly `--`) was silently swallowed instead of being kept as a positional (#4310/#4314).
+- `TokenOptimizer.optimizedEdit()` called `agentBooster.editCode()`, a method that has never existed on `agentic-flow/agent-booster`'s real exports; a separate bug in the same file's `initialize()` picked the un-instantiated `AgentBooster` class instead of calling the package's `getAgentBooster()` factory. Published standalone as `@claude-flow/integration@3.0.2` (#4311/#4315).
+- CI reliability: `scripts/__tests__/probe-mod-guards.test.mjs` (a `node:test` file) was never categorized into either the vitest-baseline or vitest-excluded list, causing an intermittent, unrelated "no test suite found" failure on PRs that don't touch it (#4316).
+
+### Added
+
+- `ruflo-console` 0.44.6: the compact nav's menu, groups, search and page tabs are now separated by a dim `│` bar instead of just a gap (#3664).
+
 ## [3.58.0] - 2026-10-20
 
 Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.58.0. Backward-compatible additions (new `memory peek` command, a Codex session activity viewer, configurable MCP rate limits) plus a critical install-breaking fix and a round of correctness fixes.
