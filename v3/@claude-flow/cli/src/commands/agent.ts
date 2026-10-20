@@ -154,6 +154,7 @@ const spawnCommand: Command = {
       }>('agent_spawn', {
         agentType,
         id: agentName,
+        name: agentName,
         config: {
           provider: ctx.flags.provider || 'anthropic',
           model: ctx.flags.model,
