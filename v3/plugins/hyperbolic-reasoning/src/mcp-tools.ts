@@ -9,6 +9,8 @@
  * - hyperbolic/entailment-graph: Build and query entailment graphs
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type {
   MCPTool,
   MCPToolResult,
@@ -102,7 +104,7 @@ async function embedHierarchyHandler(
     const result = await bridge.embedHierarchy(data.hierarchy, data.parameters);
 
     // Store for later use
-    const indexId = `embed_${Date.now()}`;
+    const indexId = `embed_${randomUUID()}`;
     embeddingStore.set(indexId, result);
 
     // Create index for search

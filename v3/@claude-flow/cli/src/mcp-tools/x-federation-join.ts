@@ -1,8 +1,8 @@
 /**
- * Self-service join for the open swarm federation — the user-facing invite path.
+ * Self-service federation join with a local key: public registration or a private invite.
  *
  * Decentralized by design: the user generates/holds THEIR OWN Nostr key locally,
- * redeems an invite code with a NIP-98-signed claim (no admin in the loop), proves
+ * registers with a NIP-98-signed request (no admin in the user flow), proves
  * membership with NIP-42, and announces themselves. The gateway never signs for them.
  *
  * `nostr-tools` is an optional dependency (secp256k1/Schnorr is not in node:crypto):
@@ -41,37 +41,73 @@ export function nip98Header(nt: NostrTools, sk: Uint8Array, url: string, method:
 export async function verifyMembership(nt: NostrTools, sk: Uint8Array, relayWs: string): Promise<{ ok: boolean; reason?: string }> {
   const { default: WebSocket } = await import('ws');
   return new Promise((resolve) => {
-    const ws = new WebSocket(relayWs, { perMessageDeflate: false }); let done = false;
-    const fin = (r: { ok: boolean; reason?: string }) => { if (done) return; done = true; try { ws.close(); } catch { /* */ } resolve(r); };
-    ws.on('message', (d: Buffer) => { const m = JSON.parse(d.toString());
-      if (m[0] === 'AUTH' && typeof m[1] === 'string') ws.send(JSON.stringify(['AUTH', nt.finalizeEvent({ kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [['relay', relayWs], ['challenge', m[1]]], content: '' }, sk)]));
-      else if (m[0] === 'OK') fin({ ok: !!m[2], reason: m[3] }); });
+    const ws = new WebSocket(relayWs, { perMessageDeflate: false, maxPayload: 64 * 1024 });
+    let done = false, authId: string | undefined;
+    const fin = (r: { ok: boolean; reason?: string }) => { if (done) return; done = true; clearTimeout(timer); try { ws.close(); } catch { /* */ } resolve(r); };
+    const timer = setTimeout(() => fin({ ok: false, reason: 'timeout' }), 15000);
+    ws.on('message', (d: Buffer) => {
+      let m: any; try { m = JSON.parse(d.toString()); } catch { return; }
+      if (!Array.isArray(m)) return;
+      if (m[0] === 'AUTH' && typeof m[1] === 'string' && m[1].length <= 1024 && !authId) {
+        const ev = nt.finalizeEvent({ kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [['relay', relayWs], ['challenge', m[1]]], content: '' }, sk);
+        authId = ev.id; ws.send(JSON.stringify(['AUTH', ev]));
+      } else if (m[0] === 'OK' && authId && m[1] === authId) fin({ ok: m[2] === true, reason: m[3] });
+    });
     ws.on('error', (e: Error) => fin({ ok: false, reason: e.message }));
-    setTimeout(() => fin({ ok: false, reason: 'timeout' }), 15000);
+    ws.on('close', () => fin({ ok: false, reason: 'closed before authentication' }));
   });
+}
+
+function secureBase(value: string): string {
+  const u = new URL(value);
+  if ((u.protocol !== 'https:' && !(u.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(u.hostname)))
+      || u.username || u.password || u.search || u.hash || u.pathname !== '/') throw new Error('gateway must be an HTTPS origin (HTTP allowed only for loopback tests)');
+  return u.origin;
 }
 
 export const xFederationJoinTools: MCPTool[] = [{
   name: 'x_federation_join',
   description:
-    'Join the open swarm federation with YOUR OWN key using an invite code: generates (or reuses) a local Nostr key at ~/.ruflo/nostr.key (0600), redeems the code with a NIP-98-signed claim directly against the relay, proves membership via NIP-42, and returns your pubkey. Use when you have been handed an invite code and want to participate as yourself. Asking an admin to `federation_admit` you instead is wrong for an open swarm because it centralizes onboarding and requires trusting a pubkey out of band; the invite claim binds membership to the key you hold. Never share the invite code publicly — it is a bearer secret.',
+    'Join the federation with YOUR OWN local key, without an invite when public registration is enabled. Reuses ~/.ruflo/nostr.key (0600), proves key ownership with NIP-98, and verifies membership with NIP-42. Use when a user wants to join as themselves. Publishing as the gateway is wrong for personal identity. Optional private invite codes remain supported; never share keys or codes in chat.',
   inputSchema: { type: 'object', properties: {
-    code: { type: 'string', description: 'Invite code (v2.…) received privately from a member/admin.' },
+    code: { type: 'string', description: 'Optional private invite code (v2.…), for invite-only relays.' },
+    gatewayUrl: { type: 'string', description: 'Public registration gateway origin; defaults to https://x.ruv.io.' },
     relayHttp: { type: 'string', description: 'Relay HTTPS base for the claim; takes precedence over RUFLO_X_RELAY_HTTP.' },
     relayWs: { type: 'string', description: 'Relay wss URL for NIP-42; takes precedence over RUFLO_X_RELAY_WS.' },
-    keyFile: { type: 'string', description: 'Key file path; takes precedence over RUFLO_NOSTR_KEY_FILE (default ~/.ruflo/nostr.key).' } }, required: ['code'] },
+    keyFile: { type: 'string', description: 'Key file path; takes precedence over RUFLO_NOSTR_KEY_FILE (default ~/.ruflo/nostr.key).' } }, required: [] },
   handler: async (input) => {
-    const i = input as { code: string; relayHttp?: string; relayWs?: string; keyFile?: string };
+    const i = input as { code?: string; gatewayUrl?: string; relayHttp?: string; relayWs?: string; keyFile?: string };
     const nt = await loadNostrTools();
     // Validate input before the optional-dependency check so a bad code fails fast and identically
     // whether or not nostr-tools is present.
-    if (!/^v2\.[A-Za-z0-9._-]{8,}$/.test(i.code)) throw new Error('invite code must look like v2.<token>');
+    if (i.code !== undefined && !/^v2\.[A-Za-z0-9._-]{8,}$/.test(i.code)) throw new Error('invite code must look like v2.<token>');
     if (!nt) return { degraded: true, reason: 'nostr-tools not installed', hint: 'npm i -g nostr-tools  (secp256k1 signing is not in node:crypto)' };
+    const registrationBase = i.code ? undefined : secureBase(i.gatewayUrl || process.env.RUFLO_X_GATEWAY_URL || 'https://x.ruv.io');
     const { sk, pubkey, created } = loadOrCreateKey(nt, i.keyFile);
-    const url = `${HTTP_BASE(i.relayHttp)}/api/invites/claim`; const body = JSON.stringify({ code: i.code });
-    const r = await fetch(url, { method: 'POST', headers: { Authorization: nip98Header(nt, sk, url, 'POST', body), 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(20_000) });
+    // Existing members need no new grant. In particular never downgrade/re-admit
+    // their key just because they run join again.
+    if (!i.code) {
+      const existing = await verifyMembership(nt, sk, RELAY_WS(i.relayWs));
+      if (existing.ok) return { ok: true, pubkey, keyCreated: created, membershipVerified: true, alreadyMember: true };
+    }
+    const url = i.code ? `${secureBase(HTTP_BASE(i.relayHttp))}/api/invites/claim` : `${registrationBase}/api/registration`;
+    const body = i.code ? JSON.stringify({ code: i.code }) : '{}';
+    let r: Response;
+    try {
+      r = await fetch(url, { method: 'POST', redirect: 'error', headers: { Authorization: nip98Header(nt, sk, url, 'POST', body), 'Content-Type': 'application/json' }, body, signal: AbortSignal.timeout(20_000) });
+    } catch {
+      const check = await verifyMembership(nt, sk, RELAY_WS(i.relayWs));
+      if (check.ok) return { ok: true, pubkey, keyCreated: created, membershipVerified: true };
+      throw new Error('Admission response unavailable and relay membership unverified. Keep your local key and retry; do not create another identity.');
+    }
     const claim = (await r.json().catch(() => ({}))) as { role?: string; error?: string; message?: string };
-    if (!r.ok) throw new Error(`claim rejected (${r.status}): ${claim.error ?? claim.message ?? 'unknown'}`);
+    if (!r.ok) {
+      // A lost acknowledgment can follow a successful grant. Check with the
+      // relay before declaring failure; never silently generate a second key.
+      const check = await verifyMembership(nt, sk, RELAY_WS(i.relayWs));
+      if (check.ok) return { ok: true, pubkey, keyCreated: created, membershipVerified: true };
+      throw new Error(`join rejected (${r.status}): ${claim.error ?? claim.message ?? 'unknown'}`);
+    }
     const auth = await verifyMembership(nt, sk, RELAY_WS(i.relayWs));
     return { ok: auth.ok, pubkey, keyCreated: created, role: claim.role ?? 'member', membershipVerified: auth.ok, ...(auth.ok ? {} : { reason: auth.reason }),
       next: 'Publish kind-1 events tagged ["t","ruflo-swarm"] — or run `ruflo federation sync` to read the swarm.' };

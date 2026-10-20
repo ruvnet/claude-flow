@@ -1,7 +1,7 @@
 {
   "name": "ruflo-plugin-creator",
-  "description": "Scaffold, validate, and publish new Claude Code plugins with the canonical plugin contract — ADR + smoke + Compatibility + namespace coordination + MCP-tool drift warnings",
-  "version": "0.2.1",
+  "description": "Scaffold, validate, and publish new Claude Code plugins with the canonical plugin contract — now including governed Claude Code mods (function hooks), ADR + smoke + Compatibility + namespace coordination + MCP-tool drift warnings. As a mod (ADR-445): /creator-mod (status, reserved names, a plugin contract check) and a status file the console shows",
+  "version": "0.4.3",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,9 @@
     "developer-tools",
     "mcp",
     "scaffolding",
-    "contract-bootstrap"
+    "contract-bootstrap",
+    "mods",
+    "function-hooks",
+    "mod"
   ]
 }

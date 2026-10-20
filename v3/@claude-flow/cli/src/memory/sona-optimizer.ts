@@ -129,6 +129,10 @@ const CONFIDENCE_INCREMENT = 0.1;
 const CONFIDENCE_DECREMENT = 0.15;
 const DECAY_RATE = 0.01; // Per day
 const MAX_PATTERNS = 1000;
+/** #4134: a trajectory reinforces an existing pattern of the same agent whose keyword set overlaps at least this much (Jaccard). */
+const NEIGHBOUR_MIN_JACCARD = 0.6;
+/** The routing gate in getRoutingSuggestion: confidence x matchRatio must reach this for a learned pattern to be used. */
+export const SONA_ROUTING_GATE = 0.6;
 
 // ============================================================================
 // Contrastive Trainer (lazy-loaded from @ruvector/ruvllm)
@@ -166,6 +170,11 @@ const AGENT_TYPES = [
   'security-architect',
   'performance-engineer',
 ];
+
+/** Agent roles supported by the SONA routing optimizer. */
+export function isSupportedSonaAgent(agent: string): boolean {
+  return AGENT_TYPES.includes(agent);
+}
 
 /**
  * Task keywords for pattern extraction
@@ -223,6 +232,19 @@ const KEYWORD_CATEGORIES: Record<string, string[]> = {
  * Learns from past task outcomes to improve future routing decisions.
  * Integrates with Q-learning router for hybrid routing strategy.
  */
+/**
+ * How close a pattern's confidence is to the routing gate. `successesNeeded`
+ * assumes a perfect keyword match (matchRatio 1) and the 0.1 success increment;
+ * a partial match needs more.
+ */
+export function routingGateStatus(confidence: number): { threshold: number; confidence: number; reached: boolean; successesNeeded: number } {
+  const reached = confidence >= SONA_ROUTING_GATE;
+  const successesNeeded = reached || confidence >= MAX_CONFIDENCE
+    ? 0
+    : Math.ceil(Math.log((1 - SONA_ROUTING_GATE) / (1 - confidence)) / Math.log(1 - CONFIDENCE_INCREMENT));
+  return { threshold: SONA_ROUTING_GATE, confidence, reached, successesNeeded };
+}
+
 export class SONAOptimizer {
   private patterns: Map<string, LearnedPattern> = new Map();
   private trajectoriesProcessed = 0;
@@ -308,6 +330,10 @@ export class SONAOptimizer {
     patternKey: string;
     confidence: number;
     keywordsExtracted: string[];
+    /** True when this trajectory reinforced an existing near-identical pattern instead of creating a new one (#4134). */
+    reinforcedNeighbour?: boolean;
+    /** How far the pattern is from influencing routing, so a user can see learning has not kicked in yet (#4134). */
+    routingGate?: { threshold: number; confidence: number; reached: boolean; successesNeeded: number };
   } {
     const { task, agent, success } = outcome;
 
@@ -323,7 +349,19 @@ export class SONAOptimizer {
     }
 
     // Create pattern key from sorted keywords
-    const patternKey = this.createPatternKey(keywords, agent);
+    let patternKey = this.createPatternKey(keywords, agent);
+
+    // #4134: near-identical tasks ("Verify the X plugin ..." / "Verify the Y plugin ...")
+    // used to create a separate pattern each at confidence 0.5, so none ever reached
+    // the routing gate. Reinforce the closest existing pattern of the same agent instead.
+    let reinforcedNeighbour = false;
+    if (!this.patterns.has(patternKey)) {
+      const neighbour = this.findNeighbourPattern(keywords, agent);
+      if (neighbour) {
+        patternKey = neighbour;
+        reinforcedNeighbour = true;
+      }
+    }
 
     // Get or create pattern
     let pattern = this.patterns.get(patternKey);
@@ -390,6 +428,8 @@ export class SONAOptimizer {
       patternKey,
       confidence: pattern.confidence,
       keywordsExtracted: keywords,
+      reinforcedNeighbour,
+      routingGate: routingGateStatus(pattern.confidence),
     };
   }
 
@@ -433,7 +473,7 @@ export class SONAOptimizer {
 
     // Priority 2: Try SONA learned pattern matching
     const sonaResult = this.findBestPatternMatch(keywords);
-    if (sonaResult && sonaResult.confidence >= 0.6) {
+    if (sonaResult && sonaResult.confidence >= SONA_ROUTING_GATE) {
       return {
         agent: sonaResult.agent,
         confidence: sonaResult.confidence,
@@ -681,6 +721,30 @@ export class SONAOptimizer {
   private createPatternKey(keywords: string[], agent: string): string {
     const sortedKeywords = [...keywords].sort();
     return `${agent}:${sortedKeywords.join('+')}`;
+  }
+
+  /**
+   * The key of the existing pattern for `agent` whose keyword set overlaps
+   * `keywords` the most, if that overlap (Jaccard) reaches NEIGHBOUR_MIN_JACCARD.
+   * Ties go to the more confident pattern. Linear in the pattern count (<= 1000).
+   */
+  private findNeighbourPattern(keywords: string[], agent: string): string | null {
+    const wanted = new Set(keywords);
+    let bestKey: string | null = null;
+    let bestJaccard = 0;
+    let bestConfidence = -1;
+    for (const [key, pattern] of this.patterns) {
+      if (pattern.agent !== agent) continue;
+      let shared = 0;
+      for (const k of pattern.keywords) if (wanted.has(k)) shared++;
+      const union = wanted.size + pattern.keywords.length - shared;
+      const jaccard = union === 0 ? 0 : shared / union;
+      if (jaccard >= NEIGHBOUR_MIN_JACCARD &&
+          (jaccard > bestJaccard || (jaccard === bestJaccard && pattern.confidence > bestConfidence))) {
+        bestKey = key; bestJaccard = jaccard; bestConfidence = pattern.confidence;
+      }
+    }
+    return bestKey;
   }
 
   /**

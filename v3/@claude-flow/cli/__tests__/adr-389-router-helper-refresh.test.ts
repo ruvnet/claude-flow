@@ -1,15 +1,15 @@
 /**
  * ADR-389 / #3401 — the keyword router helper must be refreshed on upgrade.
  *
- * `hook-handler.cjs` loads `router.js` from the same helpers dir to label each
+ * `hook-handler.cjs` loads `router.cjs` from the same helpers dir to label each
  * prompt with a suggested agent. The April-era router matched keywords as
  * SUBSTRINGS ("la*test*" → tester). The word-boundary fix shipped in the
- * package (PR #3402) but never reached existing installs, because `router.js`
+ * package (PR #3402) but never reached existing installs, because `router.cjs`
  * was not in CRITICAL_HELPERS and `init` skips files that already exist.
  *
  * Like helper-refresh.test.ts, the copy path is exercised against a
  * throwaway-keypair-signed fixture so this suite does not depend on the real
- * manifest being re-signed. The fixture's router.js IS the real package copy,
+ * manifest being re-signed. The fixture's router.cjs IS the real package copy,
  * so the test also proves the package ships the fixed router.
  */
 import { describe, it, expect } from 'vitest';
@@ -58,18 +58,18 @@ function routeTask(task) {
 module.exports = { routeTask, TASK_PATTERNS };
 `;
 
-/** Load a CommonJS router.js fresh (no require cache reuse between loads). */
+/** Load a CommonJS router.cjs fresh (no require cache reuse between loads). */
 function loadRouter(file: string): { routeTask: (t: string) => { agent: string; confidence: number } } {
   const req = createRequire(file);
   delete req.cache[req.resolve(file)];
   return req(file);
 }
 
-/** Signed source fixture: the real package hook-handler.cjs + router.js. */
+/** Signed source fixture: the real package hook-handler.cjs + router.cjs. */
 function makeSignedSource(version: string): { sourceDir: string; pubkeyPem: string } {
   const sourceDir = mkdtempSync(join(tmpdir(), 'adr389-source-'));
   const files: Record<string, string> = {};
-  for (const name of ['hook-handler.cjs', 'router.js']) {
+  for (const name of ['hook-handler.cjs', 'router.cjs']) {
     const content = readFileSync(join(PKG_HELPERS_DIR, name));
     writeFileSync(join(sourceDir, name), content);
     files[name] = sha256Hex(content);
@@ -84,26 +84,26 @@ function makeSignedSource(version: string): { sourceDir: string; pubkeyPem: stri
   return { sourceDir, pubkeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString() };
 }
 
-describe('ADR-389 — router.js is a refreshed critical helper', () => {
-  it('CRITICAL_HELPERS includes router.js', () => {
-    expect(CRITICAL_HELPERS).toContain('router.js');
+describe('ADR-389 — router.cjs is a refreshed critical helper', () => {
+  it('CRITICAL_HELPERS includes router.cjs', () => {
+    expect(CRITICAL_HELPERS).toContain('router.cjs');
   });
 
   it('the stale April router really does misroute the prompt (fixture sanity)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'adr389-stale-'));
-    writeFileSync(join(dir, 'router.js'), STALE_APRIL_ROUTER);
-    const r = loadRouter(join(dir, 'router.js')).routeTask(PROMPT);
+    writeFileSync(join(dir, 'router.cjs'), STALE_APRIL_ROUTER);
+    const r = loadRouter(join(dir, 'router.cjs')).routeTask(PROMPT);
     expect(r.agent).toBe('tester');
     expect(r.confidence).toBe(0.8);
   });
 
-  it('refresh replaces a stale substring router.js with the package copy', async () => {
+  it('refresh replaces a stale substring router.cjs with the package copy', async () => {
     const version = getInstalledCliVersion();
     const cwd = mkdtempSync(join(tmpdir(), 'adr389-project-'));
     const helpersDir = join(cwd, '.claude', 'helpers');
     mkdirSync(helpersDir, { recursive: true });
     writeFileSync(join(helpersDir, 'hook-handler.cjs'), '// old hook-handler\n');
-    writeFileSync(join(helpersDir, 'router.js'), STALE_APRIL_ROUTER);
+    writeFileSync(join(helpersDir, 'router.cjs'), STALE_APRIL_ROUTER);
     writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '0.0.1-old');
     const { sourceDir, pubkeyPem } = makeSignedSource(version);
 
@@ -111,17 +111,17 @@ describe('ADR-389 — router.js is a refreshed critical helper', () => {
     expect(res.blocked).toBeUndefined();
     expect(res.refreshed).toBe(true);
 
-    const installed = readFileSync(join(helpersDir, 'router.js'));
-    expect(sha256Hex(installed)).toBe(sha256Hex(readFileSync(join(PKG_HELPERS_DIR, 'router.js'))));
+    const installed = readFileSync(join(helpersDir, 'router.cjs'));
+    expect(sha256Hex(installed)).toBe(sha256Hex(readFileSync(join(PKG_HELPERS_DIR, 'router.cjs'))));
 
-    const r = loadRouter(join(helpersDir, 'router.js')).routeTask(PROMPT);
+    const r = loadRouter(join(helpersDir, 'router.cjs')).routeTask(PROMPT);
     expect(r.agent).not.toBe('tester');
     expect(r.agent).toBe('reviewer');
   });
 
   it('the generator fallback router (unresolvable package source) is also word-boundary', () => {
     const dir = mkdtempSync(join(tmpdir(), 'adr389-gen-'));
-    writeFileSync(join(dir, 'router.js'), generateAgentRouter());
-    expect(loadRouter(join(dir, 'router.js')).routeTask(PROMPT).agent).not.toBe('tester');
+    writeFileSync(join(dir, 'router.cjs'), generateAgentRouter());
+    expect(loadRouter(join(dir, 'router.cjs')).routeTask(PROMPT).agent).not.toBe('tester');
   });
 });

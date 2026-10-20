@@ -1,0 +1,17 @@
+{
+  "name": "my-mod",
+  "description": "A Claude Code mod scaffolded by ruflo-plugin-creator: counts the session's tool calls in a status line, adds /my-mod-status, and keeps a classic hook as the fallback where function hooks are off.",
+  "version": "0.1.0",
+  "author": { "name": "you" },
+  "license": "MIT",
+  "keywords": ["mod", "function-hooks"],
+  "userConfig": {
+    "statusLine": {
+      "type": "boolean",
+      "title": "Status line",
+      "description": "Show the tool-call count under the prompt.",
+      "required": false,
+      "default": true
+    }
+  }
+}

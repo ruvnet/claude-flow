@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.1 with new keywords"
+step "1. plugin.json declares 0.4.5 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
+if [[ "$v" != "0.4.5" ]]; then bad "expected 0.4.5, got '$v'"; else
   miss=""
   for k in mcp evidence-grading legacy-namespaces; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -82,6 +82,45 @@ for f in "$ROOT"/skills/*/SKILL.md; do
   grep -q '^allowed-tools:[[:space:]]*\*' "$f" && bad_skills="$bad_skills $(basename $(dirname "$f"))"
 done
 [[ -z "$bad_skills" ]] && ok || bad "wildcard:$bad_skills"
+
+step "11. deep-research: cap, depth, AIDefence, marker, accept-before-store (ADR-438)"
+miss=""
+for f in "$ROOT/skills/deep-research/SKILL.md" "$ROOT/agents/deep-researcher.md"; do
+  b=$(basename "$f")
+  for t in aidefence_scan '--cap-usd' 'quick|standard|deep' 'research-active.json' truncated 'research-<slug>-<yyyymmddhhmm>' 'accept'; do
+    grep -qF -- "$t" "$f" || miss="$miss $b-no-$t"
+  done
+done
+grep -q 'aidefence_scan' "$ROOT/skills/deep-research/SKILL.md" && grep -E '^allowed-tools:' "$ROOT/skills/deep-research/SKILL.md" | grep -q aidefence_scan || miss="$miss skill-allowed-tools-no-aidefence"
+grep -E '^  - .*aidefence_scan' "$ROOT/agents/deep-researcher.md" >/dev/null || miss="$miss agent-tools-no-aidefence"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "12. research-list.mjs runtime test passes"
+out=$(node "$ROOT/scripts/test-research-list.mjs" 2>&1) && ok || bad "$out"
+
+step "12b. research-list.mjs prefers the installed ruflo CLI over npx @latest (#3558)"
+out=$(node "$ROOT/scripts/test-cli-resolution-3558.mjs" 2>&1) && ok || bad "$out"
+
+
+# M1. The mod (ADR-445 pattern): hooks module registered, files within the 500-line rule
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$ROOT/hooks/hooks.json" || mod_ok=0
+for f in options screen tools guard command status register; do
+  [[ -f "$ROOT/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$ROOT/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: userConfig defaults are the safe ones (guard personal all on)"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+const need = process.argv.slice(2)
+process.exit(need.every(k => c[k] && c[k].default === "on") ? 0 : 1)
+' "$ROOT/.claude-plugin/plugin.json" guard personal && ok || bad "userConfig defaults wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

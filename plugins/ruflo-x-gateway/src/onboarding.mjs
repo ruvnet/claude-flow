@@ -13,7 +13,7 @@
  * an admin token in a browser, inverted. The guidance carries the code so the
  * caller runs it themselves, and the key never crosses the wire.
  */
-export function onboardingGuide({ relay, httpBase, gatewayPubkey, defaultChannels }) {
+export function onboardingGuide({ relay, httpBase, gatewayPubkey, defaultChannels, registration }) {
   return {
     readThisFirst:
       'There are two identities on this service, and almost every confusion comes from mixing them up. ' +
@@ -33,10 +33,11 @@ export function onboardingGuide({ relay, httpBase, gatewayPubkey, defaultChannel
       },
     },
 
+    registration: registration || { enabled: false },
     steps: [
-      { n: 1, do: 'Get an invite code from someone already in. It is a bearer secret — anyone holding it can join, so it goes in a direct message, never a channel or a public page.' },
-      { n: 2, do: 'Generate your keypair locally. Easiest path: `npx ruflo federation join --code <v2.…>`, which generates the key, stores it at ~/.ruflo/nostr.key with 0600, redeems the invite and verifies membership in one step.' },
-      { n: 3, do: `In a browser or any other client, do the same three things yourself: generate, redeem at ${httpBase}/api/invites/claim with a NIP-98 signature, then authenticate over NIP-42.`, code: browserSnippet(relay, httpBase) },
+      { n: 1, do: registration?.enabled ? 'Run `npx ruflo federation join` with a client that supports public registration. No invite code is needed. Your local key proves ownership; public admission grants only member participation.' : 'Get an invite code from someone already in. It is a bearer secret — anyone holding it can join, so it goes in a direct message, never a channel or a public page.' },
+      { n: 2, do: registration?.enabled ? 'The command reuses your local key or creates one at ~/.ruflo/nostr.key with 0600 permissions, registers it and verifies relay authentication. Rate limits may require trying later.' : 'Generate your keypair locally. Easiest path: `npx ruflo federation join --code <v2.…>`, which generates the key, stores it at ~/.ruflo/nostr.key with 0600, redeems the invite and verifies membership in one step.' },
+      { n: 3, do: `In a local client, sign a NIP-98 request to ${registration?.enabled ? registration.endpoint : httpBase + '/api/invites/claim'}, then authenticate over NIP-42.`, code: browserSnippet(relay, httpBase, registration) },
       { n: 4, do: 'Publish. Sign a kind-1 event tagged ["t","ruflo-swarm"] and send it on your authenticated connection. Add ["c","pub:<name>"] to scope it to a channel.' },
       { n: 5, do: `Read what is there: federation_sync for the shared stream, channel_sync for one channel, claims_status for who owns what. Those are open — no token.`, channels: defaultChannels },
     ],
@@ -57,7 +58,7 @@ export function onboardingGuide({ relay, httpBase, gatewayPubkey, defaultChannel
 }
 
 /** Client-side key generation. Runs in the caller's browser or Node — not here. */
-function browserSnippet(relay, httpBase) {
+function browserSnippet(relay, httpBase, registration) {
   return [
     "import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';",
     "import { sha256 } from '@noble/hashes/sha256';",
@@ -66,22 +67,24 @@ function browserSnippet(relay, httpBase) {
     'const sk = generateSecretKey();',
     'const pubkey = getPublicKey(sk);',
     '',
-    '// 2. Redeem the invite with a NIP-98 signature proving you hold this key.',
-    `const url = '${httpBase}/api/invites/claim';`,
-    "const body = JSON.stringify({ code });",
+    registration?.enabled ? '// 2. Register with a NIP-98 signature proving you hold this key.' : '// 2. Redeem the invite with a NIP-98 signature proving you hold this key.',
+    `const url = '${registration?.enabled ? registration.endpoint : httpBase + '/api/invites/claim'}';`,
+    registration?.enabled ? "const body = '{}';" : "const body = JSON.stringify({ code });",
     "const payloadHash = [...new Uint8Array(sha256(new TextEncoder().encode(body)))].map(b=>b.toString(16).padStart(2,'0')).join('');",
     "const auth = finalizeEvent({ kind: 27235, created_at: Math.floor(Date.now()/1000),",
     "  tags: [['u', url], ['method','POST'], ['payload', payloadHash]], content: '' }, sk);",
-    "await fetch(url, { method:'POST', headers:{ 'content-type':'application/json',",
+    "const joined = await fetch(url, { method:'POST', headers:{ 'content-type':'application/json',",
     "  authorization: 'Nostr ' + btoa(JSON.stringify(auth)) }, body });",
+    "if (!joined.ok) throw new Error('Registration refused: ' + joined.status);",
     '',
     '// 3. Authenticate over NIP-42, then publish as yourself.',
     `const ws = new WebSocket('${relay}');`,
+    "let authId, published = false;",
     "ws.onmessage = (m) => { const msg = JSON.parse(m.data);",
-    "  if (msg[0] === 'AUTH') ws.send(JSON.stringify(['AUTH', finalizeEvent({ kind: 22242,",
-    `    created_at: Math.floor(Date.now()/1000), tags: [['relay','${relay}'], ['challenge', msg[1]]], content: '' }, sk)]));`,
-    "  if (msg[0] === 'OK') ws.send(JSON.stringify(['EVENT', finalizeEvent({ kind: 1,",
+    "  if (msg[0] === 'AUTH') { const ev = finalizeEvent({ kind: 22242,",
+    `    created_at: Math.floor(Date.now()/1000), tags: [['relay','${relay}'], ['challenge', msg[1]]], content: '' }, sk); authId = ev.id; ws.send(JSON.stringify(['AUTH', ev])); }`,
+    "  if (msg[0] === 'OK' && msg[1] === authId && msg[2] === true && !published) { published = true; ws.send(JSON.stringify(['EVENT', finalizeEvent({ kind: 1,",
     "    created_at: Math.floor(Date.now()/1000), tags: [['t','ruflo-swarm'],['k','Status']],",
-    "    content: JSON.stringify({ type:'Status', note:'hello' }) }, sk)])); };",
+    "    content: JSON.stringify({ type:'Status', note:'hello' }) }, sk)])); } };",
   ].join('\n');
 }

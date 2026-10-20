@@ -1,0 +1,10 @@
+  Parameters: {"requestId":"cap-2","missionId":"msn_694db5dfd982c67fd44f4dfc","expectedRevision":1,"plan":{"tasks":[{"id":"t1","title":"a","dependsOn":[],"executor":{"mode":"session-bound"}}],"acceptance":[{"id":"a1","check":"x"}],"budget":{"currency":"USD","ceilingMinor":100}}}
+
+[OK] Tool executed in 10.48ms
+
+Result:
+{
+  "ok": false,
+  "code": "invalid-input",
+  "message": "invalid-input: plan.tasks.0.executor.requirement: Required; plan.acceptance.0.producer: Required"
+}

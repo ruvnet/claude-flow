@@ -23,11 +23,15 @@ async function runDoctor() {
   return { result, checks, driver: driver! };
 }
 
-async function runDriver() {
-  // Probe directly for fault injection: concurrent imports in doctor's other
-  // checks bypass Vitest's manual mock while its first import is in flight.
+// #3552: `loadBetterSqlite3` is passed directly rather than via `vi.doMock`.
+// The old approach raced `beforeEach`'s real, unmocked driver init against
+// the mock registration — reliable in isolation, flaky under the full suite.
+// Passing the fake in as a parameter removes the module-loader timing
+// entirely, so it no longer matters what else is importing 'better-sqlite3'
+// concurrently.
+async function runDriver(deps?: { loadBetterSqlite3?: () => Promise<{ default: any }> }) {
   const { checkMemoryPersistenceDriver } = await import('../src/commands/doctor.js');
-  return checkMemoryPersistenceDriver();
+  return checkMemoryPersistenceDriver(deps);
 }
 
 function expectNoDriverInference(check: Check) {
@@ -36,6 +40,8 @@ function expectNoDriverInference(check: Check) {
 }
 
 // Wrap real native handles; only the driver check's count query is replaced.
+// Returned as a `loadBetterSqlite3` the caller passes straight to
+// `runDriver()` — no `vi.doMock` timing involved (#3552).
 function mockCountQuery(getCount: () => unknown) {
   const query = vi.fn(getCount);
   const handles: Array<{ db: InstanceType<typeof Database>; close: ReturnType<typeof vi.fn> }> = [];
@@ -54,8 +60,8 @@ function mockCountQuery(getCount: () => unknown) {
       close,
     };
   });
-  vi.doMock('better-sqlite3', () => ({ default: construct }));
-  return { handles, construct, query };
+  const loadBetterSqlite3 = async () => ({ default: construct });
+  return { handles, construct, query, loadBetterSqlite3 };
 }
 
 beforeEach(async () => {
@@ -118,8 +124,9 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
   });
 
   it('warns when the native package cannot be imported even if sql.js reads the schema', async () => {
-    vi.doMock('better-sqlite3', () => { throw new Error('Cannot find package better-sqlite3'); });
-    const driver = await runDriver();
+    const driver = await runDriver({
+      loadBetterSqlite3: async () => { throw new Error('Cannot find package better-sqlite3'); },
+    });
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/unavailable|not installed/i);
     expect(driver.fix).toMatch(/better-sqlite3/);
@@ -127,10 +134,14 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
   });
 
   it('warns when the wrapper loads but its native binding cannot be constructed', async () => {
-    vi.doMock('better-sqlite3', () => ({ default: class {
+    // #3552: the driver check below is fed the fake directly. `vi.doMock`
+    // here only needs to cover doctor's other checks (via `runDoctor()`),
+    // which the #3321 comment already established as safe to leave mocked.
+    const brokenBinding = () => ({ default: class {
       constructor() { throw new Error('Could not locate the bindings file. Tried:\n better_sqlite3.node'); }
-    } }));
-    const driver = await runDriver();
+    } });
+    vi.doMock('better-sqlite3', brokenBinding);
+    const driver = await runDriver({ loadBetterSqlite3: async () => brokenBinding() });
     const { checks } = await runDoctor();
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/binding unavailable/i);
@@ -143,10 +154,11 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
     const db = new Database(dbPath);
     for (let i = 0; i < 40; i++) db.exec(`CREATE TABLE extra_${i} (id INTEGER)`);
     db.close();
-    vi.doMock('better-sqlite3', () => ({ default: class {
+    const cantOpen = () => ({ default: class {
       constructor() { throw new Error('SQLITE_CANTOPEN: unable to open database file'); }
-    } }));
-    const driver = await runDriver();
+    } });
+    vi.doMock('better-sqlite3', cantOpen);
+    const driver = await runDriver({ loadBetterSqlite3: async () => cantOpen() });
     const { checks, result } = await runDoctor();
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/could not open.*SQLITE_CANTOPEN/i);
@@ -159,8 +171,8 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
     const db = new Database(dbPath);
     for (let i = 0; i < 40; i++) db.exec(`CREATE TABLE extra_${i} (id INTEGER)`);
     db.close();
-    const { handles, construct } = mockCountQuery(() => { throw new Error('count probe failed'); });
-    const driver = await runDriver();
+    const { handles, construct, loadBetterSqlite3 } = mockCountQuery(() => { throw new Error('count probe failed'); });
+    const driver = await runDriver({ loadBetterSqlite3 });
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/table count.*(unavailable|failed)/i);
     expect(driver.message).toContain('count probe failed');
@@ -177,8 +189,8 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
 
   it.each([undefined, {}, { c: null }, { c: NaN }, { c: -1 }, { c: 1.5 }, { c: Infinity }])(
     'warns when the count query provides no reliable result: %j', async (row) => {
-      const { handles, query } = mockCountQuery(() => row);
-      const driver = await runDriver();
+      const { handles, query, loadBetterSqlite3 } = mockCountQuery(() => row);
+      const driver = await runDriver({ loadBetterSqlite3 });
       expect(driver.status).toBe('warn');
       expect(driver.message).toMatch(/table count.*(unavailable|failed)/i);
       expectNoDriverInference(driver);
@@ -190,8 +202,8 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
 
   it('closes successful native probes without changing logical data', async () => {
     const before = readFileSync(dbPath);
-    const { handles, query } = mockCountQuery(() => ({ c: 11 }));
-    const driver = await runDriver();
+    const { handles, query, loadBetterSqlite3 } = mockCountQuery(() => ({ c: 11 }));
+    const driver = await runDriver({ loadBetterSqlite3 });
     expect(driver.message).toMatch(/read-only/i);
     expect(readFileSync(dbPath)).toEqual(before);
     expect(query).toHaveBeenCalledTimes(1);
@@ -203,7 +215,6 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
   });
 
   it.each(['throw', 'missing', 'invalid'])('keeps an unavailable fallback count unknown: %s', async (mode) => {
-    vi.doMock('better-sqlite3', () => { throw new Error('Cannot find package better-sqlite3'); });
     const close = vi.fn();
     const exec = vi.fn(() => {
       if (mode === 'throw') throw new Error('fallback query failed');
@@ -213,7 +224,9 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
       Database: class { exec = exec; close = close; },
     }) }));
     const before = readFileSync(dbPath);
-    const driver = await runDriver();
+    const driver = await runDriver({
+      loadBetterSqlite3: async () => { throw new Error('Cannot find package better-sqlite3'); },
+    });
     expect(driver.status).toBe('warn');
     expect(driver.message).toContain('table count unavailable');
     expectNoDriverInference(driver);
@@ -225,8 +238,8 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
   it('keeps encrypted databases unprobed and unchanged', async () => {
     writeFileSync(dbPath, encryptBuffer(readFileSync(dbPath), Buffer.alloc(32, 7)));
     const before = readFileSync(dbPath);
-    const { construct } = mockCountQuery(() => ({ c: 11 }));
-    const driver = await runDriver();
+    const { construct, loadBetterSqlite3 } = mockCountQuery(() => ({ c: 11 }));
+    const driver = await runDriver({ loadBetterSqlite3 });
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/RFE1-encrypted/);
     expect(construct).not.toHaveBeenCalled();
@@ -243,8 +256,8 @@ describe('doctor Memory Persistence Driver (#3321)', () => {
 
   it('warns without creating a missing database', async () => {
     unlinkSync(dbPath);
-    const { construct } = mockCountQuery(() => ({ c: 11 }));
-    const driver = await runDriver();
+    const { construct, loadBetterSqlite3 } = mockCountQuery(() => ({ c: 11 }));
+    const driver = await runDriver({ loadBetterSqlite3 });
     expect(driver.status).toBe('warn');
     expect(driver.message).toMatch(/no memory.db found/);
     expect(construct).not.toHaveBeenCalled();

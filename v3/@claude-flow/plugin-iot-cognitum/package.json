@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/plugin-iot-cognitum",
-  "version": "1.0.0-alpha.5",
+  "version": "1.0.0",
   "description": "IoT Cognitum Seed device-agent bridge — treat every Seed as a Ruflo agent. Get a Seed at https://cognitum.one.",
   "homepage": "https://cognitum.one",
   "type": "module",
@@ -25,7 +25,7 @@
     "@cognitum-one/sdk": "^0.2.1"
   },
   "devDependencies": {
-    "@claude-flow/shared": "workspace:*",
+    "@claude-flow/shared": "^3.0.0",
     "typescript": "^5.4.0",
     "vitest": "^4.1.0"
   },

@@ -20,6 +20,9 @@
  * @module task-embedder
  */
 
+import * as fs from 'node:fs';
+import { resolveModelCacheDir } from '../memory/model-cache-dir.js';
+
 // ============================================================================
 // FNV-1a-32 hash (matches scripts/gen-seed-corpus.mjs + router-trajectory.ts)
 // ============================================================================
@@ -52,15 +55,49 @@ type ExtractorFn = (input: string | string[], opts: { pooling: 'mean'; normalize
 // so we don't pay the ONNX model-load cost twice.
 let _extractorPromise: Promise<ExtractorFn | null> | null = null;
 
+/**
+ * ADR-454: distinguishes a null-extractor result caused by a genuinely
+ * missing dependency (permanent — nothing changes without a reinstall) from
+ * one caused by an environmental/fixable failure during `pipeline(...)`
+ * init, such as EACCES on the model cache dir (retryable).
+ */
+let _extractorDegradedReason: 'permanent' | 'retryable' | null = null;
+let _extractorLastAttemptAt = 0;
+const EXTRACTOR_RETRY_INTERVAL_MS = 60_000;
+
 function loadExtractor(): Promise<ExtractorFn | null> {
-  if (_extractorPromise !== null) return _extractorPromise;
+  if (_extractorPromise !== null) {
+    const isRetryableDue =
+      _extractorDegradedReason === 'retryable' &&
+      Date.now() - _extractorLastAttemptAt >= EXTRACTOR_RETRY_INTERVAL_MS;
+    if (!isRetryableDue) return _extractorPromise;
+    // Fall through to re-attempt — the retryable failure may now be fixed.
+  }
+  _extractorLastAttemptAt = Date.now();
   _extractorPromise = (async () => {
+    let packageImportable = false;
     try {
       const specifier = '@xenova/transformers';
       const mod = await import(/* @vite-ignore */ specifier).catch(() => null);
-      if (!mod || typeof mod.pipeline !== 'function') return null;
-      return await mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+      if (!mod || typeof mod.pipeline !== 'function') {
+        _extractorDegradedReason = 'permanent';
+        return null;
+      }
+      packageImportable = true;
+
+      // ADR-454: route model downloads to a user-writable cache dir — the
+      // package-relative default is root-owned under a system-prefix
+      // global install, which throws EACCES for the runtime user.
+      const cacheDir = resolveModelCacheDir();
+      fs.mkdirSync(cacheDir, { recursive: true });
+      const env = (mod as Record<string, unknown>).env as { cacheDir: string } | undefined;
+      if (env) env.cacheDir = cacheDir;
+
+      const extractor = await mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
+      _extractorDegradedReason = null;
+      return extractor;
     } catch {
+      _extractorDegradedReason = packageImportable ? 'retryable' : 'permanent';
       return null;
     }
   })();
@@ -242,4 +279,6 @@ export function __resetTaskEmbedderForTests(): void {
   _hits = 0;
   _misses = 0;
   _extractorPromise = null;
+  _extractorDegradedReason = null;
+  _extractorLastAttemptAt = 0;
 }

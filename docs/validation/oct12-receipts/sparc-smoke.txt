@@ -1,0 +1,17 @@
+→ 1. plugin.json declares 0.3.4 with new keywords ... PASS
+→ 2. all 3 skills + agent + command present with valid frontmatter ... PASS
+→ 3. all 5 SPARC phase names documented (Specification/Pseudocode/Architecture/Refinement/Completion) ... PASS
+→ 4. /sparc command covers 5 subcommands ... PASS
+→ 5. README pins @claude-flow/cli to v3.6 ... PASS
+→ 6. README defers to ruflo-agentdb namespace convention ... PASS
+→ 7. sparc-* namespaces claimed (state, phases, gates) ... PASS
+→ 8. phase-to-plugin alignment table present (cross-references to adr/ddd/jujutsu/docs/goals) ... PASS
+→ 9. ADR-0001 exists with status Accepted ... PASS
+→ 10. 5 phase gate criteria documented ... PASS
+→ 11. no wildcard tool grants in skills ... PASS
+→ M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines ... PASS
+→ M2. mod: userConfig defaults are safe (guard defaults on) ... PASS
+→ M3. mod: hooks never touch the network or spawn a process ... PASS
+→ R. SPARC exact reads and registered names ... PASS
+
+15 passed, 0 failed

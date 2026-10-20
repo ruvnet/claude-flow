@@ -222,7 +222,8 @@ export class Bulkhead extends EventEmitter {
     this.active++;
     this.emit('acquire');
 
-    item.fn()
+    Promise.resolve()
+      .then(() => item.fn())
       .then((result) => {
         this.completed++;
         item.resolve(result);

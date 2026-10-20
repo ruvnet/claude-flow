@@ -215,56 +215,19 @@ export class AgenticFlowBridge extends EventEmitter {
    * - Flash Attention (using native optimized implementations)
    * - AgentDB (leveraging 150x-12,500x faster HNSW search)
    *
-   * If agentic-flow is not installed, falls back to local implementations
-   * to maintain backward compatibility.
+   * Until agentic-flow publishes that factory, the local implementations
+   * are used.
    */
   private async connectToAgenticFlow(): Promise<void> {
-    try {
-      // Dynamic import to handle optional dependency
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const agenticFlowModule: any = await import('agentic-flow').catch(() => null);
-
-      if (agenticFlowModule && typeof agenticFlowModule.createAgenticFlow === 'function') {
-        const factory: AgenticFlowFactory = agenticFlowModule.createAgenticFlow;
-
-        this.agenticFlowCore = await factory({
-          sona: this.config.sona,
-          attention: this.config.attention,
-          agentdb: this.config.agentdb,
-        });
-
-        this.agenticFlowAvailable = true;
-        this.updateComponentHealth('agentic-flow', 'healthy');
-
-        this.emit('agentic-flow:connected', {
-          version: this.agenticFlowCore.version,
-          features: {
-            sona: true,
-            attention: true,
-            agentdb: true,
-          },
-        });
-
-        this.logDebug('Connected to agentic-flow', {
-          version: this.agenticFlowCore.version,
-        });
-      } else {
-        // Package not found or doesn't export expected factory
-        this.agenticFlowAvailable = false;
-        this.emit('agentic-flow:fallback', {
-          reason: 'package not found or incompatible',
-        });
-        this.logDebug('agentic-flow not available, using local implementations');
-      }
-    } catch (error) {
-      // Fallback to local implementation if agentic-flow fails to load
-      this.agenticFlowAvailable = false;
-      this.emit('agentic-flow:fallback', {
-        reason: 'initialization error',
-        error: (error as Error).message,
-      });
-      this.logDebug('agentic-flow initialization failed, using fallback', error);
-    }
+    // Not connected: no published agentic-flow exports `createAgenticFlow` (2.0.14,
+    // 2.1.4, 3.0.0-alpha.1/.2), and importing its root entry runs its CLI
+    // `main()` in 3.0.0-alpha.x — demo agents and a health server, inside our
+    // process. Use local implementations.
+    this.agenticFlowAvailable = false;
+    this.emit('agentic-flow:fallback', {
+      reason: 'package not found or incompatible',
+    });
+    this.logDebug('agentic-flow not available, using local implementations');
   }
 
   /**

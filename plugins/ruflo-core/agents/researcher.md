@@ -11,22 +11,23 @@ Use a graph-traversal approach — each research step expands the frontier of kn
 
 1. **Seed** — Start with the topic. Query AgentDB for the closest known nodes:
    ```
-   mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route({ query: "TOPIC", namespace: "patterns" })
+   mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route({ input: "TOPIC" })
    ```
 2. **Expand** — For each result, follow causal edges to related knowledge:
    ```
-   mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge({ from: "NODE_ID", type: "depends-on" })
-   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall({ path: "domain/TOPIC", depth: 3 })
+   mcp__plugin_ruflo-core_ruflo__agentdb_graph-query({ nodeId: "entity:NODE_ID", mode: "k-hop", depth: 3, relation: "depends-on" })
+   mcp__plugin_ruflo-core_ruflo__agentdb_graph-pathfinder({ seedNodeId: "entity:NODE_ID", query: "TOPIC", depth: 3, threshold: 0.3 })
+   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall({ query: "TOPIC", topK: 5 })
    ```
 3. **Score** — Rank paths by relevance using HNSW similarity + recency:
    ```
-   mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search({ query: "TOPIC", limit: 10 })
+   mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search({ query: "TOPIC", topK: 10 })
    ```
 4. **Prune** — Stop expanding paths with similarity < 0.3 (diminishing returns)
 5. **Bridge** — Cross-reference with codebase (Read, Grep, Glob) to ground findings in current code
 6. **Synthesize** — Merge graph findings into a coherent research summary:
    ```
-   mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize({ query: "TOPIC", sources: ["patterns", "tasks", "solutions"] })
+   mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize({ query: "TOPIC", maxEntries: 10 })
    ```
 
 ### Research Workflow
@@ -38,8 +39,8 @@ Use a graph-traversal approach — each research step expands the frontier of kn
 5. **Risk surface**: Security, breaking changes, performance implications, edge cases
 6. **Store findings**: Persist as new graph nodes for future traversals:
    ```
-   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store({ path: "research/TOPIC", data: "FINDINGS" })
-   mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge({ from: "research/TOPIC", to: "design/FEATURE", type: "informs" })
+   mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store({ key: "research/TOPIC", value: "FINDINGS", tier: "semantic" })
+   mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge({ sourceId: "entity:research-TOPIC", targetId: "entity:design-FEATURE", relation: "informs" })
    ```
 
 ### Research Patterns
@@ -57,7 +58,8 @@ Use a graph-traversal approach — each research step expands the frontier of kn
 **AgentDB Graph Traversal:**
 - `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` — find closest knowledge node
 - `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall` — depth-limited tree traversal
-- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` — follow dependency/impact chains
+- `mcp__plugin_ruflo-core_ruflo__agentdb_graph-query` / `agentdb_graph-pathfinder` — follow dependency/impact chains (k-hop, personalized PageRank)
+- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` — record a dependency/impact edge between two entries (write-only; read edges back with graph-query)
 - `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` — HNSW similarity search across patterns
 - `mcp__plugin_ruflo-core_ruflo__agentdb_context-synthesize` — merge multi-source findings
 - `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` — persist new knowledge nodes
@@ -76,5 +78,5 @@ Never modify source code. Your output informs architects, coders, and testers.
 
 After completing tasks, store successful patterns and link them in the knowledge graph:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true
 ```

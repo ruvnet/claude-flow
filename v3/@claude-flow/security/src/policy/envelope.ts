@@ -43,14 +43,14 @@ export function checkCapabilityEnvelope(
       : envelope.writeNamespaces;
     checks.push([matches(namespaces, action.namespace), 'namespace-outside-envelope']);
   }
-  if (action.costUsd !== undefined && envelope.maxCostUsd !== undefined) {
-    checks.push([action.costUsd <= envelope.maxCostUsd, 'cost-outside-envelope']);
+  if (envelope.maxCostUsd !== undefined) {
+    checks.push([action.costUsd !== undefined && action.costUsd <= envelope.maxCostUsd, 'cost-outside-envelope']);
   }
-  if (action.tokens !== undefined && envelope.maxTokens !== undefined) {
-    checks.push([action.tokens <= envelope.maxTokens, 'tokens-outside-envelope']);
+  if (envelope.maxTokens !== undefined) {
+    checks.push([action.tokens !== undefined && action.tokens <= envelope.maxTokens, 'tokens-outside-envelope']);
   }
-  if (action.concurrency !== undefined && envelope.maxConcurrency !== undefined) {
-    checks.push([action.concurrency <= envelope.maxConcurrency, 'concurrency-outside-envelope']);
+  if (envelope.maxConcurrency !== undefined) {
+    checks.push([action.concurrency !== undefined && action.concurrency <= envelope.maxConcurrency, 'concurrency-outside-envelope']);
   }
   if (action.network === true) checks.push([envelope.network === true, 'network-outside-envelope']);
   if (action.destructive === true) checks.push([envelope.destructive === true, 'destructive-outside-envelope']);

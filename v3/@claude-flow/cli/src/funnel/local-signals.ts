@@ -42,7 +42,8 @@ export function getSecurityStatus(cwd: string = process.cwd()): SecurityStatus {
       scan.summary?.total ?? scan.totalFindings ?? scan.findings?.length ?? 0;
     const findings = Math.max(0, Number.isFinite(rawFindings) ? rawFindings : 0);
     return {
-      status: findings > 0 ? 'ISSUES' : 'CLEAN',
+      // #4124: a scan whose dependency phase could not run is not a clean scan.
+      status: findings > 0 ? 'ISSUES' : scan.incomplete === true ? 'PENDING' : 'CLEAN',
       findings,
       scannedAt: typeof scan.timestamp === 'string' ? scan.timestamp : undefined,
       cvesFixed: 0,

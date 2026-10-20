@@ -2,7 +2,7 @@
 name: gaia-debugging
 description: Diagnose why a GAIA question failed — extract trace, classify failure mode, and propose a fix. Use when a GAIA benchmark run reports a failed/incorrect task_id and you need to root-cause it before resubmitting.
 argument-hint: "<task_id> [--results=<path>]"
-allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__agentdb_pattern_search mcp__plugin_ruflo-core_ruflo__agentdb_pattern_store
+allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search mcp__plugin_ruflo-core_ruflo__agentdb_pattern-store
 ---
 
 # GAIA Debugging Skill
@@ -55,12 +55,13 @@ Look at the trace output:
 
 ```bash
 node v3/@claude-flow/cli/bin/cli.js gaia-bench run \
-  --level 1 --limit 1 \
-  --task-id $TASK_ID \
+  --level 1 --limit N \
   --models claude-sonnet-4-6 \
   --max-turns 20 \
   --output json
 ```
+
+`gaia-bench run` cannot select one task: there is no `--task-id` flag (unknown flags are ignored silently). Use the smallest `--limit N` that reaches the question's position in the level's dataset order, and read only the trace for `$TASK_ID` from the output; completed questions are skipped on resume via the checkpoint file.
 
 ### Step 4 — Apply targeted fix
 
@@ -76,8 +77,8 @@ node v3/@claude-flow/cli/bin/cli.js gaia-bench run \
 ### Step 5 — Verify fix and store pattern
 
 ```bash
-# Re-run the single question
-node … gaia-bench run --task-id $TASK_ID --models $MODEL --output json
+# Re-run (no --task-id exists; use the smallest --limit that includes the question)
+node … gaia-bench run --level $LEVEL --limit N --models $MODEL --output json
 
 # If now passing, store the pattern
 npx @claude-flow/cli@latest memory store \

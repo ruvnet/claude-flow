@@ -12,11 +12,13 @@
 //   VERIFY_STRICT=1 node scripts/verify.mjs     # exit 1 on ANY issue (default: only on cycles)
 //   ADR_ROOT=/path/to/repo node scripts/verify.mjs   # same root import.mjs was run with
 
-import { spawnSync } from 'node:child_process';
-import { CLI_PKG, parseEdgeKey } from './lib/index-records.mjs';
+import { CLI_PKG, parseEdgeKey, unknownStatusIds } from './lib/index-records.mjs';
+import { spawnCliSync } from './lib/ruflo-cli.mjs';
 
 // Import/reindex always use the default CLI's SQLite store (#2781). Reading
-// cli-core's separate JSON store would verify a different graph.
+// cli-core's separate JSON store would verify a different graph. #3558: the
+// read goes through the same installed-CLI resolution as the writers
+// (lib/ruflo-cli.mjs), so verify reads the store import/reindex wrote.
 if (process.env.CLI_CORE === '1') {
   console.warn('[ruflo-adr] warning: CLI_CORE=1 is ignored for verification (#2781).');
 }
@@ -34,7 +36,7 @@ const READ_TIMEOUT_MS = Math.min(120_000, Math.max(100,
 const MAX_BUFFER = 32 * 1024 * 1024;
 
 function memoryListJson(namespace) {
-  const r = spawnSync('npx', [
+  const r = spawnCliSync([
     CLI_PKG, 'memory', 'list',
     `--namespace=${namespace}`, '--format=json', `--limit=${READ_LIMIT}`,
   ], {
@@ -103,8 +105,8 @@ const adrIds = new Set(
 const edges = [];
 for (const e of edgeEntries) {
   const k = e.key || '';
-  // Current deterministic key: relation:FROM->TO. Keep reading the legacy
-  // relation:FROM->TO:timestamp-rand shape for seamless upgrades (#2660).
+  // Current deterministic key: relation:FROM__TO. Keep reading the earlier
+  // relation:FROM->TO and relation:FROM->TO:timestamp-rand shape for seamless upgrades (#2660).
   const parsed = parseEdgeKey(k);
   if (parsed) edges.push(parsed);
 }
@@ -134,6 +136,10 @@ function findCycle(node, visited, stack) {
 }
 for (const n of supersedesGraph.keys()) findCycle(n, new Set(), new Set());
 
+// #4126: an ADR the importer could not classify is skipped by adr-review (it only enforces
+// accepted ADRs), so it must not hide behind a healthy-looking graph.
+const unknownStatus = [...new Set(unknownStatusIds(patternEntries))];
+
 const result = {
   adrCount: adrIds.size,
   edgeCount: edges.length,
@@ -141,6 +147,7 @@ const result = {
   danglingRefs,
   danglingFroms,
   cycles: [...new Set(cycles)],
+  unknownStatus,
 };
 
 if (process.env.VERIFY_FORMAT === 'json') {
@@ -158,9 +165,14 @@ if (process.env.VERIFY_FORMAT === 'json') {
   console.log(`| Dangling 'to' refs | ${result.danglingRefs.length} |`);
   console.log(`| Dangling 'from' refs | ${result.danglingFroms.length} |`);
   console.log(`| Supersede cycles | ${result.cycles.length} |`);
+  console.log(`| ADRs with Unknown status | ${result.unknownStatus.length} |`);
   if (result.danglingRefs.length) {
     console.log('\n### Sample dangling refs');
     for (const d of result.danglingRefs.slice(0, 8)) console.log(`- ${d.relation} ${d.from} → ${d.to} (missing)`);
+  }
+  if (result.unknownStatus.length) {
+    console.log('\n### Unknown status (adr-review skips these: fix the Status line)');
+    for (const id of result.unknownStatus.slice(0, 20)) console.log(`- ${id}`);
   }
   if (result.cycles.length) {
     console.log('\n### Cycles (DATA CORRUPTION — fix immediately)');
@@ -169,6 +181,6 @@ if (process.env.VERIFY_FORMAT === 'json') {
 }
 
 const strict = process.env.VERIFY_STRICT === '1';
-if (result.cycles.length || (strict && (result.danglingRefs.length || result.danglingFroms.length))) {
+if (result.cycles.length || (strict && (result.danglingRefs.length || result.danglingFroms.length || result.unknownStatus.length))) {
   process.exit(1);
 }

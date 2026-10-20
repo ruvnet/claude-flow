@@ -2,7 +2,7 @@
  * @claude-flow/browser - ReasoningBank Adapter Tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ReasoningBankAdapter, getReasoningBank } from '../src/infrastructure/reasoningbank-adapter.js';
 import type { BrowserTrajectory } from '../src/domain/types.js';
 
@@ -89,6 +89,22 @@ describe('ReasoningBankAdapter', () => {
 
       expect(pattern).toBeDefined();
       expect(pattern?.usageCount).toBeGreaterThan(1);
+    });
+
+    it('merges repeated success even when the calls land in different milliseconds', async () => {
+      const now = vi.spyOn(Date, 'now');
+      try {
+        now.mockReturnValue(1_000_000);
+        await adapter.storeTrajectory(mockTrajectory);
+        now.mockReturnValue(1_000_007);
+        await adapter.storeTrajectory(mockTrajectory);
+      } finally {
+        now.mockRestore();
+      }
+
+      const patterns = adapter.exportPatterns().filter(p => p.goal === mockTrajectory.goal);
+      expect(patterns).toHaveLength(1);
+      expect(patterns[0].usageCount).toBe(2);
     });
   });
 

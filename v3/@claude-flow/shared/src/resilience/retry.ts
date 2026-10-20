@@ -174,13 +174,18 @@ export function withRetry<T extends (...args: unknown[]) => Promise<unknown>>(
  * Execute with timeout
  */
 async function withTimeout<T>(promise: Promise<T>, timeout: number, attempt: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       reject(new Error(`Attempt ${attempt} timed out after ${timeout}ms`));
     }, timeout);
   });
 
-  return Promise.race([promise, timeoutPromise]);
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }
 
 /**
@@ -197,7 +202,9 @@ export const RetryableErrors = {
   /** Network errors (ECONNRESET, ETIMEDOUT, etc.) */
   network: (error: Error): boolean => {
     const networkCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'];
-    return networkCodes.some((code) => error.message.includes(code));
+    const code = (error as Error & { code?: unknown }).code;
+    return (typeof code === 'string' && networkCodes.includes(code)) ||
+      networkCodes.some((code) => error.message.includes(code));
   },
 
   /** Rate limit errors (429) */

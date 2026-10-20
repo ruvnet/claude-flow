@@ -12,7 +12,7 @@ import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import { spawn as childSpawn } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { resolveWorkerMcpConfig, currentRufloServer, workCommand } from './hive-mind-worker.js';
 import { join } from 'path';
 import { resolveClaudeLaunchCommand } from '../runtime/claude-command.js';
 import { getHiveTokenForCli } from '../mcp-tools/hive-mind-tools.js';
@@ -252,39 +252,25 @@ async function spawnClaudeCodeInstance(
       const claudeArgs: string[] = [];
 
       // #1748 Issue 2 — pass --mcp-config so the spawned worker actually has
-      // mcp__ruflo__* tools registered. Before this, the coordination prompt
-      // referenced tools the worker didn't know about and exited silently.
-      // Resolution order:
-      //   1. explicit --mcp-config <path> flag passed by the caller
-      //   2. ./.mcp.json in cwd (project-local Ruflo MCP config)
-      //   3. ~/.claude.json or ~/.claude/mcp.json (user-global)
-      // If none found, we still spawn but warn — that's the pre-fix behavior
-      // and the user's debug log will surface the missing tools.
-      const explicitMcpConfig = flags['mcp-config'] as string | undefined;
-      let mcpConfigPath: string | undefined = explicitMcpConfig;
-      if (!mcpConfigPath) {
-        const candidates = [
-          join(process.cwd(), '.mcp.json'),
-          join(process.env.HOME || process.env.USERPROFILE || '', '.claude.json'),
-          join(process.env.HOME || process.env.USERPROFILE || '', '.claude', 'mcp.json'),
-        ];
-        for (const c of candidates) {
-          try {
-            if (c && existsSync(c)) { mcpConfigPath = c; break; }
-          } catch { /* continue */ }
-        }
-      }
-      if (mcpConfigPath) {
-        // #1780 — Claude Code's `--mcp-config` is variadic; passing it as two
-        // argv tokens (`--mcp-config`, `<path>`) lets a later positional (the
-        // hive-mind prompt) be slurped as a second config file, producing
-        // `ENAMETOOLONG: name too long, open` once the prompt exceeds PATH_MAX.
-        // Use `=`-syntax so the flag stays attached to its single value.
-        claudeArgs.push(`--mcp-config=${mcpConfigPath}`);
-        output.printInfo(`Spawned worker MCP config: ${mcpConfigPath}`);
-      } else {
-        output.printWarning('No .mcp.json or ~/.claude.json found — spawned worker will not have mcp__ruflo__* tools (#1748 Issue 2). Pass --mcp-config <path> or run "ruflo init" to generate one.');
-      }
+      // mcp__ruflo__* tools registered. The config is always a generated file
+      // that Claude accepts; see resolveWorkerMcpConfig for why a source
+      // config (notably ~/.claude.json) is never passed through as-is.
+      // The parser stores flags camelCased (#2269), so read both forms.
+      const mcpConfigPath = resolveWorkerMcpConfig({
+        explicit: (flags['mcp-config'] ?? flags.mcpConfig) as string | undefined,
+        cwd: process.cwd(),
+        home: process.env.HOME || process.env.USERPROFILE || '',
+        outDir: sessionsDir,
+        swarmId,
+        rufloServer: currentRufloServer(),
+      });
+      // #1780 — Claude Code's `--mcp-config` is variadic; passing it as two
+      // argv tokens (`--mcp-config`, `<path>`) lets a later positional (the
+      // hive-mind prompt) be slurped as a second config file, producing
+      // `ENAMETOOLONG: name too long, open` once the prompt exceeds PATH_MAX.
+      // Use `=`-syntax so the flag stays attached to its single value.
+      claudeArgs.push(`--mcp-config=${mcpConfigPath}`);
+      output.printInfo(`Spawned worker MCP config: ${mcpConfigPath}`);
 
       // Check for non-interactive mode
       const isNonInteractive = flags['non-interactive'] || flags.nonInteractive;
@@ -1069,7 +1055,8 @@ const taskCommand: Command = {
 
       output.writeln();
       output.printSuccess('Task submitted to hive');
-      output.writeln(output.dim(`  Track with: claude-flow hive-mind task-status ${result.taskId}`));
+      output.writeln(output.dim(`  Run it with: claude-flow hive-mind work --task ${result.taskId}`));
+      output.writeln(output.dim(`  Track with:  claude-flow task status ${result.taskId}`));
 
       return { success: true, data: result };
     } catch (error) {
@@ -1220,6 +1207,11 @@ const consensusCommand: Command = {
     const action = ctx.flags.action as string || 'list';
     try {
       const result = await callMCPTool<Record<string, unknown>>('hive-mind_consensus', { action, proposalId: ctx.flags.proposalId, type: ctx.flags.type, value: ctx.flags.value, vote: ctx.flags.vote === 'yes', voterId: ctx.flags.voterId, hiveToken: getHiveTokenForCli() });
+      if (result.error) {
+        if (ctx.flags.format === 'json') output.printJson(result);
+        else output.printError(`Consensus error: ${String(result.error)}`);
+        return { success: false, exitCode: 1, data: result };
+      }
       if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
       if (action === 'list') {
         output.writeln(output.bold('\nPending Proposals'));
@@ -1366,7 +1358,7 @@ export const hiveMindCommand: Command = {
   name: 'hive-mind',
   aliases: ['hive'],
   description: 'Queen-led consensus-based multi-agent coordination',
-  subcommands: [initCommand, spawnCommand, statusCommand, taskCommand, joinCommand, leaveCommand, consensusCommand, broadcastCommand, memorySubCommand, optimizeMemoryCommand, shutdownCommand],
+  subcommands: [initCommand, spawnCommand, statusCommand, taskCommand, workCommand, joinCommand, leaveCommand, consensusCommand, broadcastCommand, memorySubCommand, optimizeMemoryCommand, shutdownCommand],
   options: [],
   examples: [
     { command: 'claude-flow hive-mind init -t hierarchical-mesh', description: 'Initialize hive' },
@@ -1386,6 +1378,7 @@ export const hiveMindCommand: Command = {
       `${output.highlight('spawn')}           - Spawn worker agents (use --claude to launch Claude Code)`,
       `${output.highlight('status')}          - Show hive status`,
       `${output.highlight('task')}            - Submit task to hive`,
+      `${output.highlight('work')}            - Run the next pending task on an idle worker`,
       `${output.highlight('join')}            - Join an agent to the hive`,
       `${output.highlight('leave')}           - Remove an agent from the hive`,
       `${output.highlight('consensus')}       - Manage consensus proposals`,

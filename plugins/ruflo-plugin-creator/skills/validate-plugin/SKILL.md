@@ -16,7 +16,7 @@ After creating or modifying a plugin, run validation to catch structural issues 
 ## Checks performed
 
 1. **Directory structure** — `.claude-plugin/plugin.json` exists at plugin root
-2. **plugin.json schema** — required fields present (name, description, version)
+2. **plugin.json schema** — required fields present (name, description, version, non-empty keywords array); `name` equals the directory name; version is semver
 3. **Skills auto-discovery** — every `skills/<name>/SKILL.md` is a valid skill (Claude Code auto-discovers from directory; `plugin.json` MUST NOT list a `skills` array)
 4. **Commands auto-discovery** — every `commands/<name>.md` is a valid command (auto-discovered; no `commands` array in `plugin.json`)
 5. **Agents auto-discovery** — every `agents/<name>.md` is a valid agent (auto-discovered; no `agents` array in `plugin.json`)
@@ -24,7 +24,7 @@ After creating or modifying a plugin, run validation to catch structural issues 
 7. **SKILL.md frontmatter** — each skill has `name`, `description`, and `allowed-tools` (no wildcards)
 8. **Agent frontmatter** — each agent has `name`, `description`, and `model`
 9. **No files in wrong locations** — skills/commands/agents not inside `.claude-plugin/`
-10. **MCP tool references** — tools in `allowed-tools` are valid `mcp__plugin_ruflo-core_ruflo__*` identifiers
+10. **MCP tool references** — tools in `allowed-tools` use the `mcp__plugin_ruflo-core_ruflo__*` prefix AND exist: list the real tools with `npx @claude-flow/cli@latest mcp tools` and flag any name not in it (typos such as `hooks_post_task` for `hooks_post-task`, or `agentdb_pattern_search` for `agentdb_pattern-search`, are format-valid but do not exist). Also run the repo gates when inside the ruflo repo: `node scripts/audit-skill-frontmatter.mjs`, `audit-plugin-manifest.mjs`, `audit-plugin-mcp-prefix.mjs`
 
 ## Steps
 

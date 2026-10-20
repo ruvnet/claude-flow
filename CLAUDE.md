@@ -158,8 +158,8 @@ Task("Reviewer", "Review code quality and security. Store findings in 'collabora
 
 // 🟢 Codex workers (implementation, optimization)
 // Spawn via CLI for Codex platform
-Bash("npx claude-flow-codex dual run --worker 'codex:coder:Implement the solution based on architect design' --namespace collaboration")
-Bash("npx claude-flow-codex dual run --worker 'codex:optimizer:Optimize performance based on implementation' --namespace collaboration")
+Bash("npx @claude-flow/codex dual run --worker 'codex:coder:Implement the solution based on architect design' --namespace collaboration")
+Bash("npx @claude-flow/codex dual run --worker 'codex:optimizer:Optimize performance based on implementation' --namespace collaboration")
 
 // STEP 3: Coordinate via shared memory
 Bash("npx claude-flow@v3alpha memory store --namespace collaboration --key 'task-context' --value '[task description]'")
@@ -178,12 +178,12 @@ Bash("npx claude-flow@v3alpha memory store --namespace collaboration --key 'task
 
 ```bash
 # Run a collaboration template
-npx claude-flow-codex dual run feature --task "Add user authentication with OAuth"
-npx claude-flow-codex dual run security --target "./src"
-npx claude-flow-codex dual run refactor --target "./src/legacy"
+npx @claude-flow/codex dual run feature --task "Add user authentication with OAuth"
+npx @claude-flow/codex dual run security --target "./src"
+npx @claude-flow/codex dual run refactor --target "./src/legacy"
 
 # Custom multi-platform swarm
-npx claude-flow-codex dual run \
+npx @claude-flow/codex dual run \
   --worker "claude:architect:Design the API structure" \
   --worker "codex:coder:Implement REST endpoints" \
   --worker "claude:tester:Write integration tests" \
@@ -191,10 +191,10 @@ npx claude-flow-codex dual run \
   --namespace "api-feature"
 
 # Check collaboration status
-npx claude-flow-codex dual status
+npx @claude-flow/codex dual status
 
 # List available templates
-npx claude-flow-codex dual templates
+npx @claude-flow/codex dual templates
 ```
 
 ### Shared Memory Coordination
@@ -962,6 +962,11 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   - **MAJOR** (3.x → 4.0.0): breaking change in CLI surface, MCP tool signature, file layout, or default behavior
 - Default tag is `latest` (no `--tag alpha`). The `alpha` and `v3alpha` dist-tags continue to exist for historical compatibility — point them at the same version as `latest`.
 - Never publish a pre-release (`-alpha.N`, `-beta.N`, `-rc.N`) unless the user explicitly asks for a pre-release flow.
+- **The internal `@claude-flow/*` leaves follow the same policy since 2026-09-28**
+  (moved to `3.0.0`; `cli-core` `3.7.0`; the two plugins `1.0.0`). One exception:
+  `@claude-flow/embeddings` stays on its alpha line — its registry `latest`
+  (`3.0.0-alpha.45`) was built from a branch not on `main`, and publishing from
+  `main` would drop 139 exported names. Reconcile that branch before bumping it.
 
 ### Publishing Rules
 
@@ -972,7 +977,17 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   is `INTERNAL_RUNTIME_PACKAGES` in `scripts/stage-internal-runtime-bundles.mjs`.
   These are built from the tagged source and staged into the tarball's
   `package/node_modules/`, so a source change in them ships with the train.
-  Do not publish those four standalone.
+  They are ALSO published standalone for direct consumers (the staging script
+  copies only `dist` + `README.md`, independent of the standalone tarball) — when
+  their source changes, republish the standalone package too, or direct
+  consumers keep the old copy (the #3411 `mcp` disclosure was about the
+  standalone tarball, not the train).
+- Every publishable leaf needs a `files` allowlist and must NOT set
+  `publishConfig.tag`. Without `files`, npm ships whatever sits in the package
+  directory — published tarballs have leaked `.claude-flow/` daemon logs and
+  pids, `settings.json`, `.swarm/memory.db` and headless-worker prompt logs.
+  A `publishConfig.tag` of `v3alpha` silently routes a stable publish away
+  from `latest`.
 - **Every OTHER `@claude-flow/*` dependency resolves from the registry**, at the
   version `v3/@claude-flow/cli/package.json` pins. A source change in one of
   those does NOT ship with the train — the release silently carries the last
@@ -984,12 +999,18 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   | `security`, `codex`, `mcp`, `plugin-agent-federation` | yes | with the train |
   | `cli-core`, `neural`, `shared`, `memory` | **no** | **standalone publish required** |
 
-  `memory` is the easiest of these to miss, for three compounding reasons: it is
-  the only one on a caret range (`^3.0.0-alpha.23`) rather than an exact pin, so
-  nothing drifts visibly; `v3/pnpm-lock.yaml` resolves it from the registry
-  rather than `link:../memory`, so workspace CI never exercises the CLI against
-  workspace `memory` source; and its own package tests DO run against source, so
-  CI goes green on a change that cannot ship. #3390 (#3327 Finding A) is the
+  `memory` is the easiest of these to miss: its own package tests run against
+  workspace source, so CI goes green on a change that cannot ship. Since #3414
+  the CLI pins every non-bundled leaf exactly, so a stale cached copy can no
+  longer satisfy the spec silently — but the pin now fails the other way: an
+  exact pin to a version that was never published breaks installs outright
+  (`memory@3.0.0-alpha.27` sat unpublished behind a merged pin on 2026-09-28).
+  `v3/.npmrc` sets `prefer-workspace-packages=true`, so `v3/pnpm-lock.yaml`
+  links every `@claude-flow/*` package to workspace source (without it, pnpm
+  swaps in a newer registry copy — e.g. a `cli` released from a branch not on
+  `main` — and drags that copy's alpha deps into the lockfile). The lockfile
+  therefore never proves a leaf was published: check `npm view <leaf>@<ver>`
+  before merging a pin. #3390 (#3327 Finding A) is the
   worked example — it fixed `memory/src/controller-registry.ts` and
   `cli/src/memory/memory-bridge.ts` together, and without a standalone `memory`
   publish only the `cli` half would have shipped, leaving the fix inert.
@@ -1002,9 +1023,20 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   node -e 'const semver=require("semver"),c=require("./v3/@claude-flow/cli/package.json"),d={...c.dependencies,...c.optionalDependencies},b=["security","codex","mcp","plugin-agent-federation"];let n_=0;for(const[n,v]of Object.entries(d)){if(!n.startsWith("@claude-flow/"))continue;if(b.includes(n.slice(13)))continue;let w;try{w=require(`./v3/${n}/package.json`).version}catch{continue}n_++;if(!semver.satisfies(w,v,{includePrerelease:true}))console.log(`DRIFT ${n}: cli pins ${v}, workspace source ${w} — publish it or the release skips the change`)}if(!n_){console.error("checked 0 leaves — check is broken, do not trust a clean result");process.exit(1)}console.log(`checked ${n_} non-bundled leaves`)'
   ```
 
-  It must use `semver.satisfies`, not a string compare: `memory` is on a range,
-  so a literal match reports a false DRIFT on every release. It also fails loudly
+  It must use `semver.satisfies`, not a string compare: a pin may be a range,
+  and a literal match would then report a false DRIFT. It also fails loudly
   at zero leaves checked — a guard that inspects nothing must not report clean.
+- **The drift check above only proves the CLI's pin and the workspace version agree with
+  EACH OTHER — it says nothing about whether that version is actually on npm.** #4303
+  (2026-10-20) shipped `@claude-flow/cli@3.57.2` depending on `@claude-flow/memory@3.0.6`,
+  which had never been published — #4279 bumped the workspace version and the CLI's pin
+  together, so the drift check above was clean, but nobody ran the standalone `npm
+  publish` for `memory`. Every fresh install of that line failed with `ETARGET`. Run
+  `node scripts/audit-leaf-versions-published.mjs` before tagging — it queries the live
+  npm registry for every non-bundled leaf pin and fails if the version it resolves to was
+  never published. This is now also a required CI check (`plugin-package-audit` job in
+  `v3-ci.yml`), so a PR that bumps a pin ahead of its own leaf's publish fails on the PR,
+  not on a consumer's install.
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
@@ -1444,7 +1476,6 @@ npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| `@claude-flow/plugin-agentic-qe` | 3.0.0-alpha.4 | Agentic quality engineering integration |
 | `@claude-flow/plugin-prime-radiant` | 0.1.5 | Prime Radiant intelligence integration |
 | `@claude-flow/plugin-gastown-bridge` | 3.0.0-alpha.1 | Gastown bridge protocol integration |
 | `@claude-flow/teammate-plugin` | 1.0.0-alpha.1 | Multi-agent teammate coordination |

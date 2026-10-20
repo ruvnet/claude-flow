@@ -16,27 +16,71 @@ on:
     branches: [main]
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/external-plugins.mjs'
+      - 'tests/external-plugins.test.mjs'
+      - '.github/workflows/validate-marketplace.yml'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-skill-mcp-tools.mjs'
+      - 'verification/skill-mcp-tool-baseline.json'
+      - 'v3/@claude-flow/cli/.claude/skills/**'
+      - 'scripts/check-plugin-manifests.mjs'
+      - 'scripts/sync-mod-screen.mjs'
+      - 'scripts/check-guard-tool-names.mjs'
+      - 'scripts/guard-tool-names.allow.json'
+      - 'scripts/check-status-forwarding.mjs'
+      - 'scripts/status-forwarding.allow.json'
+      - 'v3/@claude-flow/cli/src/mcp-tools/**'
+      - 'v3/@claude-flow/cli/src/ruvector/coverage-tools.ts'
       - '.github/workflows/all-plugins-smoke.yml'
   pull_request:
     paths:
       - 'plugins/**'
+      - '.claude-plugin/marketplace.json'
       - 'scripts/smoke-all-plugins.mjs'
+      - 'scripts/external-plugins.mjs'
+      - 'tests/external-plugins.test.mjs'
+      - '.github/workflows/validate-marketplace.yml'
       - 'scripts/audit-plugin-mcp-prefix.mjs'
+      - 'scripts/audit-skill-mcp-tools.mjs'
+      - 'verification/skill-mcp-tool-baseline.json'
+      - 'v3/@claude-flow/cli/.claude/skills/**'
+      - 'scripts/check-plugin-manifests.mjs'
+      - 'scripts/sync-mod-screen.mjs'
+      - 'scripts/check-guard-tool-names.mjs'
+      - 'scripts/guard-tool-names.allow.json'
+      - 'scripts/check-status-forwarding.mjs'
+      - 'scripts/status-forwarding.allow.json'
+      - 'v3/@claude-flow/cli/src/mcp-tools/**'
+      - 'v3/@claude-flow/cli/src/ruvector/coverage-tools.ts'
       - '.github/workflows/all-plugins-smoke.yml'
   workflow_dispatch:
+
+# The external-plugin smoke runs third-party code (scripts/external-plugins.mjs): the token can only read, and no checkout
+# keeps credentials in the workspace.
+permissions:
+  contents: read
 
 jobs:
   smoke-all:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - name: esbuild for the guard probe (scripts/probe-mod-guards.mjs bundles each plugin guard)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/esbuild" --no-audit --no-fund --no-package-lock esbuild@0.25.0 yaml@2.8.0
+          echo "ESBUILD=$RUNNER_TEMP/esbuild/node_modules/.bin/esbuild" >> "$GITHUB_ENV"
+      - name: External plugin checks (github-only source, realpath containment, scrubbed env and cwd)
+        run: node --test tests/external-plugins.test.mjs
 
       - name: Discover and run every plugin smoke contract (parallel)
         # --timeout 300 caps each individual plugin smoke at 5 minutes.
@@ -45,7 +89,40 @@ jobs:
         # 60s (was timing out at 151s before SIGKILL). Most plugins
         # still complete in <5s; 300s protects against a genuinely-hung
         # smoke while letting the metaharness fleet finish.
-        run: node scripts/smoke-all-plugins.mjs --timeout 300
+        # Save the report from the same execution. Re-running the whole fleet
+        # solely to obtain JSON can exceed this job's ten-minute deadline.
+        # Explicit bash and pipefail preserve a failing smoke exit through tee.
+        shell: bash
+        run: |-
+          set -o pipefail
+          node scripts/smoke-all-plugins.mjs --timeout 300 --format json | tee /tmp/smoke-all-plugins.json
+
+      - name: Mod secret screen — every copy matches the origin (ADR-445)
+        run: node scripts/sync-mod-screen.mjs --check
+        # Fails when any plugins/*/hooks/screen.ts drifted from plugins/ruflo-agentdb/hooks/screen.ts between the
+        # SHARED SCREEN markers, or when it finds no copies. Fix: node scripts/sync-mod-screen.mjs
+      - name: Guard tool names exist in the registry
+        env:
+          NODE_PATH: ${{ runner.temp }}/esbuild/node_modules
+        run: |
+          node --test tests/check-guard-tool-names.test.mjs tests/all-plugins-smoke-workflow.test.mjs
+          node scripts/check-guard-tool-names.mjs
+        # A renamed MCP tool leaves a plugin guard watching a name that no
+        # longer exists, so it silently stops guarding. Fails loud if zero
+        # names are extracted or the registry is empty.
+
+      - name: Native Codex hooks for adr, ddd and sparc (bundles match their sources)
+        run: |
+          node scripts/build-codex-mod-hooks.mjs --check
+          node --test tests/plugins/codex-mod-hooks.test.mjs
+
+      - name: No mod forwards another mod's status file into model context (ADR-450 T7)
+        run: |
+          node --test tests/check-status-forwarding.test.mjs
+          node scripts/check-status-forwarding.mjs
+        # Static scan of plugins/*/hooks: fails when a module that attaches model context (context, instructions,
+        # additionalContext, describe) also reads a mod status path, unless scripts/status-forwarding.allow.json says why.
+        # Exits 3 when it scans no context-bearing module, so an emptied scan fails loud.
 
       - name: Fleet-wide exit-bypass antipattern lint (iter-75 bug class)
         run: node scripts/audit-exit-bypass-antipattern.mjs
@@ -66,6 +143,12 @@ jobs:
         # violations that escape per-plugin coverage (new plugin without
         # smoke, new skill without smoke-list update, etc.).
 
+      - name: claude.ai plugin-validator static check
+        run: node scripts/check-plugin-manifests.mjs
+        # Unknown plugin.json keys, nested .claude-plugin/plugin.json under a
+        # plugin, and <tag>-like text in SKILL.md descriptions: the three
+        # things the claude.ai upload validator skips or warns on.
+
       - name: Fleet-wide plugin.json manifest audit (iter 88)
         run: node scripts/audit-plugin-manifest.mjs
         # Scans every plugins/*/.claude-plugin/plugin.json for: valid JSON,
@@ -82,9 +165,13 @@ jobs:
         # plugin-qualified namespace. Reject standalone namespace references
         # that silently disable tools in plugin skills and agents.
 
-      - name: Upload machine-readable report
-        if: always()
-        run: node scripts/smoke-all-plugins.mjs --format json > /tmp/smoke-all-plugins.json
+      - name: Skill MCP tool reference audit
+        run: node scripts/audit-skill-mcp-tools.mjs
+        # Every ruflo MCP tool a shipped SKILL.md names (init bundle and
+        # marketplace plugins, prose and allowed-tools) must be registered by
+        # mcp-client.ts. Known dangling references are carried in
+        # verification/skill-mcp-tool-baseline.json; a new one fails. After
+        # fixing some, run with --update-baseline to lower the floor.
 
       - uses: actions/upload-artifact@v4
         if: always()

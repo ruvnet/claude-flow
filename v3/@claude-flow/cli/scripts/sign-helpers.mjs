@@ -31,7 +31,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = join(__dirname, '..');
 const HELPERS_DIR = join(PKG_ROOT, '.claude', 'helpers');
 // Keep in sync with src/init/helper-refresh.ts:CRITICAL_HELPERS.
-const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.js'];
+const CRITICAL = ['auto-memory-hook.mjs', 'hook-handler.cjs', 'intelligence.cjs', 'statusline.cjs', 'router.cjs'];
 
 function loadPrivateKey() {
   if (process.argv.includes('--stdin-key')) {

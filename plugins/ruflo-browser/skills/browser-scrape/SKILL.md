@@ -1,13 +1,13 @@
 ---
 name: browser-scrape
-description: DEPRECATED in v0.2.0 -- use browser-extract instead; this is a thin shim for backward compatibility, removed in v0.3.0
+description: DEPRECATED in v0.2.0 -- use browser-extract instead; this is a thin shim for backward compatibility, kept as a shim and slated for removal in the next minor release
 argument-hint: "<url>"
 allowed-tools: Bash Read
 ---
 
 # Browser Scrape (deprecated)
 
-> **Deprecated since plugin v0.2.0.** Removed in v0.3.0.
+> **Deprecated since plugin v0.2.0.** Kept as a shim; slated for removal in the next minor release.
 >
 > Use [`browser-extract`](../browser-extract/SKILL.md) instead. It provides the same scraping capability plus:
 >

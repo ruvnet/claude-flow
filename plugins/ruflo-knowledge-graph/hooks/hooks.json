@@ -1,0 +1,4 @@
+{
+  "description": "Knowledge graph as a mod (ADR-445): a tighten-only guard on graph writes (no secrets into the graph, graph deletes need an explicit confirm), a status file the console reads, and /kg-mod.",
+  "modules": ["./register.ts"]
+}

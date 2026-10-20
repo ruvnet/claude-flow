@@ -12,7 +12,7 @@ Wraps the `cogmusic` MCP bridge as a Ruflo plugin with 2 agents, 7 skills, and o
 - A `cogmcp_...` personal access token, minted at `music.cognitum.one/mcp` (sign in → "Generate connection token"). Shown exactly once — copy it immediately. This plugin cannot mint or rotate this token for you.
 - `cogmusic@0.1.1` or later registered as an MCP server:
   ```bash
-  claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+  claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
   ```
   `0.1.0` has no fetch timeout override and fails any `create_production` call that runs past Node's ~5-minute default — real generations routinely take longer. See the `music-connect` skill for the full setup flow.
 
@@ -27,7 +27,7 @@ claude --plugin-dir plugins/ruflo-music
 `cogmusic` exposes 6 tools once registered:
 
 ```bash
-claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@latest
+claude mcp add cogmusic --env COGMUSIC_TOKEN=cogmcp_... -- npx -y cogmusic@0.1.1
 claude mcp get cogmusic   # expect: ✔ Connected
 ```
 
@@ -113,3 +113,19 @@ bash plugins/ruflo-music/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445 pattern, `hooks/register.ts`). It adds, with no network, no process spawning and no model call:
+
+- **Guard** (tighten-only, default on): refuses a `cogmusic` call (create_production, separate_stems, master, extract_midi) or memory write whose prompt/lyrics/payload holds a secret (prompts leave the machine for music.cognitum.one). The deny reason names the rule, never the value.
+- **`/music-mod`**: local `status` and `scan <text>` (secret check, same rules as the guard); the status file also counts productions started.
+- **Status file** `.claude-flow/music-mod/status.json` (`{version:1, updatedMs, guard, checked, blocked, ...}`), written at session start and when counters change.
+
+Per-prompt context is deliberately not added: this plugin has nothing worth attaching to every prompt.
+
+| Option | Default | Effect |
+|---|---|---|
+| `guard` | `on` | refuse the calls above |
+
+Test: `claude plugin validate plugins/ruflo-music`, `claude plugin test plugins/ruflo-music`, `bash plugins/ruflo-music/scripts/smoke.sh`.

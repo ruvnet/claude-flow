@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "submission_type": "plugin_bundle",
+  "listing": {
+    "name": "RuFlo AI Team",
+    "tagline": "Give Claude a team that plans, works, and verifies results",
+    "categories": ["Automation & workflows", "Development tools", "Productivity"],
+    "description": "RuFlo AI Team helps Claude organize complex work across specialized AI agents. Start with a goal or reusable playbook, review the proposed roles and budget, and create a tenant-isolated workspace for tasks, approved context, progress, and evidence. Use it for research, release preparation, security reviews, implementation planning, and other multi-step work. OAuth isolates every tenant, RuVector accelerates tenant-local retrieval, and stored agent content is treated as untrusted data. Version 0.1 coordinates work but does not silently publish, send messages, deploy software, purchase items, or execute arbitrary commands.",
+    "website": "https://team.ruv.io/",
+    "support_url": "https://team.ruv.io/support",
+    "privacy_policy_url": "https://team.ruv.io/privacy",
+    "terms_url": "https://team.ruv.io/terms",
+    "publisher": "ruvnet",
+    "contact_email": "ruv@ruv.net"
+  },
+  "connector": {
+    "endpoint": "https://team.ruv.io/mcp",
+    "transport": "streamable_http",
+    "authentication": "oauth_2_1",
+    "protected_resource_metadata": "https://team.ruv.io/.well-known/oauth-protected-resource/mcp",
+    "scopes": ["team:read", "team:write", "team:run"],
+    "anonymous_reads": false
+  },
+  "bundle": {
+    "skills": ["launch-ai-team", "monitor-ai-team", "coordinate-team-work", "remember-team-context", "review-team-deliverables", "manage-team-lifecycle"],
+    "agents": ["team-coordinator", "researcher", "builder", "verifier"],
+    "commands": ["team-start", "team-status", "team-review", "team-stop"]
+  },
+  "review": {
+    "tool_count": 12,
+    "resource_count": 1,
+    "prompt_count": 2,
+    "security_controls": [
+      "Every tool declares a title and all four annotation hints as explicit booleans.",
+      "No tool accepts a tenant identifier, token, password, API key, private key, or credential.",
+      "All tenant tool calls require OAuth and are issuer-, audience-, expiry-, tenant-, and scope-checked.",
+      "Foreign and missing object identifiers return the same not_found response.",
+      "RuVector indexes are separated by verified tenant and team and held in a bounded cache.",
+      "Stored agent, task, memory, and evidence content is provenance-labelled and nonce-fenced as untrusted data.",
+      "The initial connector has no external-write, arbitrary-command, deployment, purchasing, credential, public-sharing, or deletion tool."
+    ]
+  },
+  "examples": [
+    { "prompt": "Create a three-role team to research the market and verify the conclusions.", "expected_tools": ["team_templates_list", "team_create", "run_create", "task_create"] },
+    { "prompt": "Show the tasks and evidence for this run.", "expected_tools": ["task_list", "evidence_export"] },
+    { "prompt": "Remember this approved release constraint and find it later.", "expected_tools": ["memory_remember", "memory_search"] }
+  ]
+}

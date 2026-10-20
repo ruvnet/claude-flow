@@ -24,6 +24,15 @@ Author a workflow on whichever surface fits the job.
 
 Features: sequential/parallel steps, conditional branching, template inheritance, pause/resume approval gates.
 
+## ADR steps (with ruflo-console 0.39.0 or later)
+
+Neither surface above has a step *type* for decisions, and ruflo-console owns no workflow engine (its Workflows page only reads runs), so these are two ordinary steps, not an engine feature. They use the ADRs of the project you run in, not ruflo's own.
+
+- **requires ADR** (first step): attach the ADRs that govern the area to the console mission (ADRs page, or `/ruflo run adr-attach <n>`); the console puts the accepted decisions in the prompt of every step and spawned agent. Name the ones the step touches before it edits anything.
+- **records ADR** (last step): when the workflow made a decision a person should keep, `/ruflo run adr-propose <title>` (or the page's *draft an ADR from this mission*). It writes a *proposed* record only after the person's Yes on the exact file; a person writes the decision and accepts it.
+
+The console's scope check compares changed file paths with the paths the attached accepted ADRs name and records a warning; it does not prove a step follows a decision.
+
 ## B — Native `.claude/workflows/*.js`
 
 Write a `.js` file under `.claude/workflows/`. It MUST begin with a **pure-literal** `export const meta` block; the body runs inside an async wrapper (top-level `await`/`return` are legal) with these hooks injected:

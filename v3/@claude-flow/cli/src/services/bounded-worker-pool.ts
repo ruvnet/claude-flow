@@ -40,6 +40,8 @@ export async function runBoundedPool<T>(
   const controller = new AbortController();
   const onAbort = () => controller.abort(options.signal?.reason ?? new Error('cancelled'));
   options.signal?.addEventListener('abort', onAbort, { once: true });
+  // Abort events are not replayed for signals cancelled before registration.
+  if (options.signal?.aborted) onAbort();
   const timer = options.timeoutMs && options.timeoutMs > 0
     ? setTimeout(() => controller.abort(new Error('worker-pool-timeout')), options.timeoutMs)
     : undefined;

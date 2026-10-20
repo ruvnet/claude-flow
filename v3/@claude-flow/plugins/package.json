@@ -1,40 +1,36 @@
 {
   "name": "@claude-flow/plugins",
-  "version": "3.0.0-alpha.7",
+  "version": "3.0.2",
   "description": "Unified Plugin SDK for Claude Flow V3 - Worker, Hook, and Provider Integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.js",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./sdk": {
-      "types": "./dist/sdk/index.d.js",
+      "types": "./dist/sdk/index.d.ts",
       "import": "./dist/sdk/index.js"
     },
     "./workers": {
-      "types": "./dist/workers/index.d.js",
+      "types": "./dist/workers/index.d.ts",
       "import": "./dist/workers/index.js"
     },
     "./hooks": {
-      "types": "./dist/hooks/index.d.js",
+      "types": "./dist/hooks/index.d.ts",
       "import": "./dist/hooks/index.js"
     },
     "./providers": {
-      "types": "./dist/providers/index.d.js",
+      "types": "./dist/providers/index.d.ts",
       "import": "./dist/providers/index.js"
-    },
-    "./examples/ruvector": {
-      "types": "./dist/examples/ruvector-plugins/index.d.js",
-      "import": "./dist/examples/ruvector-plugins/index.js"
-    },
-    "./examples/plugin-creator": {
-      "types": "./dist/examples/plugin-creator/index.d.js",
-      "import": "./dist/examples/plugin-creator/index.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -46,8 +42,8 @@
     "events": "^3.3.0"
   },
   "peerDependencies": {
-    "@claude-flow/hooks": "^3.0.0-alpha.2",
-    "@claude-flow/memory": "^3.0.0-alpha.2",
+    "@claude-flow/hooks": "^3.0.0",
+    "@claude-flow/memory": "^3.0.0",
     "@ruvector/learning-wasm": "^0.1.0",
     "@ruvector/wasm": "^0.1.0"
   },
@@ -91,7 +87,6 @@
     "node": ">=20.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

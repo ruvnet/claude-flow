@@ -26,6 +26,8 @@ const compileCommand: Command = {
     { name: 'root', short: 'r', type: 'string', description: 'Root guidance file path', default: './CLAUDE.md' },
     { name: 'local', short: 'l', type: 'string', description: 'Local guidance overlay file path' },
     { name: 'output', short: 'o', type: 'string', description: 'Output directory for compiled bundle' },
+    { name: 'mod-projection', type: 'boolean', description: 'Export bounded advisory guidance for the native mod', default: 'false' },
+    { name: 'revision', type: 'string', description: 'Immutable source commit SHA for the mod projection' },
     { name: 'json', type: 'boolean', description: 'Output as JSON', default: 'false' },
   ],
   examples: [
@@ -50,15 +52,30 @@ const compileCommand: Command = {
         return { success: false, message: `File not found: ${rootPath}` };
       }
 
-      const rootContent = await readFile(rootPath, 'utf-8');
+      const modExport = ctx.flags['mod-projection'] === true;
+      const checked = modExport ? await (await import('../guidance/mod-sources.js')).readModGuidanceSources({
+        rootPath, localPath, revision: String(ctx.flags.revision || ''),
+      }) : undefined;
+      const rootContent = checked ? checked.rootContent : await readFile(rootPath, 'utf-8');
       let localContent: string | undefined;
-      if (localPath && existsSync(localPath)) {
+      if (checked) localContent = checked.localContent;
+      else if (localPath && existsSync(localPath)) {
         localContent = await readFile(localPath, 'utf-8');
       }
 
       const { GuidanceCompiler } = await import('@claude-flow/guidance/compiler');
       const compiler = new GuidanceCompiler();
       const bundle = compiler.compile(rootContent, localContent);
+
+      if (checked) {
+        const { buildModProjection, writeModProjection, MOD_GUIDANCE_DIR } = await import('../guidance/mod-projection.js');
+        const sourceDigests = Object.fromEntries(Object.entries(checked.sources).map(([key, binding]) => [key, binding.sha256]));
+        const projection = buildModProjection(bundle, checked.sourceRevision, sourceDigests);
+        const path = await writeModProjection(String(ctx.flags.output || MOD_GUIDANCE_DIR), projection);
+        const data = { path, projection, sources: checked.sources };
+        output.writeln(jsonOutput ? JSON.stringify(data) : output.success(`Git source matched; advisory mod projection exported: ${path}`));
+        return { success: true, data };
+      }
 
       if (jsonOutput) {
         output.writeln(JSON.stringify(bundle, null, 2));
@@ -582,6 +599,28 @@ const abTestCommand: Command = {
   },
 };
 
+const modCandidatesCommand: Command = {
+  name: 'mod-candidates',
+  description: 'Review unverified native mod observations without training or promotion',
+  options: [
+    { name: 'directory', type: 'string', description: 'Observation directory', default: '.claude-flow/mods/guidance/observations' },
+    { name: 'bundle-id', type: 'string', description: 'Filter to one exported guidance bundle digest' },
+    { name: 'json', type: 'boolean', description: 'Output candidate report as JSON', default: 'false' },
+  ],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const { collectModCandidates } = await import('../guidance/mod-projection.js');
+      const data = await collectModCandidates(String(ctx.flags.directory || '.claude-flow/mods/guidance/observations'), ctx.flags['bundle-id'] as string | undefined);
+      output.writeln(JSON.stringify(data, null, ctx.flags.json === true ? undefined : 2));
+      return { success: true, data };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      output.writeln(output.error(message));
+      return { success: false, message };
+    }
+  },
+};
+
 // Main guidance command
 export const guidanceCommand: Command = {
   name: 'guidance',
@@ -589,6 +628,7 @@ export const guidanceCommand: Command = {
   aliases: ['guide', 'policy'],
   subcommands: [
     compileCommand,
+    modCandidatesCommand,
     retrieveCommand,
     gatesCommand,
     statusCommand,
@@ -611,6 +651,7 @@ export const guidanceCommand: Command = {
     output.writeln();
     output.writeln('Available subcommands:');
     output.writeln(`  ${output.bold('compile')}   Compile CLAUDE.md into policy bundle`);
+    output.writeln(`  ${output.bold('mod-candidates')} Review unverified mod observations`);
     output.writeln(`  ${output.bold('retrieve')}  Retrieve task-relevant guidance shards`);
     output.writeln(`  ${output.bold('gates')}     Evaluate enforcement gates`);
     output.writeln(`  ${output.bold('status')}    Show control plane status`);
