@@ -46,6 +46,7 @@ ruflo/src/ruvocal/src/lib/utils/tree/isMessageId.spec.ts
 ruflo/src/ruvocal/src/lib/utils/tree/treeHelpers.spec.ts
 ruflo/src/ruvocal/src/lib/wasm/tests/wasm-capabilities.test.ts
 ruflo/src/ruvocal/src/routes/login/callback/updateUser.spec.ts
+scripts/__tests__/audit-leaf-versions-published.test.mjs
 scripts/__tests__/audit-supply-chain.test.mjs
 scripts/__tests__/stage-internal-runtime-bundles.test.mjs
 tests/context-persistence-hook.test.mjs
