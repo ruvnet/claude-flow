@@ -99,6 +99,7 @@ v3/@claude-flow/hooks/__tests__/channel-guard-worker.test.ts
 v3/@claude-flow/hooks/__tests__/workers.test.ts
 v3/@claude-flow/hooks/src/__tests__/guidance-provider.test.ts
 v3/@claude-flow/hooks/src/__tests__/reasoningbank.test.ts
+v3/@claude-flow/integration/src/__tests__/token-optimizer.test.ts
 v3/@claude-flow/memory/src/agentdb-backend.test.ts
 v3/@claude-flow/memory/src/agentdb-retrieval-guard.test.ts
 v3/@claude-flow/memory/src/consolidator-embedding-benchmark.test.ts
