@@ -18,6 +18,7 @@ export const BUILT_IN_SKILL_NAMES: readonly BuiltInSkill[] = [
   'security-audit',
   'performance-analysis',
   'github-automation',
+  'agent-teams',
 ];
 
 const BUILT_IN_SKILLS_ROOT = path.resolve(

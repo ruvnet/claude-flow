@@ -64,6 +64,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   progress: () => import('./progress.js'),
   // Issue Claims Commands (ADR-016)
   issues: () => import('./issues.js'),
+  // Host-agnostic Agent Teams bus (ADR-402)
+  team: () => import('./team.js'),
   // Auto-update System (ADR-025)
   update: () => import('./update.js'),
   // RuVector PostgreSQL Bridge
@@ -217,6 +219,7 @@ export async function getAnalyzeCommand() { return loadCommand('analyze'); }
 export async function getRouteCommand() { return loadCommand('route'); }
 export async function getProgressCommand() { return loadCommand('progress'); }
 export async function getIssuesCommand() { return loadCommand('issues'); }
+export async function getTeamCommand() { return loadCommand('team'); }
 export async function getRuvectorCommand() { return loadCommand('ruvector'); }
 export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
@@ -278,7 +281,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     analyzeCmd, routeCmd, progressCmd, providersCmd,
     pluginsCmd, deploymentCmd, claimsCmd, issuesCmd,
     updateCmd, processCmd, guidanceCmd, applianceCmd,
-    cleanupCmd, autopilotCmd, policyCmd,
+    cleanupCmd, autopilotCmd, policyCmd, teamCmd,
   ] = await Promise.all([
     loadCommand('daemon'), loadCommand('doctor'), loadCommand('embeddings'), loadCommand('neural'),
     loadCommand('performance'), loadCommand('security'), loadCommand('ruvector'), loadCommand('hive-mind'),
@@ -286,7 +289,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     loadCommand('analyze'), loadCommand('route'), loadCommand('progress'), loadCommand('providers'),
     loadCommand('plugins'), loadCommand('deployment'), loadCommand('claims'), loadCommand('issues'),
     loadCommand('update'), loadCommand('process'), loadCommand('guidance'), loadCommand('appliance'),
-    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'),
+    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'), loadCommand('team'),
   ]);
 
   return {
@@ -308,7 +311,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     ].filter(Boolean) as Command[],
     management: [
       providersCmd, pluginsCmd, deploymentCmd, claimsCmd,
-      issuesCmd, updateCmd, processCmd, applianceCmd, cleanupCmd,
+      issuesCmd, updateCmd, processCmd, applianceCmd, cleanupCmd, teamCmd,
     ].filter(Boolean) as Command[],
   };
 }

@@ -86,6 +86,7 @@ program
   .option('-f, --force', 'Overwrite existing files', false)
   .option('--dual', 'Generate both Codex and Claude Code configurations', false)
   .option('--codex-trust <level>', 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals) or full (danger-full-access, no approvals)')
+  .option('--no-team-hooks', 'Do not add the Agent Teams SubagentStop hook to .codex/hooks.json')
   .option('-p, --path <path>', 'Project path', process.cwd())
   .option('-q, --quiet', 'Suppress verbose output', false)
   .action(async (options) => {
@@ -144,6 +145,7 @@ program
         force: options.force,
         dual: options.dual,
         codexTrust: options.codexTrust,
+        teamHooks: options.teamHooks,
       });
 
       if (result.success) {

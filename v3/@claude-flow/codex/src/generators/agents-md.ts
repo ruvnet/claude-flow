@@ -67,6 +67,31 @@ bind a clean commit or an immutable snapshot including those changes.
 }
 
 /**
+ * Agent Teams section: the lead loop and child rules for the host-agnostic
+ * team bus (ruflo team run + team_* MCP tools).
+ */
+export function renderTeamBusSection(): string {
+  return `## Agent Teams
+
+Use the \`team_*\` MCP tools when a task splits into ordered roles (research, design, build, test, review) or needs teammates on other hosts. Each team's state and mailboxes live in \`.claude-flow/teams/<team>/\`, so every host sees the same plan and messages. Details: \`$agent-teams\`.
+
+### Lead loop
+
+1. \`team_create({ name, host: "codex" })\`
+2. \`team_plan({ team, steps: ["researcher", "coder", "reviewer"] })\`
+3. \`team_spawn({ team, agent, role, prompt, next })\` for each agent. It registers the agent and returns a plan; it runs nothing.
+4. \`ruflo team run --team <team> --agent <agent>\` runs one headless \`codex exec\` turn, delivers the final reply to the next agent (or \`lead\`), and advances the plan. A failed turn does not advance; run it again. For parallel work, start several \`ruflo team run\` processes.
+5. \`team_status({ team })\` and \`team_inbox({ team, agent: "lead" })\` to follow results; \`team_shutdown({ team })\` at the end.
+
+### Child rules
+
+- Messages queued for you arrive in the prompt under "Messages for you"; read them first. \`team_inbox\` (when the Ruflo MCP tools are available) shows anything newer.
+- Stay inside your role: read-only roles do not change files.
+- End with a complete reply. The runner delivers it as your handoff even if you cannot call \`team_send\`.
+`;
+}
+
+/**
  * Generate an AGENTS.md file based on the provided options
  */
 export async function generateAgentsMd(options: AgentsMdOptions): Promise<string> {
@@ -132,6 +157,7 @@ ${testCommand}
 |-------|---------|
 | \`$swarm-orchestration\` | Multi-agent coordination for complex tasks |
 | \`$memory-management\` | Pattern storage and semantic search |
+| \`$agent-teams\` | Host-agnostic agent teams (\`ruflo team run\`) |
 
 ## Security Rules
 
@@ -142,6 +168,11 @@ ${testCommand}
 - Sanitize output to prevent XSS
 
 ${concurrentRufloWorkflow()}
+
+## Agent Teams
+
+For work split across roles or hosts, use the \`team_*\` MCP tools and \`ruflo team run\`.
+See the \`$agent-teams\` skill for the lead loop and child rules.
 
 ## Links
 
@@ -261,6 +292,7 @@ ${skillsTable}
 
 ${concurrentRufloWorkflow()}
 
+${renderTeamBusSection()}
 ## MCP Integration
 
 Use MCP tools for coordination, then keep coding:

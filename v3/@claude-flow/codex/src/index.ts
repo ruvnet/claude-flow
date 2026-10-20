@@ -13,6 +13,7 @@ export * from './types.js';
 // Re-export generators
 export {
   generateAgentsMd,
+  renderTeamBusSection,
   generateSkillMd,
   generateConfigToml,
 } from './generators/index.js';
@@ -41,7 +42,13 @@ export {
 } from './validators/index.js';
 
 // Main initializer class and helper function
-export { CodexInitializer, initializeCodexProject } from './initializer.js';
+export {
+  CodexInitializer,
+  initializeCodexProject,
+  mergeTeamStopHook,
+  teamStopHookCommand,
+} from './initializer.js';
+export type { TeamStopHookMergeResult } from './initializer.js';
 
 // Dual-mode collaborative execution
 export {

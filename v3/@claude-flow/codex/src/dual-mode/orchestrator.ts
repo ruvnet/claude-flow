@@ -15,6 +15,12 @@ import {
   encodeTokenEnvelope,
   type CallerIdentityKey,
 } from '@claude-flow/security';
+import {
+  runHeadlessProcess,
+  buildWorkerEnvironment,
+  killProcessTree,
+  type HeadlessProcessResult,
+} from './process.js';
 
 export interface WorkerCapabilityEnvelope {
   actions?: string[];
@@ -233,56 +239,31 @@ export class DualModeOrchestrator extends EventEmitter {
       args.push(enhancedPrompt);
     }
 
-    return new Promise((resolve, reject) => {
-      let output = '';
-      let errorOutput = '';
-
-      const proc = spawn(command, args, {
+    // #2947: the prompt goes positionally/via flag (never over stdin), and
+    // runHeadlessProcess always closes the pipe — `codex exec` otherwise
+    // blocks in resolve_root_prompt waiting for stdin EOF that never comes.
+    let result: HeadlessProcessResult;
+    try {
+      result = await runHeadlessProcess({
+        command,
+        args,
         cwd: config.worktreePath ? path.resolve(config.worktreePath) : projectPath,
         env: this.workerEnvironment(config),
-        stdio: ['pipe', 'pipe', 'pipe'],
+        timeoutMs: timeout,
+        maxOutputBytes,
+        onSpawn: (proc) => { this.processes.set(config.id, proc); },
       });
+    } finally {
+      this.processes.delete(config.id);
+    }
 
-      // #2947: both platforms receive their prompt positionally/via flag
-      // (never over stdin), but the pipe is left open. `claude -p` ignores
-      // an open stdin, so this was invisible in practice — `codex exec`
-      // instead blocks in resolve_root_prompt waiting for stdin EOF that
-      // never comes, hanging every real Codex worker until the orchestrator's
-      // own timeout kills it.
-      proc.stdin?.end();
-
-      this.processes.set(config.id, proc);
-
-      proc.stdout?.on('data', (data) => {
-        if (output.length < maxOutputBytes) output += data.toString().slice(0, maxOutputBytes - output.length);
-      });
-
-      proc.stderr?.on('data', (data) => {
-        if (errorOutput.length < maxOutputBytes) errorOutput += data.toString().slice(0, maxOutputBytes - errorOutput.length);
-      });
-
-      const timer = setTimeout(() => {
-        proc.kill('SIGTERM');
-        reject(new Error(`Worker ${config.id} timed out after ${timeout}ms`));
-      }, timeout);
-
-      proc.on('close', (code) => {
-        clearTimeout(timer);
-        this.processes.delete(config.id);
-
-        if (code === 0) {
-          resolve(output || errorOutput);
-        } else {
-          reject(new Error(`Worker ${config.id} exited with code ${code}: ${errorOutput}`));
-        }
-      });
-
-      proc.on('error', (err) => {
-        clearTimeout(timer);
-        this.processes.delete(config.id);
-        reject(err);
-      });
-    });
+    if (result.timedOut) {
+      throw new Error(`Worker ${config.id} timed out after ${timeout}ms`);
+    }
+    if (result.code === 0) {
+      return result.stdout || result.stderr;
+    }
+    throw new Error(`Worker ${config.id} exited with code ${result.code}: ${result.stderr}`);
   }
 
   /**
@@ -601,22 +582,12 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
   }
 
   private workerEnvironment(worker: WorkerConfig): NodeJS.ProcessEnv {
-    const env: NodeJS.ProcessEnv = {};
-    const sensitive = /(?:^|_)(?:API_?KEY|KEY|SECRET|TOKEN|PASSWORD|CREDENTIALS?)$/i;
-    for (const [name, value] of Object.entries(process.env)) {
-      if (sensitive.test(name)
-        || name.startsWith('CLAUDE_FLOW_POLICY_')
-        || name === 'CLAUDE_FLOW_PRINCIPAL_ID'
-        || name === 'CLAUDE_FLOW_MCP_INVOCATION_TOKEN'
-        || name === 'CLAUDE_FLOW_MCP_CALLER_PUBKEY') continue;
-      env[name] = value;
-    }
-    env.FORCE_COLOR = '0';
-    env.CLAUDE_FLOW_DB_PATH = this.config.memoryDbPath;
-    env.CLAUDE_FLOW_PRINCIPAL_ID = `agent:${worker.id}`;
-    env.CLAUDE_FLOW_CAPABILITY_ENVELOPE = JSON.stringify(
-      this.resolveWorkerEnvelope(worker),
-    );
+    const env = buildWorkerEnvironment(process.env, {
+      principalId: `agent:${worker.id}`,
+      dbPath: this.config.memoryDbPath,
+      envelope: this.resolveWorkerEnvelope(worker),
+      policy: 'orchestrator',
+    });
     // ADR-377 Phase 3 (dream-cycle candidate, 2026-08-26) — off by default.
     // When caller-auth is enabled, back the freshly-set CLAUDE_FLOW_PRINCIPAL_ID
     // above with an Ed25519-signed InvocationToken only this orchestrator (the
@@ -667,11 +638,12 @@ Remember: Other agents depend on your results in shared memory. Be concise and s
    * Stop all running workers
    */
   stopAll(): void {
+    // Each entry stays tracked until its process has exited (spawnWorker
+    // removes it), so a second stopAll can still reach a slow one.
     for (const [id, proc] of this.processes) {
-      proc.kill('SIGTERM');
+      killProcessTree(proc, 'SIGTERM');
       this.emit('worker:stopped', { id });
     }
-    this.processes.clear();
   }
 }
 

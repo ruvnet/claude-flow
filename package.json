@@ -30,6 +30,7 @@
     "!v3/@claude-flow/cli/dist/**/*.map",
     "v3/@claude-flow/cli/package.json",
     "v3/@claude-flow/cli/catalog-manifest.json",
+    "v3/@claude-flow/cli/templates/**",
     "v3/@claude-flow/shared/dist/**/*.js",
     "v3/@claude-flow/shared/dist/**/*.d.ts",
     "!v3/@claude-flow/shared/dist/**/*.map",

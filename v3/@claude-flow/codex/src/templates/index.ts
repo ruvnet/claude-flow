@@ -40,6 +40,11 @@ export const BUILT_IN_SKILLS: Record<BuiltInSkill, { name: string; description: 
     description: 'CI/CD and PR management',
     category: 'automation',
   },
+  'agent-teams': {
+    name: 'Agent Teams',
+    description: 'Host-agnostic agent teams on the Ruflo team bus',
+    category: 'coordination',
+  },
 };
 
 /**
@@ -49,12 +54,12 @@ export const TEMPLATES: Record<AgentsMdTemplate, { name: string; description: st
   minimal: {
     name: 'Minimal',
     description: 'Basic setup with essential skills only',
-    skillCount: 2,
+    skillCount: 3,
   },
   default: {
     name: 'Default',
     description: 'Standard setup with common skills',
-    skillCount: 4,
+    skillCount: 5,
   },
   full: {
     name: 'Full',
@@ -98,6 +103,7 @@ export const ALL_AVAILABLE_SKILLS: string[] = [
   'security-audit',
   'performance-analysis',
   'github-automation',
+  'agent-teams',
   // Advanced skills
   'agent-coordination',
   'agentdb-advanced',
@@ -209,8 +215,8 @@ export const ALL_AVAILABLE_SKILLS: string[] = [
  * Default skills per template
  */
 export const DEFAULT_SKILLS_BY_TEMPLATE: Record<AgentsMdTemplate, string[]> = {
-  minimal: ['swarm-orchestration', 'memory-management'],
-  default: ['swarm-orchestration', 'memory-management', 'sparc-methodology', 'security-audit'],
+  minimal: ['swarm-orchestration', 'memory-management', 'agent-teams'],
+  default: ['swarm-orchestration', 'memory-management', 'sparc-methodology', 'security-audit', 'agent-teams'],
   full: ALL_AVAILABLE_SKILLS,
   enterprise: ALL_AVAILABLE_SKILLS,
 };

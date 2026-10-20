@@ -18,6 +18,7 @@ import {
   FULL_INIT_OPTIONS,
   type InitOptions,
 } from '../init/index.js';
+import { executeGrokInit } from '../init/grok-generator.js';
 import {
   ENROLLMENT_SCREEN,
   recordEnrollmentOutcome,
@@ -116,7 +117,7 @@ export function readCodexTrustFlag(flags: Record<string, unknown>): 'standard' |
 // package, the current project, or the global npm prefix.
 export function runCodexInitializerCli(
   cwd: string,
-  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full' },
+  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full'; teamHooks?: boolean },
 ): boolean {
   const npxArgs = [
     '-y',
@@ -127,6 +128,7 @@ export function runCodexInitializerCli(
     ...(options.force ? ['--force'] : []),
     ...(options.dual ? ['--dual'] : []),
     ...(options.codexTrust ? ['--codex-trust', options.codexTrust] : []),
+    ...(options.teamHooks === false ? ['--no-team-hooks'] : []),
   ];
 
   const result = process.platform === 'win32'
@@ -392,12 +394,113 @@ async function maybeInstallSkillsSh(ctx: CommandContext): Promise<void> {
   }
 }
 
+// Grok Build host initialization (ADR-402)
+async function initGrokAction(
+  ctx: CommandContext,
+  options: { force: boolean; statusLine: boolean; dryRun: boolean }
+): Promise<CommandResult> {
+  const { force, statusLine, dryRun } = options;
+  output.writeln();
+  output.writeln(output.bold(dryRun ? 'Grok Build init (dry run — nothing is written)' : 'Initializing RuFlo for Grok Build'));
+  output.writeln();
+
+  try {
+    const result = executeGrokInit({
+      targetDir: ctx.cwd,
+      force,
+      docs: true,
+      statusLine,
+      dryRun,
+    });
+
+    if (!result.success) {
+      output.printError('Grok initialization failed');
+      for (const err of result.errors) {
+        output.printError(err);
+      }
+      return { success: false, exitCode: 1, message: 'Grok init failed' };
+    }
+
+    output.printBox(
+      [
+        `.grok/config.toml — project MCP (ruflo) + permissions`,
+        `.grok/rules/ruflo-grok.md — host doctrine / tool map`,
+        `.grok/agents/ — ruflo-architect/coder/tester/reviewer`,
+        `.grok/skills/ — agent-teams-grok`,
+        `.grok/hooks/ — SubagentStop advances the team plan`,
+        `scripts/grok-team-bus.mjs (+ grok-team-store.mjs) — ADR-402 team bus CLI`,
+        `scripts/host-statusline.mjs — "what is loaded" row`,
+        `docs/grok/README.md — operator guide`,
+      ].join('\n'),
+      'Grok Build Integration (ADR-402)'
+    );
+    output.writeln();
+
+    const verb = dryRun ? 'Would write' : 'Wrote';
+    output.writeln(output.bold(`${verb} (${result.filesCreated.length}):`));
+    output.printList(result.filesCreated.map((f) => (path.relative(ctx.cwd, f).startsWith('..') ? f : path.relative(ctx.cwd, f))));
+    if (result.filesSkipped.length > 0) {
+      output.printInfo(`Skipped ${result.filesSkipped.length} existing file(s)${force ? '' : ' — use --force to overwrite'}`);
+    }
+    output.writeln();
+
+    const mcp = result.mcp;
+    output.printInfo(
+      mcp.source === 'published'
+        ? `MCP server pinned to ruflo@${mcp.version} (the release that ships the team_* tools)`
+        : `MCP server points at this checkout: ${mcp.args[0]} — rebuild it before use, and re-run init from a published release before committing .grok/config.toml`
+    );
+
+    const uc = result.userConfig;
+    if (uc.action === 'not-requested' || uc.action === 'snippet') {
+      output.writeln();
+      output.writeln(
+        uc.action === 'snippet'
+          ? output.bold(`Did not change ${uc.path}: ${uc.reason}`)
+          : output.bold('Optional status row (Grok reads it only from your user config):')
+      );
+      output.writeln(output.dim(`  Add this to ${uc.path}, or re-run with --grok-statusline to have init merge it`));
+      output.writeln(output.dim(`  (that also installs the script it runs under ~/.grok/ruflo/):`));
+      output.writeln(uc.snippet.trimEnd().split('\n').map((l) => `    ${l}`).join('\n'));
+    } else if (uc.action === 'already-set') {
+      output.printInfo(uc.reason || `${uc.path} already has the Ruflo status row; refreshed the script it runs`);
+    }
+
+    output.writeln();
+    output.writeln(output.bold('Next steps:'));
+    output.printList([
+      'Trust this folder in Grok (/hooks-trust or grok --trust) so MCP, hooks, skills, and rules load together',
+      'Restart Grok so .grok/config.toml is applied',
+      'Read docs/grok/README.md — spawn contract checked on Grok Build 1.0.41',
+      'Verify: grok mcp list && grok mcp doctor ruflo',
+      'Optional: npx ruvnet-brain@latest then enable ruvnet-brain in .grok/config.toml',
+      'Teams: team_create / team_spawn MCP tools (or node scripts/grok-team-bus.mjs)',
+    ]);
+    output.writeln();
+
+    return {
+      success: true,
+      data: {
+        adapter: 'grok',
+        dryRun,
+        filesCreated: result.filesCreated,
+        filesSkipped: result.filesSkipped,
+        mcp: result.mcp,
+        userConfig: { action: uc.action, path: uc.path },
+      },
+    };
+  } catch (e) {
+    output.printError(`Grok initialization failed: ${(e as Error).message}`);
+    return { success: false, exitCode: 1, message: (e as Error).message };
+  }
+}
+
 // Codex initialization action
 async function initCodexAction(
   ctx: CommandContext,
-  options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean }
+  options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean; teamHooks?: boolean }
 ): Promise<CommandResult> {
-  const { force, minimal, full, dualMode } = options;
+  const { force, minimal, full, dualMode, teamHooks } = options;
   const codexTrust = readCodexTrustFlag(ctx.flags);
   if (codexTrust === null) {
     output.printError(`Invalid --codex-trust: ${String(ctx.flags.codexTrust ?? ctx.flags['codex-trust'])} (valid: standard, full)`);
@@ -420,7 +523,7 @@ async function initCodexAction(
     if (!CodexInitializer) {
       spinner.stop();
       output.printInfo('Fetching the stable Codex adapter for this initialization...');
-      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust });
+      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust, teamHooks });
       if (!success) {
         output.printError('Codex initialization failed while running @claude-flow/codex@latest.');
         return { success: false, exitCode: 1 };
@@ -436,6 +539,7 @@ async function initCodexAction(
       force,
       dual: dualMode,
       codexTrust,
+      teamHooks,
     });
 
     if (!result.success) {
@@ -482,12 +586,19 @@ async function initCodexAction(
     // Warnings
     const otherWarnings = (result.warnings ?? []).filter((w) => !isTrustNote(w));
     if (otherWarnings.length > 0) {
+      // Trust steps (e.g. the /hooks review) are always shown, never folded
+      // into the "... and N more" line.
+      const actions = otherWarnings.filter((w) => w.includes('ACTION REQUIRED'));
+      const others = otherWarnings.filter((w) => !w.includes('ACTION REQUIRED'));
       output.printWarning('Warnings:');
-      for (const warning of otherWarnings.slice(0, 5)) {
+      for (const warning of others.slice(0, 5)) {
         output.printInfo(`  • ${warning}`);
       }
-      if (otherWarnings.length > 5) {
-        output.printInfo(`  ... and ${otherWarnings.length - 5} more`);
+      if (others.length > 5) {
+        output.printInfo(`  ... and ${others.length - 5} more`);
+      }
+      for (const action of actions) {
+        output.printInfo(action);
       }
       output.writeln();
     }
@@ -498,6 +609,7 @@ async function initCodexAction(
       `Review ${output.highlight('AGENTS.md')} for project instructions`,
       `Add skills with ${output.highlight('$skill-name')} syntax`,
       `Configure ${output.highlight('.agents/config.toml')} for your project`,
+      `Teams: ${output.highlight('ruflo team run')}; see AGENTS.md → Agent Teams`,
       dualMode ? `Claude Code users can use ${output.highlight('CLAUDE.md')}` : '',
     ].filter(Boolean));
 
@@ -941,9 +1053,21 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
   const full = ctx.flags.full as boolean;
   const codexMode = ctx.flags.codex as boolean;
   const dualMode = ctx.flags.dual as boolean;
+  const grokMode = ctx.flags.grok as boolean;
+  // The CLI parser turns `--no-team-hooks` into `teamHooks: false`.
+  const teamHooks = !(ctx.flags.teamHooks === false || ctx.flags['no-team-hooks'] === true);
+
+  // Grok Build host (ADR-402) — separate surface under .grok/
+  if (grokMode) {
+    return initGrokAction(ctx, {
+      force,
+      statusLine: ctx.flags.grokStatusline === true || ctx.flags['grok-statusline'] === true,
+      dryRun: ctx.flags.dryRun === true || ctx.flags['dry-run'] === true,
+    });
+  }
 
   if (codexMode && !dualMode) {
-    return initCodexAction(ctx, { codexMode, dualMode: false, force, minimal, full });
+    return initCodexAction(ctx, { codexMode, dualMode: false, force, minimal, full, teamHooks });
   }
   if (!dualMode) {
     return initClaudeAction(ctx);
@@ -969,6 +1093,7 @@ const initAction = async (ctx: CommandContext): Promise<CommandResult> => {
     force,
     minimal,
     full,
+    teamHooks,
   });
   if (!codexResult.success) {
     return {
@@ -1768,6 +1893,24 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'grok',
+      description: 'Initialize for Grok Build host (creates .grok/, team bus scripts, ADR-402 surface)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'grok-statusline',
+      description: 'With --grok: also merge the Ruflo status row into ~/.grok/config.toml (user file; off by default)',
+      type: 'boolean',
+      default: false,
+    },
+    {
+      name: 'dry-run',
+      description: 'With --grok: list the files init would write, write nothing',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'dual',
       description: 'Initialize for both Claude Code and OpenAI Codex',
       type: 'boolean',
@@ -1777,6 +1920,12 @@ export const initCommand: Command = {
       name: 'codex-trust',
       description: 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals, cached web search) or full (danger-full-access, no approvals, live web search). An existing file is never rewritten',
       type: 'string',
+    },
+    {
+      name: 'no-team-hooks',
+      description: 'With --codex/--dual: skip the Agent Teams SubagentStop hook in .codex/hooks.json',
+      type: 'boolean',
+      default: false,
     },
     {
       name: 'no-codex-detect',
@@ -1816,6 +1965,10 @@ export const initCommand: Command = {
     { command: 'claude-flow init upgrade --verbose', description: 'Show detailed upgrade info' },
     { command: 'claude-flow init --codex', description: 'Initialize for OpenAI Codex (AGENTS.md)' },
     { command: 'claude-flow init --codex --full', description: 'Codex init with all canonical packaged skills' },
+    { command: 'claude-flow init --grok', description: 'Initialize for Grok Build (.grok/, team bus, ADR-402)' },
+    { command: 'claude-flow init --grok --force', description: 'Overwrite existing Grok host files' },
+    { command: 'claude-flow init --grok --dry-run', description: 'Show what init --grok would write' },
+    { command: 'claude-flow init --grok --grok-statusline', description: 'Also add the Ruflo status row to ~/.grok/config.toml' },
     { command: 'claude-flow init --dual', description: 'Initialize for both Claude Code and Codex' },
     { command: 'claude-flow init --no-codex-detect', description: 'Skip auto-configuring OpenAI Codex even if it is installed' },
     { command: 'claude-flow init --no-skills-sh', description: 'Skip the post-init skills.sh registration' },
