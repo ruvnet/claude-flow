@@ -1551,6 +1551,8 @@ export async function bridgeListEntries(options: {
   includeEmbedding?: boolean;
   /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only. */
   includeExpired?: boolean;
+  /** Require entries to include all of these tags (AND). */
+  tags?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -1568,6 +1570,8 @@ export async function bridgeListEntries(options: {
     content?: string;
     provenanceType?: string;
     embeddingQ8?: { dims: number; scale: number; b64: string };
+    /** Tag set stored with the entry (empty array when none). */
+    tags?: string[];
   }[];
   total: number;
   error?: string;
@@ -1580,7 +1584,7 @@ export async function bridgeListEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { namespace, limit = 20, offset = 0, provenanceFilter } = options;
+    const { namespace, limit = 20, offset = 0, provenanceFilter, tags: requiredTags } = options;
     if (provenanceFilter?.some(p => !isValidProvenanceType(p))) return null;
 
     const filters: string[] = [];
@@ -1593,6 +1597,20 @@ export async function bridgeListEntries(options: {
       filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
       filterParams.push(...provenanceFilter);
     }
+    // Tags are stored as JSON-array TEXT (e.g. `["a","b"]`). Match each
+    // required tag as an exact element via SQLite's json_each so the filter
+    // runs in SQL instead of pulling the whole table into memory to filter
+    // there. A LIKE-based substring match is ASCII case-insensitive (so
+    // `prod` would match `PROD`) and matches raw JSON bytes rather than
+    // parsed array elements (so a tag literally containing `"prod` could
+    // false-match) — json_each compares real, decoded array values.
+    const tagFilter = Array.isArray(requiredTags)
+      ? requiredTags.filter((t): t is string => typeof t === 'string' && t.length > 0)
+      : [];
+    for (const tag of tagFilter) {
+      filters.push(`EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)`);
+      filterParams.push(tag);
+    }
     const extraFilter = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
 
     // #2120 — `status IS NULL` accepted alongside `'active'`. Old
@@ -1604,6 +1622,14 @@ export async function bridgeListEntries(options: {
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
     const statusFilter = liveMemoryRowSql({ includeExpired: options.includeExpired });
+
+    // `|| 20` would treat an explicit `limit: 0` as falsy and silently
+    // substitute the default (returning 20 rows instead of the requested
+    // zero) — only fall back to the default when parsing genuinely failed.
+    const parsedLimit = parseInt(String(limit), 10);
+    const safeLimit = Number.isNaN(parsedLimit) ? 20 : parsedLimit;
+    const parsedOffset = parseInt(String(offset), 10);
+    const safeOffset = Number.isNaN(parsedOffset) ? 0 : parsedOffset;
 
     // Count
     let total = 0;
@@ -1620,15 +1646,25 @@ export async function bridgeListEntries(options: {
     // List
     const entries: any[] = [];
     try {
+      // Include tags so export/list can round-trip them.
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at, tags
         FROM memory_entries
         WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-      const rows = stmt.all(...filterParams, options.includeEmbedding ? Math.min(limit, MAX_LIST_EMBEDDINGS) : limit, offset);
+      const rows = stmt.all(...filterParams, options.includeEmbedding ? Math.min(safeLimit, MAX_LIST_EMBEDDINGS) : safeLimit, safeOffset);
       for (const row of rows) {
+        let tags: string[] = [];
+        if (row.tags) {
+          try {
+            const parsed = typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags;
+            if (Array.isArray(parsed)) {
+              tags = parsed.filter((t: unknown): t is string => typeof t === 'string');
+            }
+          } catch { /* invalid tags JSON */ }
+        }
         const entry: Record<string, unknown> = {
           // #2073: don't truncate id when content is requested — callers
           // (notably memory_export) need the full id to round-trip via import.
@@ -1642,6 +1678,7 @@ export async function bridgeListEntries(options: {
           expiresAt: row.expires_at ?? null,
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
           provenanceType: row.provenance_type || 'unknown',
+          tags,
         };
         if (options.includeContent) {
           entry.content = row.content || '';

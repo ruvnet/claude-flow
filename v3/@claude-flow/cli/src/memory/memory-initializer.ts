@@ -3519,6 +3519,8 @@ export async function listEntries(options: {
   includeEmbedding?: boolean;
   /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only; normal reads hide them. */
   includeExpired?: boolean;
+  /** Require entries to include all of these tags (AND). */
+  tags?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -3537,6 +3539,8 @@ export async function listEntries(options: {
     provenanceType?: string;
     /** ADR-472: present when `includeEmbedding: true` and the row has a valid stored vector. */
     embeddingQ8?: EmbeddingQ8;
+    /** Tag set stored with the entry (empty array when none). */
+    tags?: string[];
   }[];
   total: number;
   error?: string;
@@ -3566,7 +3570,8 @@ export async function listEntries(options: {
     limit = 20,
     offset = 0,
     dbPath: customPath,
-    provenanceFilter
+    provenanceFilter,
+    tags: requiredTags,
   } = options;
 
   const swarmDir = getMemoryRoot();
@@ -3596,18 +3601,43 @@ export async function listEntries(options: {
     // #2120 — accept `status IS NULL` alongside `'active'`. Old DBs
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
-    // Get total count
     const whereClauses = [liveMemoryRowSql({ includeExpired: options.includeExpired })];
     const whereParams: string[] = [];
     if (namespace) {
       whereClauses.push('namespace = ?');
       whereParams.push(namespace);
     }
+    // ADR-323: restrict to the requested provenance types. This must be
+    // ANDed alongside any tags filter below, never replaced by it — dropping
+    // this clause lets unverified user_claim rows leak into results that
+    // are supposed to be tool_result-only.
     if (provenanceFilter?.length) {
       whereClauses.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
       whereParams.push(...provenanceFilter);
     }
+    // Tags are stored as JSON-array TEXT (e.g. `["a","b"]`). Match each
+    // required tag as an exact element via SQLite's json_each so a tag of
+    // `prod` can't be satisfied by a substring like `"prod` or by a
+    // differently-cased value like `PROD` (LIKE is ASCII case-insensitive
+    // and matches raw JSON-array bytes, not parsed array elements).
+    const tagFilter = Array.isArray(requiredTags)
+      ? requiredTags.filter((t): t is string => typeof t === 'string' && t.length > 0)
+      : [];
+    for (const tag of tagFilter) {
+      whereClauses.push(`EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)`);
+      whereParams.push(tag);
+    }
     const whereSql = whereClauses.join(' AND ');
+
+    // `|| 100` would treat an explicit `limit: 0` as falsy and silently
+    // substitute the default (returning rows instead of the requested
+    // zero) — only fall back to the default when parsing genuinely failed.
+    const parsedLimit = parseInt(String(limit), 10);
+    const safeLimit = Number.isNaN(parsedLimit) ? 100 : parsedLimit;
+    const parsedOffset = parseInt(String(offset), 10);
+    const safeOffset = Number.isNaN(parsedOffset) ? 0 : parsedOffset;
+
+    // Get total count
     const countStmt = db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE ${whereSql}`);
     if (whereParams.length > 0) countStmt.bind(whereParams);
     const countRows: unknown[][] = [];
@@ -3615,25 +3645,23 @@ export async function listEntries(options: {
       countRows.push(countStmt.get());
     }
     countStmt.free();
-    const countResult = countRows.length > 0 ? [{ values: countRows }] : [];
-    const total = countResult[0]?.values?.[0]?.[0] as number || 0;
+    const total = (countRows[0]?.[0] as number) || 0;
 
-    // Get entries
-    const safeLimit = Math.min(parseInt(String(limit), 10) || 100, options.includeEmbedding ? MAX_LIST_EMBEDDINGS : Number.MAX_SAFE_INTEGER);
-    const safeOffset = parseInt(String(offset), 10) || 0;
-    // #2120 — same NULL-as-active acceptance as the count above.
+    // Get entries. ADR-472: embedding rows are capped at MAX_LIST_EMBEDDINGS.
+    const listLimit = options.includeEmbedding ? Math.min(safeLimit, MAX_LIST_EMBEDDINGS) : safeLimit;
+    // Include tags so export/list can round-trip them.
     const listStmt = db.prepare(
-      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
+      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at, tags
        FROM memory_entries WHERE ${whereSql}
        ORDER BY updated_at DESC LIMIT ? OFFSET ?`
     );
-    listStmt.bind([...whereParams, safeLimit, safeOffset]);
+    listStmt.bind([...whereParams, listLimit, safeOffset]);
     const listRows: unknown[][] = [];
     while (listStmt.step()) {
       listRows.push(listStmt.get());
     }
     listStmt.free();
-    const result = listRows.length > 0 ? [{ values: listRows }] : [];
+
     const entries: {
       id: string;
       key: string;
@@ -3647,49 +3675,59 @@ export async function listEntries(options: {
       content?: string;
       provenanceType?: string;
       embeddingQ8?: EmbeddingQ8;
+      tags?: string[];
     }[] = [];
 
-    if (result[0]?.values) {
-      for (const row of result[0].values) {
-        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal] = row as [
-          string, string, string, string, string | null, number, string, string, string | null, number | null
-        ];
-        const entry: {
-          id: string;
-          key: string;
-          namespace: string;
-          size: number;
-          accessCount: number;
-          createdAt: string;
-          updatedAt: string;
-          expiresAt?: number | null;
-          hasEmbedding: boolean;
-          content?: string;
-          provenanceType?: string;
-          embeddingQ8?: EmbeddingQ8;
-        } = {
-          // #2073: don't truncate id when content is requested — callers
-          // (notably memory_export) need the full id to round-trip via import.
-          id: options.includeContent ? String(id) : String(id).substring(0, 20),
-          key: key || String(id).substring(0, 15),
-          namespace: ns || 'default',
-          size: (content || '').length,
-          accessCount: accessCount || 0,
-          createdAt: createdAt || new Date().toISOString(),
-          updatedAt: updatedAt || new Date().toISOString(),
-          expiresAt: expiresAtVal ?? null,
-          hasEmbedding: !!embedding && embedding.length > 10,
-          provenanceType: provenanceTypeVal || 'unknown'
-        };
-        if (options.includeContent) {
-          entry.content = content || '';
-        }
-        if (options.includeEmbedding) {
-          const q8 = encodeEmbeddingQ8(embedding);
-          if (q8) entry.embeddingQ8 = q8;
-        }
-        entries.push(entry);
+    for (const row of listRows) {
+      const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal, tagsJson] = row as [
+        string, string, string, string, string | null, number, string, string, string | null, number | null, string | null
+      ];
+      let tags: string[] = [];
+      if (tagsJson) {
+        try {
+          const parsed = JSON.parse(tagsJson);
+          if (Array.isArray(parsed)) {
+            tags = parsed.filter((t): t is string => typeof t === 'string');
+          }
+        } catch { /* invalid tags JSON */ }
       }
+      const entry: {
+        id: string;
+        key: string;
+        namespace: string;
+        size: number;
+        accessCount: number;
+        createdAt: string;
+        updatedAt: string;
+        expiresAt?: number | null;
+        hasEmbedding: boolean;
+        content?: string;
+        provenanceType?: string;
+        embeddingQ8?: EmbeddingQ8;
+        tags?: string[];
+      } = {
+        // #2073: don't truncate id when content is requested — callers
+        // (notably memory_export) need the full id to round-trip via import.
+        id: options.includeContent ? String(id) : String(id).substring(0, 20),
+        key: key || String(id).substring(0, 15),
+        namespace: ns || 'default',
+        size: (content || '').length,
+        accessCount: accessCount || 0,
+        createdAt: createdAt || new Date().toISOString(),
+        updatedAt: updatedAt || new Date().toISOString(),
+        expiresAt: expiresAtVal ?? null,
+        hasEmbedding: !!embedding && embedding.length > 10,
+        provenanceType: provenanceTypeVal || 'unknown',
+        tags,
+      };
+      if (options.includeContent) {
+        entry.content = content || '';
+      }
+      if (options.includeEmbedding) {
+        const q8 = encodeEmbeddingQ8(embedding);
+        if (q8) entry.embeddingQ8 = q8;
+      }
+      entries.push(entry);
     }
 
     db.close();
