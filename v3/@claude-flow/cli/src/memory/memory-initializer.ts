@@ -22,6 +22,7 @@ import { createRequire } from 'node:module';
 import { readFileMaybeEncrypted, writeDbImagePreservingFormat, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
 import { validateIdentifier } from '../mcp-tools/validate-input.js';
+import { resolveModelCacheDir } from './model-cache-dir.js';
 
 /**
  * ADR-323 — typed memory provenance. Distinguishes WHO/WHAT wrote a memory
@@ -2260,7 +2261,18 @@ interface EmbeddingModel {
   model: unknown;
   tokenizer: unknown;
   dimensions: number;
+  /**
+   * ADR-454: distinguishes a hash-fallback state that's legitimately
+   * permanent (no transformers package importable at all) from one caused
+   * by an environmental/fixable failure (EACCES, ENOSPC, a transient
+   * download failure) that should be retried rather than memoized forever.
+   */
+  degradedReason?: 'permanent' | 'retryable';
+  lastAttemptAt?: number;
 }
+
+/** ADR-454: minimum interval before a 'retryable' degraded state re-attempts real init. */
+const MODEL_INIT_RETRY_INTERVAL_MS = 60_000;
 
 /**
  * State of the LOCAL embedding chain only (transformers.js / agentic-flow /
@@ -2331,8 +2343,17 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
   error?: string;
 }> {
   if (embeddingModelState?.loaded) {
-    return { success: true, dimensions: embeddingModelState.dimensions, modelName: 'cached', loadTime: 0 };
+    const isRetryableDue =
+      embeddingModelState.degradedReason === 'retryable' &&
+      Date.now() - (embeddingModelState.lastAttemptAt ?? 0) >= MODEL_INIT_RETRY_INTERVAL_MS;
+    if (!isRetryableDue) {
+      return { success: true, dimensions: embeddingModelState.dimensions, modelName: 'cached', loadTime: 0 };
+    }
+    // Fall through to re-attempt real initialization — the retryable
+    // failure (e.g. EACCES on the model cache dir) may now be fixed.
   }
+
+  let sawRetryableFailure = false;
 
   try {
     // ADR-094: prefer @huggingface/transformers (clears protobufjs <7.5.5
@@ -2342,6 +2363,7 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
     // @claude-flow/embeddings/src/transformers-loader.ts.
     let transformersSource: '@huggingface/transformers' | '@xenova/transformers' | null = null;
     let pipelineFn: ((task: string, model?: string) => Promise<unknown>) | null = null;
+    let transformersModule: Record<string, unknown> | null = null;
 
     {
       const tryLoad = async (specifier: string): Promise<Record<string, unknown> | null> => {
@@ -2352,11 +2374,13 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
       if (hf && typeof hf.pipeline === 'function') {
         pipelineFn = hf.pipeline as (t: string, m?: string) => Promise<unknown>;
         transformersSource = '@huggingface/transformers';
+        transformersModule = hf;
       } else {
         const xen = await tryLoad('@xenova/transformers');
         if (xen && typeof xen.pipeline === 'function') {
           pipelineFn = xen.pipeline as (t: string, m?: string) => Promise<unknown>;
           transformersSource = '@xenova/transformers';
+          transformersModule = xen;
         }
       }
     }
@@ -2374,6 +2398,15 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
         if (verbose) {
           console.log(`Loading ONNX embedding model via ${transformersSource} (all-MiniLM-L6-v2)...`);
         }
+
+        // ADR-454: route model downloads to a user-writable cache dir —
+        // the package-relative default is root-owned under a system-prefix
+        // global install, which throws EACCES for the runtime user.
+        const cacheDir = resolveModelCacheDir();
+        fs.mkdirSync(cacheDir, { recursive: true });
+        const env = transformersModule?.env as { cacheDir: string } | undefined;
+        if (env) env.cacheDir = cacheDir;
+
         const embedder = await pipelineFn('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
 
         embeddingModelState = {
@@ -2390,6 +2423,10 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
           loadTime: Date.now() - startTime
         };
       } catch (err) {
+        // ADR-454: a real backend was importable and callable — this failure
+        // (EACCES, ENOSPC, transient network error, etc.) is environmental,
+        // not a missing dependency, so it must not be memoized permanently.
+        sawRetryableFailure = true;
         if (verbose) {
           console.warn(
             `${transformersSource} pipeline init failed (${err instanceof Error ? err.message : String(err)}); ` +
@@ -2468,12 +2505,18 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
     // No agentic-flow root-entry fallback: no published root exports
     // `embeddings`, and importing it runs its CLI main() in 3.0.0-alpha.x.
 
-    // No ONNX model available - use fallback
+    // No ONNX model available - use fallback.
+    // ADR-454: mark whether this is a permanent (no backend importable at
+    // all) or retryable (a backend existed but init failed for an
+    // environmental reason) degraded state, so a later call can re-attempt
+    // real initialization once the condition is fixed.
     embeddingModelState = {
       loaded: true,
       model: null, // Will use simple hash-based fallback
       tokenizer: null,
-      dimensions: 128 // Smaller fallback dimensions
+      dimensions: 128, // Smaller fallback dimensions
+      degradedReason: sawRetryableFailure ? 'retryable' : 'permanent',
+      lastAttemptAt: Date.now()
     };
 
     return {
@@ -2553,7 +2596,16 @@ export async function generateLocalEmbedding(text: string): Promise<{
   // loadEmbeddingModel(), which is bridge-first — when the bridge answered
   // there, no local model was ever loaded and this function always returned
   // the hash fallback.
-  if (!embeddingModelState?.loaded) {
+  //
+  // ADR-454: also re-attempt when the memoized state is a 'retryable'
+  // degraded fallback whose retry interval has elapsed — otherwise this
+  // guard short-circuits past loadLocalEmbeddingChain()'s own retry check
+  // and the fix (e.g. a now-writable cache dir) never gets exercised.
+  const shouldRetryLoad =
+    !embeddingModelState?.loaded ||
+    (embeddingModelState.degradedReason === 'retryable' &&
+      Date.now() - (embeddingModelState.lastAttemptAt ?? 0) >= MODEL_INIT_RETRY_INTERVAL_MS);
+  if (shouldRetryLoad) {
     await loadLocalEmbeddingChain();
   }
 
