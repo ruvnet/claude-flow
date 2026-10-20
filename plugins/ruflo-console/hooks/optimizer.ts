@@ -104,7 +104,7 @@ export function diagnose(state: State, nowMs: number, loadedAtMs: number): Findi
   }
 
   // ---- performance
-  out.push({ id: 'performance-unprofiled', area: 'performance', level: 'info', title: 'where the time goes has not been measured', why: 'find the bottleneck before optimising: a read shows it, and optimise applies ruflo’s own suggestions.', metric: 'bottlenecks n/a', fixes: [fix('perf-bottleneck', 'find bottlenecks', 'safe', 'a read'), fix('perf-optimize', 'optimise', 'balanced', 'local; applies ruflo’s suggested settings')] })
+  out.push({ id: 'performance-unprofiled', area: 'performance', level: 'info', title: 'where the time goes has not been measured', why: 'find the bottleneck before optimising: a local measurement shows it, and optimise applies ruflo’s own suggestions.', metric: 'bottlenecks n/a', fixes: [fix('perf-bottleneck', 'find bottlenecks', 'safe', 'local measurement; writes and removes a temporary probe file, so Claude needs full control'), fix('perf-optimize', 'optimise', 'balanced', 'local; applies ruflo’s suggested settings')] })
 
   // ---- health and the install (what the console already raises as alerts)
   for (const alert of alertsOf(state, nowMs, loadedAtMs)) {

@@ -80,6 +80,13 @@ Unmatched actions allow only in `legacy`; `observe` records default-deny but doe
 
 An envelope may constrain actions, resources, tools, MCP servers, read/write namespaces, environments, network/destructive access, cost, tokens, concurrency, expiry, and delegation depth.
 
+Cost, token, and per-tool concurrency ceilings are opt-in: omit a dimension
+when no trusted dispatch meter is available. An explicitly supplied ceiling
+requires its meter, including in `legacy` and `observe` modes; missing usage
+is not zero. Dual-mode workers do not receive an implicit per-tool concurrency
+ceiling. The orchestrator's `maxConcurrent` scheduler limit still bounds worker
+processes and does not measure concurrent MCP calls across those processes.
+
 Every child envelope must be a monotonic reduction. A child cannot:
 
 - add a pattern not granted by its parent;

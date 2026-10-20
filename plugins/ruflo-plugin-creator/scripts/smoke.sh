@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.4.1 with new keywords"
+step "1. plugin.json declares 0.4.3 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.4.1" ]]; then bad "expected 0.4.1, got '$v'"; else
+if [[ "$v" != "0.4.3" ]]; then bad "expected 0.4.3, got '$v'"; else
   miss=""
   for k in mcp scaffolding contract-bootstrap; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -84,7 +84,7 @@ T="$ROOT/templates/mod"
 grep -q '"modules": \["./register.ts"\]' "$T/hooks/hooks.json" && grep -q '"UserPromptSubmit"' "$T/hooks/hooks.json" \
   && grep -q "MY_MOD_ACTIVE" "$T/hooks/classic.cjs" && grep -q "my-mod-status" "$T/hooks/register.ts" \
   && grep -q "claude-code/testing" "$T/tests/register.test.ts" && [[ -f "$ROOT/skills/create-mod/SKILL.md" ]] \
-  && ! grep -qE '\$\[' "$T/hooks/register.ts" && ok || bad "templates/mod incomplete"
+  && ! grep -qE '\$\[' "$T/hooks/register.ts" && [[ -f "$T/plugin.json.tmpl" && ! -e "$T/.claude-plugin" ]] && ok || bad "templates/mod incomplete"
 
 # M1. The mod (ADR-445): hooks module registered, files within the 500-line rule, no network or process access in the hooks
 step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
@@ -103,6 +103,9 @@ process.exit(require(process.argv[1]).userConfig === undefined ? 0 : 1)
 
 step "M3. mod: hooks never touch the network or spawn a process"
 if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
+
+step "M4. a scaffolded mod passes claude plugin validate and claude plugin test"
+node "$ROOT/scripts/test-scaffold-mod.mjs" >/dev/null && ok || bad "scaffolded mod does not validate/test"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

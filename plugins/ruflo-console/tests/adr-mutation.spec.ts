@@ -57,7 +57,7 @@ function signature(adr: Mod, scope: Mod, write: Mod, lintMod: Mod): string {
 
   accepted.scope = ['src/auth']
   proposed.scope = ['src/auth']
-  out.push([hit('src/auth', 'src/auth/a.ts'), hit('src/auth', 'src/authz/a.ts'), hit('a/b.ts', 'x/a/b.ts'), hit('src/*.ts', 'src/deep/a.ts'), hit('docs', 'docs/x.md')])
+  out.push([hit('src/auth', 'src/auth/a.ts'), hit('src/auth', 'src/authz/a.ts'), hit('a/b.ts', 'x/a/b.ts'), hit('src/*.ts', 'src/deep/a.ts'), hit('docs', 'docs/x.md'), hit('src/a*b.ts', 'src/aXbYb.ts')])
   out.push(hits(['src/auth/a.ts', 'src/other.ts'], [accepted, proposed]).hits.map(h => h.file))
   out.push(block([accepted, proposed, ...Array.from({ length: 10 }, (_v, i) => ({ ...accepted, file: `00${i + 10}-z.md`, number: i + 10, decision: 'lorem ipsum '.repeat(40) }))]).length)
   const history = { ...accepted, file: '0003-c.md', number: 3, status: 'superseded' as const }
@@ -99,7 +99,8 @@ describe('mutation check: the battery notices a change in the parser, the lint, 
     ['adr-scope', 'a sibling that shares a prefix counted in scope', 'f.startsWith(`${e}/`)', 'f.startsWith(e)'],
     ['adr-scope', 'a proposed ADR counted as in force', "attached.filter(doc => doc.status === 'accepted')", 'attached'],
     ['adr-scope', 'no cap on the digest', 'if (used + line.length > DIGEST_TOTAL) break', ''],
-    ['adr-scope', 'a glob that crosses folders', "'[^/]*'", "'.*'"],
+    ['adr-scope', 'a glob that crosses folders', 'return want.every((part, index) => segmentHits(part, tail[index] as string))', 'return segmentHits(glob, file)'],
+    ['adr-scope', 'a star that never gives back what it took', 's = ++resume', 'return false'],
     ['adr-scope', 'history offered as a suggestion', "(doc.status !== 'accepted' && doc.status !== 'proposed') || attached.includes(doc.file)", 'attached.includes(doc.file)'],
     ['adr-write', 'the next number reuses the highest', "(high, doc) => Math.max(high, doc.number ?? 0), 0) + 1", "(high, doc) => Math.max(high, doc.number ?? 0), 0) + 0"],
     ['adr-write', 'a status inserted instead of replaced', 'lines[first] = value', "lines.splice(first, 0, value)"],

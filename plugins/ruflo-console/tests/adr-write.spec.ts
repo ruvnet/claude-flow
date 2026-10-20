@@ -11,9 +11,12 @@ import { describe, expect, it } from 'vitest'
 
 import { lint, parseAdr, type AdrDoc } from '../hooks/data/adr'
 import { fsOfRoot, hostOfRoot, cleanAfter, keep, loaded, project, stateAt, TODAY } from './adr-helpers'
+import { useNativeWriteFlavor } from './fixtures/write-flavor'
 import { adrOf, discover, initSpec, loadAdrs, planStatus, proposeSpec, statusSpec } from '../hooks/adr'
 
 cleanAfter()
+// These write to a real disk through the console's own argv: the one this machine's dd/install take (GNU on Linux, sh on macOS).
+useNativeWriteFlavor()
 
 describe('finding the ADR folder of the project the console runs in', () => {
   it.each([
@@ -111,6 +114,28 @@ describe('writing, in a copy of each project', () => {
     expect(readFileSync(join(root, 'docs/adr/0001-record-architecture-decisions.md'), 'utf8')).toBe('MINE')
     expect(adrOf(state).last?.ok).toBe(false)
     expect(world.log.toasts).toEqual([])
+  })
+
+  it('a file that appears between the check and the write is refused by the write itself, and the person is told the write failed and why', async () => {
+    const { root, state, world } = await loaded('empty')
+    const spec = initSpec(state, world.host as never, today)
+    const target = join(root, 'docs/adr/0001-record-architecture-decisions.md')
+    const run = world.host.run
+
+    // The folder is there (so the create is the exclusive one on both flavors: dd conv=excl, or sh noclobber); the link-and-exists check
+    // passes, and the file lands just before the create runs (another console, an editor).
+    mkdirSync(join(root, 'docs/adr'), { recursive: true })
+    world.host.run = async (argv, ms, stdin) => {
+      if (argv.some(arg => arg.includes('0001-record-architecture-decisions.md')) && !existsSync(target)) writeFileSync(target, 'MINE')
+
+      return run(argv, ms, stdin)
+    }
+    await spec?.run?.()
+    expect(readFileSync(target, 'utf8')).toBe('MINE')
+    expect(adrOf(state).last?.ok).toBe(false)
+    // The tool's own reason is shown (BSD sh: "cannot overwrite existing file"; GNU dd: "File exists"), not a guess that it "may have appeared".
+    expect(adrOf(state).last?.lines.join('\n')).toMatch(/the write failed \(exit [1-9]\d*: \S[^)]*\); no file was replaced/)
+    expect(adrOf(state).last?.lines.join('\n')).not.toMatch(/may have appeared/)
   })
 
   it.each([

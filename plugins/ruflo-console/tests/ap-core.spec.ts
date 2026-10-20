@@ -123,7 +123,7 @@ describe('journal', () => {
   })
 
   it('appends with a fixed argv, the path as one element', () => {
-    expect(appendArgv('/p/j; rm -rf /.jsonl')).toEqual(['dd', 'of=/p/j; rm -rf /.jsonl', 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'])
+    expect(appendArgv('/p/j; rm -rf /.jsonl', 'gnu')).toEqual(['dd', 'of=/p/j; rm -rf /.jsonl', 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'])
   })
 
   it.skipIf(process.platform !== 'linux')('with the real GNU dd, eight writers of whole journal batches never tear a line (ADR-466)', () => {
@@ -132,7 +132,7 @@ describe('journal', () => {
     try {
       const batch = (c: string): string => Array.from({ length: 60 }, (_, i) => `{"w":"${c}","n":${i},"pad":"${c.repeat(900)}"}\n`).join('')
       const file = join(dir, 'journal.jsonl')
-      const argv = (appendArgv(file) as string[]).map(arg => `'${arg}'`).join(' ')
+      const argv = (appendArgv(file, 'gnu') as string[]).map(arg => `'${arg}'`).join(' ')
       const script = Array.from({ length: 8 }, (_, w) => {
         const src = join(dir, `b${w}.txt`)
 

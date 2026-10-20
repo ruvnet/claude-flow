@@ -5,7 +5,7 @@ import { fmtElapsed, fmtTokens, modelName, currentPhase, type AgentState, type W
 import { pick, type WfUi } from '../data/workflows-nav'
 import { CONTROL_TAB, controlLine } from '../data/wf-control'
 import { spawnAgent, stopAgent } from '../ops'
-import { clip, col, kv, row, rule, text, THEME, type Ctx } from './common'
+import { ago, clip, col, kv, row, rule, text, THEME, type Ctx } from './common'
 import { flow, runTag } from './wf-layout'
 import { slotsFor } from './wf-slots'
 
@@ -37,7 +37,13 @@ const mb = (bytes: number): string => `${(bytes / 1_000_000).toFixed(1)} MB`
 function header(ctx: Ctx, run: WfRun, runs: readonly WfRun[], at: number): RenderElement[] {
   const tone = run.state === 'failed' ? THEME.bad : run.running > 0 || run.state === 'active' ? THEME.warn : run.state === 'completed' ? THEME.ok : undefined
   const counts = run.kind === 'ruflo-swarm' ? `${run.running} busy · ${run.idle} idle · ${run.done} stopped · ${run.failed} failed` : `${run.running} running · ${run.done} done · ${run.failed} failed`
-  const tokens = run.totalTokens === null ? 'tokens n/a' : `${fmtTokens(run.totalTokens, run.isTokensPartial)} tok`
+  // ruflo records no tokens: a swarm run says when its record was written instead (the same words as Overview and Swarm).
+  const listed = run.listed !== undefined && run.listed !== run.total ? ` · ${run.listed} listed, ${run.total} found` : ''
+  const tokens =
+    run.kind !== 'ruflo-swarm'
+      ? run.totalTokens === null ? 'tokens n/a' : `${fmtTokens(run.totalTokens, run.isTokensPartial)} tok`
+      : run.listed === undefined ? 'agents ruflo recorded that no swarm record lists'
+        : `updated ${run.updatedMs === undefined ? 'n/a' : ago(run.updatedMs, ctx.nowMs)}${run.isStale === true ? ' · stale' : ''}${listed}`
   const span = run.durationMs === undefined ? '' : ` · ${fmtElapsed(run.durationMs)}`
   const tabs = runs.length > 1 ? runs.map((entry, i) => `${i === at ? '▸' : ' '}${i + 1} ${clip(entry.name, 18)}`).join('  ') : ''
 
@@ -64,7 +70,8 @@ function phaseCell(ctx: Ctx, phase: WfPhase, index: number, flags: { isHere: boo
 
 /** Right cell: status mark, label, model, worktree badge, tokens, elapsed. A narrow screen drops the model, then the badge. */
 function agentCell(ctx: Ctx, agent: WfAgent, isHere: boolean, width: number): RenderElement {
-  const tail = `${fmtTokens(agent.tokens, agent.isTokensPartial)} tok`.padStart(10) + fmtElapsed(agent.elapsedMs).padStart(7)
+  // A space between the two columns: an age wider than its column ("68d06h", once "1638h18m") ran into "n/a tok".
+  const tail = `${`${fmtTokens(agent.tokens, agent.isTokensPartial)} tok`.padStart(10)} ${fmtElapsed(agent.elapsedMs).padStart(6)}`
   const model = agent.ruflo === undefined ? modelName(agent.model).padEnd(11) : ''
   const badge = agent.hasWorktree ? 'worktree '.padEnd(10) : agent.ruflo === undefined ? ' '.repeat(10) : ''
   const fixed = 3 + tail.length + (width >= 62 ? model.length : 0) + (width >= 74 ? badge.length : 0)

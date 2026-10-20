@@ -26,6 +26,27 @@ const MAX_PLUGINS = 60
 const MAX_RECORD = 200
 const FILE_MAX = 256 * 1024
 const NAME = /^[A-Za-z0-9._-]{1,80}$/
+/** Names that are Object.prototype's own keys: as a key of `seen`/`toasted` they hit the prototype, so such a plugin never cleared and toasted every session. */
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toString', 'toLocaleString', 'valueOf', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__'])
+/** A plugin name the record can key: the shape ruflo uses, and never an Object.prototype key. */
+const isName = (name: string): boolean => NAME.test(name) && !RESERVED.has(name)
+/** A pinned or dismissed entry, `<plugin>@<x.y.z>`, whose plugin name passes the same check. */
+const isEntryKey = (key: string): boolean => /^[A-Za-z0-9._-]{1,80}@\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(key) && isName(key.slice(0, key.lastIndexOf('@')))
+
+/**
+ * A plugin-name → version map with no prototype, so no lookup ever finds an inherited key, holding only valid names. Every such map in the
+ * record and the page (seen, toasted, before) is made here, and read with `versionIn`.
+ */
+export function versionMap(entries: Iterable<readonly [string, string]> = []): Record<string, string> {
+  const out = Object.create(null) as Record<string, string>
+
+  for (const [name, version] of entries) if (isName(name)) out[name] = version
+
+  return out
+}
+
+/** The version a map holds for a plugin: its own entry only, never an inherited one. */
+export const versionIn = (map: Readonly<Record<string, string>> | null, name: string): string | undefined => (map !== null && Object.hasOwn(map, name) ? map[name] : undefined)
 
 export type WhatsRecord = { seen: Record<string, string>; toasted: Record<string, string>; pinned: string[]; dismissed: string[]; toast: boolean }
 export type Row = { name: string; version: string; path: string | null }
@@ -49,22 +70,26 @@ export type WhatsNewState = {
 
 export const newWhatsNew = (): WhatsNewState => ({ hydrated: false, rec: null, isOpen: false, before: null, logs: [], isLoading: false, loadedAtMs: 0, cache: new Map() })
 
-export const emptyRecord = (): WhatsRecord => ({ seen: {}, toasted: {}, pinned: [], dismissed: [], toast: true })
+export const emptyRecord = (): WhatsRecord => ({ seen: versionMap(), toasted: versionMap(), pinned: [], dismissed: [], toast: true })
 
 /** A record that takes the installed versions as already seen and toasted: the first sight, so nothing is new. */
-export const baselineOf = (rows: readonly { name: string; version: string }[]): WhatsRecord => ({ ...emptyRecord(), seen: Object.fromEntries(rows.map(row => [row.name, row.version])), toasted: Object.fromEntries(rows.map(row => [row.name, row.version])) })
+export const baselineOf = (rows: readonly { name: string; version: string }[]): WhatsRecord => {
+  const named = rows.filter(row => isName(row.name))
+
+  return { ...emptyRecord(), seen: versionMap(named.map(row => [row.name, row.version])), toasted: versionMap(named.map(row => [row.name, row.version])) }
+}
 
 function versions(value: unknown): Record<string, string> {
-  const out: Record<string, string> = {}
+  const out = versionMap()
 
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return out
 
-  for (const [name, version] of Object.entries(value).slice(0, MAX_RECORD)) if (NAME.test(name) && typeof version === 'string' && semverOf(version) !== null) out[name] = version
+  for (const [name, version] of Object.entries(value).slice(0, MAX_RECORD)) if (isName(name) && typeof version === 'string' && semverOf(version) !== null) out[name] = version
 
   return out
 }
 
-const keys = (value: unknown): string[] => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && /^[A-Za-z0-9._-]{1,80}@\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(entry)).slice(-MAX_RECORD) : [])
+const keys = (value: unknown): string[] => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && isEntryKey(entry)).slice(-MAX_RECORD) : [])
 
 /** The record from what the store held: anything unreadable is null (no record). */
 export function parseRecord(value: unknown): WhatsRecord | null {
@@ -87,7 +112,7 @@ export const encodeRecord = (rec: WhatsRecord): string => JSON.stringify({ v: 1,
 export function rowsOf(state: Pick<State, 'snapshot'>, pluginRoot: string | null = null): Row[] {
   const installed = state.snapshot?.plugins.installed ?? []
   const rows: Row[] = installed
-    .filter(entry => entry.marketplace === RUFLO_MARKET && NAME.test(entry.name) && semverOf(entry.version) !== null)
+    .filter(entry => entry.marketplace === RUFLO_MARKET && isName(entry.name) && semverOf(entry.version) !== null)
     .slice(0, MAX_PLUGINS)
     .map(entry => ({ name: entry.name, version: entry.version, path: safeInstallPath(entry.installPath) ?? null }))
   const own = rows.find(row => row.name === CONSOLE_NAME)
@@ -103,7 +128,7 @@ export function rowsOf(state: Pick<State, 'snapshot'>, pluginRoot: string | null
 export function unseenRows(rows: readonly Row[], rec: WhatsRecord | null): Row[] {
   if (rec === null) return []
 
-  return rows.filter(row => rec.seen[row.name] === undefined || compareVersions(row.version, rec.seen[row.name] as string) > 0)
+  return rows.filter(row => isName(row.name) && (versionIn(rec.seen, row.name) === undefined || compareVersions(row.version, versionIn(rec.seen, row.name) as string) > 0))
 }
 
 /** Whether the page has anything the person has not looked at: the nav's and the menu's "new" marker. */
@@ -160,7 +185,7 @@ export function syncWhatsNew(state: State, host: Pick<Host, 'storeSet' | 'toast'
     return
   }
 
-  const fresh = unseen.filter(row => wn.rec !== null && (wn.rec.toasted[row.name] === undefined || compareVersions(row.version, wn.rec.toasted[row.name] as string) > 0))
+  const fresh = unseen.filter(row => wn.rec !== null && (versionIn(wn.rec.toasted, row.name) === undefined || compareVersions(row.version, versionIn(wn.rec.toasted, row.name) as string) > 0))
 
   if (fresh.length === 0) return
 
@@ -209,7 +234,7 @@ export async function openWhatsNew(state: State, host: Pick<Host, 'fs' | 'storeG
 
   if (wn.rec === null) wn.rec = baselineOf(rows)
 
-  wn.before = { ...wn.rec.seen }
+  wn.before = versionMap(Object.entries(wn.rec.seen))
 
   const before = wn.before
   const rec = wn.rec
@@ -222,10 +247,10 @@ export async function openWhatsNew(state: State, host: Pick<Host, 'fs' | 'storeG
   for (const log of logs) {
     if (!log.result.ok) continue
 
-    for (const entry of entriesAfter(log.result.entries, before[log.name])) {
+    for (const entry of entriesAfter(log.result.entries, versionIn(before, log.name))) {
       const key = `${log.name}@${entry.version}`
 
-      if (breaking(entry) && !rec.pinned.includes(key) && !rec.dismissed.includes(key) && before[log.name] !== undefined) rec.pinned.push(key)
+      if (breaking(entry) && !rec.pinned.includes(key) && !rec.dismissed.includes(key) && versionIn(before, log.name) !== undefined && isEntryKey(key)) rec.pinned.push(key)
     }
   }
 
@@ -271,7 +296,7 @@ export function whatsnewActions(state: State, host: Pick<Host, 'storeSet' | 'inv
   const dismiss = (key: string) => {
     const rec = state.whatsnew.rec
 
-    if (rec === null) return
+    if (rec === null || !isEntryKey(key)) return
 
     rec.pinned = rec.pinned.filter(each => each !== key)
     if (!rec.dismissed.includes(key)) rec.dismissed.push(key)

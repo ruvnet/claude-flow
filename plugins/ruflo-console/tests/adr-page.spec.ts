@@ -7,7 +7,7 @@ import { writeFileSync } from 'node:fs'
 
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { adrOf, loadAdrs } from '../hooks/adr'
+import { adrOf, loadAdrs, proposeSpec } from '../hooks/adr'
 import { adrActions } from '../hooks/adr-actions'
 import { setAttached } from '../hooks/adr-mission'
 import { adrPalette } from '../hooks/adr-palette'
@@ -191,6 +191,34 @@ describe('the palette and the control level', () => {
       expect(allows('read', classOf(pending(spec as never))), `${id} at read`).toBe(false)
       expect(allows('write', classOf(pending(spec as never))), `${id} at write`).toBe(true)
     }
+  })
+
+  it('a title over the limit is refused with its count on every path, never cut: /ruflo run and console_run as well as the page (ADR-481)', async () => {
+    const w = await wired()
+    const propose = adrPalette(w.state).find(entry => entry.id === 'adr-propose')?.run
+    const long = 'Use event sourcing for the billing ledger so that every refund and chargeback can be replayed and audited by finance and by the regulator'
+    const exact = 'x'.repeat(120)
+
+    expect(long.length).toBe(137)
+    expect(propose?.kind).toBe('text')
+    if (propose?.kind !== 'text') return
+
+    // The runner shows `why(text)` when `make` returns no spec; console_run goes through the same runner.
+    expect(propose.make(long)).toBeNull()
+    expect(propose.why?.(long)).toBe('the title is 137 characters; the limit is 120 (it is the record’s heading and file name; put the rest in the record itself): 17 over. Nothing was sent or changed; shorten it and ask again.')
+    // Counted as it would be written: leading heading marks and link syntax do not count, so they cannot push a fitting title over.
+    expect(propose.make(`## ${exact}`)?.label).toBe(`propose ADR 4: ${exact}`)
+    expect(propose.make(`${exact}y`)).toBeNull()
+    expect(propose.make('Cache reads')?.label).toBe('propose ADR 4: Cache reads')
+
+    // The proposal itself refuses, so a caller that skips the check gets no proposal rather than a cut one.
+    expect(proposeSpec(w.state, w.host as never, long, '2026-10-09')).toBeNull()
+    expect(proposeSpec(w.state, w.host as never, exact, '2026-10-09')?.label).toBe(`propose ADR 4: ${exact}`)
+
+    // The page's field says the same and asks nothing.
+    w.actions.propose(long)
+    expect(w.asked).toEqual([])
+    expect(JSON.stringify(adrOf(w.state))).toContain('137 characters; the limit is 120')
   })
 
   it('a status entry only prepares the change: the diff is a second confirm, and a bad number is no spec', async () => {

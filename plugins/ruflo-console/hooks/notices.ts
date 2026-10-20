@@ -4,7 +4,7 @@
  * shown on the band's notice row for a short while, and linked to the view it is about. They come only from changes the console observed
  * between two reads: nothing is synthesised, and the first read announces nothing. Pure, apart from the helpers that edit `state`.
  */
-import { alertsOf, approvalsOf } from './data/alerts'
+import { alertsOf, waitingApprovalsOf } from './data/alerts'
 import { agentLabels } from './data/parse'
 import { activeMission, failedOf, progressOf } from './mission-control'
 import type { State, ViewId } from './state'
@@ -38,7 +38,7 @@ export function factsOf(state: State, nowMs: number = Date.now()): Facts {
   const status = state.snapshot?.anatole?.status ?? null
 
   return {
-    approvals: approvalsOf(state).length,
+    approvals: waitingApprovalsOf(state).length,
     alerts: alertsOf(state, nowMs, state.loadedAtMs).filter(alert => alert.level !== 'info').length,
     mission: mission === null || progress === null ? null : { id: mission.id, done: progress.done, total: progress.total, failed: failedOf(mission, tasks) },
     anatole: status === null ? null : { blocked: status.blocked, critical: status.open.critical, degraded: status.degraded === false ? null : String(status.degraded).slice(0, 60) },

@@ -570,8 +570,9 @@ export class PluginManager {
    */
   async upgrade(
     packageName: string,
-    version?: string
-  ): Promise<{ success: boolean; error?: string; plugin?: InstalledPlugin }> {
+    version?: string,
+    opts: Pick<PluginInstallOptions, 'verify' | 'trust'> = {},
+  ): Promise<{ success: boolean; error?: string; plugin?: InstalledPlugin; decision?: TrustDecision; warnings?: string[] }> {
     if (!this.manifest) {
       await this.initialize();
     }
@@ -592,28 +593,51 @@ export class PluginManager {
       validatePackageName(versionSpec);
 
       // Reinstall with new version (array form prevents shell injection).
-      // An install recorded with scriptsRun:false stays script-free on upgrade;
-      // legacy entries (no field) keep their pre-#3557 behaviour.
+      // #3557: the new version's lifecycle scripts run only with an explicit
+      // --trust for this upgrade. A recorded scriptsRun:true from an earlier
+      // install is not enough: it may come from registry vouching that was
+      // never verified, and the new version's scripts were never reviewed.
+      const warnings: string[] = [];
+      const scriptsRun = opts.trust === true;
       const upgradeArgs = ['install', '--prefix', this.config.pluginsDir, versionSpec];
-      if (existing.scriptsRun === false) upgradeArgs.push('--ignore-scripts');
+      if (!scriptsRun) {
+        upgradeArgs.push('--ignore-scripts');
+        warnings.push(
+          `Install scripts were skipped for ${packageName} (--ignore-scripts). Upgrade with --trust to run them.`,
+        );
+      }
       await runNpm(upgradeArgs, 120000);
 
       // Update manifest
       const installDir = path.join(this.config.pluginsDir, 'node_modules');
       const packageJsonPath = path.join(installDir, packageName, 'package.json');
+      if (!fs.existsSync(packageJsonPath)) {
+        return { success: false, error: `Upgraded package.json not found for ${packageName}` };
+      }
+      const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8')) as Record<string, unknown>;
 
-      if (fs.existsSync(packageJsonPath)) {
-        const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        existing.version = pkg.version;
-        existing.commands = pkg['claude-flow']?.commands || existing.commands;
-        existing.hooks = pkg['claude-flow']?.hooks || existing.hooks;
+      // #3557: re-run the trust policy on the NEW version's declaration, so
+      // hooks and commands withheld at install (or newly declared, or newly
+      // needing elevated permissions) are not registered without --trust.
+      const trusted = applyTrustPolicy(pkg, { verify: opts.verify, trust: opts.trust });
+      existing.version = String(pkg.version ?? existing.version);
+      existing.commands = trusted.commands;
+      existing.hooks = trusted.hooks;
+      existing.trustLevel = trusted.trustLevel;
+      existing.permissions = trusted.permissions;
+      existing.verification = opts.verify === false ? 'skipped' : 'npm-integrity';
+      existing.scriptsRun = scriptsRun;
+      if (trusted.withheld) {
+        existing.withheld = trusted.withheld;
+      } else {
+        delete existing.withheld;
       }
 
       await this.saveManifest();
 
       console.log(`[PluginManager] Upgraded ${packageName} to ${existing.version}`);
 
-      return { success: true, plugin: existing };
+      return { success: true, plugin: existing, decision: trusted.decision, warnings };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       return { success: false, error: errorMsg };

@@ -185,8 +185,8 @@ class PriorityMessageQueue {
         return queue.popFront();
       }
     }
-    // Fall back to any queue
-    for (const priority of PRIORITY_ORDER) {
+    // Only high/urgent remain; preserve urgent before high on overflow too.
+    for (const priority of ['high', 'urgent'] as Priority[]) {
       const queue = this.queues.get(priority)!;
       if (queue.length > 0) {
         this.totalCount--;
@@ -229,6 +229,7 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   private statsInterval?: NodeJS.Timeout;
   private processScheduled: boolean = false;
   private isShutdown: boolean = false;
+  private deliveryImmediates: Set<NodeJS.Immediate> = new Set();
   private messageCounter: number = 0;
   private stats: MessageBusStats;
   private startTime: Date = new Date();
@@ -291,6 +292,12 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       clearTimeout(timer);
     }
     this.retryTimers.clear();
+
+    // Queue draining schedules subscriber callbacks separately. Cancel those
+    // pending callbacks too, including across a later initialize() call.
+    // A subscriber that is already running is not interrupted.
+    for (const delivery of this.deliveryImmediates) clearImmediate(delivery);
+    this.deliveryImmediates.clear();
 
     if (this.processingInterval) {
       clearInterval(this.processingInterval);
@@ -418,13 +425,14 @@ export class MessageBus extends EventEmitter implements IMessageBus {
   }
 
   async acknowledge(ack: MessageAck): Promise<void> {
-    const pending = this.pendingAcks.get(ack.messageId);
+    const key = this.ackKey(ack.messageId, ack.from);
+    const pending = this.pendingAcks.get(key);
     if (!pending) {
       return;
     }
 
     clearTimeout(pending.timeout);
-    this.pendingAcks.delete(ack.messageId);
+    this.pendingAcks.delete(key);
 
     if (!ack.received && ack.error) {
       this.handleAckFailure(pending.message, ack.error);
@@ -434,6 +442,18 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       messageId: ack.messageId,
       success: ack.received
     });
+  }
+
+  private ackKey(messageId: string, recipient: string): string {
+    // Broadcast recipients share a message ID, but acknowledge independently.
+    return JSON.stringify([messageId, recipient]);
+  }
+
+  private clearPendingAck(messageId: string, recipient: string): void {
+    const key = this.ackKey(messageId, recipient);
+    const pending = this.pendingAcks.get(key);
+    if (pending) clearTimeout(pending.timeout);
+    this.pendingAcks.delete(key);
   }
 
   private startProcessing(): void {
@@ -530,15 +550,19 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     try {
       // Set up ack timeout if required
       if (message.requiresAck) {
+        const key = this.ackKey(message.id, subscription.agentId);
+        this.clearPendingAck(message.id, subscription.agentId);
         const timeout = setTimeout(() => {
-          this.handleAckTimeout(message);
+          this.handleAckTimeout(message, key);
         }, this.config.ackTimeoutMs);
 
-        this.pendingAcks.set(message.id, { message, timeout });
+        this.pendingAcks.set(key, { message, timeout });
       }
 
-      // Deliver asynchronously
-      setImmediate(() => {
+      // Deliver asynchronously; shutdown owns and cancels pending handles.
+      const delivery = setImmediate(() => {
+        this.deliveryImmediates.delete(delivery);
+        if (this.isShutdown) return;
         try {
           subscription.callback(message);
           this.emit('message.delivered', {
@@ -546,16 +570,17 @@ export class MessageBus extends EventEmitter implements IMessageBus {
             to: subscription.agentId
           });
         } catch (error) {
-          this.handleDeliveryError(message, entry, error as Error);
+          this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
         }
       });
+      this.deliveryImmediates.add(delivery);
     } catch (error) {
-      this.handleDeliveryError(message, entry, error as Error);
+      this.handleDeliveryError(message, entry, error as Error, subscription.agentId);
     }
   }
 
-  private handleAckTimeout(message: Message): void {
-    this.pendingAcks.delete(message.id);
+  private handleAckTimeout(message: Message, key: string): void {
+    this.pendingAcks.delete(key);
     this.stats.ackRate = Math.max(0, this.stats.ackRate - 0.01);
     this.emit('message.ack_timeout', { messageId: message.id });
   }
@@ -565,7 +590,9 @@ export class MessageBus extends EventEmitter implements IMessageBus {
     this.emit('message.ack_failed', { messageId: message.id, error });
   }
 
-  private handleDeliveryError(message: Message, entry: MessageQueueEntry, error: Error): void {
+  private handleDeliveryError(message: Message, entry: MessageQueueEntry, error: Error, subscriberAgentId: string): void {
+    // A failed callback never completed delivery; its retry owns a fresh timer.
+    this.clearPendingAck(message.id, subscriberAgentId);
     entry.attempts++;
     entry.lastAttemptAt = new Date();
 
@@ -573,13 +600,12 @@ export class MessageBus extends EventEmitter implements IMessageBus {
       // Re-queue for retry, preserving the attempt count so it's bounded by
       // retryAttempts instead of resetting to 0 on every re-queue.
       //
-      // KNOWN LIMITATION (pre-existing, not fixed here): for a broadcast
-      // message, message.to stays the literal string 'broadcast' rather
-      // than the per-subscriber agentId enqueue() originally fanned out
-      // to, so this re-queues under a 'broadcast'-keyed queue nobody
-      // drains — a failing broadcast subscriber's retries (and eventual
-      // message.failed) are silently lost. Only the direct-message path
-      // is bounded by this fix.
+      // Re-queue under the real subscriber's agentId, not message.to: for a
+      // broadcast message, message.to is the literal string 'broadcast',
+      // not any queue a subscription actually drains (enqueue() fanned the
+      // original send out to each subscriber's own agentId-keyed queue), so
+      // re-queuing under message.to would silently strand the retry in an
+      // orphaned queue nobody processes.
       //
       // The re-queue itself is delayed (not just the dispatch) so the
       // backstop interval cannot pick the message up early either.
@@ -589,7 +615,12 @@ export class MessageBus extends EventEmitter implements IMessageBus {
         if (this.isShutdown) {
           return;
         }
-        this.addToQueue(message.to, message, entry.attempts);
+        // The subscriber may have unsubscribed during the backoff; addToQueue
+        // would recreate an orphaned queue nobody drains.
+        if (!this.subscriptions.has(subscriberAgentId)) {
+          return;
+        }
+        this.addToQueue(subscriberAgentId, message, entry.attempts);
         this.scheduleProcessing();
       }, backoffMs);
       timer.unref?.();

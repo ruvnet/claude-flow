@@ -2,6 +2,15 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.6 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.3.5 — 2026-10-11
+- fix: browser-login and browser-auth-flow read `document.cookie` straight into the model's context before any AIDefence gate, and `document.cookie` cannot see HttpOnly cookies, Secure, SameSite or expiry. They now return only cookie names, lengths and entropy, and cookie-flag checks read Set-Cookie headers or are marked not-assessed
+- fix: browser-auth-flow now requires authorization to test the target
+- fix: the lifecycle tools (`browser_session_record`/`_end`/`_replay`, `browser_template_apply`, `browser_cookie_use`) were documented as planned or unimplemented; they ship in the CLI, with replay and template returning data for the caller to execute and cookie_use returning a handle record only
+- fix: browser-scrape no longer claims removal in v0.3.0 (the plugin is past it); ruvector pin 0.2.25 -> 0.2.27 to match the CLI
+
 ## 0.3.4 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

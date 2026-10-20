@@ -4,7 +4,7 @@
  */
 import type { RenderElement } from 'claude-code'
 
-import { approvalsOf } from '../data/alerts'
+import { approvalsOf, waitingApprovalsOf } from '../data/alerts'
 import type { Lane } from '../gfx/maps'
 import { button, col, paragraph, row, rule, text, THEME, type Ctx } from './common'
 
@@ -16,10 +16,13 @@ export function statsOf(lane: Lane, fromMs: number, nowMs: number): { observedMs
   return { observedMs: Math.max(0, nowMs - first), busyMs: spans.filter(span => span.busy).reduce((sum, span) => sum + Math.max(0, span.toMs - Math.max(span.fromMs, fromMs)), 0), calls: lane.ticks.filter(at => at >= fromMs).length }
 }
 
+/** The header count: what a person can act on, with the notices (refused mods, permission denies) named apart (#3920). */
+const headline = (all: number, waiting: number): string => (waiting === all ? `${all} waiting · j/k pick` : `${waiting} to approve · ${all - waiting} notice${all - waiting === 1 ? '' : 's'} · j/k pick`)
+
 export function approvalsView(ctx: Ctx): RenderElement {
   const items = approvalsOf(ctx.state)
   const picked = items.length === 0 ? -1 : ((ctx.state.select.item % items.length) + items.length) % items.length
-  const rows: RenderElement[] = [rule(ctx, 'Approvals', items.length === 0 ? 'nothing waiting' : `${items.length} waiting · j/k pick`)]
+  const rows: RenderElement[] = [rule(ctx, 'Approvals', items.length === 0 ? 'nothing waiting' : headline(items.length, waitingApprovalsOf(ctx.state).length))]
 
   if (items.length === 0) {
     rows.push(...paragraph(ctx, 'No hive-mind proposals, stealable claims, refused mods, permission denies or budget alerts waiting.', { dimColor: true }))

@@ -15,7 +15,7 @@ Store and retrieve knowledge across sessions:
 npx ruflo memory store --key "oauth-flow" --value "OAuth2 with pkce for SPAs, use refresh tokens" --namespace patterns
 
 # Search for it later (even across projects!)
-npx ruflo recall "oauth single page app"
+npx ruflo memory search -q "oauth single page app"
 
 # Retrieve exact entry
 npx ruflo memory retrieve --key "oauth-flow" --namespace patterns
@@ -71,7 +71,7 @@ memory list --namespace patterns --limit 10
 memory delete --key "old-entry" --namespace patterns
 
 # Quick semantic recall across all namespaces
-recall "how did we handle rate limiting?"
+/recall how did we handle rate limiting?
 ```
 
 ## Architecture
@@ -177,13 +177,9 @@ Measured numbers from [`docs/reviews/intelligence-system-audit-2026-05-29.md`](.
 
 The previously published "150x–12,500x" figures were brute-force fallback artifacts and are not reproduced under the audit harness.
 
-## Integration with ruvector
+## Supported memory search
 
-When `ruflo-ruvector` is also loaded, rag-memory delegates to ruvector's backend for advanced features:
-- FlashAttention-3 for O(N) memory attention
-- Graph RAG for multi-hop knowledge retrieval
-- Hybrid search (sparse + dense) with RRF fusion
-- DiskANN for large-scale persistent indexes
+The supported text-query interface for this plugin is Ruflo `memory search` or the registered `memory_search` MCP tool. `memory search --type hybrid` unions keyword and semantic hits; `--smart` requests query expansion, RRF across variants, recency weighting, and MMR when the installed memory package supports it. The `ruvector search` CLI requires a database and query vector and does not accept a text query with `--hybrid` or `--graph-rag`. Installing `ruflo-ruvector` alone does not turn these into memory-search commands.
 
 ## Compatibility
 
@@ -218,7 +214,7 @@ bash plugins/ruflo-rag-memory/scripts/smoke.sh
 
 ## Related Plugins
 
-- `ruflo-agentdb` — Full AgentDB controller bridge (15 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
+- `ruflo-agentdb` — Full AgentDB controller bridge (20 `agentdb_*` MCP tools); namespace convention owner; owns the `claude-memories` reserved namespace
 - `ruflo-ruvector` — Advanced vector operations (FlashAttention-3, Graph RAG, hybrid search)
 - `ruflo-rvf` — Portable RVF memory format for cross-machine export/import
 - `ruflo-knowledge-graph` — Entity extraction and graph traversal over memory

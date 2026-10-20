@@ -20,10 +20,11 @@ import { AppendConditionFailed, assertAppendConditions, validateAppendConditions
 
 import { liveMemoryRowSql } from './live-memory-row.js';
 import { resolveAgentdbBetterSqlite3 } from './shared-sqlite.js';
+import { DEFAULT_SEARCH_THRESHOLD } from './search-defaults.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS } from './embedding-q8.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { realpathSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { validateFeedbackPatterns } from './feedback-patterns.js';
@@ -270,7 +271,12 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
           origLog.apply(console, args);
         };
 
+        // #4132: better-sqlite3 cannot create a missing parent directory. In a
+        // fresh checkout or worktree `.swarm/` does not exist yet, so AgentDB
+        // failed to open, the degraded registry was cached for the server's
+        // lifetime and hierarchical memory silently ran volatile.
         try {
+          if (resolvedPath !== ':memory:') mkdirSync(path.dirname(resolvedPath), { recursive: true });
           await (registry as any).initialize({
             // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
             dbPath: resolvedPath,
@@ -1398,7 +1404,7 @@ export async function bridgeSearchEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { query: queryStr, namespace, limit = 10, threshold = 0.3, provenanceFilter } = options;
+    const { query: queryStr, namespace, limit = 10, threshold = DEFAULT_SEARCH_THRESHOLD, provenanceFilter } = options;
     const effectiveNamespace = namespace || 'all';
     const startTime = Date.now();
 
@@ -1543,6 +1549,8 @@ export async function bridgeListEntries(options: {
   provenanceFilter?: string[];
   /** ADR-472: include each entry's embedding as int8+scale (`embeddingQ8`); at most MAX_LIST_EMBEDDINGS rows. */
   includeEmbedding?: boolean;
+  /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only. */
+  includeExpired?: boolean;
 }): Promise<{
   success: boolean;
   entries: {
@@ -1553,6 +1561,8 @@ export async function bridgeListEntries(options: {
     accessCount: number;
     createdAt: string;
     updatedAt: string;
+    /** #4056: epoch ms the row expires at; null when it never does. */
+    expiresAt?: number | null;
     hasEmbedding: boolean;
     /** #2073: Present when `includeContent: true` was requested. */
     content?: string;
@@ -1593,7 +1603,7 @@ export async function bridgeListEntries(options: {
     // the `status = 'active'` filter matched zero. Treat NULL as
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
-    const statusFilter = liveMemoryRowSql();
+    const statusFilter = liveMemoryRowSql({ includeExpired: options.includeExpired });
 
     // Count
     let total = 0;
@@ -1611,7 +1621,7 @@ export async function bridgeListEntries(options: {
     const entries: any[] = [];
     try {
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
         FROM memory_entries
         WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
@@ -1629,6 +1639,7 @@ export async function bridgeListEntries(options: {
           accessCount: row.access_count ?? 0,
           createdAt: row.created_at || new Date().toISOString(),
           updatedAt: row.updated_at || new Date().toISOString(),
+          expiresAt: row.expires_at ?? null,
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
           provenanceType: row.provenance_type || 'unknown',
         };
@@ -2090,7 +2101,7 @@ export async function bridgeSearchBruteForceCosine(
 
   try {
     const k = options?.k ?? 10;
-    const threshold = options?.threshold ?? 0.3;
+    const threshold = options?.threshold ?? DEFAULT_SEARCH_THRESHOLD;
     const nsFilter = options?.namespace && options.namespace !== 'all'
       ? `AND namespace = ?`
       : '';
@@ -2325,13 +2336,20 @@ export function shutdownBridge(): Promise<void> {
   shutdownPromise = (async () => {
     if (activeOperations > 0) await new Promise<void>(resolve => { drained = resolve; });
     await Promise.allSettled([...registryPromises.values()]);
+    // A failed PERSIST (AGENTDB_LOCK_UNRECOVERABLE: live lock or concurrent
+    // writer on a sql.js database) means pending changes were not saved. That
+    // is surfaced after cleanup completes; other close errors stay best-effort.
+    let persistFailure: unknown;
     for (const registry of new Set(registryInstances.values())) {
-      try { await registry.shutdown(); } catch { /* best-effort cleanup */ }
+      try { await registry.shutdown(); } catch (err) {
+        if ((err as { code?: unknown } | null)?.code === 'AGENTDB_LOCK_UNRECOVERABLE') persistFailure ??= err;
+      }
     }
     registryInstances.clear();
     registryPromises.clear();
     testRegistryOverride = null;
     bridgeFailureReasons.clear();
+    if (persistFailure) throw persistFailure;
   })().finally(() => { shutdownPromise = null; });
   return shutdownPromise;
 }

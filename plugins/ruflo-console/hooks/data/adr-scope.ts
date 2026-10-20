@@ -82,6 +82,49 @@ export function suggest(goal: string, docs: readonly AdrDoc[], attached: readonl
 
 const norm = (path: string): string => path.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/+$/, '')
 
+/**
+ * One path segment against one glob segment, where `*` is any run of characters (the caller has split on `/`, so a star never crosses
+ * one). Linear in practice and at worst O(pattern × segment): a star run is one star, and the scan backtracks only to the LAST star, never
+ * combinatorially (ADR-480: the scope paths come from ADR text, so a hostile record with sixty stars must cost no more than one with one).
+ */
+function segmentHits(glob: string, segment: string): boolean {
+  let g = 0
+  let s = 0
+  let star = -1
+  let resume = 0
+
+  while (s < segment.length) {
+    if (g < glob.length && glob[g] === '*') {
+      star = g++
+      resume = s
+    } else if (g < glob.length && glob[g] === segment[s]) {
+      g++
+      s++
+    } else if (star >= 0) {
+      g = star + 1
+      s = ++resume
+    } else {
+      return false
+    }
+  }
+
+  while (g < glob.length && glob[g] === '*') g++
+
+  return g === glob.length
+}
+
+/** A glob of one level (`*` within a segment; `**` is the same as `*`): the whole path, or its last segments after a `/`. */
+function globHits(glob: string, file: string): boolean {
+  const want = glob.replace(/\*{2,}/g, '*').split('/')
+  const have = file.split('/')
+
+  if (have.length < want.length) return false
+
+  const tail = have.slice(have.length - want.length)
+
+  return want.every((part, index) => segmentHits(part, tail[index] as string))
+}
+
 /** Whether a scope entry (a path, a folder, a glob) covers a changed file: exact, under it, or ending with it (an entry relative to a sub-folder). */
 export function scopeHits(entry: string, file: string): boolean {
   const e = norm(entry)
@@ -89,11 +132,8 @@ export function scopeHits(entry: string, file: string): boolean {
 
   if (e === '' || f === '' || (!e.includes('/') && !/\.[A-Za-z0-9]{1,6}$/.test(e))) return false
 
-  if (e.includes('*')) {
-    const pattern = new RegExp(`^${e.split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')}$|/${e.split('*').map(part => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')}$`)
-
-    return pattern.test(f)
-  }
+  // Anchored at the start, or after any `/` of the file: since a star never matches `/`, both come down to the file's LAST segments.
+  if (e.includes('*')) return globHits(e, f)
 
   return f === e || f.startsWith(`${e}/`) || (e.split('/').length >= 2 && f.endsWith(`/${e}`)) || (e.split('/').length >= 2 && f.includes(`/${e}/`))
 }

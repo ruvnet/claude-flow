@@ -262,10 +262,30 @@ export function sparkline(values: readonly number[]): string {
   return finite.map(value => BARS[hi === lo ? 3 : Math.round(((value - lo) / (hi - lo)) * (BARS.length - 1))]).join('')
 }
 
-/** A task's lane on the kanban: what ruflo's task tools write (pending, in_progress, completed, failed, cancelled). */
+/**
+ * A stored task status as one of ruflo's five, reading the spellings older CLIs stored as written ("complete", "done",
+ * "canceled", "running"); anything else is returned trimmed and lower-cased, so callers that compare against the five
+ * treat it as not finished. Every reader that decides on status goes through this (kanban, mission scheduling, cancel).
+ */
+export function taskStatusOf(status: string | undefined): string {
+  const key = (status ?? '').trim().toLowerCase()
+
+  if (key === 'complete' || key === 'done') return 'completed'
+  if (key === 'canceled') return 'cancelled'
+  if (key === 'running' || key === 'in-progress' || key === 'inprogress') return 'in_progress'
+
+  return key
+}
+
+/**
+ * A task's lane on the kanban: what ruflo's task tools write (pending, in_progress, completed, failed, cancelled), plus the
+ * spellings older CLIs stored as written (task_update took any string): "complete" sat in PENDING and inflated its count.
+ */
 export function laneOf(status: string): 'pending' | 'running' | 'done' {
-  if (/^(in_progress|running|assigned|active|busy)$/.test(status)) return 'running'
-  if (/^(completed|done|failed|cancelled|canceled|error)$/.test(status)) return 'done'
+  const key = status.trim().toLowerCase()
+
+  if (/^(in_progress|in-progress|inprogress|running|assigned|active|busy)$/.test(key)) return 'running'
+  if (/^(completed|complete|done|failed|cancelled|canceled|error)$/.test(key)) return 'done'
 
   return 'pending'
 }

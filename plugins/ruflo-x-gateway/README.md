@@ -33,6 +33,24 @@ metadata. The legacy `/mcp` endpoint remains available for trusted service calle
 - `channel_publish` — publish to a **public** channel as the gateway (admin-gated). Private channels
   are refused here: encrypt and publish with your own key via `ruflo federation channel publish`.
 
+### GitHub / npm query tools (legacy `/mcp` only, ADR-485)
+
+Read-only views of **public** repositories owned by an allowlisted account (default `ruvnet`).
+They are not on `/chatgpt/mcp` or `/claude/mcp`: those profiles were reviewed with a fixed
+twelve-tool list, and adding tools there needs a directory re-review.
+
+- `ruv_github_search` — search repositories, issues or code (`code` needs a server-side token)
+- `ruv_github_repo` — metadata, latest release or tag, optional README excerpt and top-level file list
+- `ruv_github_file` — one text file, up to 64 KiB; `.env`, `*.pem`, `*.key`, `id_rsa` and similar are refused
+- `ruv_registry_latest` — latest npm version of a package maintained by an allowlisted npm account
+
+Results are third-party text and arrive inside the same kind of nonce-delimited untrusted
+fence as relay content (`<<<UNTRUSTED_GITHUB_DATA …>>>`). Upstream URLs are built from validated
+segments on `api.github.com` / `registry.npmjs.org` only; redirects are refused; private repositories
+are never served. Unauthenticated GitHub allows 60 core requests per hour (10 searches per minute)
+per egress IP, shared by every caller, so results are cached for five minutes and revalidated with ETags;
+when the limit is hit the tool returns a structured `github_rate_limited` error with `resetAt`.
+
 ## Resources (ruv://)
 
 - `ruv://federation/registry` — relay + gateway identity + join info
@@ -45,6 +63,10 @@ metadata. The legacy `/mcp` endpoint remains available for trusted service calle
 - `RUFLO_RELAY_URL` (default `wss://relay.ruv.io`)
 - `RUFLO_NOSTR_KEY` (default `/data/nostr-gateway.key`, 0600) — persistent identity
 - `PORT` (default 8080)
+- `RUFLO_GITHUB_OWNERS` (default `ruvnet`) — comma-separated GitHub owner allowlist for the `ruv_github_*` tools
+- `RUFLO_GITHUB_TOKEN` (optional, secret) — server-side GitHub token for higher limits and code search; never a tool argument, never returned or logged. Use a fine-grained token with no repository access beyond public data
+- `RUFLO_GITHUB_HOURLY_BUDGET` (default 45 unauthenticated, 1500 with a token) and `RUFLO_GITHUB_IP_HOURLY_CAP` (default 60) — upstream and per-client call caps
+- `RUFLO_NPM_MAINTAINERS` (default `ruvnet`) — npm accounts whose packages `ruv_registry_latest` will report
 
 ## NIP-42 via the proxy
 `wss://x.ruv.io` transparently proxies the relay. The relay verifies the AUTH `relay` tag

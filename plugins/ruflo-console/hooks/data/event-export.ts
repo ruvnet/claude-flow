@@ -11,6 +11,7 @@ import type { ConsoleEvent } from './events'
 import { refOf } from './events'
 import { EXPORT_DIR } from './activity-store'
 import { checkNoLinks, dirOf, newFileArgv, type PathCheck } from './wf-file'
+import { writeFlavorReady } from './write-flavor'
 import { clockOf, type Concurrency, type LaneView } from './timeline-model'
 import type { ReaderFs } from './files'
 
@@ -136,12 +137,12 @@ export async function exportSpecFor(fs: Pick<ReaderFs, 'stat'>, cwd: string, tar
     spec: {
       label: `write ${label}`,
       args: [],
-      argv: newFileArgv(placed.path, hasDir),
+      argv: newFileArgv(placed.path, hasDir, await writeFlavorReady()),
       stdin: content,
       expect: `a new file at ${placed.path}`,
       declared: 'write',
       shows: `write ${placed.path} (${bytes(content)} bytes; never overwrites)`,
-      note: 'writes one new file inside the project; a file that already exists makes it fail instead of replacing it (a missing folder is made with GNU install, which macOS lacks)',
+      note: 'writes one new file inside the project; a file that already exists makes it fail instead of replacing it; a missing folder is made first',
       timeoutMs: 10_000,
       verifyLocal: async host => (await host.fs.stat(placed.path).catch(() => undefined)) !== undefined,
     },

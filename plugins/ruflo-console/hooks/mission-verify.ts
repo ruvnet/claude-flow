@@ -4,6 +4,7 @@
  * back from those events only. Pure: data in, data out.
  */
 import type { ActionSpec } from './actions'
+import { errorLine } from './data/failure'
 import { plain } from './data/parse'
 import type { MissionRecord } from './mission-types'
 
@@ -98,7 +99,9 @@ const refOf = (value: string): string => value.replace(/[^A-Za-z0-9_-]/g, '') ||
 export function evidenceEvent(gate: Gate, result: GateResult, taskId?: string): GateEvent {
   const code = typeof result.exitCode === 'number' && Number.isInteger(result.exitCode) ? result.exitCode : null
   const lines = [...linesOf(String(result.stdout ?? '')), ...linesOf(String(result.stderr ?? ''))]
-  const first = plain(linesOf(String(result.stdout ?? ''))[0] ?? linesOf(String(result.stderr ?? ''))[0] ?? '', 120)
+  // A failed gate names the line that says why (an `[ERROR]` line, one naming an error), never a `[WARN]` banner printed first.
+  const failedWith = code === null || code === 0 ? null : errorLine(String(result.stderr ?? '')) ?? errorLine(String(result.stdout ?? ''))
+  const first = plain(failedWith ?? linesOf(String(result.stdout ?? ''))[0] ?? linesOf(String(result.stderr ?? ''))[0] ?? '', 120)
   const size = lines.length === 0 ? 'no output' : `${lines.length} ${lines.length === 1 ? 'line' : 'lines'} of output`
   const head = code === null ? 'no exit code (it did not finish)' : `exit ${code}`
 

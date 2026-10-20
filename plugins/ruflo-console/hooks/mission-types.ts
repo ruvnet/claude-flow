@@ -24,6 +24,8 @@ export type MissionRecord = {
   loop?: unknown
   /** ADR-480: the file names of the project's ADRs attached to this mission (validated where read). */
   adrs?: string[]
+  /** The project directory the mission was created in (#4237); absent on missions saved before it was recorded. */
+  cwd?: string
 }
 export type McTab = 'plan' | 'tasks' | 'agents' | 'evidence' | 'record' | 'loop'
 export type Derived = 'done' | 'running' | 'ready' | 'waiting' | 'failed' | 'cancelled'
@@ -37,6 +39,10 @@ export type McState = {
   planned: Plan | null
   missions: Map<string, MissionRecord>
   active: string | null
+  /** Missions saved before #4237 that name no project (the old shared ledger, or a copy of it): offered here, never taken in without the person (#4254). */
+  legacy: MissionRecord[]
+  /** Offered missions the person said are not this project's: not offered here again; they stay in the old ledger for the project they belong to. */
+  legacyDismissed: Set<string>
   tab: McTab
   /** The last instruction sent to Claude, kept so it can be edited and sent again. */
   lastGuide: string
@@ -45,8 +51,12 @@ export type McState = {
   /** AIDefence's verdict on the goal (null: not screened yet or the screen is off), and whether the screen is on. */
   screen: Screen | null
   isScreenOn: boolean
-  last: { label: string; ok: boolean; detail: string; atMs?: number; next?: string } | null
+  /** `lines` add what one line cannot hold (which tasks are still pending after a failed create). */
+  last: { label: string; ok: boolean; detail: string; atMs?: number; next?: string; lines?: string[] } | null
 }
+
+/** Who resumed a mission: only the person re-arms hand-outs that ran out (#3823). */
+export type ResumeBy = 'person' | 'model'
 
 export type MissionActions = {
   goal: (text: string) => void
@@ -55,10 +65,15 @@ export type MissionActions = {
   tab: (tab: McTab) => void
   create: () => void
   select: (id: string) => void
+  /** Takes one offered pre-#4237 mission into this project (recorded under its directory) and removes it from the old shared ledger (#4254). */
+  adoptLegacy: (id: string) => void
+  /** Stops offering one of them (or, with no id, all of them) in this project; they stay in the old shared ledger for the project they belong to (#4254). */
+  dismissLegacy: (id?: string) => void
   /** Hands the next ready task to the primary session (asks first: it starts a model turn). */
   next: () => void
   pause: () => void
-  resume: () => void
+  /** Resume dispatching. The person's resume gives each task its hand-outs back; Claude's (`'model'`) keeps the counts (#3823). */
+  resume: (by?: ResumeBy) => void
   cancel: () => void
   /** Auto-run: when a task finishes and the session is idle, hand over the next ready one without asking. */
   auto: (on: boolean) => void

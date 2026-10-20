@@ -34,8 +34,11 @@ describe('TokenOptimizer', () => {
     });
 
     async function canLoadAgenticFlow(): Promise<boolean> {
-      try { await import('agentic-flow'); return true; }
-      catch { return false; }
+      for (const subpath of ['agentic-flow/reasoningbank', 'agentic-flow/agent-booster']) {
+        try { await import(subpath); return true; }
+        catch { /* try the next one */ }
+      }
+      return false;
     }
   });
 

@@ -5,15 +5,16 @@
  * root: a folder or file that is a link is never read or written through, a new file never overwrites, and a status change is refused
  * if the file moved since the diff was shown. The pure parts are in data/adr.ts, data/adr-write.ts and data/adr-scope.ts.
  */
-import type { ActionSpec } from './actions'
+import type { ActionSpec, RunReport } from './actions'
 import { replaceFile } from './activity-io'
 import { indexOf, lint, MAX_FILE, MAX_FILES, parseAdr, type AdrDoc, type AdrStatus, type Finding, type Registry, STATUSES } from './data/adr'
 import { checkScope, digestBlock, reportLines, suggest, type ScopeReport, type Suggestion } from './data/adr-scope'
-import { adrDirText, detectStyle, draftFromMission, fileNameFor, initialRecord, lineDiff, nextNumber, renderNew, titleText, withStatus, withSupersedes, type Style, type StyleName } from './data/adr-write'
+import { adrDirText, detectStyle, draftFromMission, fileNameFor, initialRecord, lineDiff, nextNumber, renderNew, titleClean, titleFit, withStatus, withSupersedes, type Style, type StyleName } from './data/adr-write'
 import { record as recordEvents } from './data/events'
 import { readBounded, type ReadCache } from './data/files'
 import { plain } from './data/parse'
 import { checkNoLinks, dirOf, newFileArgv, replaceFileArgv } from './data/wf-file'
+import { writeFlavorReady } from './data/write-flavor'
 import type { Host } from './host'
 import { activeMission, mcOf, record, saveLedger } from './mission-control'
 import type { MissionRecord } from './mission-types'
@@ -173,6 +174,20 @@ export const say = (state: State, host: Pick<Host, 'invalidate'>, label: string,
   host.invalidate()
 }
 
+/**
+ * The page's last result as a run's report, so the runner keeps it as the outcome Claude reads too. The detail is the line that says what
+ * happened: the first of a success, the last of a failure (whatever was written before it stays in the lines).
+ */
+export function reported(state: State): RunReport | undefined {
+  const last = adrOf(state).last
+
+  if (last === null) return undefined
+
+  const at = last.ok ? 0 : Math.max(0, last.lines.length - 1)
+
+  return { label: last.label, ok: last.ok, detail: last.lines[at] ?? '', lines: last.lines.filter((_, index) => index !== at) }
+}
+
 /** One event on the Events page and one toast (source console, level info): the ADR said what happened, once. */
 export function announce(state: State, host: Pick<Host, 'toast'>, text: string): void {
   const line = plain(text, 118)
@@ -190,13 +205,23 @@ async function writeNew(state: State, host: Pick<Host, 'fs' | 'run'>, dir: strin
   if (!safe.ok) return safe.why
 
   const hasDir = (await host.fs.stat(dirOf(path)).catch(() => undefined)) !== undefined
-  const result = await host.run(newFileArgv(path, hasDir), 10_000, text).catch(() => null)
+  const result = await host.run(newFileArgv(path, hasDir, await writeFlavorReady()), 10_000, text).catch((error: unknown) => ({ exitCode: null, stdout: '', stderr: error instanceof Error ? error.message : 'the command could not start' }))
 
-  if (result === null || result.exitCode !== 0) return 'the file could not be created (it may have appeared meanwhile: nothing was overwritten)'
+  if (result.exitCode !== 0) return writeFailure(result.exitCode, result.stderr)
 
   const back = await host.fs.read(path).catch(() => null)
 
   return back === text ? null : 'the file was written but reads back differently'
+}
+
+/**
+ * Why a create failed, in the person's words: the write's own reason (its first stderr line, plain and capped) and that nothing was
+ * replaced. It does not guess at a race: a file that appeared meanwhile says so in that reason ("cannot overwrite existing file", "File exists").
+ */
+export function writeFailure(exitCode: number | null, stderr: string | undefined): string {
+  const reason = plain((stderr ?? '').split('\n').map(line => line.trim()).find(line => line !== '') ?? '', 160)
+
+  return `the write failed (${exitCode === null ? 'it could not run' : `exit ${exitCode}`}${reason === '' ? '' : `: ${reason}`}); no file was replaced`
 }
 
 /** The new file as the confirm shows it: every line, up to 40, each marked +. */
@@ -226,6 +251,8 @@ export function initSpec(state: State, host: Pick<Host, 'fs' | 'run' | 'invalida
       await loadAdrs(state, host)
       say(state, host, 'initialise ADRs', problem === null, problem === null ? [`created ${dir}/${first.file}`, 'your project now has an ADR folder; propose the next record from this page'] : [problem])
       if (problem === null) announce(state, host, `ADRs initialised: ${dir}/${first.file}`)
+
+      return reported(state)
     },
   }
 }
@@ -233,9 +260,10 @@ export function initSpec(state: State, host: Pick<Host, 'fs' | 'run' | 'invalida
 /** The confirm for a new proposed record: the next number, the project's file name and headings, never overwriting. */
 export function proposeSpec(state: State, host: Pick<Host, 'fs' | 'run' | 'invalidate' | 'toast'>, rawTitle: string, today: string, extra: { context?: string; decision?: string; scope?: string[] } = {}): ActionSpec | null {
   const adr = adrOf(state)
-  const title = titleText(rawTitle)
+  const title = titleClean(rawTitle)
 
-  if (adr.dir === null || title === '') return null
+  // Over the limit is no proposal at all, never a cut one (ADR-481); the caller says why with titleFit's count.
+  if (adr.dir === null || title === '' || !titleFit(rawTitle).ok) return null
 
   const dir = adr.dir
   const number = nextNumber(adr.registry.docs)
@@ -260,6 +288,8 @@ export function proposeSpec(state: State, host: Pick<Host, 'fs' | 'run' | 'inval
       if (problem === null) adrOf(state).selected = name
       say(state, host, `propose ADR ${number}`, problem === null, problem === null ? [`created ${dir}/${name}`, 'edit its Context and Decision, then accept it from this page'] : [problem])
       if (problem === null) announce(state, host, `ADR ${number} proposed: ${title}`)
+
+      return reported(state)
     },
   }
 }
@@ -328,21 +358,22 @@ export async function statusSpec(state: State, host: Pick<Host, 'fs' | 'run' | '
     note: `Changes only the lines shown, in ${plan.changes.length} file${plan.changes.length === 1 ? '' : 's'} of your project. A file that changed since this diff was made is left alone.`,
     run: async () => {
       const done: string[] = []
+      const failed = (lines: string[]): RunReport | undefined => (say(state, host, `change ADR ${doc.number ?? doc.file}`, false, lines), reported(state))
 
       for (const change of plan.changes) {
         const path = abs(state, dir, change.file)
         const safe = await checkNoLinks(host.fs, path, { cwd: root(state) }, { allowExisting: true })
 
-        if (!safe.ok) return say(state, host, `change ADR ${doc.number ?? doc.file}`, false, [...done, safe.why])
+        if (!safe.ok) return failed([...done, safe.why])
 
         const now = await host.fs.read(path).catch(() => null)
 
-        if (now !== change.before) return say(state, host, `change ADR ${doc.number ?? doc.file}`, false, [...done, `${change.file} changed since the diff was shown: nothing was written to it. Ask again.`])
+        if (now !== change.before) return failed([...done, `${change.file} changed since the diff was shown: nothing was written to it. Ask again.`])
 
-        const result = await host.run(replaceFileArgv(path, true), 10_000, change.after).catch(() => null)
+        const result = await host.run(replaceFileArgv(path, true, await writeFlavorReady()), 10_000, change.after).catch(() => null)
         const back = await host.fs.read(path).catch(() => null)
 
-        if (result === null || result.exitCode !== 0 || back !== change.after) return say(state, host, `change ADR ${doc.number ?? doc.file}`, false, [...done, `${change.file} could not be written as shown`])
+        if (result === null || result.exitCode !== 0 || back !== change.after) return failed([...done, `${change.file} could not be written as shown`])
 
         done.push(`wrote ${change.file}`)
       }
@@ -350,6 +381,8 @@ export async function statusSpec(state: State, host: Pick<Host, 'fs' | 'run' | '
       await loadAdrs(state, host)
       say(state, host, `change ADR ${doc.number ?? doc.file}`, true, done)
       announce(state, host, `ADR ${doc.number ?? doc.file} ${to === 'superseded' && by !== null ? `superseded by ADR ${by.number}` : to}`)
+
+      return reported(state)
     },
   }
 }

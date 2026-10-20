@@ -11,12 +11,13 @@ Steps:
    `npm ls neural-trader 2>/dev/null || npm install --ignore-scripts neural-trader`
 2. Scan for signals:
    ```bash
-   npx neural-trader --signal scan --symbols <TICKERS>
+   npx neural-trader --signal scan --symbols <TICKERS> --live
    ```
    With a specific strategy:
    ```bash
-   npx neural-trader --signal scan --strategy <name> --symbols <TICKERS>
+   npx neural-trader --signal scan --strategy <name> --symbols <TICKERS> --live
    ```
+   Without `--live` the scan runs on deterministic synthetic bars (`dataSource: "synthetic"`). Check `dataSource` in the result; if it is not `yahoo-finance` (including when the live fetch failed and fell back), present the result as a demo and propose no entry, stop or target.
 3. If --strategy specified, load strategy filters:
    `mcp__plugin_ruflo-core_ruflo__memory_retrieve({ key: "strategy-NAME", namespace: "trading-strategies" })`
 4. neural-trader classifies anomalies automatically:
@@ -32,4 +33,4 @@ Steps:
    `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search({ query: "ANOMALY_TYPE score RANGE", namespace: "trading-signals" })`
 7. Present ranked signals: instrument, direction, confidence, anomaly type, entry/stop/target
 8. Store signals with a 24-hour TTL (intraday signals shouldn't pollute long-running memory; the `MemoryConsolidator.sweepExpired()` pass introduced in ADR-125 Phase 4 — shipped in `@claude-flow/memory@3.0.0-alpha.18` — sweeps them out after they expire):
-   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "signal-TIMESTAMP", value: "SIGNALS_JSON", namespace: "trading-signals", expiresAt: Date.now() + 24 * 60 * 60 * 1000 })`
+   `mcp__plugin_ruflo-core_ruflo__memory_store({ key: "signal-TIMESTAMP", value: "SIGNALS_JSON", namespace: "trading-signals", ttl: 86400 })` (`ttl` is in seconds; `expiresAt` is not a `memory_store` parameter and would be ignored, leaving the signal in memory forever)

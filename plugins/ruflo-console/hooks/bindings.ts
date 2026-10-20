@@ -21,6 +21,7 @@ import { workflowsActions } from './wf-actions'
 import { missionActions } from './mission-control'
 import { catalogActions } from './plugin-catalog'
 import { saveAllowed } from './remember'
+import { themeActions } from './themes'
 import { pluginNames, settingsActions } from './settings'
 import { catalogOf } from './plugin-catalog'
 import { wireAnatole } from './anatole'
@@ -45,6 +46,7 @@ import { UPDATES_KEY } from './updates'
 import { setToastMode, toggleToastMute } from './toasts'
 import { whatsnewActions } from './whatsnew'
 import { adrActions } from './adr-actions'
+import { sessionActions } from './sessions'
 import { vectorActions } from './vector'
 import type { Actions } from './views/common'
 import { openTasks, selection } from './views/select'
@@ -237,7 +239,15 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
 
       if (best !== undefined) runner.runEntry(best, best.run.kind === 'text' ? state.palette.query.trim().slice(best.run.keyword.length).trim() : '')
     },
-    run: (id, text = '') => runner.runById(id, text),
+    run: (id, text = '') => {
+      const before = state.pending?.id
+      const isRun = runner.runById(id, text)
+
+      // The card this field text raised, by id: Enter again on the same text confirms that card and no other.
+      state.askedAgain = state.pending !== null && state.pending.id !== before && state.pending.id !== undefined ? { entry: id, text: text.trim(), card: state.pending.id } : null
+
+      return isRun
+    },
     costBudgetDraft: text => {
       state.costBudgetDraft = text
     },
@@ -307,7 +317,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
           state.terminal.draft = ''
           state.terminal.harness = pick.id
           // An ask the previous harness left on screen goes with it.
-          if (state.terminal.asked !== null && state.pending?.label === state.terminal.asked.label) runner.cancel()
+          if (state.terminal.asked !== null && state.terminal.asked.card !== null && state.pending?.id === state.terminal.asked.card) runner.cancel()
           state.terminal.asked = null
           host.invalidate()
           keepField()
@@ -331,10 +341,11 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
         }
 
         // The engine may empty the field on submit, so an empty Enter on a pending ask confirms it too.
-        if (asked !== null && (asked.key === key || text.trim() === '') && state.pending?.label === asked.label) {
+        // Enter again answers the card this field raised, by its id: a card with the same words that took its place is not it.
+        if (asked !== null && asked.card !== null && (asked.key === key || text.trim() === '') && state.pending?.id === asked.card) {
           state.terminal.asked = null
           state.terminal.draft = ''
-          void runner.confirm()
+          void runner.confirm(asked.card)
 
           return
         }
@@ -343,8 +354,10 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
 
         // The text is in the pending ask (an empty Enter or Yes runs it): the field clears, unless it cannot be sent and stays to be fixed.
         state.terminal.draft = spec !== null ? '' : text
+        const before = state.pending?.id
+
         runner.ask(spec, whyNotRun(state, text) ?? 'nothing to run')
-        state.terminal.asked = spec !== null ? { key, label: spec.label } : null
+        state.terminal.asked = spec !== null ? { key, label: spec.label, card: state.pending !== null && state.pending.id !== before ? (state.pending.id ?? null) : null } : null
       },
       stop: () => {
         for (const run of state.terminal.runs.values()) run.stop()
@@ -396,6 +409,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
     // An rvlite query is MCP-only: it goes to the AI terminal typed, as ▸ edit does, and runs only when sent.
     vector: vectorActions(state, runner, text => actions.term.load('claude', text)),
     evolve: evolveActions(state, host, text => actions.term.ask('claude', text)),
+    themes: themeActions(state, host, (agent, text) => actions.term.ask(agent, text)),
     settings: settingsActions(state, host, runner, (agent, text) => actions.term.ask(agent, text), () => CLI_PREFIXES[state.options.cli], () => pluginNames(state, (catalogOf(state).plugins ?? []).filter(plugin => plugin.options.length > 0).map(plugin => plugin.name))),
     mission: { ...missionActions(state, host, runner), ...claudeActions(state, host, runner) },
     ask: askActions(state, host, runner, () => actions),
@@ -405,6 +419,7 @@ export function actionsOf(state: State, host: Host, runner: Runner, steps: Steps
     watch: watchActions(state, () => host.invalidate(), (question, view) => actions.ask.ask(question, view)),
     events: eventsActions(state, host, () => host.invalidate(), (spec, why = 'that cannot run here') => runner.ask(spec, why), question => actions.ask.ask(question, 'events')),
     timeline: timelineActions(state, host, () => host.invalidate(), id => setView(id), (spec, why = 'that cannot run here') => runner.ask(spec, why), question => actions.ask.ask(question, 'timeline')),
+    sessions: sessionActions(state, host),
     room: roomActions(state, () => host.invalidate(), (id, text) => runner.runById(id, text), () => roomPages(state)),
     navigator: navActions(state, () => host.invalidate(), view => actions.view(view)),
     catalog: catalogActions(state, host, runner, text => actions.term.load('claude', text)),

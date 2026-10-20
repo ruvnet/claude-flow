@@ -8,8 +8,16 @@ import type { Outcome } from '../state'
 import { jsonAfter } from './cli'
 import { plain, recordOf, stringOf } from './parse'
 
-/** `npx -y skills`: downloads the CLI on first use, so every run here reaches the network. */
-export const SKILLS = ['npx', '-y', 'skills'] as const
+/**
+ * The skills CLI release every action runs, pinned like the AI page's Codex (`PINNED_CODEX`): `npx -y skills` would
+ * fetch and execute whatever `latest` is at that moment, with the person's permissions and their agents' skill folders.
+ * Raise it deliberately after reading the new release. Limits: this fixes the top-level package only. Its own dependencies (tar, yaml at
+ * 1.7.2) are ranges npm resolves when the CLI is first fetched, and the first run needs the network; a run that cannot fetch it shows the
+ * exit code and the first line of npm's message on the page.
+ */
+export const PINNED_SKILLS = '1.7.2'
+/** `npx -y skills@<pin>`: downloads that CLI on first use, so every run here reaches the network. */
+export const SKILLS = ['npx', '-y', `skills@${PINNED_SKILLS}`] as const
 
 export type Scope = 'project' | 'global'
 
@@ -32,7 +40,7 @@ export type SkillsState = {
   createDraft: string
   /** The change running now (its label), and the create the last Enter asked about: Enter on it again confirms. */
   busy: string | null
-  asked: { key: string; label: string } | null
+  asked: { key: string; label: string; card: number | null } | null
   /** How the last change went, kept for the view after the footer lets it go. */
   last: Outcome | null
   /** Where ▸ add and ▸ update all go: the scope, and the agents named to `--agent` (none: the CLI's own pick). */

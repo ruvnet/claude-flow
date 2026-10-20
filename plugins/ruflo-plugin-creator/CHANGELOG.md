@@ -2,6 +2,13 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.4.3 — 2026-10-11
+- fix: create-plugin required-fields list now matches `audit-plugin-manifest` (adds `keywords`, name equals directory, bump the version on every change) and the agentdb tool count is 20
+- fix: validate-plugin check 10 now verifies referenced tools exist (`mcp tools`), not only that they carry the right prefix
+
+## 0.4.2 — 2026-10-09
+- fix: the mod template's manifest is plugin.json.tmpl, so the claude.ai validator no longer reads templates/mod as a nested plugin; scripts/scaffold-mod.mjs scaffolds it and a smoke step validates and tests the result
+
 ## 0.4.1 — 2026-10-05
 - feat: status contract in the create-mod template (0.4.1)
 

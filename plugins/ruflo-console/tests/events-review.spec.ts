@@ -261,7 +261,7 @@ describe('the append path', () => {
     await flush(hostOn(disk), odd, `${odd}f.jsonl`, T)
 
     expect(disk.runs.every(argv => !['sh', 'bash', 'zsh'].includes(argv[0] as string) && !argv.includes('-c'))).toBe(true)
-    expect(appendArgv('/p/a b')).toEqual(['dd', 'of=/p/a b', 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'])
+    expect(appendArgv('/p/a b', 'gnu')).toEqual(['dd', 'of=/p/a b', 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'])
     expect(BATCH_MAX + 2000).toBeLessThan(1024 * 1024)
   })
 
@@ -271,7 +271,7 @@ describe('the append path', () => {
     try {
       const batch = (c: string): string => Array.from({ length: 60 }, (_, i) => `{"w":"${c}","n":${i},"pad":"${c.repeat(900)}"}\n`).join('')
       const file = join(dir, 'out.jsonl')
-      const [cmd, ...rest] = appendArgv(file) as string[]
+      const [cmd, ...rest] = appendArgv(file, 'gnu') as string[]
       const script = Array.from({ length: 8 }, (_, w) => {
         const src = join(dir, `b${w}.txt`)
 

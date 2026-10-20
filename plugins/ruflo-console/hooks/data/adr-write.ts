@@ -4,6 +4,7 @@
  * change as a diff. Pure: nothing here touches a disk. The caller (hooks/adr.ts) writes only what a person confirmed, re-reads the file
  * first and refuses if it moved since the diff was shown.
  */
+import { checkLimit, type Limit } from '../full-text'
 import { plain } from './parse'
 import { type AdrDoc, type AdrFormat, type AdrStatus } from './adr'
 
@@ -80,8 +81,22 @@ export const slugOf = (title: string): string =>
     .slice(0, 60)
     .replace(/-+$/, '') || 'untitled'
 
-/** A title as one safe line: no control characters, no leading markdown marks, no link syntax, at most 120 characters. */
-export const titleText = (value: string): string => plain(value, 160).replace(/^[#>\-*\s]+/, '').replace(/[[\]()`|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120)
+/** The longest title a person may give a new record: its heading and its file name (ADR-481: longer is refused with the count, never cut). */
+export const ADR_TITLE_MAX = 120
+/** The longest title a draft takes from a mission's objective; the shortening is said on the confirm card and the objective is in the record. */
+export const DRAFT_TITLE_MAX = 100
+
+/** A title as one safe line, whole: no control characters, no leading markdown marks, no link syntax. Never shortened. */
+export const titleClean = (value: string): string => plain(value, Number.MAX_SAFE_INTEGER).replace(/^[#>\-*\s]+/, '').replace(/[[\]()`|]/g, '').replace(/\s+/g, ' ').trim()
+
+/** Whether a title a person typed fits, counted as it would be written; over the limit, the message with the count. */
+export const titleFit = (title: string): Limit => checkLimit(titleClean(title), ADR_TITLE_MAX, 'the title', 'it is the record’s heading and file name; put the rest in the record itself')
+
+/**
+ * The title of a record ALREADY in the folder, as one safe line for a link written into another record (supersede). A backstop for text
+ * this console did not take from a person; a title a person types goes through `titleFit` and is never cut.
+ */
+export const recordTitle = (value: string): string => Array.from(titleClean(value)).slice(0, ADR_TITLE_MAX).join('')
 
 export const padNumber = (number: number, width: number): string => String(number).padStart(width, '0')
 
@@ -97,12 +112,12 @@ export const statusWord = (status: AdrStatus): string => WORD[status]
 
 const label = (style: Style, number: number): string => (style.pattern.startsWith('ADR-') ? `ADR-${padNumber(number, style.width)}` : `ADR ${padNumber(number, style.width)}`)
 
-export type NewAdr = { number: number; title: string; date: string; status?: AdrStatus; scope?: string[]; context?: string; decision?: string }
+export type NewAdr = { number: number; title: string; date: string; status?: AdrStatus; scope?: string[]; context?: string; decision?: string; titleShortenedFrom?: number }
 
 /** A new record in the style: the same headings the project's other records use. The decision is left for the person unless one is given. */
 export function renderNew(style: Style, adr: NewAdr): string {
   const status = statusWord(adr.status ?? 'proposed')
-  const title = titleText(adr.title)
+  const title = titleClean(adr.title)
   const context = adr.context ?? 'What is the issue that is motivating this decision or change?'
   const decision = adr.decision ?? 'What is the change that we are proposing or have agreed to implement?'
   const scope = (adr.scope ?? []).filter(entry => /^[\w@./*-]{1,160}$/.test(entry)).slice(0, 12)
@@ -138,7 +153,7 @@ const TABLE_STATUS = /^(\s*\|\s*\**status\**\s*\|\s*)(.*?)(\s*\|?\s*)$/i
 /** What the status line says after a change: `Accepted`, or `Superseded by ADR-0005` / `Superseded by [5. Title](0005-x.md)`. */
 export function statusText(style: Style, to: AdrStatus, by: { number: number; title: string; file: string } | null, format: AdrFormat): string {
   if (to !== 'superseded' || by === null) return statusWord(to)
-  if (format === 'nygard') return `Superseded by [${by.number}. ${titleText(by.title)}](${by.file})`
+  if (format === 'nygard') return `Superseded by [${by.number}. ${recordTitle(by.title)}](${by.file})`
   if (format === 'madr') return `superseded by ADR-${padNumber(by.number, style.width)}`
 
   return `Superseded by ${label(style, by.number).replace(' ', '-')}`
@@ -204,7 +219,7 @@ export function withSupersedes(text: string, doc: AdrDoc, style: Style, old: { n
   if (doc.supersedes.includes(old.number)) return { ok: true, text }
 
   const lines = text.split('\n')
-  const link = doc.format === 'nygard' ? `Supersedes [${old.number}. ${titleText(old.title)}](${old.file})` : `${doc.format === 'inline' ? '**Supersedes**' : 'Supersedes'}: ${label(style, old.number).replace(' ', '-')}`
+  const link = doc.format === 'nygard' ? `Supersedes [${old.number}. ${recordTitle(old.title)}](${old.file})` : `${doc.format === 'inline' ? '**Supersedes**' : 'Supersedes'}: ${label(style, old.number).replace(' ', '-')}`
 
   if (doc.format === 'madr') {
     const close = lines.findIndex((line, index) => index > 0 && line === '---')
@@ -255,12 +270,17 @@ export function lineDiff(before: string, after: string, file = 'file'): string[]
 
 /** A draft record for a finished mission: only what the mission itself said (its goal, its tasks and their results); the decision is left to the person. */
 export function draftFromMission(mission: { objective: string; tasks: readonly { title: string; result?: string }[] }, scope: readonly string[], date: string): NewAdr {
-  const done = mission.tasks.slice(0, 12).map(task => `- ${titleText(task.title)}${task.result === undefined || task.result === '' ? '' : `: ${plain(task.result, 140)}`}`)
+  // Counted and cut in code points, as titleFit counts: a cut never leaves half of a surrogate pair.
+  const whole = titleClean(mission.objective)
+  const points = Array.from(whole)
+  const title = points.length > DRAFT_TITLE_MAX ? points.slice(0, DRAFT_TITLE_MAX).join('').trim() : whole
+  const done = mission.tasks.slice(0, 12).map(task => `- ${titleClean(task.title)}${task.result === undefined || task.result === '' ? '' : `: ${plain(task.result, 140)}`}`)
 
   return {
     number: 0,
     date,
-    title: titleText(mission.objective).slice(0, 100),
+    title,
+    ...(title !== whole && { titleShortenedFrom: points.length }),
     status: 'proposed',
     scope: [...scope],
     context: `A mission set out to: ${plain(mission.objective, 2_000)}`,

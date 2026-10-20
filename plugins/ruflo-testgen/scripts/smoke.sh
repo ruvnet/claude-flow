@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.3.1 with new keywords"
+step "1. plugin.json declares 0.3.3 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.3.1" ]]; then bad "expected 0.3.1, got '$v'"; else
+if [[ "$v" != "0.3.3" ]]; then bad "expected 0.3.3, got '$v'"; else
   miss=""
   for k in mcp tdd-london-school coverage-routing; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -93,6 +93,9 @@ process.exit(Object.keys(c).length === 0 ? 0 : 1)
 
 step "M3. mod: hooks never touch the network or spawn a process"
 if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
+
+step "R. TDD outcome reporting"
+node "$ROOT/tests/tdd-workflow.regression.cjs" > /dev/null 2>&1 && ok || bad "regression contract failed"
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

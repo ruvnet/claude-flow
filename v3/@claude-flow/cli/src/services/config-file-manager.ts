@@ -131,15 +131,15 @@ export class ConfigFileManager {
     this.selectProject(cwd);
     // A targeted update must not persist unrelated defaults (notably the
     // default memory path, which would relocate an existing memory store).
-    const config = this.config ?? this.load(cwd) ?? {};
+    const config = structuredClone(this.config ?? this.load(cwd) ?? {});
     if (Object.hasOwn(config, key)) {
       config[key] = value;
     } else {
       setNestedValue(config, key, value);
     }
-    this.config = config;
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, config);
+    this.config = config;
     this.configPath = targetPath;
   }
 
@@ -157,11 +157,28 @@ export class ConfigFileManager {
     return targetPath;
   }
 
-  /** Reset config to defaults */
-  reset(cwd: string): string {
+  /** Reset all configuration or only the selected section to defaults. */
+  reset(cwd: string, section = 'all'): string {
+    if (!['agents', 'swarm', 'memory', 'mcp', 'providers', 'all'].includes(section)) {
+      throw new Error(`Unknown configuration section: ${section}`);
+    }
     this.selectProject(cwd);
     const targetPath = this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
-    const config = structuredClone(DEFAULT_CONFIG);
+    const config = section === 'all'
+      ? structuredClone(DEFAULT_CONFIG)
+      : structuredClone(this.load(cwd) ?? {});
+    if (section === 'providers') {
+      // Provider defaults are supplied by the provider command, so remove
+      // only the persisted override, as a whole reset already does.
+      delete config.providers;
+    } else if (section !== 'all') {
+      config[section] = structuredClone(DEFAULT_CONFIG[section]);
+    }
+    if (section !== 'all') {
+      for (const key of Object.keys(config)) {
+        if (key.startsWith(`${section}.`)) delete config[key];
+      }
+    }
     this.writeAtomic(targetPath, config);
     this.config = config;
     this.configPath = targetPath;
@@ -265,7 +282,7 @@ export function parseConfigValue(value: string): unknown {
   if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
   try {
     const parsed = JSON.parse(value);
-    if (typeof parsed === 'object') return parsed;
+    if (typeof parsed === 'object' || (typeof parsed === 'number' && Number.isFinite(parsed))) return parsed;
   } catch { /* not JSON, use as string */ }
   return value;
 }

@@ -7,6 +7,7 @@
 import { isoOf } from './safe'
 import type { ActionSpec } from '../actions'
 import { newFileArgv } from './wf-file'
+import type { WriteFlavor } from './write-flavor'
 import { cleanText } from './wf-clean'
 import { fmtElapsed, fmtTokens, modelName, type WfAgent, type WfRun } from './workflows'
 
@@ -81,16 +82,16 @@ function capped(text: string): string {
 }
 
 /** The confirm-gated write of a summary: the card shows the path and size, the argv is fixed and the text goes in on stdin. */
-export function exportSpec(path: string, markdown: string, label: string, hasDir: boolean): ActionSpec {
+export function exportSpec(path: string, markdown: string, label: string, hasDir: boolean, flavor: WriteFlavor): ActionSpec {
   return {
     label: `write run summary: ${label}`,
     args: [],
-    argv: newFileArgv(path, hasDir),
+    argv: newFileArgv(path, hasDir, flavor),
     stdin: markdown,
     expect: `a new file at ${path}`,
     declared: 'write',
     shows: `write ${path} (${BYTES(markdown)} bytes; never overwrites)`,
-    note: 'writes one new markdown file inside the project or the scratchpad; a file that already exists makes it fail instead of replacing it (a missing folder is made with GNU install, which macOS lacks)',
+    note: 'writes one new markdown file inside the project or the scratchpad; a file that already exists makes it fail instead of replacing it; a missing folder is made first',
     timeoutMs: 10_000,
     verifyLocal: async host => (await host.fs.stat(path).catch(() => undefined)) !== undefined,
   }

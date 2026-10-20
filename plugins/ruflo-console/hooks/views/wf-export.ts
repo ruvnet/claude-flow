@@ -8,6 +8,7 @@ import type { RenderElement } from 'claude-code'
 
 import { exportName, exportSpec, runMarkdown, type ExportCost } from '../data/wf-export'
 import { checkNoLinks, dirOf, EXPORT_DIR, resolveExportPath, type Roots } from '../data/wf-file'
+import { writeFlavorReady } from '../data/write-flavor'
 import { button, clip, row, text, THEME } from './common'
 import { fold, redraw } from './wf-fold'
 import { registerSlot, type SlotEnv } from './wf-slots'
@@ -57,7 +58,7 @@ export async function requestExport(env: Pick<SlotEnv, 'ctx' | 'nowMs'>, run: Wf
 
   const hasDir = (await fs.stat(dirOf(clear.path)).catch(() => undefined)) !== undefined
 
-  env.ctx.act.workflows.ask(exportSpec(clear.path, markdown, clip(run.name, 40), hasDir), 'that summary cannot be written')
+  env.ctx.act.workflows.ask(exportSpec(clear.path, markdown, clip(run.name, 40), hasDir, await writeFlavorReady()), 'that summary cannot be written')
 
   return { ok: true, text: `asked: confirm below to write ${clear.path}` }
 }

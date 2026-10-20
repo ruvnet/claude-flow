@@ -81,13 +81,17 @@ export function judgeInstalls(installs: readonly ClaudeInstall[], enableEnvSet: 
     ? `; also installed: ${others.map((i) => `${i.path} (${i.version ?? 'unknown'})`).join(', ')}. The first on PATH runs; a stale one can shadow a current one.`
     : '';
   const runs = `${first!.path} (${first!.version ?? 'version unknown'})`;
-  if (!first!.version) return { status: 'warn', message: `claude resolves to ${runs}${mixed}` };
+  if (!first!.version) return { status: 'warn', message: `claude resolves to ${runs}${mixed}`, fix: `run \`${first!.path} --version\` and reinstall Claude Code if it prints nothing` };
   if (!versionLess(first!.version, MODS_DEFAULT_ON)) {
-    return { status: others.length ? 'warn' : 'pass', message: `claude resolves to ${runs}: mods on by default${mixed}` };
+    return others.length
+      ? { status: 'warn', message: `claude resolves to ${runs}: mods on by default${mixed}`, fix: `put the claude you want first on PATH, or remove: ${others.map((i) => i.path).join(' ')}` }
+      : { status: 'pass', message: `claude resolves to ${runs}: mods on by default` };
   }
   if (!versionLess(first!.version, MODS_FIRST)) {
     return enableEnvSet
-      ? { status: others.length ? 'warn' : 'pass', message: `claude resolves to ${runs}: mods load with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 (set)${mixed}` }
+      ? (others.length
+        ? { status: 'warn' as const, message: `claude resolves to ${runs}: mods load with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 (set)${mixed}`, fix: `put the claude you want first on PATH, or remove: ${others.map((i) => i.path).join(' ')}` }
+        : { status: 'pass' as const, message: `claude resolves to ${runs}: mods load with CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 (set)` })
       : { status: 'warn', message: `claude resolves to ${runs}: below ${MODS_DEFAULT_ON}, mods need CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 (not set)${mixed}`, fix: `upgrade to >= ${MODS_DEFAULT_ON}, or export CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` };
   }
   return { status: 'warn', message: `claude resolves to ${runs}: predates mods (< ${MODS_FIRST}); classic hooks handle every event${mixed}`, fix: `upgrade to >= ${MODS_DEFAULT_ON} and remove the stale install from PATH` };

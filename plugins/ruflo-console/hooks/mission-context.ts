@@ -31,7 +31,7 @@ function halted(mission: MissionRecord): string | null {
 }
 
 /** The section's text: deterministic, at most CONTEXT_MAX characters. `status` is the active task's derived status. */
-export function missionContextText(mission: MissionRecord, task: LedgerTask | null, loop: LoopInfo, status: TaskStatus = 'ready', adrBlock = ''): string {
+export function missionContextText(mission: MissionRecord, task: LedgerTask | null, loop: LoopInfo, status: TaskStatus = 'ready', adrBlock = '', nudge = ''): string {
   const lines: string[] = [`Mission ${clip(mission.id, 40)}: ${clip(mission.objective, MISSION_OBJECTIVE_MAX)}`]
   const stop = halted(mission)
 
@@ -53,7 +53,10 @@ export function missionContextText(mission: MissionRecord, task: LedgerTask | nu
   const base = text.length <= CONTEXT_MAX ? text : `${text.slice(0, CONTEXT_MAX - 1)}…`
 
   // The attached ADRs (ADR-480) follow the mission's own lines, under their own cap (data/adr-scope.ts), already masked.
-  return adrBlock === '' ? base : `${base}\n${adrBlock}`
+  const withAdrs = adrBlock === '' ? base : `${base}\n${adrBlock}`
+
+  // ADR-487: one fixed line from grounding.ts (already through modelLine); empty unless the optional ruvnet-brain plugin is on.
+  return nudge === '' ? withAdrs : `${withAdrs}\n${nudge}`
 }
 
 /** A short, stable hash of the ADR block: the key changes when an attached record's status or decision does, and not otherwise. */
@@ -66,8 +69,8 @@ const hashOf = (text: string): string => {
 }
 
 /** What the section depends on, nothing else: the same key means Claude's prompt is byte-identical, so its cache holds. */
-export function missionContextKey(mission: MissionRecord, task: LedgerTask | null, loop: LoopInfo, status: TaskStatus = 'ready', adrBlock = ''): string {
-  return [mission.id, task === null ? '-' : `${task.id}:${status}`, mission.paused ? 'paused' : 'live', mission.cancelled ? 'cancelled' : 'open', loop === null ? 'noloop' : 'loop', adrBlock === '' ? '-' : `adr${hashOf(adrBlock)}`].join('|')
+export function missionContextKey(mission: MissionRecord, task: LedgerTask | null, loop: LoopInfo, status: TaskStatus = 'ready', adrBlock = '', nudge = ''): string {
+  return [mission.id, task === null ? '-' : `${task.id}:${status}`, mission.paused ? 'paused' : 'live', mission.cancelled ? 'cancelled' : 'open', loop === null ? 'noloop' : 'loop', adrBlock === '' ? '-' : `adr${hashOf(adrBlock)}`, nudge === '' ? '-' : 'ground'].join('|')
 }
 
 /** Only the exact value 'off' (or false) turns the section off; anything else, including no value at all, leaves it on. */

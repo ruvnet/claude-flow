@@ -8,7 +8,9 @@
  */
 import { exec, type ActionSpec } from './actions'
 import { jsonAfter, type AuditTrend } from './data/cli'
+import { rowsWith, type Findings } from './data/failure'
 import { idOf, plain, recordOf } from './data/parse'
+import { countOf, measureOf } from './data/safe'
 import type { State } from './state'
 
 /** `read`: $0, changes nothing. `writes`: $0, writes a file or memory. `local`: minutes of local compute that writes. `spends`: may call paid models. */
@@ -32,6 +34,8 @@ export type LabEntry = {
   types?: string
   note?: string
   timeoutMs?: number
+  /** Its "found something" exits and answer shape (ActionSpec.findings). */
+  findings?: Findings
 }
 
 export const LAB_GROUPS: readonly { id: LabGroup; title: string; right: string }[] = [
@@ -42,6 +46,16 @@ export const LAB_GROUPS: readonly { id: LabGroup; title: string; right: string }
 
 const MH = 'metaharness'
 const JSON_OUT = ['--format', 'json'] as const
+// plugins/ruflo-metaharness/scripts/*.mjs (passed through by commands/metaharness.ts' dispatchPluginScript) print their
+// JSON and then exit 1 when its `alert` triggered, and exit 2 on a real failure. Only three alert with the argv used here:
+// mcp-scan and threat-model (--fail-on high by default) and drift-from-history (--threshold 0.95 by default). score,
+// genome, audit-trend, similarity and oia-audit alert only with a flag this lab never passes, so they declare nothing.
+// redblue also passes an upstream non-zero exit through after its JSON, so it declares nothing either.
+const alertOf = (json: Record<string, unknown>) => recordOf(json.alert)
+const alerted = (json: Record<string, unknown>) => alertOf(json)?.triggered === true
+const MCP_SCAN_FOUND: Findings = { exits: [1], isAnswer: json => rowsWith(json.findings, ['severity']) && typeof alertOf(json)?.triggered === 'boolean', found: alerted }
+const THREAT_FOUND: Findings = { exits: [1], isAnswer: json => typeof json.worst === 'string' && rowsWith(json.findings, []) && typeof alertOf(json)?.triggered === 'boolean' && typeof alertOf(json)?.worst === 'string', found: alerted }
+const DRIFT_FOUND: Findings = { exits: [1], isAnswer: json => json.command === 'drift-from-history' && recordOf(json.baseline) !== null && recordOf(json.current) !== null && typeof alertOf(json)?.triggered === 'boolean', found: alerted }
 
 /** The two newest stored audits' keys, oldest first, from the `audits` probe; null until there are two. */
 export function auditKeys(state: State): [string, string] | null {
@@ -59,12 +73,12 @@ const TWO_AUDITS = 'needs two stored audits (metaharness audit-list): run "MetaH
 export const LAB: readonly LabEntry[] = [
   { id: 'mh-score', group: 'inspect', name: 'SCORE', about: 'five readiness axes and the est. cost per run', label: 'score the harness now (metaharness score)', cost: 'read', args: [MH, 'score', ...JSON_OUT] },
   { id: 'mh-genome', group: 'inspect', name: 'GENOME', about: 'repo type, topology, risk, MCP surface, verdict', label: 'genome: the seven-section readiness report', cost: 'read', args: [MH, 'genome', ...JSON_OUT] },
-  { id: 'mh-mcp-scan', group: 'inspect', name: 'MCP-SCAN', about: 'static findings on the MCP surface, by severity', label: 'mcp-scan: static MCP findings by severity', cost: 'read', args: [MH, 'mcp-scan', ...JSON_OUT] },
-  { id: 'mh-threat', group: 'inspect', name: 'THREAT-MODEL', about: 'the worst severity, access flags and findings', label: 'threat-model: worst severity and its findings', cost: 'read', args: [MH, 'threat-model', ...JSON_OUT] },
+  { id: 'mh-mcp-scan', group: 'inspect', name: 'MCP-SCAN', about: 'static findings on the MCP surface, by severity', label: 'mcp-scan: static MCP findings by severity', cost: 'read', args: [MH, 'mcp-scan', ...JSON_OUT], findings: MCP_SCAN_FOUND },
+  { id: 'mh-threat', group: 'inspect', name: 'THREAT-MODEL', about: 'the worst severity, access flags and findings', label: 'threat-model: worst severity and its findings', cost: 'read', args: [MH, 'threat-model', ...JSON_OUT], findings: THREAT_FOUND },
   { id: 'mh-doctor', group: 'inspect', name: 'DOCTOR', about: 'is MetaHarness installed, its packages and scripts intact', label: 'doctor --component metaharness: installed and intact?', cost: 'read', args: ['doctor', '--component', MH] },
   { id: 'mh-trend', group: 'inspect', name: 'AUDIT-TREND', about: 'the newest stored audit against the one before', label: 'audit-trend: the newest audit against the one before', cost: 'read', args: state => { const keys = auditKeys(state); return keys === null ? null : [MH, 'audit-trend', '--baseline-key', keys[0], '--current-key', keys[1], ...JSON_OUT] }, why: TWO_AUDITS },
   { id: 'mh-similarity', group: 'inspect', name: 'SIMILARITY', about: 'how alike the newest two audits are, per dimension', label: 'similarity: the newest two audits, per dimension', cost: 'read', args: state => { const keys = auditKeys(state); return keys === null ? null : [MH, 'similarity', '--a-key', keys[0], '--b-key', keys[1], '--per-dimension', ...JSON_OUT] }, why: TWO_AUDITS },
-  { id: 'mh-drift', group: 'inspect', name: 'DRIFT', about: 'a fresh audit against the newest stored one, not stored', label: 'drift-from-history: a fresh audit against the last (dry run)', cost: 'read', args: [MH, 'drift-from-history', '--dry-run', ...JSON_OUT], timeoutMs: 240_000 },
+  { id: 'mh-drift', group: 'inspect', name: 'DRIFT', about: 'a fresh audit against the newest stored one, not stored', label: 'drift-from-history: a fresh audit against the last (dry run)', cost: 'read', args: [MH, 'drift-from-history', '--dry-run', ...JSON_OUT], timeoutMs: 240_000, findings: DRIFT_FOUND },
   { id: 'mh-receipts', group: 'inspect', name: 'RECEIPTS', about: 'every flywheel evaluation receipt and its state', label: 'flywheel receipts: each evaluation receipt and its state', cost: 'read', args: [MH, 'flywheel', 'receipts'] },
   { id: 'mh-gepa-genome', group: 'inspect', name: 'GEPA GENOME', about: 'load and validate the shipped cand-6 genome', label: 'gepa genome: load and validate the shipped genome', cost: 'read', args: [MH, 'gepa', '--op', 'genome', ...JSON_OUT] },
   { id: 'mh-gepa-render', group: 'inspect', name: 'GEPA RENDER', about: 'the system prompt that genome compiles to', label: 'gepa render: the system prompt the genome compiles to', cost: 'read', args: [MH, 'gepa', '--op', 'render', ...JSON_OUT] },
@@ -98,6 +112,7 @@ export function labSpec(entry: LabEntry, state: State): ActionSpec | null {
     ...(entry.cost === 'read' && { isReadOnly: true }),
     ...(entry.note !== undefined && { note: entry.note }),
     ...(entry.timeoutMs !== undefined && { timeoutMs: entry.timeoutMs }),
+    ...(entry.findings !== undefined && { findings: entry.findings }),
   }
 }
 
@@ -112,7 +127,17 @@ export const LAB_MAX_LINES = 40
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'] as const
 const SKIP = new Set(['rawStdout', 'stdout', 'durationMs', 'generatedAt', 'schema', 'system'])
 
-const scalar = (value: unknown): string | null => (value === null ? 'null' : typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? plain(String(value), 120) : null)
+/** A number is shown only when it is a measurement (#3822): `1e999` parses as Infinity and `1e300` prints as "1e+300"; both read n/a. */
+const scalar = (value: unknown): string | null => (value === null ? 'null' : typeof value === 'number' ? (measureOf(value) === undefined ? 'n/a' : String(value)) : typeof value === 'string' || typeof value === 'boolean' ? plain(String(value), 120) : null)
+const tally = (value: unknown, fallback = 'n/a'): string => (value === undefined ? fallback : String(countOf(value) ?? 'n/a'))
+/** A character count the CLI printed, when it is one (whole, 0..1e12): past that it is not a length, and the text's own length is used. */
+const charsOf = (value: unknown): number | undefined => {
+  const n = measureOf(value)
+
+  return n !== undefined && n >= 0 ? Math.floor(n) : undefined
+}
+/** Any answer field as one cleaned cell: a number only when it is a measurement, anything else through plain() (#3822). */
+const cell = (value: unknown, max: number): string => (typeof value === 'number' ? (measureOf(value) === undefined ? 'n/a' : String(value)) : plain(String(value ?? ''), max))
 
 /** Any JSON as readable lines: scalars as `key: value`, short lists inline, objects indented, two levels deep. */
 function flatten(value: unknown, out: string[], depth = 0): void {
@@ -152,14 +177,14 @@ function findingLines(record: Record<string, unknown>, findings: unknown[]): str
   const rows = findings.map(recordOf).filter((row): row is Record<string, unknown> => row !== null)
   const severityOf = (row: Record<string, unknown>) => String(row.severity ?? 'info').toLowerCase()
   const counts = SEVERITIES.map(level => `${level} ${rows.filter(row => severityOf(row) === level).length}`).join(' · ')
-  const out = [`worst ${plain(String(record.worst ?? 'n/a'), 20)}${record.verdict !== undefined ? ` · verdict ${plain(String(record.verdict), 20)}` : ''} · ${rows.length} finding${rows.length === 1 ? '' : 's'}`, `by severity: ${counts}`]
+  const out = [`worst ${cell(record.worst ?? 'n/a', 20)}${record.verdict !== undefined ? ` · verdict ${cell(record.verdict, 20)}` : ''} · ${rows.length} finding${rows.length === 1 ? '' : 's'}`, `by severity: ${counts}`]
 
-  for (const row of rows.slice(0, 12)) out.push(`[${severityOf(row)}] ${plain(String(row.title ?? row.message ?? row.id ?? ''), 140)}`)
+  for (const row of rows.slice(0, 12)) out.push(`[${severityOf(row)}] ${cell(row.title ?? row.message ?? row.id, 140)}`)
 
   const flags = ['secretsReachable', 'networkAccess', 'shellAccess', 'fileWrite', 'policyDefaultDeny', 'auditLog'].filter(flag => typeof record[flag] === 'boolean')
 
   if (flags.length > 0) out.push(flags.map(flag => `${flag} ${record[flag] === true ? 'yes' : 'no'}`).join(' · '))
-  if (typeof record.allowedTools === 'number') out.push(`tools allowed ${record.allowedTools} · denied ${String(record.deniedTools ?? 'n/a')}`)
+  if (typeof record.allowedTools === 'number') out.push(`tools allowed ${tally(record.allowedTools)} · denied ${tally(record.deniedTools)}`)
 
   return out
 }
@@ -167,15 +192,15 @@ function findingLines(record: Record<string, unknown>, findings: unknown[]): str
 /** A redblue run: tests, failures by severity, cost, the gates, then each compromised case. */
 function redblueLines(record: Record<string, unknown>, summary: Record<string, unknown>): string[] {
   const out = [
-    `tests ${String(summary.tests_run ?? 'n/a')} · failures ${String(summary.failures_found ?? 'n/a')} · critical ${String(summary.critical ?? 0)} · high ${String(summary.high ?? 0)} · med ${String(summary.med ?? 0)} · low ${String(summary.low ?? 0)}`,
-    `cost $${typeof summary.cost_usd === 'number' ? summary.cost_usd.toFixed(3) : 'n/a'} · gates ${record.gates_passed === true ? 'passed' : 'FAILED'} · block production ${record.should_block_production === true ? 'yes' : 'no'}`,
+    `tests ${tally(summary.tests_run)} · failures ${tally(summary.failures_found)} · critical ${tally(summary.critical, '0')} · high ${tally(summary.high, '0')} · med ${tally(summary.med, '0')} · low ${tally(summary.low, '0')}`,
+    `cost $${measureOf(summary.cost_usd)?.toFixed(3) ?? 'n/a'} · gates ${record.gates_passed === true ? 'passed' : 'FAILED'} · block production ${record.should_block_production === true ? 'yes' : 'no'}`,
   ]
 
   for (const finding of (Array.isArray(record.findings) ? record.findings : []).map(recordOf)) {
-    if (finding?.compromised === true) out.push(`✗ ${plain(String(finding.family ?? finding.testId ?? ''), 60)} (${plain(String(finding.severity ?? ''), 12)})`)
+    if (finding?.compromised === true) out.push(`✗ ${cell(finding.family ?? finding.testId, 60)} (${cell(finding.severity, 12)})`)
   }
 
-  for (const tip of (Array.isArray(record.recommendations) ? record.recommendations : []).slice(0, 3)) out.push(`→ ${plain(String(tip), 140)}`)
+  for (const tip of (Array.isArray(record.recommendations) ? record.recommendations : []).slice(0, 3)) out.push(`→ ${cell(tip, 140)}`)
 
   return out
 }
@@ -190,7 +215,7 @@ function summary(value: unknown): string[] {
     return value.slice(0, 20).map(item => {
       const row = recordOf(item)
 
-      return row === null ? plain(String(item), 140) : `${plain(String(row.receiptId ?? row.id ?? ''), 24)} · ${plain(String(row.decision ?? ''), 20)} · ${plain(String(row.state ?? ''), 20)}${row.signed === true ? ' · signed' : ''}`
+      return row === null ? cell(item, 140) : `${cell(row.receiptId ?? row.id, 24)} · ${cell(row.decision, 20)} · ${cell(row.state, 20)}${row.signed === true ? ' · signed' : ''}`
     })
   }
 
@@ -205,11 +230,11 @@ function summary(value: unknown): string[] {
   if (record.subcommand === 'attack' && typeof record.stdout === 'string') {
     const cases = recordOf(jsonAfter(record.stdout))?.cases
 
-    return (Array.isArray(cases) ? cases : []).map(recordOf).flatMap(row => (row === null ? [] : [`${plain(String(row.family ?? ''), 32)} · ${plain(String(row.input ?? row.objective ?? ''), 120)}`]))
+    return (Array.isArray(cases) ? cases : []).map(recordOf).flatMap(row => (row === null ? [] : [`${cell(row.family, 32)} · ${cell(row.input ?? row.objective, 120)}`]))
   }
 
   if (typeof record.system === 'string') {
-    return [`${String(record.chars ?? record.system.length)} chars from ${plain(String(record.source ?? 'the genome'), 200).split('/').pop() ?? ''}`, ...record.system.split('\n').map(line => plain(line, 160))]
+    return [`${charsOf(record.chars) ?? record.system.length} chars from ${cell(record.source ?? 'the genome', 200).split('/').pop() ?? ''}`, ...record.system.split('\n').map(line => plain(line, 160))]
   }
 
   const genome = recordOf(record.genome)
@@ -217,7 +242,7 @@ function summary(value: unknown): string[] {
   if (genome !== null) {
     const meta = recordOf(genome.meta) ?? {}
 
-    return [`valid ${record.valid === true ? 'yes' : 'NO'} · ${Array.isArray(record.errors) ? record.errors.length : 0} errors`, `genome ${String(meta.id ?? 'n/a')} (parent ${String(meta.parent ?? 'n/a')}, mutated ${String(meta.mutated ?? 'n/a')})`, `components: ${Object.keys(recordOf(genome.components) ?? {}).join(', ')}`]
+    return [`valid ${record.valid === true ? 'yes' : 'NO'} · ${Array.isArray(record.errors) ? record.errors.length : 0} errors`, `genome ${cell(meta.id ?? 'n/a', 40)} (parent ${cell(meta.parent ?? 'n/a', 40)}, mutated ${cell(meta.mutated ?? 'n/a', 40)})`, `components: ${Object.keys(recordOf(genome.components) ?? {}).join(', ')}`]
   }
 
   return []

@@ -17,6 +17,8 @@ import { cleanText } from './wf-clean'
 import { membersOf } from './hive'
 import type { AgentRecord, ClaimRecord, HiveAgentRecord, HiveInfo, SwarmInfo, TaskRecord } from './parse'
 import { idOf, plain } from './parse'
+import { membersText, swarmMembersOf } from './swarm-status'
+import { taskStatusOf } from './automate'
 import type { WfAgent, WfRun } from './workflows'
 
 export type NestKind = 'swarm' | 'hive' | 'queen' | 'worker' | 'claim' | 'task' | 'note'
@@ -24,14 +26,15 @@ export type NestRow = { depth: number; kind: NestKind; label: string; detail: st
 
 const MAX_ROWS = 60
 const isOpenClaim = (claim: ClaimRecord): boolean => !/released|completed|cancel/i.test(claim.status)
-const isOpenTask = (task: TaskRecord): boolean => !/completed|failed|cancelled/i.test(task.status)
+// Finished by its canonical status ("complete", "done", "canceled" from older CLIs included).
+const isOpenTask = (task: TaskRecord): boolean => !['completed', 'failed', 'cancelled'].includes(taskStatusOf(task.status))
 
 /** swarm > hive (queen) > worker > claim > task, each level only from what the stores say; a missing level is a note, never invented. */
 export function nestingOf(input: { swarm: SwarmInfo | null; hive: HiveInfo | null; agents: readonly AgentRecord[]; hiveAgents: readonly HiveAgentRecord[]; claims: readonly ClaimRecord[]; tasks: readonly TaskRecord[] }): NestRow[] {
   const { swarm, hive, agents, hiveAgents, claims, tasks } = input
   const rows: NestRow[] = []
 
-  rows.push(swarm === null ? { depth: 0, kind: 'note', label: 'no swarm', detail: 'swarm init has not run here' } : { depth: 0, kind: 'swarm', label: swarm.id, detail: `${swarm.topology}${swarm.strategy === undefined ? '' : ` · ${swarm.strategy}`} · ${swarm.status} · ${swarm.agentIds.length} agents` })
+  rows.push(swarm === null ? { depth: 0, kind: 'note', label: 'no swarm', detail: 'swarm init has not run here' } : { depth: 0, kind: 'swarm', label: swarm.id, detail: `${swarm.topology}${swarm.strategy === undefined ? '' : ` · ${swarm.strategy}`} · ${swarm.status} · ${membersText(swarmMembersOf(swarm, agents))}` })
 
   if (hive === null) {
     rows.push({ depth: 1, kind: 'note', label: 'no hive-mind', detail: 'no queen and no workers: agents are not grouped under a hive' })

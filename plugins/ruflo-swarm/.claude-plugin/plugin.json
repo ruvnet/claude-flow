@@ -1,7 +1,7 @@
 {
   "name": "ruflo-swarm",
   "description": "Agent teams, swarm coordination, Monitor streams, and worktree isolation — wraps 4 swarm_* + 8 agent_* MCP tools (12 total) plus 6 topologies (hierarchical / mesh / hierarchical-mesh / ring / star / adaptive). With Claude Code function hooks on (early access), a live swarm pane: agent tiles lit by reads and writes, topology, task and claims board, cost, router pick and hive-mind votes, with buttons that act through the ruflo CLI",
-  "version": "0.3.5",
+  "version": "0.3.7",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

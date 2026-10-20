@@ -52,6 +52,29 @@ function order(view: ViewId, columns: number, rows: number): { title: number; ta
 afterEach(() => setLook('plain'))
 
 describe('the pane\'s order', () => {
+  it('keeps animated Orbital branding ahead of navigation on every main path', async () => {
+    const { picturesOf } = await import('../hooks/views/frames')
+    for (const view of ['menu', 'themes', 'swarm'] as const) {
+      for (const placement of ['dock', 'inline'] as const) {
+        for (const [columns, rows] of [[60, 18], [116, 60], [200, 80]]) {
+          const state = newState({ look: 'orbital', boot: false })
+          state.view = view
+          Object.assign(state.pane, { placement, columns, rows })
+          const pictures = picturesOf(state, columns!, 1000, 1000)
+          const name = view === 'menu' ? 'header' : 'title'
+          const grid = pictures.get(name)!
+          expect(Array.from(grid.cells).some((cell, i) => i % 3 === 0 && [0x2588, 0x2580, 0x2584].includes(cell))).toBe(true)
+          const nodes = flat(paneView({ kit, state, nowMs: 1000, columns, pictures, act } as unknown as Ctx))
+          const brand = nodes.findIndex(node => node.kind === 'Raster' && node.props.key === name)
+          const tabs = nodes.findIndex(node => node.props.key === 'tabs')
+          expect(brand).toBeGreaterThanOrEqual(0)
+          expect(brand).toBeLessThan(tabs)
+          for (const key of ['pane-icons', 'footer']) expect(nodes.some(node => node.props.key === key)).toBe(true)
+        }
+      }
+    }
+  })
+
   it('leads with the title and then the tabs in the compact layout', () => {
     const { title, tabs } = order('swarm', 100, 8)
 

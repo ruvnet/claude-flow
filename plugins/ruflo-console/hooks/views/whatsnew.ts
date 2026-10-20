@@ -9,7 +9,7 @@ import type { RenderElement } from 'claude-code'
 import { compareVersions, entriesAfter, MARK, type ChangeEntry, type ChangeKind } from '../data/changelog'
 import { tidy } from '../toast-policy'
 import { CONSOLE_VERSION } from '../version'
-import { CONSOLE_NAME, NOTES_URL, pinnedOf, RELEASES_URL, type Log } from '../whatsnew'
+import { CONSOLE_NAME, NOTES_URL, pinnedOf, RELEASES_URL, versionIn, type Log } from '../whatsnew'
 import { button, col, row, rule, section, text, THEME, type Ctx } from './common'
 
 const MAX_NEW = 40
@@ -40,7 +40,7 @@ const okLogs = (logs: readonly Log[]): (Log & { result: { ok: true; entries: Cha
 function freshOf(log: ReturnType<typeof okLogs>[number], before: Record<string, string> | null): ChangeEntry[] {
   if (before === null) return []
 
-  const seen = before[log.name]
+  const seen = versionIn(before, log.name)
 
   return seen === undefined ? log.result.entries.slice(0, 1) : entriesAfter(log.result.entries, seen)
 }

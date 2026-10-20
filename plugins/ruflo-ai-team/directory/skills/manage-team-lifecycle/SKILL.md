@@ -1,9 +1,11 @@
 ---
 name: manage-team-lifecycle
-description: Pause, resume, or complete a RuFlo AI team while preserving its tenant-local evidence.
-allowed-tools: mcp__plugin_ruflo-ai-team_ruflo-ai-team__team_get mcp__plugin_ruflo-ai-team_ruflo-ai-team__team_update mcp__plugin_ruflo-ai-team_ruflo-ai-team__evidence_export
+description: Pauses, resumes, or completes an AI team, or marks a run complete, while keeping its evidence. Use when the user asks to pause, stop, resume, wrap up, or close a team or run. Changes coordination state only and deletes nothing.
+allowed-tools: Read
 ---
 
 # Manage Team Lifecycle
 
-Read current state before changing it. Explain that pausing or completing a team changes coordination state only. Preserve its evidence bundle and do not describe completion as deletion. This v0.1 skill has no data-deletion, public-sharing, or external-action capability.
+Uses the RuFlo AI Team connector (server name ruflo-ai-team): the tools team_get, team_update, run_complete and evidence_export.
+
+Read the current state before changing it. A team status is active, paused, or complete. A run can be completed only when it has at least one task and every task is complete; if the service answers tasks_incomplete, list what is still open rather than forcing it. Explain that pausing or completing changes coordination state only, offer the evidence bundle before closing, and never describe completion as deletion. This service has no deletion, public-sharing, or external-action capability.

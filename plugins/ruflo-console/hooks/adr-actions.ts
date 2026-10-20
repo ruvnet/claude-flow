@@ -2,11 +2,11 @@
  * What the ADRs page and its palette entries call (ADR-480): filter, select, initialise, propose, change a status, attach, check scope.
  * Each write is a spec for the runner's confirm row; this file only wires them.
  */
-import { checkLimit } from './full-text'
 import type { ActionSpec } from './actions'
 import { adrOf, docByNumber, docOf, initSpec, loadAdrs, proposeSpec, say, statusSpec, type AdrFilter } from './adr'
 import { draftSpec, scopeCheck, setAttached } from './adr-mission'
 import { STATUSES, type AdrStatus } from './data/adr'
+import { ADR_TITLE_MAX, titleFit } from './data/adr-write'
 import { plain } from './data/parse'
 import type { Host } from './host'
 import type { Runner } from './runner'
@@ -30,8 +30,8 @@ export type AdrWired = { host: Host; actions: AdrActions }
 const wired = new WeakMap<State, AdrWired>()
 export const adrWired = (state: State): AdrWired | undefined => wired.get(state)
 
-/** The longest ADR title: the heading and file name of the record (titleText in data/adr-write.ts). */
-export const ADR_TITLE_MAX = 120
+/** Re-exported: the limit and the check live with the title rules in data/adr-write.ts, where proposeSpec applies them too (ADR-481). */
+export { ADR_TITLE_MAX, titleFit }
 
 const today = (): string => new Date().toISOString().slice(0, 10)
 
@@ -57,7 +57,7 @@ export function adrActions(state: State, host: Host, runner: Runner): AdrActions
     init: () => ask(initSpec(state, host, today()), adr.dir === null ? 'cannot initialise' : 'this project already has an ADR folder'),
     propose: title => {
       // The title is the record's heading and its file name: one line of at most ADR_TITLE_MAX characters. Longer is refused with the count, never cut (ADR-481).
-      const fit = checkLimit(title.replace(/\s+/g, ' ').trim(), ADR_TITLE_MAX, 'the title', 'it is the record’s heading and file name; put the rest in the record itself')
+      const fit = titleFit(title)
 
       if (!fit.ok) return say(state, host, 'propose ADR', false, [fit.message])
 

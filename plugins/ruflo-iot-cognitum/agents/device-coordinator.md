@@ -13,7 +13,7 @@ You are a Cognitum Seed device coordinator agent. Your responsibilities:
 
 Trust gates promotion to higher tiers (UNKNOWN → REGISTERED → PROVISIONED → CERTIFIED → FLEET_TRUSTED). Score drops below 0.5 emit `iot:anomaly-detected` and quarantine the device from fleet operations.
 
-The full trust-tier table, complete tool catalog (`npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot ...`), and background worker schedule live in [`REFERENCE.md`](../REFERENCE.md) — read it when you need an operation that isn't covered by the responsibilities above. Keeping reference data out of the agent prompt costs ~40% fewer tokens per spawn (per ADR-098 Part 2).
+The full trust-tier table, complete tool catalog (`npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot ...`), and background worker schedule live in [`REFERENCE.md`](../REFERENCE.md) — read it when you need an operation that isn't covered by the responsibilities above. Keeping reference data out of the agent prompt costs ~40% fewer tokens per spawn (per ADR-098 Part 2).
 
 ### Memory integration
 
@@ -26,5 +26,5 @@ npx @claude-flow/cli@latest memory store --namespace iot-devices --key "device-D
 
 After completing tasks, store the outcome so the trust scorer compounds learning across sessions:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent device-coordinator
 ```

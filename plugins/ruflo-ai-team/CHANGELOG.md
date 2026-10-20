@@ -2,6 +2,27 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ai-team`.
 
+## 0.3.2 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.3.1 — 2026-10-12
+- fix: stored teams, runs, tasks and memories no longer share mutable objects with the caller or with exported snapshots (#3995)
+- fix: run evidence includes the task history of the run in its audit trail (#3996)
+- fix: re-remembering a memory keeps its original creation time (#3997)
+- fix: a pending vector index build can no longer restore an invalidated tenant index (#4004)
+- chore: thanks to @rudycelekli for all four fixes
+
+## 0.3.0 — 2026-10-09
+- feat: skills, commands and agents name the connector tools in plain language instead of Claude Code namespaced identifiers (allowed-tools lists only the portable Read tool; the repo audit requires the field), so they read correctly on claude.ai and Cowork
+- feat: lifecycle skill covers run_complete (the tasks_incomplete rule); skills state the real status values, template ids and budget range
+- feat: README gains examples per surface, what you need, how auth works and what leaves your machine, and troubleshooting
+- fix: descriptions lead with what the item does and when to use it, with no angle brackets, and drop wording the service cannot back
+- fix: directory bundle skills, commands and agents resynced with the plugin (bundle manifest 0.1.0 to 0.2.0, two added keywords)
+- chore: smoke asserts no namespaced tool names, no angle brackets in descriptions, README examples use real commands, bundle copies identical
+
+## 0.2.3 — 2026-10-09
+- fix: documentationUrl points at the main branch path, not the feat/ruflo-ai-team branch
+
 ## 0.2.2 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

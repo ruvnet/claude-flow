@@ -179,7 +179,8 @@ export function parseSwarmStore(text: string | null): SwarmInfo | null {
 
     return [info]
   })
-  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+  // By instant, not text: "…T10:00+02:00" is older than "…T09:00Z" though it sorts after it as a string. Unparseable sorts last.
+  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (msOf(b.updatedAt) ?? -Infinity) - (msOf(a.updatedAt) ?? -Infinity) || 0
 
   return [...swarms.filter(swarm => swarm.status === 'running')].sort(byRecency)[0] ?? [...swarms].sort(byRecency)[0] ?? null
 }

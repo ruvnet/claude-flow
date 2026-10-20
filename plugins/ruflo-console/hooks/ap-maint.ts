@@ -4,7 +4,8 @@
  */
 import type { Host } from './host'
 import type { Store } from './ap-live'
-import { checkNoLinks, replaceFileArgv } from './data/wf-file'
+import { checkNoLinks, copyExclusiveArgv, replaceFileArgv } from './data/wf-file'
+import { writeFlavorReady } from './data/write-flavor'
 import { evaluate, lastHash, outcomesOf, promote, propose, reviewTrials, tunablesFrom, verifyReceipts } from './data/ap-adapt'
 import type { Envelope } from './data/ap-envelope'
 import { encodeLine, JOURNAL_FILE, type JournalEvent } from './data/ap-journal'
@@ -40,9 +41,9 @@ export async function rotate(store: Store, host: Host, cwd: string, nowMs: numbe
 
     if (lines === '') return
 
-    // The archive must be a new name with no link on the way: a pre-made link there would make `cp --no-clobber` skip and the old journal be lost.
+    // The archive must be a new name with no link on the way: a pre-made link there would make the no-clobber copy skip and the old journal be lost.
     const clear = await checkNoLinks(host.fs, archive, { cwd: cwd }).catch(() => ({ ok: false as const }))
-    const copied = clear.ok ? await host.run(['cp', '--no-clobber', '--', path, archive], 30_000).catch(() => ({ exitCode: 1 })) : { exitCode: 1 }
+    const copied = clear.ok ? await host.run(copyExclusiveArgv(path, archive, await writeFlavorReady()), 30_000).catch(() => ({ exitCode: 1 })) : { exitCode: 1 }
     const saved = (await host.fs.stat(archive).catch(() => undefined)) !== undefined
 
     if (copied.exitCode !== 0 || !saved) return
@@ -54,7 +55,7 @@ export async function rotate(store: Store, host: Host, cwd: string, nowMs: numbe
     try {
       if (pin !== null) await setPin(store, host, cwd, { ...pin, starts: 1 })
 
-      const wrote = await host.run(replaceFileArgv(path, true), 10_000, lines).catch(() => ({ exitCode: 1 }))
+      const wrote = await host.run(replaceFileArgv(path, true, await writeFlavorReady()), 10_000, lines).catch(() => ({ exitCode: 1 }))
 
       if (wrote.exitCode !== 0 && pin !== null) await setPin(store, host, cwd, pin)
     } finally {

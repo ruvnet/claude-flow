@@ -15,6 +15,8 @@ import { decodeSaved, encodeSaved, emptySaved, setFilter } from '../hooks/data/w
 import { cleanBlock, cleanPath } from '../hooks/data/wf-activity'
 import { cleanText } from '../hooks/data/wf-clean'
 import { checkNoLinks, newFileArgv, resolveExportPath } from '../hooks/data/wf-file'
+import { posixCreateExclusive, writeFlavorReady } from '../hooks/data/write-flavor'
+import { useNativeWriteFlavor } from './fixtures/write-flavor'
 import { exportName, exportSpec, runMarkdown } from '../hooks/data/wf-export'
 import { maskSecrets, parseAgentMeta, parseJournal } from '../hooks/data/workflows'
 import { guardText } from '../hooks/data/wf-guide'
@@ -113,6 +115,9 @@ describe('terminal injection', () => {
 })
 
 describe('export and saved-view paths', () => {
+  // Real files and the real dd/sh: the argv this machine's tools take (GNU on Linux, the sh scripts on macOS/BSD).
+  useNativeWriteFlavor()
+
   let dir: string
   let outside: string
 
@@ -186,11 +191,11 @@ describe('export and saved-view paths', () => {
       expect((await checkNoLinks(fsOf, (wanted as { path: string }).path, roots)).ok, rel).toBe(false)
     }
 
-    // The disk half holds even if the check were skipped: conv=excl refuses an existing file and a dangling link.
+    // The disk half holds even if the check were skipped: conv=excl (GNU) or noclobber's O_EXCL (sh) refuses an existing file and a dangling link.
     await symlink(join(outside, 'not-yet.md'), join(dir, 'dangling.md'))
 
     for (const rel of ['exists.md', 'dangling.md']) {
-      const result = await run(newFileArgv(join(dir, rel), true), 5000, 'PWNED')
+      const result = await run(newFileArgv(join(dir, rel), true, await writeFlavorReady()), 5000, 'PWNED')
 
       expect(result.exitCode, rel).not.toBe(0)
     }
@@ -202,17 +207,18 @@ describe('export and saved-view paths', () => {
 
   it('writes a summary whose name has spaces and a leading dash-free base as one argv element, content on stdin', async () => {
     const path = `${dir}/odd name; $(touch pwned) \`id\`.md`
-    const result = await run(newFileArgv(path, true), 5000, '# hi\n')
+    const result = await run(newFileArgv(path, true, await writeFlavorReady()), 5000, '# hi\n')
 
     expect(result.exitCode).toBe(0)
     expect(await readFile(path, 'utf8')).toBe('# hi\n')
     expect(await statOf(join(dir, 'pwned')).catch(() => null)).toBeNull()
   })
 
-  it('the export spec carries a fixed argv with no shell and the text only on stdin', () => {
-    const spec = exportSpec(`${dir}/a.md`, '# x', 'run', true)
+  it('the export spec carries a fixed argv (no shell on GNU, one constant script with the path as $1 on BSD) and the text only on stdin', async () => {
+    const flavor = await writeFlavorReady()
+    const spec = exportSpec(`${dir}/a.md`, '# x', 'run', true, flavor)
 
-    expect(spec.argv?.[0]).toBe('dd')
+    expect(spec.argv).toEqual(flavor === 'gnu' ? ['dd', `of=${dir}/a.md`, 'conv=excl', 'status=none'] : posixCreateExclusive(`${dir}/a.md`))
     expect(spec.stdin).toBe('# x')
     expect(spec.declared).toBe('write')
     expect(exportName(runOf('wf_x', BASE, {}, '../../etc/passwd; rm -rf /'))).toMatch(/^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/)

@@ -2,7 +2,7 @@ import type { EngineInterface, On, PluginOptions } from 'claude-code'
 
 import { paneActionsOf, type Controller } from './actions/controller'
 import { AUDIT_FLUSH_MS, auditRow, noteAudit, takeFlush } from './audit'
-import { readAdrDigest } from './adr-digest'
+import { framedDigest, readAdrDigest } from './adr-digest'
 import { claimsText, COMMANDS, consensusText, isSwarmSub, spawnNote, statusText, SWARM_SUBS, topologyText, type SwarmSub } from './commands'
 import type { Host, OpenResult } from './host'
 import { isAnimating, LEAD, loopLabel, newActivity, noteCall, noteDone, noteListed, noteResult, noteSpawn, stuckCall } from './model/members'
@@ -423,7 +423,7 @@ export function register(on: On, raw: PluginOptions) {
     const note = state.options.injectSpawnContext ? spawnNote(state.snapshot) : null
     // ADR-480: the accepted decisions attached to the console's active mission, as data after the task.
     const adr = state.options.injectAdrs && host !== null ? await readAdrDigest(host.fs, await host.now().catch(() => Date.now())) : null
-    const prompt = `${e.prompt}${note ?? ''}${adr === null ? '' : `\n\n---\n${adr.block}`}`
+    const prompt = `${e.prompt}${note ?? ''}${adr === null ? '' : framedDigest(adr)}`
     const result = await next(prompt === e.prompt ? e : { ...e, prompt })
 
     if (result.deny === undefined && result.agentId !== undefined) {

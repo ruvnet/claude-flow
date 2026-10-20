@@ -31,6 +31,7 @@ ruflo/src/ruvocal/src/lib/server/api/__tests__/user.spec.ts
 ruflo/src/ruvocal/src/lib/server/database/__tests__/rvf.spec.ts
 ruflo/src/ruvocal/src/lib/server/isURLLocal.spec.ts
 ruflo/src/ruvocal/src/lib/server/mcp/clientPool.spec.ts
+ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/mergeServers.spec.ts
 ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/wasmTools.test.ts
 ruflo/src/ruvocal/src/lib/utils/generationState.spec.ts
 ruflo/src/ruvocal/src/lib/utils/marked.spec.ts
@@ -133,6 +134,7 @@ plugins/ruflo-x-gateway/test/gateway.test.mjs
 plugins/ruflo-x-gateway/test/oauth.test.mjs
 plugins/ruflo-x-gateway/test/registration.test.mjs
 plugins/ruflo-x-gateway/test/claude-directory.test.mjs
+plugins/ruflo-x-gateway/test/github.test.mjs
 
 # ruflo-chatgpt-federation: same pattern — plugin-local deps (jose, nostr-tools/pure) not resolvable from root vitest
 plugins/ruflo-chatgpt-federation/test/oauth.test.mjs

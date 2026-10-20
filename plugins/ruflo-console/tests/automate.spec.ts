@@ -68,6 +68,11 @@ describe('the catalog', () => {
     expect(taskVerbs('completed')).toEqual([])
     expect(['pending', 'in_progress', 'completed', 'cancelled', 'weird'].map(laneOf)).toEqual(['pending', 'running', 'done', 'done', 'pending'])
   })
+
+  it('a task an older CLI stored as "complete" is done, not pending, and offers no assign or cancel', () => {
+    expect(['complete', 'Completed ', 'in-progress', 'canceled'].map(laneOf)).toEqual(['done', 'done', 'running', 'done'])
+    expect(taskVerbs('complete')).toEqual([])
+  })
 })
 
 describe('typed values', () => {

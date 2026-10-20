@@ -9,7 +9,8 @@ import { newState } from '../hooks/state'
 import type { ReadCache } from '../hooks/data/files'
 import { allRuns, newWfUi, pick, startOn, walk } from '../hooks/data/workflows-nav'
 import { readWorkflowRuns, slugOf, TRANSCRIPT_CAP, type WorkflowFs } from '../hooks/data/workflows-read'
-import { buildRun, currentPhase, fmtElapsed, fmtTokens, jsonLines, modelName, parseAgentMeta, parseJournal, parseRunRecord, parseScriptMeta, parseTranscript, STALE_MS, swarmRun, type RunInput } from '../hooks/data/workflows'
+import { buildRun, currentPhase, fmtElapsed, fmtTokens, jsonLines, modelName, parseAgentMeta, parseJournal, parseRunRecord, parseScriptMeta, parseTranscript, STALE_MS, type RunInput } from '../hooks/data/workflows'
+import { swarmRun } from '../hooks/data/wf-swarm'
 import type { Ctx, Kit } from '../hooks/views/common'
 import { workflowsView } from '../hooks/views/workflows'
 import { journal, meta, record, result, SCRIPT, started, T0, transcript } from './fixtures/workflows'
@@ -111,6 +112,8 @@ describe('parsers', () => {
     expect(fmtElapsed(15_000)).toBe('15s')
     expect(fmtElapsed(192_000)).toBe('3m12s')
     expect(fmtElapsed(3_900_000)).toBe('1h05m')
+    // A day or more reads in days, as ago() does (a 68-day-old agent once read "1638h18m").
+    expect(fmtElapsed(68 * 86_400_000 + 6 * 3_600_000 + 18 * 60_000)).toBe('68d06h')
     expect(modelName('claude-sonnet-5-5')).toBe('Sonnet 5.5')
     expect(modelName('claude-opus-5')).toBe('Opus 5')
     expect(modelName('gpt-x')).toBe('gpt-x')
@@ -180,7 +183,7 @@ describe('ruflo swarm as a run', () => {
   const swarm = { id: 'swarm-1', topology: 'hierarchical', status: 'running', agentIds: [] }
 
   it('groups by agent type, never invents tokens or model', () => {
-    const run = swarmRun(swarm, agents, NOW)
+    const run = swarmRun({ ...swarm, agentIds: agents.map(agent => agent.id) }, agents, NOW)
 
     expect(run).toMatchObject({ kind: 'ruflo-swarm', state: 'active', running: 1, idle: 1, done: 1, total: 3, totalTokens: null })
     expect(run?.phases.map(p => [p.title, p.total])).toEqual([['coder', 2], ['tester', 1]])
@@ -189,10 +192,58 @@ describe('ruflo swarm as a run', () => {
     expect(swarmRun(null, [], NOW)).toBeNull()
   })
 
-  it('allRuns puts whatever is running first', () => {
-    const idle = buildRun({ id: 'wf_old', journal: null, agents: new Map(), record: record(), script: null, nowMs: NOW })
+  it('an empty swarm (right after swarm init) is still its own run with 0 agents; the store is a separate "agents on disk" run', () => {
+    const fresh = { ...swarm, maxAgents: 3, updatedAt: new Date(NOW - 60_000).toISOString() }
 
-    expect(allRuns([idle], swarm, agents, NOW).map(r => r.kind)).toEqual(['ruflo-swarm', 'workflow'])
+    expect(swarmRun(fresh, agents, NOW)).toMatchObject({ id: 'swarm-1', name: 'ruflo swarm · hierarchical', state: 'active', total: 0, listed: 0 })
+    expect(swarmRun(fresh, [], NOW)).toMatchObject({ id: 'swarm-1', state: 'active', total: 0 })
+    expect(allRuns([], fresh, [], NOW).map(run => run.id)).toEqual(['swarm-1'])
+    expect(allRuns([], fresh, agents, NOW).map(run => [run.id, run.name, run.total])).toEqual([
+      ['swarm-1', 'ruflo swarm · hierarchical', 0],
+      ['ruflo-swarm', 'ruflo agents on disk', 3],
+    ])
+  })
+
+  it('a listed id is counted once, and one the store lacks makes the header say "listed, found"', () => {
+    const run = swarmRun({ ...swarm, agentIds: ['agent-2-bbbbbb', 'agent-2-bbbbbb', 'agent-gone'], updatedAt: new Date(NOW - 60_000).toISOString() }, agents, NOW) as NonNullable<ReturnType<typeof swarmRun>>
+
+    expect(run).toMatchObject({ total: 1, listed: 2 })
+    expect(lines(workflowsView(ctxOf(110), { runs: [run], root: '/r', capBytes: TRANSCRIPT_CAP, skipped: 0, more: 0 }, newWfUi(), { ask: () => undefined, show: () => undefined })).join('\n')).toContain('updated 1m ago · 2 listed, 1 found')
+  })
+
+  it('a swarm that lists its agents is a run of those only, with the record\'s status and age (stale "running" is stalled)', () => {
+    const weekOld = { ...swarm, agentIds: ['agent-2-bbbbbb'], updatedAt: new Date(NOW - 7 * 86_400_000).toISOString() }
+    // Stale needs evidence: the one member is idle and was created days ago.
+    const quiet = agents.map(agent => ({ ...agent, createdAtMs: NOW - 3 * 86_400_000 }))
+    const run = swarmRun(weekOld, quiet, NOW)
+
+    expect(run).toMatchObject({ id: 'swarm-1', name: 'ruflo swarm · hierarchical', state: 'stalled', isStale: true, total: 1, idle: 1, updatedMs: NOW - 7 * 86_400_000 })
+    expect(swarmRun({ ...weekOld, updatedAt: new Date(NOW - 60_000).toISOString() }, quiet, NOW)?.state).toBe('active')
+    expect(swarmRun({ ...weekOld, agentIds: ['agent-1-aaaaaa'] }, quiet, NOW)?.state).toBe('active')
+    expect(swarmRun({ ...weekOld, status: 'terminated' }, quiet, NOW)?.state).toBe('finished')
+
+    const shown = lines(workflowsView(ctxOf(110), { runs: [run as NonNullable<typeof run>], root: '/r', capBytes: TRANSCRIPT_CAP, skipped: 0, more: 0 }, newWfUi(), { ask: () => undefined, show: () => undefined })).join('\n')
+
+    expect(shown).toContain('1 agents · 0 busy · 1 idle · 0 stopped · 0 failed · updated 7d ago · stale')
+    expect(shown).toContain('stalled')
+  })
+
+  it('an agent row keeps "n/a tok" and its age apart, in days', () => {
+    const old = [{ id: 'agent-r-jckxxx', type: 'researcher', status: 'idle', createdAtMs: NOW - 68 * 86_400_000 - 6 * 3_600_000 }]
+    const run = swarmRun(null, old, NOW) as NonNullable<ReturnType<typeof swarmRun>>
+    const shown = lines(workflowsView(ctxOf(110), { runs: [run], root: '/r', capBytes: TRANSCRIPT_CAP, skipped: 0, more: 0 }, newWfUi(), { ask: () => undefined, show: () => undefined })).join('\n')
+
+    expect(shown).toMatch(/n\/a tok +68d06h/)
+    expect(shown).not.toMatch(/tok\d/)
+  })
+
+  it('allRuns puts whatever is live first: a swarm by its record\'s state, so a stale "running" one is not live', () => {
+    const idle = buildRun({ id: 'wf_old', journal: null, agents: new Map(), record: record(), script: null, nowMs: NOW })
+    const listing = { ...swarm, agentIds: agents.map(agent => agent.id) }
+    const quiet = agents.map(agent => ({ ...agent, status: 'idle', createdAtMs: NOW - 3 * 86_400_000 }))
+
+    expect(allRuns([idle], { ...listing, updatedAt: new Date(NOW - 60_000).toISOString() }, agents, NOW).map(r => r.kind)).toEqual(['ruflo-swarm', 'workflow'])
+    expect(allRuns([idle], { ...listing, updatedAt: new Date(NOW - 7 * 86_400_000).toISOString() }, quiet, NOW).map(r => [r.id, r.state])).toEqual([['wf_old', expect.any(String)], ['swarm-1', 'stalled']])
     expect(allRuns([idle], null, [], NOW).map(r => r.id)).toEqual(['wf_old'])
   })
 })
@@ -405,7 +456,7 @@ describe('view', () => {
   })
 
   it('a ruflo agent offers stop and spawn through the confirm hook with fixed argv', () => {
-    const swarm = swarmRun({ id: 's', topology: 'hierarchical', status: 'running', agentIds: [] }, [{ id: 'agent-9-zzzzzz', type: 'coder', status: 'busy' }], NOW) as NonNullable<ReturnType<typeof swarmRun>>
+    const swarm = swarmRun({ id: 's', topology: 'hierarchical', status: 'running', agentIds: ['agent-9-zzzzzz'] }, [{ id: 'agent-9-zzzzzz', type: 'coder', status: 'busy' }], NOW) as NonNullable<ReturnType<typeof swarmRun>>
     const asked: string[][] = []
     const ui = { ...newWfUi(), column: 'agents' as const, isInspecting: true }
     const tree = workflowsView(ctxOf(110), model([swarm]), ui, { ask: spec => asked.push([...spec.args]), show: () => undefined })

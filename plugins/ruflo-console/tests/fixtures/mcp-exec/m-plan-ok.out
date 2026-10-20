@@ -1,0 +1,16 @@
+  Parameters: {"requestId":"cap-5","missionId":"msn_694db5dfd982c67fd44f4dfc","expectedRevision":1,"plan":{"tasks":[{"id":"t1","title":"a","dependsOn":[],"executor":{"mode":"session-bound","requirement":"x"}}],"acceptance":[{"id":"a1","check":"x","producer":"t1"}],"budget":{"currency":"USD","ceilingMinor":100}}}
+
+[OK] Tool executed in 33.63ms
+
+Result:
+{
+  "ok": true,
+  "data": {
+    "missionId": "msn_694db5dfd982c67fd44f4dfc",
+    "revision": 2,
+    "state": "planned",
+    "deduplicated": false,
+    "sequence": 2,
+    "planDigest": "sha256:f8bdcf5db12ba3e80b2729509fb8bf7b54e5c57fc567566f6709537de9b3e8a9"
+  }
+}

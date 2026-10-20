@@ -52,4 +52,4 @@ Pull structured data out of a web page. Replaces the older `browser-scrape` skil
 - Never bypass the AIDefence gates. If `aidefence_*` MCP tools are not initialized, refuse the run and surface a doctor remediation.
 - Templates are host-scoped. A `news_article` template for `theguardian.com` is not portable to `nytimes.com` without re-validation.
 - For paginated extractions, persist the cursor between pages in the trajectory step args so the trace alone is replayable.
-- This skill subsumes the legacy `browser-scrape` skill; `browser-scrape/SKILL.md` is now a thin shim that delegates here. It will be removed in plugin v0.3.0.
+- This skill subsumes the legacy `browser-scrape` skill; `browser-scrape/SKILL.md` is now a thin shim that delegates here. It is kept as a shim and slated for removal in the next minor release.

@@ -202,7 +202,9 @@ export const RetryableErrors = {
   /** Network errors (ECONNRESET, ETIMEDOUT, etc.) */
   network: (error: Error): boolean => {
     const networkCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'];
-    return networkCodes.some((code) => error.message.includes(code));
+    const code = (error as Error & { code?: unknown }).code;
+    return (typeof code === 'string' && networkCodes.includes(code)) ||
+      networkCodes.some((code) => error.message.includes(code));
   },
 
   /** Rate limit errors (429) */

@@ -14,6 +14,8 @@ import { evidenceEvent, parseGates } from './mission-verify'
 import { costOf, capOf } from './mission-guard'
 import { checkpoint, checkpointDone, offerConsult, wireAdvisor } from './mission-advisor-live'
 import { plain } from './data/parse'
+import { nudgeFor } from './grounding'
+import { modelLine } from './model-tools'
 import type { LedgerTask, MissionActions, MissionRecord } from './mission-types'
 import type { Runner } from './runner'
 import { settingsOf } from './settings'
@@ -52,9 +54,10 @@ export function contextSection(state: State): { id: string; text: string; scope:
   const loop = loopOf(mission)
   const info = loop === null || loop.status === 'idle' ? null : { interval: loop.interval, status: loop.status }
   const adrBlock = adrBlockFor(state, mission)
-  const key = missionContextKey(mission, task, info, status, adrBlock)
+  const nudge = nudgeFor(state, [mission.objective, task?.title ?? '', task?.requirement ?? '', adrBlock], modelLine) ?? ''
+  const key = missionContextKey(mission, task, info, status, adrBlock, nudge)
 
-  if (held?.key !== key) held = { key, text: missionContextText(mission, task, info, status, adrBlock) }
+  if (held?.key !== key) held = { key, text: missionContextText(mission, task, info, status, adrBlock, nudge) }
 
   return { id: CONTEXT_SECTION_ID, text: held.text, scope: 'session' }
 }

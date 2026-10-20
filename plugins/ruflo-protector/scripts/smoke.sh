@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-protector v0.1.1, Project Anatole (ADR-453).
+# Structural smoke test for ruflo-protector v0.1.2, Project Anatole (ADR-453).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,9 +8,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares ruflo-protector 0.1.1 and names Project Anatole"
+step "1. plugin.json declares ruflo-protector 0.1.2 and names Project Anatole"
 grep -q '"name": "ruflo-protector"' "$ROOT/.claude-plugin/plugin.json" \
-  && grep -q '"version": "0.1.1"' "$ROOT/.claude-plugin/plugin.json" \
+  && grep -q '"version": "0.1.2"' "$ROOT/.claude-plugin/plugin.json" \
   && grep -q 'Project Anatole' "$ROOT/.claude-plugin/plugin.json" && ok || bad "name/version/description"
 
 step "2. hooks.json names register.ts and every hook file is present and under 500 lines"

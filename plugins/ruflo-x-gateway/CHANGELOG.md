@@ -2,6 +2,16 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-x-gateway`.
 
+## 0.10.1 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.10.0 — 2026-10-09
+- feat: `ruv_github_search`, `ruv_github_repo`, `ruv_github_file` and `ruv_registry_latest` on the legacy `/mcp` surface (gateway 0.9.0, ADR-485): read-only queries of an allowlisted owner's public GitHub repositories and npm latest versions, SSRF-pinned, size/time capped, cached with ETag revalidation, fenced as untrusted GitHub data
+- chore: the `/chatgpt/mcp` and `/claude/mcp` directory profiles are unchanged (twelve tools); adding the GitHub tools there would need a directory re-review
+
+## 0.9.5 — 2026-10-09
+- fix: the directory bundle (0.8.2) documentationUrl points at the main branch path, not the feat/ruflo-ai-team branch
+
 ## 0.9.4 — 2026-10-05
 - fix: shared textsOf reports truncation and every guard fails closed on it
 

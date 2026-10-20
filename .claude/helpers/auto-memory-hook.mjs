@@ -11,17 +11,24 @@
  *   node auto-memory-hook.mjs status   # Show bridge status
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, rmdirSync, rmSync, statSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { homedir } from 'os';
+import { join, dirname, resolve, sep } from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+// Executable modules resolve only from the helper's own install root. A
+// home-level helper can serve an untrusted project, so CLAUDE_PROJECT_DIR must
+// never decide which JavaScript gets imported.
+const MODULE_ROOT = join(__dirname, '../..');
 // Home-level helpers can serve a different project. Keep the memory writer on
 // the same project root as intelligence.cjs, which reads CLAUDE_PROJECT_DIR.
+// PROJECT_ROOT is for data only.
 const PROJECT_ROOT = process.env.CLAUDE_PROJECT_DIR
   ? resolve(process.env.CLAUDE_PROJECT_DIR)
-  : join(__dirname, '../..');
+  : MODULE_ROOT;
 const DATA_DIR = join(PROJECT_ROOT, '.claude-flow', 'data');
 const STORE_PATH = join(DATA_DIR, 'auto-memory-store.json');
 
@@ -41,7 +48,7 @@ const dim = (msg) => console.log(`  ${DIM}${msg}${RESET}`);
 // told exactly how to fix it (on both stdout, so it shows in the Claude Code hook
 // transcript, and stderr, per the issue's requested channel).
 function warnMemoryUnavailable() {
-  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${PROJECT_ROOT} — self-learning imports are DISABLED.`;
+  const line1 = `[AutoMemory] @claude-flow/memory not resolvable from ${MODULE_ROOT} — self-learning imports are DISABLED.`;
   const line2 = '             Fix: npm i -D @claude-flow/memory   (or re-run: npx ruflo@latest init, then npx ruflo@latest doctor --fix)';
   console.log(`${YELLOW}${line1}${RESET}`);
   console.log(`${YELLOW}${line2}${RESET}`);
@@ -73,6 +80,66 @@ process.on('SIGINT', () => { gracefulExit('SIGINT'); });
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
 // ============================================================================
+// Store write safety (#4058): intelligence.cjs read-modify-writes the same
+// file from the session-end hook, so writes are atomic (temp + rename) and
+// serialised by a short directory lock. The lock is advisory and fails open:
+// a hook must never hang, so after ~2 s it proceeds without it.
+// ============================================================================
+
+const LOCK_WAIT_MS = 2000;
+const LOCK_STALE_MS = 10000;
+function sleepSync(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+
+function withStoreLock(storePath, fn) {
+  const lock = storePath + '.lock';
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  let held = false;
+  for (;;) {
+    try { mkdirSync(lock); held = true; break; } catch (e) {
+      if (!e || e.code !== 'EEXIST') break;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) { rmSync(lock, { recursive: true, force: true }); continue; }
+      } catch { /* lock vanished: retry */ }
+      if (Date.now() > deadline) break;
+      sleepSync(10);
+    }
+  }
+  try { return fn(); } finally { if (held) { try { rmdirSync(lock); } catch { /* already gone */ } } }
+}
+
+function writeFileAtomic(filePath, text) {
+  const tmp = filePath + '.' + process.pid + '.tmp';
+  try {
+    writeFileSync(tmp, text, 'utf-8');
+    renameSync(tmp, filePath);
+  } catch (e) {
+    try { unlinkSync(tmp); } catch { /* nothing to clean */ }
+    throw e;
+  }
+}
+
+// Claude Code shares one auto-memory directory across every worktree of a
+// repository, but findGitRoot() in the memory package stops at a worktree's
+// `.git` FILE and keys the directory by the worktree path (#4058). Resolve the
+// main checkout through git's common dir so both agree. No shell is involved.
+function mainCheckoutRoot(dir) {
+  try {
+    if (!statSync(join(dir, '.git')).isFile()) return null;
+    const common = execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd: dir, encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    if (!common) return null;
+    const abs = resolve(dir, common);
+    return abs.endsWith('/.git') || abs.endsWith('\\.git') ? dirname(abs) : null;
+  } catch { return null; }
+}
+
+function worktreeMemoryDir() {
+  const main = mainCheckoutRoot(PROJECT_ROOT);
+  if (!main) return undefined;
+  const key = main.split(sep).join('/').replace(/[\/_:]/g, '-');
+  return join(process.env.HOME || process.env.USERPROFILE || homedir(), '.claude', 'projects', key, 'memory');
+}
+
+// ============================================================================
 // Simple JSON File Backend (implements IMemoryBackend interface)
 // ============================================================================
 
@@ -80,6 +147,8 @@ class JsonFileBackend {
   constructor(filePath) {
     this.filePath = filePath;
     this.entries = new Map();
+    this.loadedIds = new Set();
+    this.deletedIds = new Set();
   }
 
   async initialize() {
@@ -87,7 +156,7 @@ class JsonFileBackend {
       try {
         const data = JSON.parse(readFileSync(this.filePath, 'utf-8'));
         if (Array.isArray(data)) {
-          for (const entry of data) this.entries.set(entry.id, entry);
+          for (const entry of data) { this.entries.set(entry.id, entry); this.loadedIds.add(entry.id); }
         }
       } catch { /* start fresh */ }
     }
@@ -112,17 +181,26 @@ class JsonFileBackend {
     this._persist();
     return e;
   }
-  async delete(id) { return this.entries.delete(id); }
+  async delete(id) { this.deletedIds.add(id); return this.entries.delete(id); }
   async query(opts) {
     let results = [...this.entries.values()];
     if (opts?.namespace) results = results.filter(e => e.namespace === opts.namespace);
-    if (opts?.type) results = results.filter(e => e.type === opts.type);
+    // MemoryQuery.type is the query mode (semantic|exact|prefix|tag|hybrid), not
+    // the entry's memory type: the bridge asks for { type: 'hybrid' } and a strict
+    // entry-type match returned nothing, so sync always reported 0 (#4058).
+    const MODES = ['semantic', 'exact', 'prefix', 'tag', 'hybrid'];
+    if (opts?.type && !MODES.includes(opts.type)) results = results.filter(e => e.type === opts.type);
+    if (opts?.memoryType) results = results.filter(e => e.type === opts.memoryType);
+    if (opts?.key) results = results.filter(e => e.key === opts.key);
+    if (opts?.keyPrefix) results = results.filter(e => typeof e.key === 'string' && e.key.startsWith(opts.keyPrefix));
+    if (Array.isArray(opts?.tags) && opts.tags.length) results = results.filter(e => opts.tags.every(t => (e.tags || []).includes(t)));
+    if (opts?.updatedAfter) results = results.filter(e => (e.updatedAt || 0) > opts.updatedAfter);
     if (opts?.limit) results = results.slice(0, opts.limit);
     return results;
   }
   async search() { return []; } // No vector search in JSON backend
   async bulkInsert(entries) { for (const e of entries) this.entries.set(e.id, e); this._persist(); }
-  async bulkDelete(ids) { let n = 0; for (const id of ids) { if (this.entries.delete(id)) n++; } this._persist(); return n; }
+  async bulkDelete(ids) { let n = 0; for (const id of ids) { this.deletedIds.add(id); if (this.entries.delete(id)) n++; } this._persist(); return n; }
   async count() { return this.entries.size; }
   async listNamespaces() {
     const ns = new Set();
@@ -132,7 +210,7 @@ class JsonFileBackend {
   async clearNamespace(ns) {
     let n = 0;
     for (const [id, e] of this.entries) {
-      if (e.namespace === ns) { this.entries.delete(id); n++; }
+      if (e.namespace === ns) { this.deletedIds.add(id); this.entries.delete(id); n++; }
     }
     this._persist();
     return n;
@@ -159,7 +237,22 @@ class JsonFileBackend {
 
   _persist() {
     try {
-      writeFileSync(this.filePath, JSON.stringify([...this.entries.values()], null, 2), 'utf-8');
+      withStoreLock(this.filePath, () => {
+        // Keep entries another writer (intelligence.cjs, a parallel hook) added
+        // after we loaded; ours win on the same id, and our own deletes stay deleted.
+        const merged = new Map(this.entries);
+        try {
+          const onDisk = JSON.parse(readFileSync(this.filePath, 'utf-8'));
+          if (Array.isArray(onDisk)) {
+            for (const e of onDisk) {
+              if (e && !merged.has(e.id) && !this.loadedIds.has(e.id) && !this.deletedIds.has(e.id)) merged.set(e.id, e);
+            }
+          }
+        } catch { /* missing or unreadable: write ours */ }
+        writeFileAtomic(this.filePath, JSON.stringify([...merged.values()], null, 2));
+        for (const id of merged.keys()) this.loadedIds.add(id);
+        this.entries = merged;
+      });
     } catch { /* best effort */ }
   }
 }
@@ -175,7 +268,7 @@ async function loadMemoryPackage() {
   // project — so init resolves it from the CLI's own context and records the
   // absolute path here. This is the only strategy that works on that install.
   try {
-    const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+    const sidecar = join(MODULE_ROOT, '.claude-flow', 'memory-package.json');
     if (existsSync(sidecar)) {
       const rec = JSON.parse(readFileSync(sidecar, 'utf-8'));
       if (rec?.distPath && existsSync(rec.distPath)) {
@@ -185,7 +278,7 @@ async function loadMemoryPackage() {
   } catch { /* fall through */ }
 
   // Strategy 1: Local dev (built dist)
-  const localDist = join(PROJECT_ROOT, 'v3/@claude-flow/memory/dist/index.js');
+  const localDist = join(MODULE_ROOT, 'v3/@claude-flow/memory/dist/index.js');
   if (existsSync(localDist)) {
     try {
       return await import(`file://${localDist}`);
@@ -196,7 +289,7 @@ async function loadMemoryPackage() {
   // when installed as a transitive dependency via npx ruflo / npx claude-flow)
   try {
     const { createRequire } = await import('module');
-    const require = createRequire(join(PROJECT_ROOT, 'package.json'));
+    const require = createRequire(join(MODULE_ROOT, 'package.json'));
     return require('@claude-flow/memory');
   } catch { /* fall through */ }
 
@@ -205,8 +298,8 @@ async function loadMemoryPackage() {
     return await import('@claude-flow/memory');
   } catch { /* fall through */ }
 
-  // Strategy 4: Walk up from PROJECT_ROOT looking for @claude-flow/memory in any node_modules
-  let searchDir = PROJECT_ROOT;
+  // Strategy 4: Walk up from MODULE_ROOT looking for @claude-flow/memory in any node_modules
+  let searchDir = MODULE_ROOT;
   const { parse } = await import('path');
   while (searchDir !== parse(searchDir).root) {
     const candidate = join(searchDir, 'node_modules', '@claude-flow', 'memory', 'dist', 'index.js');
@@ -279,6 +372,8 @@ async function doImport() {
     workingDir: PROJECT_ROOT,
     syncMode: 'on-session-end',
   };
+  const wtDir = worktreeMemoryDir();
+  if (wtDir) bridgeConfig.memoryDir = wtDir;
 
   // Wire learning if enabled and available
   if (config.learningBridge.enabled && memPkg.LearningBridge) {
@@ -339,6 +434,8 @@ async function doSync() {
     workingDir: PROJECT_ROOT,
     syncMode: 'on-session-end',
   };
+  const wtDir = worktreeMemoryDir();
+  if (wtDir) bridgeConfig.memoryDir = wtDir;
 
   if (config.learningBridge.enabled && memPkg.LearningBridge) {
     bridgeConfig.learning = {
@@ -364,8 +461,11 @@ async function doSync() {
     dim(`└─ Backend entries: ${entryCount}`);
 
     // Curate MEMORY.md index with graph-aware ordering
+    let indexSkipped = null;
+    if (typeof bridge.on === 'function') bridge.on('index:skipped', (info) => { indexSkipped = info; });
     await bridge.curateIndex();
-    success('Curated MEMORY.md index');
+    if (indexSkipped) dim(`MEMORY.md index unchanged (${indexSkipped.reason || 'nothing to curate'})`);
+    else success('Curated MEMORY.md index');
   } catch (err) {
     dim(`Sync failed (non-critical): ${err.message}`);
   }
@@ -378,7 +478,7 @@ async function doStatus() {
   const memPkg = await loadMemoryPackage();
   const config = readConfig();
 
-  const sidecar = join(PROJECT_ROOT, '.claude-flow', 'memory-package.json');
+  const sidecar = join(MODULE_ROOT, '.claude-flow', 'memory-package.json');
   const hasSidecar = existsSync(sidecar);
 
   console.log('\n=== Auto Memory Bridge Status ===\n');
@@ -403,7 +503,11 @@ async function doStatus() {
 // Main
 // ============================================================================
 
-const command = process.argv[2] || 'status';
+// Older settings.json files run `node -e "…import(file)" import`, where the
+// subcommand lands in argv[1] and argv[2] is empty, so both hooks fell through
+// to `status` and never imported or synced (#4058). Accept that shape too.
+const COMMANDS = ['import', 'sync', 'status'];
+const command = process.argv[2] || (COMMANDS.includes(process.argv[1]) ? process.argv[1] : 'status');
 
 // Dynamic import() failures can surface as unhandled rejections on a later
 // microtask even when the awaiting call site already caught them, which would

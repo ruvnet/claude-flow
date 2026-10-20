@@ -37,6 +37,7 @@ export const register: Register = (on, options) => {
   registerTrust(on, opts.modTrust, opts.modTrustAllow)
   if (opts.capabilityProbe) registerProbe(on, state, opts)
   if (opts.sessionRollup) registerRollup(on, state)
+  state.grounding.enabled = opts.grounding
   registerNoun(on, state)
   registerSession(on, state, opts, guidance)
   registerRoute(on, state, opts, guidance)

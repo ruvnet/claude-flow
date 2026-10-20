@@ -54,7 +54,8 @@ export function wash(text: string): string {
   return text.replace(/\r\n?/g, '\n').replace(ESCAPES, '').replace(HIDDEN, char => (char === '\n' || char === '\t' ? char : ''))
 }
 
-const oneLine = (text: string, max: number): string => text.replace(/\s+/g, ' ').trim().slice(0, max)
+/** One line of at most `max` code points: a cut never splits a surrogate pair, and the cap counts as checkLimit counts (ADR-481). */
+const oneLine = (text: string, max: number): string => Array.from(text.replace(/\s+/g, ' ').trim()).slice(0, max).join('')
 
 export const FILE_NUMBER = /^(?:adr[-_ ]?)?(\d{1,6})([A-Za-z]|\.\d{1,3})?(?:[-_. ]|$)/i
 export const ADR_FILE = /\.(md|markdown)$/i

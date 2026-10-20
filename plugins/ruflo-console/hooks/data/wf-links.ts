@@ -10,6 +10,7 @@
 import type { MissionRecord } from '../mission-types'
 import type { Mission } from './missions'
 import { plain, type TaskRecord } from './parse'
+import { taskStatusOf } from './automate'
 import type { WfRun } from './workflows'
 
 /** A mission task as either source names it: the console's ledger, or the ADR-406 observation. */
@@ -83,7 +84,7 @@ export function refsOf(ledger: Iterable<MissionRecord>, observed: readonly Missi
 }
 
 const tagOf = (task: TaskRecord, prefix: 'mission' | 'task'): string | undefined => task.tags?.find(tag => tag.startsWith(`${prefix}:`))?.slice(prefix.length + 1)
-const isOpen = (status: string | undefined): boolean => status !== 'completed' && status !== 'failed' && status !== 'cancelled'
+export const isOpen = (status: string | undefined): boolean => !['completed', 'failed', 'cancelled'].includes(taskStatusOf(status))
 
 /** Builds the index over every agent of `runs` (the ruflo swarm folded in as a run, as the page holds it). */
 export function linkAgents(refs: readonly MissionTaskRef[], runs: readonly WfRun[], tasks: readonly TaskRecord[]): LinkIndex {

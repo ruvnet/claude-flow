@@ -1,7 +1,7 @@
 {
   "name": "ruflo-jujutsu",
   "description": "Advanced git workflows with diff analysis, risk scoring, change classification (feature/bugfix/refactor/...), and reviewer recommendations — wraps 6 analyze_* MCP tools (diff, diff-risk, diff-classify, diff-reviewers, file-risk, diff-stats). As a mod (ADR-445): a PR-text and merge/close guard, /jujutsu-mod, and a status file the console shows",
-  "version": "0.3.3",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

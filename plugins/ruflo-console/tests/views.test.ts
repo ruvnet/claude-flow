@@ -54,7 +54,7 @@ describe('views', () => {
     const { text, rasters, tree } = await drawn($, 'swarm')
 
     expect(rasters).toEqual(['title', 'topology'])
-    expect(text).toContain('hierarchical · specialized · running · max 6')
+    expect(text).toContain('hierarchical · specialized · running · 2 agents · max 6 · updated ')
     // One label per agent (no repeated type), then status; a short id instead of the full one.
     expect(text).toMatch(/▸● \ncoder\s+idle\s+tasks/)
     expect(text).toMatch(/· #[a-z0-9]{4,6}/)

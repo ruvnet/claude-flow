@@ -294,6 +294,20 @@ describe('style, numbering and the records written', () => {
     expect(set.ok && parseAdr('0009-bare.md', set.text).status).toBe('accepted')
   })
 
+  it('counts and cuts titles in code points: a draft never leaves half an emoji, and a 120-emoji title reads back whole', () => {
+    const draft = draftFromMission({ objective: `${'x'.repeat(99)}😀tail`, tasks: [] }, [], TODAY)
+
+    expect(draft.title).toBe(`${'x'.repeat(99)}😀`)
+    expect(draft.titleShortenedFrom).toBe(104)
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(draft.title)).toBe(false)
+
+    const emoji = '😀'.repeat(120)
+
+    expect(Array.from(parseAdr('0001-x.md', `# 1. ${emoji}\n\nStatus: Accepted\n`).title)).toHaveLength(120)
+    expect(Array.from(parseAdr('0001-x.md', `---\ntitle: ${emoji}\n---\n`).title)).toHaveLength(120)
+    expect(parseAdr('0001-x.md', `# 1. ${'😀'.repeat(200)}\n`).title).toBe('😀'.repeat(160))
+  })
+
   it('a draft from a mission holds only what the mission said and leaves the decision to a person', () => {
     const draft = draftFromMission({ objective: 'Move sessions to Redis (src/auth/)', tasks: [{ title: 'Add client', result: 'src/auth/redis.ts' }, { title: 'Migrate' }] }, ['src/auth/'], TODAY)
 
@@ -318,6 +332,64 @@ describe('the digest, the suggestion and the scope check', () => {
     expect(scopeHits('src/*.ts', 'src/deep/a.ts')).toBe(false)
     expect(scopeHits('docs', 'docs/a.md')).toBe(false)
     expect(scopeHits('', 'a')).toBe(false)
+  })
+
+  it('keeps the one-level glob: a star stays inside a segment, ** is a star, and it matches the whole path or its last segments', () => {
+    expect(scopeHits('src/**/a.ts', 'src/x/a.ts')).toBe(true)
+    expect(scopeHits('src/**/a.ts', 'src/x/y/a.ts')).toBe(false)
+    expect(scopeHits('src/**', 'src/x')).toBe(true)
+    expect(scopeHits('src/**', 'src/x/y')).toBe(false)
+    expect(scopeHits('src/*', 'src/')).toBe(false)
+    expect(scopeHits('hooks/*.ts', 'plugins/c/hooks/a.ts')).toBe(true)
+    expect(scopeHits('hooks/*.ts', 'plugins/c/hooksx/a.ts')).toBe(false)
+    expect(scopeHits('*/a.ts', 'deep/x/a.ts')).toBe(true)
+    expect(scopeHits('src/a*b*c.ts', 'src/aXbYc.ts')).toBe(true)
+    expect(scopeHits('src/a*b*c.ts', 'src/aXcYb.ts')).toBe(false)
+    expect(scopeHits('src/a*.ts', 'src/a.ts')).toBe(true)
+    expect(scopeHits('src/*.ts', 'src/a.tsx')).toBe(false)
+    expect(scopeHits('src/a.*', 'src/axts')).toBe(false)
+    expect(scopeHits('src/(x)+[y].ts', 'src/(x)+[y].ts')).toBe(true)
+  })
+
+  it('agrees with the earlier regular-expression matcher on every small path and glob', () => {
+    // The matcher this replaced, kept here as the oracle on inputs too small to backtrack badly.
+    const escape = (part: string) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    const oracle = (glob: string, file: string) => new RegExp(`^${glob.split('*').map(escape).join('[^/]*')}$|/${glob.split('*').map(escape).join('[^/]*')}$`).test(file)
+    const alphabet = ['a', 'b', '/', '*', '.']
+    let seed = 7
+    const pick = () => alphabet[(seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648) % alphabet.length] as string
+    const word = (max: number) => Array.from({ length: 1 + (seed % max) }, pick).join('')
+    let checked = 0
+
+    for (let round = 0; round < 4000; round++) {
+      const glob = `${word(6)}/${word(5)}`
+      const file = `${word(7)}/${word(6)}`.replace(/\*/g, 'a')
+      // The same normalisation scopeHits applies before either matcher sees the strings.
+      const norm = (path: string) => path.replace(/^\.\//, '').replace(/\/+$/, '')
+
+      if (!norm(glob).includes('*') || !norm(glob).includes('/') || norm(file) === '') continue
+      checked++
+      expect([glob, file, scopeHits(glob, file)]).toEqual([glob, file, oracle(norm(glob), norm(file))])
+    }
+
+    expect(checked).toBeGreaterThan(1000)
+  })
+
+  it('a hostile ADR with sixty stars (59 in one segment, the most a scope path takes) in a scope path costs milliseconds, not minutes (it ran in exponential time before)', () => {
+    const hostile = parseAdr('0007-hostile.md', `# 7. Hostile\n\n## Status\n\nAccepted\n\nTouches \`src/${'*'.repeat(59)}z\` and \`a/${'*a'.repeat(29)}*b\`.\n`)
+
+    expect(hostile.scope).toEqual(expect.arrayContaining([`src/${'*'.repeat(59)}z`]))
+
+    const files = ['src/' + 'a'.repeat(40), 'src/' + 'a'.repeat(160), 'a/' + 'a'.repeat(160), 'x/a/' + 'a'.repeat(160)]
+    const started = performance.now()
+    const report = checkScope(files, [hostile])
+    const suggested = suggest(`touch ${files.join(' ')}`, [hostile])
+    const elapsed = performance.now() - started
+
+    expect(report.hits).toEqual([])
+    expect(suggested).toEqual([])
+    expect(elapsed).toBeLessThan(50)
+    expect(scopeHits(`src/${'*'.repeat(59)}z`, 'src/' + 'a'.repeat(40) + 'z')).toBe(true)
   })
 
   it('flags a changed file under an accepted ADR’s paths, and does not flag proposed, superseded, other paths or a clean change', () => {
