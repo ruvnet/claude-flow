@@ -10,6 +10,8 @@ Scope: `plugins/ruflo-console`: `hooks/views/card.ts`, `hooks/views/marks.ts`, `
 
 Extends: ADR 407, ADR 412 (answers open where they were asked). Companion to ADR 421 (the boot screen).
 
+Superseded in part by: ADR 424 (the nav card is now the compact nav).
+
 ## 1. Context
 
 A page was a long column of rows with a ruled heading between its sections. Where one section ended and the next began was a thin line; the flat tab bar listed some views by icon and hid the rest behind the main menu; and an ask raised on one page (for example Mission Control's "ask claude -p for guidance") was drawn in full on every page you moved to, above the content, with a Yes button that answered a question you were no longer looking at.

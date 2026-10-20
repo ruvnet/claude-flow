@@ -7,6 +7,7 @@ import type { On } from 'claude-code'
  */
 export type World = {
   readonly files: Map<string, string>
+  readonly dirs: Set<string>
   readonly env: Map<string, string>
   readonly statuses: (string | undefined)[]
   readonly logs: string[]
@@ -17,7 +18,7 @@ export const ROOT = '/work'
 export const HELPER = `${ROOT}/.claude/helpers/hook-handler.cjs`
 
 export function world(on: On, settings: unknown = {}, files: Record<string, string> = {}): World {
-  const w: World = { files: new Map(Object.entries(files)), env: new Map(), statuses: [], logs: [], commands: [] }
+  const w: World = { files: new Map(Object.entries(files)), dirs: new Set([ROOT, `${ROOT}/.claude-flow`]), env: new Map(), statuses: [], logs: [], commands: [] }
 
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.root', () => ({ value: ROOT }))
@@ -28,9 +29,10 @@ export function world(on: On, settings: unknown = {}, files: Record<string, stri
     else w.env.set(e.name, e.value)
     return { value: undefined }
   })
-  on('fs.exists', ($, e) => ({ value: w.files.has(e.path) }))
+  on('fs.exists', ($, e) => ({ value: w.files.has(e.path) || w.dirs.has(e.path) }))
   on('fs.stat', ($, e) => {
     const text = w.files.get(e.path)
+    if (text === undefined && w.dirs.has(e.path)) return { value: { kind: 'dir', size: 0, mtimeMs: 0, isLink: false } }
     if (text === undefined) return { deny: `ENOENT: no such file or directory, '${e.path}'` }
     return { value: { kind: 'file', size: text.length, mtimeMs: text.length, isLink: false } }
   })

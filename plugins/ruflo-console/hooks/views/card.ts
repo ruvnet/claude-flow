@@ -8,7 +8,7 @@
  * nothing a view clips to its width overflows the frame.
  */
 import type { Ctx } from './common'
-import { THEME } from './common'
+import { isOrbital, THEME } from './common'
 import { HEADS, SPACERS } from './marks'
 
 /** Columns a card takes from the page width: border and padding, both sides. */
@@ -22,10 +22,14 @@ function holdsHead(children: unknown): boolean {
   return typeof children === 'object' && children !== null && HEADS.has(children)
 }
 
-/** Whether a page of this width and pane is drawn in cards: not in the narrow layout, and not in a compact inline pane (its rows are few). */
-export const hasCards = (columns: number, isCompact: boolean): boolean => columns >= 60 && !isCompact
+/** The narrowest pane still drawn in cards: the nav card, the section cards and their accents keep their styling down to here, in a short pane too. */
+export const MIN_CARD_COLUMNS = 44
 
-export function withCards(kit: Ctx['kit']): Ctx['kit'] {
+/** Whether a page of this width is drawn in cards. A short (compact) inline pane has them too: it scrolls, and it should not lose its styling. */
+export const hasCards = (columns: number, _isCompact = false): boolean => columns >= MIN_CARD_COLUMNS
+
+/** `accent` is the border's colour in the BBS look (the page's group colour); without it, the theme's. */
+export function withCards(kit: Ctx['kit'], accent?: string): Ctx['kit'] {
   let made = 0
 
   const Box: Ctx['kit']['Box'] = props => {
@@ -38,7 +42,7 @@ export function withCards(kit: Ctx['kit']): Ctx['kit'] {
     const out: unknown[] = []
     let card: unknown[] | null = null
     const close = () => {
-      if (card !== null) out.push(kit.Box({ key: `card-${made++}`, flexDirection: 'column', borderStyle: 'round', borderColor: THEME.info, paddingX: 1, children: card as never }))
+      if (card !== null) out.push(kit.Box({ key: `card-${made++}`, flexDirection: 'column', borderStyle: isOrbital() ? 'single' : 'round', borderColor: isOrbital() ? THEME.head : accent ?? THEME.info, paddingX: 1, children: card as never }))
       card = null
     }
 

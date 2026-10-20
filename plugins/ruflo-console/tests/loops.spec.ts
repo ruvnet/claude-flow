@@ -8,20 +8,27 @@ import type { ActionSpec } from '../hooks/actions'
 import type { Host } from '../hooks/host'
 import { INTERVALS, loopActions, loopInput, loopsOf, PRESETS, stopClause, TIERS } from '../hooks/loops'
 import type { Runner } from '../hooks/runner'
+import { mcOf } from '../hooks/mission-control'
+import { sentryRows } from '../hooks/views/sentries'
+import type { Ctx } from '../hooks/views/common'
 import { newState } from '../hooks/state'
 
 const out = (data: unknown) => `[INFO] Executing tool\nResult:\n${JSON.stringify(data, null, 2)}`
 const tick = () => new Promise(resolve => setTimeout(resolve, 5))
 
-function setup(answer: (tool: string) => unknown = () => ({ safe: true, threats: [], hasPII: false })) {
+function setup(answer: (tool: string) => unknown = () => ({ safe: true, threats: [], hasPII: false }), slash?: (command: string, args: string) => Promise<void>) {
   const state = newState({})
-  const calls = { prompts: [] as string[], fills: [] as string[], asked: [] as ActionSpec[] }
+  const calls = { prompts: [] as string[], fills: [] as string[], slashes: [] as { command: string; args: string }[], asked: [] as ActionSpec[] }
   const host = {
     run: async (argv: readonly string[]) => ({ exitCode: 0, stdout: out(answer(argv[argv.indexOf('-t') + 1] as string)), stderr: '' }),
     invalidate: () => undefined,
     after: () => ({ cancel: () => undefined }),
     submitPrompt: async (text: string) => void calls.prompts.push(text),
     fillPrompt: async (text: string) => (calls.fills.push(text), true),
+    runSlash: async (command: string, args: string) => {
+      calls.slashes.push({ command, args })
+      await slash?.(command, args)
+    },
   } as unknown as Host
   const runner = { ask: (spec: ActionSpec | null) => void (spec !== null && calls.asked.push(spec)) } as unknown as Runner
 
@@ -53,7 +60,8 @@ describe('loop manager', () => {
     const long = loopInput({ ...cfg, task: 'a'.repeat(900), stop: 'until 09:00' }, [])
 
     expect(long).toMatchObject({ ok: true })
-    expect((long as { text: string }).text.length).toBeLessThanOrEqual(600)
+    expect((long as { text: string }).text).toContain('a'.repeat(900))
+    expect(loopInput({ ...cfg, task: 'a'.repeat(4001) }, [])).toMatchObject({ ok: false, why: expect.stringContaining('1 over') })
   })
 
   it('a task that starts with / must be one listed plugin command with plain words; control characters never reach the loop', () => {
@@ -92,7 +100,7 @@ describe('loop manager', () => {
     expect(loopsOf(state).interval).toBe('5m')
   })
 
-  it('launch asks first with the exact /loop and a cost note; yes submits one visible prompt, mid-turn it only fills the box', async () => {
+  it('launch asks first with the exact /loop and a cost note; yes runs it as the /loop command (not a prompt), mid-turn it only fills the box and says so', async () => {
     const { state, calls, actions } = setup()
 
     actions.pick('ci-watch')
@@ -104,15 +112,44 @@ describe('loop manager', () => {
     expect(calls.asked[0]?.note).toContain('billed')
     expect(calls.asked[0]?.note).toContain('No stop condition')
     await calls.asked[0]?.run?.()
-    expect(calls.prompts).toHaveLength(1)
-    expect(calls.prompts[0]).toBe(calls.asked[0]?.shows)
+    // A command, as if typed: a prompt that only looks like "/loop …" is a message to the model and creates no loop (the bug this pins).
+    expect(calls.prompts).toEqual([])
+    expect(calls.slashes).toHaveLength(1)
+    expect(`/${calls.slashes[0]?.command} ${calls.slashes[0]?.args}`).toBe(calls.asked[0]?.shows)
+    expect(mcOf(state).last).toMatchObject({ label: 'loop command sent', ok: true })
 
     state.turnActive = true
     actions.launch()
     await tick()
     await calls.asked[1]?.run?.()
-    expect(calls.fills).toHaveLength(1)
-    expect(calls.prompts).toHaveLength(1)
+    expect(calls.fills).toEqual([calls.asked[1]?.shows])
+    expect(calls.slashes).toHaveLength(1)
+    expect(calls.prompts).toEqual([])
+    expect(mcOf(state).last).toMatchObject({ label: 'waiting in your prompt box', ok: true })
+    expect(mcOf(state).last?.next).toContain('press Enter')
+  })
+
+  it('the sentry presets run as /loop with their own task, and a command the engine refuses is reported, not swallowed', async () => {
+    const { calls, actions } = setup()
+
+    actions.pick('sentry-live')
+    actions.launch()
+    await tick()
+    expect(calls.asked[0]?.shows).toMatch(/^\/loop Read-only/)
+    await calls.asked[0]?.run?.()
+    expect(calls.slashes[0]).toMatchObject({ command: 'loop' })
+    expect(calls.slashes[0]?.args).toMatch(/^Read-only/)
+
+    const refusing = setup(undefined, async () => {
+      throw new Error('unknown command: loop')
+    })
+
+    refusing.actions.pick('ci-watch')
+    refusing.actions.launch()
+    await tick()
+    await refusing.calls.asked[0]?.run?.()
+    expect(mcOf(refusing.state).last).toMatchObject({ label: 'Claude did not take it', ok: false })
+    expect(mcOf(refusing.state).last?.detail).toContain('unknown command')
   })
 
   it('a hand-typed task is screened: an injection is blocked and never asked; a preset is not screened', async () => {
@@ -140,5 +177,39 @@ describe('loop manager', () => {
     actions.manage()
     expect(calls.asked[0]?.label).toContain('list my loops')
     expect(calls.asked[0]?.shows).toContain('ask me which to stop before stopping any')
+  })
+})
+
+describe('the Security page says what a sentry start did', () => {
+  type El = { kind: string; props: Record<string, unknown> }
+  const make = (kind: string) => (props: Record<string, unknown>): El => ({ kind, props })
+  const kit = { Box: make('Box'), Text: make('Text'), Button: make('Button'), Input: make('Input') }
+  const flat = (node: unknown): El[] => {
+    if (Array.isArray(node)) return node.flatMap(flat)
+    if (typeof node !== 'object' || node === null) return []
+    const el = node as El
+    const children = el.props.children
+
+    return [el, ...(Array.isArray(children) ? children.flatMap(flat) : flat(children))]
+  }
+  const lines = (state: ReturnType<typeof newState>): string[] =>
+    flat(sentryRows({ kit, state, act: { loops: {} }, columns: 100, nowMs: 1_000, pictures: new Map() } as unknown as Ctx)).filter(el => el.kind === 'Text').map(el => String(el.props.children))
+
+  it('shows nothing before a start, then the outcome (ok or not) under the rows', () => {
+    const state = newState({})
+
+    expect(lines(state).some(line => /loop command sent|prompt box|did not take/.test(line))).toBe(false)
+    mcOf(state).last = { label: 'loop command sent', ok: true, detail: 'Sent as /loop.' }
+    expect(lines(state)).toEqual(expect.arrayContaining(['✓ loop command sent', 'Sent as /loop.']))
+    mcOf(state).last = { label: 'Claude did not take it', ok: false, detail: 'unknown command: loop', next: 'try again', atMs: 1_000 }
+    expect(lines(state)).toEqual(expect.arrayContaining(['✗ Claude did not take it', 'unknown command: loop', '→ try again']))
+    expect(lines(state).some(line => /0s ago/.test(line))).toBe(true)
+  })
+
+  it('does not show an unrelated mission result there', () => {
+    const state = newState({})
+
+    mcOf(state).last = { label: 'mission created', ok: true, detail: 'x' }
+    expect(lines(state).some(line => line.includes('mission created'))).toBe(false)
   })
 })

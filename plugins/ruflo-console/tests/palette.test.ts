@@ -42,7 +42,7 @@ describe('palette and /ruflo', () => {
 
     const filtered = await pane.drawn()
 
-    expect(elementsOf(filtered, 'Button').map(keyOf).filter(key => key.startsWith('pal-'))[0]).toBe('pal-spawn-coder')
+    expect(elementsOf(filtered, 'Button').map(keyOf).filter(key => key.startsWith('pal-') && !key.startsWith('pal-kw-'))[0]).toBe('pal-spawn-coder')
 
     await pane.press({ key: 'pal-spawn-coder' })
     expect(textOf(await pane.drawn())).toMatch(/Confirm: spawn a coder agent named coder-\d+\?/)
@@ -142,6 +142,8 @@ describe('palette and /ruflo', () => {
 
     const pane = await $.ui.mount({ ...paneAt(110), plugin: PLUGIN })
 
+    expect(elementsOf(await pane.drawn(), 'Button').map(keyOf)).not.toContain('lab-mh-redblue-real')
+    await pane.press({ key: 'sec-mh-evolve' })
     await pane.press({ key: 'lab-mh-redblue-real' })
 
     const text = textOf(await pane.drawn())
@@ -154,13 +156,15 @@ describe('palette and /ruflo', () => {
     await pane.unmount()
   })
 
-  test('lab: promote is never run, not even with every lab button pressed and every ask confirmed', { options: { boot: false } }, async ($, on) => {
+  test('lab: promote is never run, not even with every lab button pressed and every ask confirmed', { options: { boot: false }, timeoutMs: 30_000 }, async ($, on) => {
     const world = worldOf(on, RUFLO_FILES)
     mock.clock(on)
     await $.session.start(SESSION)
     await $.command.run(command('metaharness'))
 
     const pane = await $.ui.mount({ ...paneAt(110), plugin: PLUGIN })
+    await pane.press({ key: 'sec-mh-record' })
+    await pane.press({ key: 'sec-mh-evolve' })
     const keys = elementsOf(await pane.drawn(), 'Button').map(keyOf).filter(key => key.startsWith('lab-mh-'))
 
     expect(keys.length).toBeGreaterThan(20)
@@ -193,20 +197,20 @@ describe('palette and /ruflo', () => {
   test('skills headless: /ruflo run skills-find answers with what skills.sh found; skills-update asks first', { options: { boot: false } }, async ($, on) => {
     const world = worldOf(on, RUFLO_FILES)
 
-    world.respond = argv => (argv[2] !== 'skills' ? cliAnswer(argv) : { exitCode: 0, stdout: argv[3] === 'find' ? FIND_OUT : argv[3] === 'ls' ? '[]' : 'done\n', stderr: '' })
+    world.respond = argv => (argv[2] !== 'skills@1.7.2' ? cliAnswer(argv) : { exitCode: 0, stdout: argv[3] === 'find' ? FIND_OUT : argv[3] === 'ls' ? '[]' : 'done\n', stderr: '' })
     mock.clock(on)
     await $.session.start({ ...SESSION, isInteractive: false })
 
     const found = (await $.command.run(command('run skills-find react'))).text ?? ''
 
     expect(found).toMatch(/^skills find "react": 4 found\n {2}mattpocock\/skills@tdd · 1M installs/)
-    expect(runsOf(world.runs, 'find')).toEqual([['npx', '-y', 'skills', 'find', 'react']])
+    expect(runsOf(world.runs, 'find')).toEqual([['npx', '-y', 'skills@1.7.2', 'find', 'react']])
     expect((await $.command.run(command('run skills-update'))).text).toContain('Asked: update every project skill. Confirm with /ruflo yes (or y in the pane), cancel with /ruflo no.')
     expect(runsOf(world.runs, 'update')).toEqual([])
     // A skills change runs its own command and reports into the skills view, so the confirm answers before it ends.
     expect((await $.command.run(command('yes'))).text).toBe('Ran.')
     await $.command.run(command('status'))
-    expect(runsOf(world.runs, 'update')).toEqual([['npx', '-y', 'skills', 'update', '-p', '-y']])
+    expect(runsOf(world.runs, 'update')).toEqual([['npx', '-y', 'skills@1.7.2', 'update', '-p', '-y']])
   })
 
   test('/ruflo help, an unknown word, and the hints when ruflo-mods or ruflo-swarm are not loaded', { options: { boot: false } }, async ($, on) => {

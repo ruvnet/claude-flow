@@ -1,11 +1,26 @@
 import type { RenderElement } from 'claude-code'
 
-import { agentLabels, shortId } from '../data/parse'
-import { button, clip, col, kv, picture, row, rule, starts, text, THEME, type Ctx } from './common'
+import { agentLabels, shortId, type AgentRecord, type SwarmInfo } from '../data/parse'
+import { membersText, swarmStatusOf } from '../data/swarm-status'
+import { ago, button, clip, col, kv, picture, row, rule, starts, text, THEME, type Ctx } from './common'
 import { selection } from './select'
 
 const STATUS_COLOR = (status: string): string | undefined =>
   /busy|active|running/i.test(status) ? THEME.warn : /error|fail/i.test(status) ? THEME.bad : /stop|terminat|offline/i.test(status) ? undefined : THEME.info
+
+/** The swarm's own facts in words (data/swarm-status.ts): its agents, its cap, when its record was last written, and "stale". */
+export function swarmFacts(swarm: SwarmInfo, nowMs: number, agents: readonly AgentRecord[]): { text: string; isStale: boolean; found: number } {
+  const status = swarmStatusOf(swarm, nowMs, agents)
+
+  return {
+    text: `${membersText(status)}${swarm.maxAgents !== undefined ? ` · max ${swarm.maxAgents}` : ''} · updated ${status.updatedMs === undefined ? 'n/a' : ago(status.updatedMs, nowMs)}${status.isStale ? ' · stale' : ''}`,
+    isStale: status.isStale,
+    found: status.found,
+  }
+}
+
+/** The agent store as what it is: every agent on disk, not the swarm's members. */
+export const onDisk = (n: number): string => `${n} agent${n === 1 ? '' : 's'} on disk`
 
 /**
  * The swarm as ruflo wrote it: a graph of its members with the leader marked, the agents (pick one with j/k, open it
@@ -27,10 +42,13 @@ export function swarmView(ctx: Ctx): RenderElement {
     return col(ctx, rows, 'swarm')
   }
 
-  rows.push(kv(ctx, 'topology', swarm === null ? `${hive?.topology ?? 'n/a'} (hive-mind)` : `${swarm.topology}${swarm.strategy !== undefined ? ` · ${swarm.strategy}` : ''} · ${swarm.status}${swarm.maxAgents !== undefined ? ` · max ${swarm.maxAgents}` : ''}`))
-  rows.push(picture(ctx, 'topology', `graph needs a terminal: ${agents.length} agents`))
+  const facts = swarm === null ? null : swarmFacts(swarm, ctx.nowMs, agents)
+
+  rows.push(kv(ctx, 'topology', swarm === null || facts === null ? `${hive?.topology ?? 'n/a'} (hive-mind)` : `${swarm.topology}${swarm.strategy !== undefined ? ` · ${swarm.strategy}` : ''} · ${swarm.status} · ${facts.text}`, facts?.isStale === true ? THEME.warn : undefined))
+  // The graph draws the swarm's own members (frames.ts topoModelOf); with no swarm record it draws the agents on disk.
+  rows.push(picture(ctx, 'topology', `graph needs a terminal: ${swarm === null ? onDisk(agents.length) : `${facts?.found ?? 0} swarm member${facts?.found === 1 ? '' : 's'}`}`))
   rows.push(text(ctx, '★ leader · ◉ busy (a dot runs to it while it works) · ● idle · grey stopped · a white flash = an event about that agent', { dimColor: true }))
-  rows.push(rule(ctx, 'Agents', `${agents.length} · j/k pick · d open · x actions`))
+  rows.push(rule(ctx, 'Agents', `${onDisk(agents.length)} (every swarm) · j/k pick · d open · x actions`))
   const labels = agentLabels(agents)
   // The type column only earns its room when some agent has a name that is not its type.
   const hasTypes = agents.some(agent => agent.name !== undefined && agent.name !== agent.type)

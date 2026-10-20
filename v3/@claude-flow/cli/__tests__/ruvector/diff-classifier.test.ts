@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DiffClassifier, createDiffClassifier, type DiffAnalysis, type FileDiff } from '../../src/ruvector/diff-classifier';
+import { DiffClassifier, assessFileRisk, createDiffClassifier, suggestReviewers, type DiffAnalysis, type DiffFile, type FileDiff } from '../../src/ruvector/diff-classifier';
 
 // Mock the @ruvector/diff module
 vi.mock('@ruvector/diff', () => ({
@@ -294,6 +294,36 @@ diff --git a/file2.ts b/file2.ts
 `;
       const files = classifier.parseDiff(diff);
       expect(files[0].classification.impactLevel).toBe('low');
+    });
+
+    it('treats encryption changes as security-sensitive across diff and file-risk paths', () => {
+      const path = 'packages/encryption/src/bytea.ts';
+      const diff = `diff --git a/${path} b/${path}
+--- a/${path}
++++ b/${path}
+@@ -1 +1 @@
+-old
++new
+`;
+      const classification = classifier.parseDiff(diff)[0].classification;
+      expect(classification.impactLevel).toBe('critical');
+      expect(classification.suggestedReviewers).toContain('security-team');
+      expect(classification.testingStrategy).toContain('security-audit');
+      expect(classification.riskFactors).toContain('Security-sensitive code');
+
+      const file: DiffFile = { path, status: 'modified', additions: 1, deletions: 1 };
+      const risk = assessFileRisk(file);
+      expect(risk).toMatchObject({ risk: 'high', score: 40, reasons: ['Security-sensitive file'] });
+      expect(suggestReviewers([file], [risk])).toContain('security-team');
+    });
+
+    it('does not flag unrelated path tokens as security-sensitive', () => {
+      for (const path of ['src/tokenizer.ts', 'src/author.ts', 'src/cryptic.ts']) {
+        const file: DiffFile = { path, status: 'modified', additions: 1, deletions: 1 };
+        expect(assessFileRisk(file).reasons).not.toContain('Security-sensitive file');
+        const diff = `diff --git a/${path} b/${path}\n--- a/${path}\n+++ b/${path}\n@@ -1 +1 @@\n-old\n+new\n`;
+        expect(classifier.parseDiff(diff)[0].classification.impactLevel).toBe('low');
+      }
     });
   });
 

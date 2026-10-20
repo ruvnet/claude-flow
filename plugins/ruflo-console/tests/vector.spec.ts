@@ -31,7 +31,8 @@ describe('typed values', () => {
     expect(textOf('-k 9')).toBeNull()
     expect(textOf('--help')).toBeNull()
     expect(textOf('a\u0007b')).toBeNull()
-    expect(textOf('x'.repeat(201))).toBeNull()
+    expect(textOf('x'.repeat(8000))).not.toBeNull()
+    expect(textOf('x'.repeat(8001))).toBeNull()
     expect(textOf('a;b`c')).toBeNull()
   })
 

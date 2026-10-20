@@ -115,7 +115,7 @@ describe('ADR-404 budget ladder', () => {
     for (const usd of [1, 5.5, 6, 7.6, 9.2, 9.3, 12]) {
       await mod.dispatch('session.measure', { context: {}, rateLimits: [], cost: { usd }, changed: ['cost'] }, (e) => ({ changed: e.changed }));
     }
-    expect(world.toasts.map((t) => t.split(':')[0])).toEqual(['ruflo budget INFO', 'ruflo budget WARNING', 'ruflo budget CRITICAL', 'ruflo budget HARD_STOP']);
+    expect(world.toasts.map((t) => t.split(':')[0])).toEqual(['› ruflo budget INFO', '⚠ ruflo budget WARNING', '✗ ruflo budget CRITICAL', '✗ ruflo budget HARD_STOP']);
   });
 
   it('with costHardStop, refuses new agents at HARD_STOP and only then', async () => {

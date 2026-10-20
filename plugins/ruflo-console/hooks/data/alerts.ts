@@ -3,6 +3,7 @@
  * command (or palette entry) that addresses it; each approval names what a person decides and how. Nothing here
  * guesses: an agent is "stalled" only when ruflo marks it busy and the console has seen nothing of it for a while.
  */
+import { getBootChecks } from '../boot-checks'
 import type { State } from '../state'
 import type { ClaimRecord } from './parse'
 import { RUFLO_MARKET } from './snapshot'
@@ -30,6 +31,14 @@ function lastSeen(state: State, loadedAtMs: number): Map<string, number> {
 export function alertsOf(state: State, nowMs: number, loadedAtMs: number): Alert[] {
   const snap = state.snapshot
   const out: Alert[] = []
+
+  // The self-check shows on the boot screen, which the plain look and a BBS look with the boot off never draw: a failed area is also an
+  // alert, so it is seen in every look, and before any project is read.
+  const failed = (getBootChecks() ?? []).filter(check => !check.ok)
+
+  if (failed.length > 0) {
+    out.push({ id: 'self-check', level: 'bad', text: `self-check: ${failed.map(check => check.area).join(', ')} failed — ${failed[0]?.problems[0] ?? ''}`.slice(0, 160), fix: 'npx vitest run plugins/ruflo-console/tests/self-check.spec.ts' })
+  }
 
   if (snap === null) return out
 
@@ -110,3 +119,8 @@ export function approvalsOf(state: State): Approval[] {
   return out
 }
 
+
+/** The approvals a person can act on: rows with at least one action. The rest (a refused mod, a permission deny) are notices that stay on the page but are not "waiting" (#3920). */
+export function waitingApprovalsOf(state: State): Approval[] {
+  return approvalsOf(state).filter(item => item.actions.length > 0)
+}

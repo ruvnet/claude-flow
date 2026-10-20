@@ -186,6 +186,17 @@ describe('ADR-404 mods probe and doctor', () => {
     expect(finding('classic handshake').status).toBe('pass');
   });
 
+  it('warns where settings run the CLI\'s own hooks route/post-edit: the mod stands down there', () => {
+    expect(finding('legacy CLI hooks')).toBeUndefined();
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'settings.json'), JSON.stringify({ hooks: {
+      UserPromptSubmit: [{ hooks: [{ type: 'command', command: '[ -n "$PROMPT" ] && npx claude-flow@v3alpha hooks route --task "$PROMPT" --intelligence || true' }] }],
+    } }));
+    expect(finding('legacy CLI hooks')).toMatchObject({ status: 'warn', fix: expect.stringContaining('ruflo init upgrade --settings') });
+    expect(finding('legacy CLI hooks').message).toContain('stands down for route');
+    expect(finding('classic handshake').message).not.toContain('owns route and post-edit outright');
+  });
+
   it('reads the heartbeat the mod writes as the evidence of a load', () => {
     installMod(root, 'local');
     expect(finding('last mod start').status).toBe('warn');

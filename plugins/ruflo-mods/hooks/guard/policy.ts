@@ -19,7 +19,8 @@ import type { Verdict } from './verdict'
 export const PROJECTION_PATH = '.claude-flow/policy/claude-code.json'
 export const ACTION_PREFIX = 'claude-code.'
 
-export type PolicyMode = 'legacy' | 'observe' | 'enforce'
+/** `legacy` is never projected: the CLI deletes the file for it, so a file that says so was hand-written (ADR-450 T10). */
+export type PolicyMode = 'observe' | 'enforce'
 type Effect = 'allow' | 'deny' | 'require_approval'
 
 export type ProjectedRule = {
@@ -53,7 +54,7 @@ export type ToolRequest = {
   }
 }
 
-const MODES = new Set(['legacy', 'observe', 'enforce'])
+const MODES = new Set(['observe', 'enforce'])
 const EFFECTS = new Set(['allow', 'deny', 'require_approval'])
 const DESTRUCTIVE = new Set(['Bash', 'Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 const NETWORK = new Set(['Bash', 'WebFetch', 'WebSearch'])
@@ -74,7 +75,7 @@ export function parseProjection(text: string): Projection {
   if (raw === null || typeof raw !== 'object') throw new Error('projection is not an object')
   const { version, mode, rules } = raw as Record<string, unknown>
   if (version !== 1) throw new Error(`unsupported projection version ${String(version)}`)
-  if (typeof mode !== 'string' || !MODES.has(mode)) throw new Error('projection mode invalid')
+  if (typeof mode !== 'string' || !MODES.has(mode)) throw new Error('projection mode invalid (only observe or enforce are ever written)')
   if (!Array.isArray(rules)) throw new Error('projection rules invalid')
   const valid = rules.map((r: unknown, i): ProjectedRule => {
     const rule = r as Record<string, unknown> | null
@@ -163,7 +164,7 @@ export type PolicyOpinion = { readonly verdict?: Verdict; readonly wouldBe?: str
  * never loosens). In `observe`, `wouldBe` names what enforce would do.
  */
 export function policyOpinion(projection: Projection, tool: string, input: unknown): PolicyOpinion {
-  if (projection.mode === 'legacy' || projection.rules.length === 0) return {}
+  if (projection.rules.length === 0) return {}
   const req = toolRequest(tool, input)
   const matched = projection.rules
     .filter(rule => ruleMatches(rule, req))

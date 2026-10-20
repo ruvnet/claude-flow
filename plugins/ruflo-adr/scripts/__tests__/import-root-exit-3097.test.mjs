@@ -42,6 +42,10 @@ function run(fixture, format, fail = false) {
       ADR_TEST_FAIL: fail ? '1' : '0',
       IMPORT_FORMAT: format,
       PATH: `${fixture.bin}:${process.env.PATH}`,
+      // #3558: pin the npx shim — a built checkout or an installed ruflo on
+      // PATH would otherwise be preferred over it (lib/ruflo-cli.mjs).
+      RUFLO_PLUGIN_SKIP_LOCAL_CLI: '1',
+      RUFLO_PLUGIN_SKIP_PATH_CLI: '1',
     },
   });
 }

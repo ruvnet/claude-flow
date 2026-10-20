@@ -28,6 +28,7 @@ describe('/ruflo', () => {
   it('reads every subcommand into an intent; swarm alone is the view, swarm <sub> belongs to ruflo-swarm', () => {
     expect(parseRuflo('')).toEqual({ kind: 'open', view: null })
     expect(parseRuflo('4')).toEqual({ kind: 'open', view: 'claims' })
+    expect(parseRuflo('autopilot Stop')).toEqual({ kind: 'autopilot', arg: 'stop' })
     expect(parseRuflo('cost')).toEqual({ kind: 'open', view: 'cost' })
     expect(parseRuflo('swarm')).toEqual({ kind: 'open', view: 'swarm' })
     expect(parseRuflo('swarm status json')).toEqual({ kind: 'delegate', owner: 'ruflo-swarm', words: 'status json' })

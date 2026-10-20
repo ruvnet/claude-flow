@@ -2,6 +2,7 @@ import type { RenderElement } from 'claude-code'
 
 import { INTERVALS, loopInput, loopsOf, PRESETS, TIERS } from '../loops'
 import { clip, row, section, text, THEME, type Ctx } from './common'
+import { fullRows } from './full-rows'
 
 const chip = (ctx: Ctx, key: string, label: string, isOn: boolean, onPress: () => void): RenderElement =>
   ctx.kit.Button({ key, label: ` ${isOn ? '●' : '○'} ${label} `, plain: true, ...(isOn && { variant: 'primary' as const }), onPress })
@@ -40,7 +41,7 @@ export function loopRows(ctx: Ctx): RenderElement[] {
       ? [text(ctx, ' pick a preset above, or type a task below', { dimColor: true })]
       : [
           row(ctx, [text(ctx, ' every '), ...INTERVALS.map(interval => chip(ctx, `loop-int-${interval}`, interval, cfg.interval === interval, () => m.interval(interval)))], 'loop-intervals'),
-          text(ctx, ` task: ${clip(cfg.task, Math.max(20, ctx.columns - 12))}`, { bold: true }),
+          ...fullRows(ctx, ' task: ', cfg.task, { key: 'loop-task-line', bold: true, after: ctx.kit.Button({ key: 'loop-edit-task', label: '✎ edit', plain: true, onPress: () => ctx.act.editField('loop-task', cfg.task) }) }),
         ]
 
   return section(
@@ -54,7 +55,7 @@ export function loopRows(ctx: Ctx): RenderElement[] {
       ...configure,
       ...field(ctx, 'loop-task', '✎ task', 'what each tick should do (or /plugin:command)', 'use', value => m.task(value)),
       ...field(ctx, 'loop-stop', '⏹ stop', 'until 09:00 · after 12 runs · when done (optional)', 'set', value => m.stop(value)),
-      text(ctx, built.ok ? ` will send: ${clip(built.text, Math.max(20, ctx.columns - 14))}` : ` not ready: ${built.why}`, { color: built.ok ? THEME.ok : THEME.warn }),
+      ...fullRows(ctx, built.ok ? ' will send: ' : ' not ready: ', built.ok ? built.text : built.why, { key: 'loop-will', color: built.ok ? THEME.ok : THEME.warn, maxLines: 12, hint: 'the whole line is sent' }),
       row(
         ctx,
         [

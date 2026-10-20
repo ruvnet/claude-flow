@@ -10,6 +10,7 @@ import type { RenderElement } from 'claude-code'
 
 import { Arrivals, faultTolerance, membersOf, nextVoter, nodesOf, pickedProposal, proposalStrategyOf, proposeBlock, requiredVotes, tallyOf, waveOf, type Liveness, type Member, type Tally } from '../data/hive'
 import { shortId, type HiveInfo, type Proposal } from '../data/parse'
+import { own } from '../data/safe'
 import { hivePicture, type HiveCell, type HivePictureModel, type Role } from '../gfx/hive'
 import { chambersPicture, MAX_CHAMBERS, type Chamber } from '../gfx/hive-chamber'
 import { eggBottomPicture, eggTopPicture } from '../gfx/hive-egg'
@@ -22,7 +23,7 @@ const ROLE_GLYPH: Record<string, string> = { worker: '●', specialist: '◆', s
 const LIVE_THEME = (liveness: Liveness): { color?: string; dimColor?: boolean } =>
   liveness === 'busy' ? { color: THEME.warn } : liveness === 'idle' ? { color: THEME.info } : liveness === 'error' ? { color: THEME.bad } : { dimColor: true }
 
-const glyphOf = (member: Member): string => (member.isKnown ? (ROLE_GLYPH[member.role] ?? '●') : '○')
+const glyphOf = (member: Member): string => (member.isKnown ? (own(ROLE_GLYPH, member.role) ?? '●') : '○')
 const roleOf = (member: Member): Role => (member.isKnown && (member.role === 'worker' || member.role === 'specialist' || member.role === 'scout') ? member.role : 'unknown')
 
 /** The starts an empty hive offers: the palette ids `starts.ts` registers, each asking first with its exact argv. */

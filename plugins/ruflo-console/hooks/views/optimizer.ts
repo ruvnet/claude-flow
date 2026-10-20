@@ -3,6 +3,7 @@ import type { RenderElement } from 'claude-code'
 import { diagnose, offered, optimizerOf, metricNow, SCOPES, type Finding } from '../optimizer'
 import { slot } from './attention'
 import { clip, row, section, text, THEME, type Ctx } from './common'
+import { frameResult } from './status-card'
 
 const GLYPH = { bad: '✖', warn: '⚠', info: 'ℹ' } as const
 const COLOR = { bad: () => THEME.bad, warn: () => THEME.warn, info: () => THEME.info } as const
@@ -20,7 +21,8 @@ function findingRows(ctx: Ctx, finding: Finding): RenderElement[] {
   return [
     row(ctx, [ctx.kit.Text({ bold: true, color: COLOR[finding.level](), children: ` ${GLYPH[finding.level]} ${clip(finding.title, Math.max(20, ctx.columns - 34))} ` }), ctx.kit.Text({ dimColor: true, children: `· ${finding.area} · ${finding.metric}` })], `opt-head-${finding.id}`),
     text(ctx, `   ${clip(finding.why, Math.max(20, ctx.columns - 6))}`, { dimColor: true }),
-    row(
+    // The standalone terminal has no buttons, so a row of fixes (or "no button for this one") would say something false there.
+    ...(ctx.state.isStandalone ? [] : [row(
       ctx,
       [
         ...fixes.map(item => ctx.kit.Button({ key: `opt-fix-${finding.id}-${item.id}`, label: ` ▸ ${item.label} `, plain: true, onPress: () => ctx.act.optimizer.fix(finding.id, item.id) })),
@@ -28,7 +30,7 @@ function findingRows(ctx: Ctx, finding: Finding): RenderElement[] {
         ctx.kit.Button({ key: `opt-ask-${finding.id}`, label: ' ✦ ask Claude ', plain: true, dimColor: true, onPress: () => ctx.act.optimizer.ask(finding.id) }),
       ],
       `opt-fixes-${finding.id}`,
-    ),
+    )]),
     ...(before === undefined ? [] : [text(ctx, `   after ${cfg.ran.get(finding.id) ?? 'a fix'}: ${before}  →  now ${now ?? 'resolved (no longer a finding)'}  (refresh r re-reads)`, { color: now === null ? THEME.ok : THEME.info })]),
   ]
 }
@@ -47,7 +49,7 @@ function resultRows(ctx: Ctx): RenderElement[] {
   for (const line of result.lines.slice(0, 14)) rows.push(text(ctx, `   ${line}`, line.startsWith('⚠') ? { color: THEME.warn } : {}))
   if (result.lines.length > 14) rows.push(text(ctx, `   … ${result.lines.length - 14} more lines: open the section that owns this command`, { dimColor: true }))
 
-  return slot(ctx, rows)
+  return slot(ctx, [frameResult(ctx, rows, result.ok ? 'ok' : 'bad')])
 }
 
 /**

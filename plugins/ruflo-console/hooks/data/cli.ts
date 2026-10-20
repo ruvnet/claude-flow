@@ -4,9 +4,12 @@
  * when the person turns `federationNetwork` on. `plugins list` is never run (it fetches the IPFS registry), nor `verify` (it
  * fetches a manifest from GitHub).
  */
+import { closeOf } from './json-span'
+import { failureReason } from './failure'
 import { idOf, msOf, numberOf, plain, recordOf, stringOf, valuesOf } from './parse'
-
-import { CLI_PREFIXES, type CliChoice, type ViewId } from '../state'
+import { countOf, measureOf, own, ratioOf } from './safe'
+import { researchProbe } from './research'
+import { CLI_PREFIXES, type CliChoice, type State, type ViewId } from '../state'
 
 export type { ViewId }
 
@@ -15,6 +18,8 @@ export type Probe<T> = {
   args: readonly string[]
   /** A local executable for a capability check, or an offline-only ruflo read. */
   argv?: readonly string[]
+  /** An argv that depends on what is installed; null while it cannot be built, and the probe then does not run. */
+  argvOf?: (state: State) => readonly string[] | null
   isOffline?: boolean
   /** The views that draw it: a probe runs only while one of them is in front (the overview's run with the bar too). */
   views: readonly ViewId[]
@@ -36,7 +41,11 @@ export function jsonAfter(stdout: string): unknown {
     return null
   }
 
-  const end = Math.max(text.lastIndexOf('}'), text.lastIndexOf(']'))
+  const end = closeOf(text, start)
+
+  if (end < 0) {
+    return null
+  }
 
   try {
     return JSON.parse(text.slice(start, end + 1))
@@ -49,7 +58,10 @@ const objectOf = (stdout: string) => recordOf(jsonAfter(stdout))
 const exec = (tool: string, params: Record<string, unknown>) => ['mcp', 'exec', '-t', tool, '-p', JSON.stringify(params)] as const
 
 /** Offline probes never let the download-enabled CLI choice reach the registry. */
-export const probeArgv = (probe: Pick<Probe<unknown>, 'args' | 'argv' | 'isOffline'>, cli: CliChoice): readonly string[] => probe.argv ?? [...CLI_PREFIXES[probe.isOffline && cli === 'npx' ? 'npx-offline' : cli], ...probe.args]
+export const probeArgv = (probe: Pick<Probe<unknown>, 'args' | 'argv' | 'argvOf' | 'isOffline'>, cli: CliChoice, state?: State): readonly string[] => (state === undefined ? undefined : probe.argvOf?.(state)) ?? probe.argv ?? [...CLI_PREFIXES[probe.isOffline && cli === 'npx' ? 'npx-offline' : cli], ...probe.args]
+
+/** A probe with an install-dependent argv runs only while that argv can be built; every other probe is always ready. */
+export const probeReady = (probe: Pick<Probe<unknown>, 'argvOf'>, state: State): boolean => probe.argvOf === undefined || probe.argvOf(state) !== null
 
 /** Help only: older Claude builds must not get a guessed configuration command. */
 export const budgetConfigProbe: Probe<boolean> = {
@@ -106,12 +118,12 @@ export const memoryProbe: Probe<MemoryStats> = {
 
     const entries = recordOf(value.entries)
     const stats: MemoryStats = { backend: stringOf(value.backend, 60) ?? 'unknown' }
-    const total = numberOf(entries?.total)
-    const vectors = numberOf(entries?.vectors)
+    const total = countOf(entries?.total)
+    const vectors = countOf(entries?.vectors)
     const storage = stringOf(recordOf(value.storage)?.total, 30)
     const oldestMs = msOf(value.oldestEntry)
     const newestMs = msOf(value.newestEntry)
-    const unread = numberOf(recordOf(value.unreadStore)?.rows)
+    const unread = countOf(recordOf(value.unreadStore)?.rows)
 
     if (total !== undefined) stats.total = total
     if (unread !== undefined) stats.unread = unread
@@ -150,7 +162,7 @@ export const namespacesProbe: Probe<Namespaces> = {
       const record = recordOf(entry)
       const name = stringOf(record?.namespace, 40) ?? '(none)'
       const key = stringOf(record?.key, 128)
-      const size = numberOf(record?.size)
+      const size = countOf(record?.size)
       const atMs = msOf(record?.updatedAt ?? record?.createdAt)
 
       counts.set(name, (counts.get(name) ?? 0) + 1)
@@ -186,7 +198,7 @@ export const scoreProbe: Probe<HarnessScore> = {
     }
 
     const score: HarnessScore = { dims }
-    const costUsd = numberOf(value.estCostPerRunUsd)
+    const costUsd = measureOf(value.estCostPerRunUsd)
     const archetype = stringOf(value.archetype, 40)
     const constraints = stringOf(value.hardConstraints, 10)
     const atMs = msOf(value.generatedAt)
@@ -220,12 +232,12 @@ export const flywheelProbe: Probe<Flywheel> = {
 
     const flywheel: Flywheel = {
       isLedgerValid: ledger.valid === true,
-      commits: numberOf(ledger.commits) ?? 0,
+      commits: countOf(ledger.commits) ?? 0,
       receipts: Object.keys(recordOf(state?.receiptStates) ?? {}).length,
       errors: (Array.isArray(ledger.errors) ? ledger.errors : []).slice(0, 3).map(error => plain(error, 100)),
     }
     const champion = stringOf(state?.activeChampionRef, 80)
-    const epoch = numberOf(state?.servingEpoch)
+    const epoch = countOf(state?.servingEpoch)
 
     if (champion !== undefined) flywheel.champion = champion
     if (epoch !== undefined) flywheel.epoch = epoch
@@ -259,7 +271,7 @@ export const auditProbe: Probe<AuditTrend> = {
       const record = recordOf(entry)
       const atMs = msOf(record?.finishedAt ?? record?.startedAt ?? record?.timestamp ?? record?.generatedAt ?? record?.createdAt ?? recordOf(record?.value)?.generatedAt)
       const worst = stringOf(record?.worst ?? recordOf(record?.value)?.worst, 12)
-      const findings = numberOf(record?.findings ?? recordOf(record?.value)?.findingCount)
+      const findings = countOf(record?.findings ?? recordOf(record?.value)?.findingCount)
       const key = idOf(record?.key) ?? undefined
 
       return atMs === undefined ? [] : [{ atMs, ...(worst !== undefined && { worst }), ...(findings !== undefined && { findings }), ...(key !== undefined && { key }) }]
@@ -267,12 +279,12 @@ export const auditProbe: Probe<AuditTrend> = {
 
     points.sort((a, b) => a.atMs - b.atMs)
 
-    return { total: numberOf(value.totalInNamespace) ?? points.length, points }
+    return { total: countOf(value.totalInNamespace) ?? points.length, points }
   },
 }
 
 /** A severity word as a 0-4 level, for the trend line; unknown words are null. */
-export const severityOf = (word: string | undefined): number | null => (word === undefined ? null : (SEVERITY[word.toLowerCase()] ?? null))
+export const severityOf = (word: string | undefined): number | null => (word === undefined ? null : (own(SEVERITY, word.toLowerCase()) ?? null))
 
 export type Intelligence = { trajectories?: number; patterns?: number; successRate?: number; moeDecisions?: number; ewcConsolidations?: number; routerDecisions?: number; routerConfidence?: number; neuralRouter?: string }
 
@@ -292,13 +304,13 @@ export const intelligenceProbe: Probe<Intelligence> = {
     const sona = recordOf(value.sona)
     const router = recordOf(value.modelRouter)
     const neural = recordOf(value.neuralRouter)
-    const routerDecisions = numberOf(router?.totalDecisions)
+    const routerDecisions = countOf(router?.totalDecisions)
     const out: Intelligence = {}
-    const trajectories = numberOf(sona?.trajectoriesTotal)
-    const patterns = numberOf(sona?.patternsLearned)
-    const successRate = numberOf(sona?.successRate)
-    const moeDecisions = numberOf(recordOf(value.moe)?.routingDecisions)
-    const ewc = numberOf(recordOf(value.ewc)?.consolidations)
+    const trajectories = countOf(sona?.trajectoriesTotal)
+    const patterns = countOf(sona?.patternsLearned)
+    const successRate = ratioOf(sona?.successRate)
+    const moeDecisions = countOf(recordOf(value.moe)?.routingDecisions)
+    const ewc = countOf(recordOf(value.ewc)?.consolidations)
 
     if (trajectories !== undefined) out.trajectories = trajectories
     if (patterns !== undefined) out.patterns = patterns
@@ -307,7 +319,7 @@ export const intelligenceProbe: Probe<Intelligence> = {
     if (ewc !== undefined) out.ewcConsolidations = ewc
     if (routerDecisions !== undefined) out.routerDecisions = routerDecisions
     // The tool answers a default confidence before the first decision: only a measured one is kept.
-    if (routerDecisions !== undefined && routerDecisions > 0 && numberOf(router?.avgConfidence) !== undefined) out.routerConfidence = numberOf(router?.avgConfidence) as number
+    if (routerDecisions !== undefined && routerDecisions > 0 && ratioOf(router?.avgConfidence) !== undefined) out.routerConfidence = ratioOf(router?.avgConfidence) as number
     if (neural !== null) out.neuralRouter = neural.enabled === true ? 'on' : `off (${plain(neural.reason, 40) || 'not enabled'})`
 
     return out
@@ -438,7 +450,7 @@ export const registryProbe: Probe<Registry> = {
 
     const reg = recordOf(value.registration)
     const limits = recordOf(reg?.limits)
-    const limitText = limits === null ? undefined : Object.entries(limits).slice(0, 4).flatMap(([key, n]) => (numberOf(n) === undefined ? [] : [`${plain(key, 16)} ${numberOf(n)}`])).join(' · ')
+    const limitText = limits === null ? undefined : Object.entries(limits).slice(0, 4).flatMap(([key, n]) => (measureOf(n) === undefined ? [] : [`${plain(key, 16)} ${measureOf(n)}`])).join(' · ')
     const out: Registry = {
       join: (Array.isArray(value.join) ? value.join : []).slice(0, 6).flatMap(step => (typeof step === 'string' ? [plain(step, 200)] : [])),
       channels: (Array.isArray(value.defaultChannels) ? value.defaultChannels : []).slice(0, 8).flatMap(entry => {
@@ -469,11 +481,20 @@ export const registryProbe: Probe<Registry> = {
   },
 }
 
-export const PROBES = [versionProbe, memoryProbe, namespacesProbe, scoreProbe, flywheelProbe, auditProbe, intelligenceProbe, peersProbe, channelsProbe, rosterProbe, registryProbe, budgetConfigProbe, modelStatsProbe] as const
+export const PROBES = [versionProbe, memoryProbe, namespacesProbe, scoreProbe, flywheelProbe, auditProbe, intelligenceProbe, peersProbe, channelsProbe, rosterProbe, registryProbe, budgetConfigProbe, modelStatsProbe, researchProbe] as const
 
 export type ProbeId = (typeof PROBES)[number]['id']
 
 /** What a probe came to: the last good value and when, and the last error, so a failing source is never drawn as live. */
 export type ProbeResult<T = unknown> = { value: T | null; okAtMs: number | null; error: string | null; errorAtMs: number | null; isRunning: boolean }
+
+/** An empty offline npm cache needs one explicit install; probes never download it themselves. An absent optional package answers exit 0 with `{degraded: true, reason}` (ADR-150): say so. A failure names its picked reason (failureReason), not the first stderr line, which is usually the CLI's `[WARN] Skipped helper auto-refresh`. */
+export function probeError(argv: readonly string[], result: { exitCode: number; stdout: string; stderr: string }): string {
+  if (result.exitCode === 0) return objectOf(result.stdout)?.degraded === true ? `unavailable: ${plain(objectOf(result.stdout)?.reason, 60) || 'degraded'}` : 'no JSON in the CLI output'
+  if (argv[0] === 'npx' && argv.includes('--offline') && argv.includes('@claude-flow/cli@latest') && /\bENOTCACHED\b/.test(`${result.stderr}\n${result.stdout}`)) {
+    return 'ruflo CLI not cached; run: npx -y @claude-flow/cli@latest --version'
+  }
+  return `exit ${result.exitCode}: ${failureReason(result, 100) || 'no message'}`
+}
 
 export const emptyResult = (): ProbeResult => ({ value: null, okAtMs: null, error: null, errorAtMs: null, isRunning: false })

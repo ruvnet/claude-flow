@@ -93,8 +93,11 @@ describe('memory import database selection', () => {
     const result = await importTool.handler({
       inputPath: importPath,
       dbPath: '/project/custom.db',
-    }) as { imported: { entries: number }; skipped: number };
+    }) as { success: boolean; imported: { entries: number }; skipped: number; failed: number; error?: string };
     expect(result.imported.entries).toBe(0);
-    expect(result.skipped).toBe(1);
+    expect(result.success).toBe(false);
+    expect(result.failed).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(result.error).toContain('database unavailable');
   });
 });

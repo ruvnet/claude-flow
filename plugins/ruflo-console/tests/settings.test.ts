@@ -76,6 +76,31 @@ describe('settings', () => {
     await pane.unmount()
   })
 
+  test('ruflo-mods lists its tool hints, agent trim and delivery screen at the simple level, each with an honest note, and a toggle asks first', { options: { boot: false } }, async ($, on) => {
+    const { world, pane } = await opened($, on)
+
+    await pane.press({ key: 'st-plugin-ruflo-mods' })
+
+    const tree = await pane.drawn()
+    const text = textOf(tree)
+
+    expect(text).toContain('Hide unused agent types')
+    expect(text).toContain('about 4,000 fewer prompt tokens measured')
+    expect(text).toContain('Screen peer deliveries and outgoing messages')
+    expect(text).toContain('real-world rate unknown')
+    expect(text).toContain('Usage hints on ruflo tools')
+    expect(elementsOf(tree, 'Button').map(keyOf)).toEqual(expect.arrayContaining(['st-ask-claude-ruflo-mods-agentTrim', 'st-ask-codex-ruflo-mods-deliveryScreen', 'st-opt-ruflo-mods-agentTrim-true']))
+    await pane.press({ key: 'st-opt-ruflo-mods-agentTrim-true' })
+
+    const asked = textOf(await pane.drawn())
+
+    expect(asked).toContain('Confirm: set ruflo-mods agentTrim to true')
+    expect(asked).toContain('{"agentTrim":"true"}')
+    expect(claudeRuns(world.runs).filter(argv => argv.includes('--values-stdin'))).toEqual([])
+    await $.command.run(command('no'))
+    await pane.unmount()
+  })
+
   test('a number field takes digits only; ruflo config keys outside the list or out of range are refused', { options: { boot: false } }, async ($, on) => {
     const { world, pane } = await opened($, on)
 

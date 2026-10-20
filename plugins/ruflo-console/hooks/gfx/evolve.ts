@@ -4,6 +4,7 @@
  * lights only from data: a file ruflo wrote, or what its CLI answered when the person asked. What nothing measures
  * reads n/a, dimmed, never dark. The dot that runs along the arrows is decoration over lit stages only.
  */
+import { isoOf } from '../data/safe'
 import { shortRef, type EvolveFiles, type EvolveState } from '../data/evolve'
 import { COLOR, Grid, mix } from './raster'
 
@@ -129,7 +130,7 @@ function treeRows(edges: readonly Edge[], champion: string | undefined): Lineage
   return rows
 }
 
-const when = (atMs: number | undefined) => (atMs === undefined ? '' : ` · ${new Date(atMs).toISOString().slice(0, 10)}`)
+const when = (atMs: number | undefined) => (atMs === undefined ? '' : ` · ${isoOf(atMs).slice(0, 10)}`)
 
 /**
  * The champion's ancestry, per store. The flywheel's: each promotion commit links its baseline to the candidate, and

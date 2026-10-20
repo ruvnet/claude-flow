@@ -65,8 +65,9 @@ const keyOfElement = (element: unknown): string | null => {
  * one that holds the origin's element gets the panel after that child. Otherwise the kit is returned as it is, so a quiet page costs
  * nothing extra. Which element was pressed is recorded by the `ui.press` and `ui.input` hooks (register.ts), not here.
  */
-export function wrapKit(kit: Ctx['kit'], _state: State, attention: Attention): Ctx['kit'] {
-  if (attention.key === null) return kit
+export function wrapKit(kit: Ctx['kit'], state: State, attention: Attention): Ctx['kit'] {
+  // A headless ask still needs its inline confirm tracked, so the pane can fall back when that section is folded.
+  if (attention.key === null && state.pending === null) return kit
 
   const Box: Ctx['kit']['Box'] = props => {
     const kids = flat((props as { children?: unknown }).children)

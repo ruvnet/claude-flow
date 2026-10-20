@@ -79,6 +79,9 @@ export class ToolRegistry extends EventEmitter {
       }
     }
 
+    const previous = this.tools.get(tool.name);
+    if (previous) this.removeFromIndexes(previous.tool);
+
     const metadata: ToolMetadata = {
       tool,
       registeredAt: new Date(),
@@ -150,29 +153,32 @@ export class ToolRegistry extends EventEmitter {
       return false;
     }
 
-    if (metadata.tool.category) {
-      const categoryTools = this.categoryIndex.get(metadata.tool.category);
-      categoryTools?.delete(name);
-      if (categoryTools?.size === 0) {
-        this.categoryIndex.delete(metadata.tool.category);
-      }
-    }
-
-    if (metadata.tool.tags) {
-      for (const tag of metadata.tool.tags) {
-        const tagTools = this.tagIndex.get(tag);
-        tagTools?.delete(name);
-        if (tagTools?.size === 0) {
-          this.tagIndex.delete(tag);
-        }
-      }
-    }
-
+    this.removeFromIndexes(metadata.tool);
     this.tools.delete(name);
     this.logger.debug('Tool unregistered', { name });
     this.emit('tool:unregistered', name);
 
     return true;
+  }
+
+  private removeFromIndexes(tool: MCPTool): void {
+    if (tool.category) {
+      const categoryTools = this.categoryIndex.get(tool.category);
+      categoryTools?.delete(tool.name);
+      if (categoryTools?.size === 0) {
+        this.categoryIndex.delete(tool.category);
+      }
+    }
+
+    if (tool.tags) {
+      for (const tag of tool.tags) {
+        const tagTools = this.tagIndex.get(tag);
+        tagTools?.delete(tool.name);
+        if (tagTools?.size === 0) {
+          this.tagIndex.delete(tag);
+        }
+      }
+    }
   }
 
   getTool(name: string): MCPTool | undefined {

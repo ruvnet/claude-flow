@@ -40,7 +40,7 @@ export function hiveVote(hive: HiveInfo, proposal: Proposal, isFor: boolean): Ac
 /** A new proposal under the hive's own strategy; null when the text cannot be passed or raft would refuse it. */
 export function hivePropose(hive: HiveInfo, text: string): ActionSpec | null {
   const { type, value } = proposalText(text)
-  const body = textArg(value, 300)
+  const body = textArg(value)
   const strategy = proposalStrategyOf(hive.strategy)
   const known = new Set([...hive.pending, ...hive.history].map(entry => entry.id))
 
@@ -56,7 +56,7 @@ export function hivePropose(hive: HiveInfo, text: string): ActionSpec | null {
 
 /** A message to every worker, kept in the hive's shared memory (the last 100). */
 export function hiveBroadcast(text: string): ActionSpec | null {
-  const message = textArg(text, 160)
+  const message = textArg(text)
 
   return message === null
     ? null

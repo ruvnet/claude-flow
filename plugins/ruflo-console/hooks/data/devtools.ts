@@ -7,13 +7,13 @@ import { jsonAfter } from './cli'
 import { plain, recordOf } from './parse'
 import { labLines } from '../mh-lab'
 
-export type DevField = 'ref' | 'path' | 'label' | 'url' | 'target' | 'query' | 'task' | 'cmd' | 'id' | 'note'
+export type DevField = 'ref' | 'path' | 'label' | 'url' | 'target' | 'query' | 'task' | 'cmd' | 'id' | 'note' | 'session' | 'send'
 
 export type DevFields = Record<DevField, string>
 
-export const DEV_FIELDS: readonly DevField[] = ['ref', 'path', 'label', 'url', 'target', 'query', 'task', 'cmd', 'id', 'note']
+export const DEV_FIELDS: readonly DevField[] = ['ref', 'path', 'label', 'url', 'target', 'query', 'task', 'cmd', 'id', 'note', 'session', 'send']
 
-export const emptyFields = (): DevFields => ({ ref: 'HEAD', path: '', label: '', url: '', target: '', query: '', task: '', cmd: '', id: '', note: '' })
+export const emptyFields = (): DevFields => ({ ref: 'HEAD', path: '', label: '', url: '', target: '', query: '', task: '', cmd: '', id: '', note: '', session: '', send: '' })
 
 const CONTROL = /[\u0000-\u001f\u007f]/
 
@@ -58,6 +58,23 @@ const RULES: Record<DevField, { test: (text: string) => string | null; rule: str
   cmd: { test: text => prose(text, 200), rule: 'one command line: 1-200 characters, no newline or control character, not starting with -' },
   id: { test: text => (/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(text.trim()) ? text.trim() : null), rule: 'an id: letters, digits _ . : -, at most 64, not starting with -' },
   note: { test: text => prose(text, 200), rule: 'a note: 1-200 characters, no control characters, not starting with -' },
+  session: { test: text => (/^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/.test(text.trim()) ? text.trim() : null), rule: 'a sandbox name: letters, digits _ -, at most 40, not starting with _ or - (the console adds the ruflo-sb- prefix)' },
+  // tmux splits an argument that ends in a semicolon into two commands, so a command line ending in one is refused, not typed.
+  send: { test: text => { const value = prose(text, 200); return value === null || value.endsWith(';') ? null : value }, rule: 'one command line to type: 1-200 characters, no control character, not starting with -, not ending in ;' },
+}
+
+/** A field's checked value, or null; `build` makes the argv only when every named field passes. */
+export const need = (fields: DevFields, names: readonly DevField[], build: (values: Record<DevField, string>) => readonly string[]): readonly string[] | null => {
+  const values = {} as Record<DevField, string>
+
+  for (const name of names) {
+    const value = fieldValue(name, fields[name])
+
+    if (value === null) return null
+    values[name] = value
+  }
+
+  return build(values)
 }
 
 /** A field's text as it may enter an argv, or null when it breaks the field's rule. */

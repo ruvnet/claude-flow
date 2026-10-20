@@ -54,7 +54,7 @@ describe('views', () => {
     const { text, rasters, tree } = await drawn($, 'swarm')
 
     expect(rasters).toEqual(['title', 'topology'])
-    expect(text).toContain('hierarchical · specialized · running · max 6')
+    expect(text).toContain('hierarchical · specialized · running · 2 agents · max 6 · updated ')
     // One label per agent (no repeated type), then status; a short id instead of the full one.
     expect(text).toMatch(/▸● \ncoder\s+idle\s+tasks/)
     expect(text).toMatch(/· #[a-z0-9]{4,6}/)
@@ -180,9 +180,10 @@ describe('views', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const { text, rasters } = await drawn($, 'learning')
+    // The pipeline section is open by default since ADR-455 (its stages are a picture of their own); the old test clicked it open.
+    const { text, rasters } = await drawn($, 'learning', 110)
 
-    expect(rasters).toEqual(['title', 'curve', 'pipeline', 'patterns'])
+    expect(rasters).toEqual(['title', 'route', 'curve', 'pipeline-stages', 'patterns'])
     expect(text).toContain('tester 60% · keyword match')
     expect(text).toMatch(/\d+\/9 succeeded \(\d+% success rate, N=9\)/)
     expect(text).toContain('consolidate: EWC consolidations')
@@ -193,7 +194,9 @@ describe('views', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const { text, rasters } = await drawn($, 'metaharness')
+    const folded = await drawn($, 'metaharness')
+    expect(folded.rasters).toEqual(['title', 'radar'])
+    const { text, rasters } = await drawn($, 'metaharness', 110, ['mh-trend'])
 
     expect(rasters).toEqual(['title', 'radar', 'trend'])
     expect(text).toContain('$0.024')
@@ -206,7 +209,7 @@ describe('views', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const { text, tree } = await drawn($, 'metaharness')
+    const { text, tree } = await drawn($, 'metaharness', 110, ['mh-record', 'mh-evolve', 'mh-promote'])
     const buttons = elementsOf(tree, 'Button').map(keyOf)
 
     expect(text).toMatch(/LAB · INSPECT/i)
@@ -215,7 +218,7 @@ describe('views', () => {
     expect(text).toContain('ruflo metaharness flywheel promote <receipt-id> --public-key <approved-ed25519.pem> --confirm')
     expect(text).toContain('nothing run yet')
     expect(buttons).toEqual(expect.arrayContaining(['lab-mh-genome', 'lab-mh-mcp-scan', 'lab-mh-audit', 'lab-mh-redblue-real', 'lab-mh-learn-run', 'lab-mh-flywheel-run']))
-    expect(buttons.some(key => /promote/.test(key))).toBe(false)
+    expect(buttons.some(key => key.startsWith('lab-') && /promote/.test(key))).toBe(false)
     // Drawing the lab runs nothing but the view's own probes.
     expect(world.runs.some(argv => /genome|mcp-scan|redblue|evolve|learn/.test(argv.join(' ')))).toBe(false)
   })
@@ -248,10 +251,14 @@ describe('views', () => {
 
   test('timeline, approvals and events draw from what was seen; the drill-down opens an agent', { options: { boot: false } }, async ($, on) => {
     const world = worldOf(on, RUFLO_FILES)
-    mock.clock(on)
+    const clock = mock.clock(on)
     await $.session.start(SESSION)
 
-    expect((await drawn($, 'timeline')).rasters).toEqual(['title', 'gantt'])
+    // The lanes come from a status read taken on the 1.5 s activity tick (ADR-474): with the agents read, the lane picture is drawn.
+    await $.command.run(command('status'))
+    await clock.advance(2000)
+    await clock.advance(2000)
+    expect((await drawn($, 'timeline')).rasters).toEqual(['title', 'tl-picture'])
 
     const approvals = await drawn($, 'approvals')
 
@@ -305,7 +312,7 @@ describe('views', () => {
   })
 
   test('main menu: bare /ruflo lands on it in the BBS look; its prompt takes a key or a name', { options: { boot: false } }, async ($, on) => {
-    worldOf(on, RUFLO_FILES)
+    const world = worldOf(on, RUFLO_FILES)
     mock.clock(on)
     await $.session.start(SESSION)
     await $.command.run(command())
@@ -313,15 +320,16 @@ describe('views', () => {
     const pane = await $.ui.mount({ ...paneAt(110), surface: 'terminal' as const, plugin: PLUGIN })
     const menu = await pane.drawn()
 
-    expect(elementsOf(menu, 'Raster').map(keyOf)).toEqual(['header'])
+    expect(elementsOf(menu, 'Raster').map(keyOf)).toEqual(['header', 'palette'])
     expect(textOf(menu)).toContain('▓▒░ SWARM ░▒▓')
-    expect(textOf(menu)).toContain('── live')
+    expect(textOf(menu)).toContain('── start here')
     expect(textOf(menu)).toContain('Swarm Topology')
     expect(textOf(menu)).toContain('ANSI-BBS')
     expect(inputKeys(menu)).toEqual(['menu-goal', 'menu-prompt'])
 
     await pane.input({ key: 'menu-prompt', text: 'w', kind: 'submit' })
-    expect(textOf(await pane.drawn())).toContain('MAIN MENU')
+    expect(textOf(await pane.drawn()).toLowerCase()).toContain('x.ruv.io')
+    expect(world.stored.get('ruflo-console/ui:/work')).toMatchObject({ view: 'xruv' })
 
     await pane.press({ key: 'tab-menu' })
     await pane.input({ key: 'menu-prompt', text: 'nope', kind: 'submit' })
@@ -391,6 +399,7 @@ describe('views', () => {
 
     const pane = await $.ui.mount({ ...paneAt(110), surface: 'terminal' as const, plugin: PLUGIN })
 
+    await pane.press({ key: 'sec-nn-train' })
     await pane.press({ key: 'run-nn-train-coordination-20' })
     const asked = textOf(await pane.drawn())
 

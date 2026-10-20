@@ -39,7 +39,7 @@ export type RufloSnapshot = {
   routed: number
   lastRoute: RufloRoute | null
   /** `none`: no ruflo policy for Claude Code tools. `unreadable`: present, failing closed. */
-  policy: 'none' | 'legacy' | 'observe' | 'enforce' | 'unreadable'
+  policy: 'none' | 'observe' | 'enforce' | 'unreadable'
   /** Tool calls ruflo tightened (allow to ask or deny, ask to deny). */
   tightened: number
   /** Calls observe-mode policy would have tightened. */

@@ -4,9 +4,11 @@ description: Schedule persistent background workers via CronCreate
 argument-hint: "<worker-name> [--interval CRON]"
 allowed-tools: CronCreate CronList CronDelete mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch
 ---
-Use `CronCreate` for workers that must survive session restarts:
+Use `CronCreate` for a worker that should fire on a clock while this Claude Code session is open:
 
-`CronCreate({ schedule: "*/15 * * * *", prompt: "Run security audit worker via mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch" })`
+`CronCreate({ cron: "*/15 * * * *", prompt: "Dispatch the audit worker with mcp__plugin_ruflo-core_ruflo__hooks_worker-dispatch({ trigger: \"audit\" }) and report anything critical", recurring: true })`
+
+The parameters are `cron` (five-field expression), `prompt` and `recurring`. A `schedule:` field does not exist. These jobs live in the session: they stop when you close it, and recurring jobs expire on their own after 7 days. Cancel one sooner with `CronDelete` (find its id with `CronList`). For a worker that must keep running after the session ends, use `/schedule` (cloud routines) or an OS scheduler (cron, systemd timer) that calls `npx @claude-flow/cli@latest hooks worker dispatch --trigger audit`.
 
 ### Recommended Schedules
 
@@ -21,5 +23,6 @@ Use `CronCreate` for workers that must survive session restarts:
 
 ### When to Use Cron vs Loop
 
-- **`/loop`**: In-session, cache-aware, self-pacing. Use for active development.
-- **CronCreate**: Persistent, survives restarts. Use for CI/monitoring.
+- **`/loop`**: In-session, self-pacing. Use for active development.
+- **CronCreate**: In-session, fixed clock, auto-expires after 7 days. Use for regular checks while you work.
+- **`/schedule` or an OS scheduler**: Survives the session. Use for CI-style monitoring.

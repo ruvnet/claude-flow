@@ -26,9 +26,10 @@ async function opened($: Body[0], on: Body[1], view: string) {
 }
 
 describe('attention: the ask and its answer sit under what was clicked', () => {
-  for (const [view, key] of [['metaharness', 'lab-mh-flywheel-run'], ['devtools', 'dt-llm-hnsw']] as const) {
+  for (const [view, key, section] of [['metaharness', 'lab-mh-flywheel-run', 'sec-mh-evolve'], ['devtools', 'dt-llm-hnsw', 'sec-dt-ruvllm']] as const) {
     test(`${view}: the confirm is the next thing after ${key}, the result follows it, and nothing is drawn twice`, { options: { boot: false } }, async ($, on) => {
       const pane = await opened($, on, view)
+      await pane.press({ key: section })
       const before = keys(await pane.drawn())
       const at = before.indexOf(key)
 
@@ -64,16 +65,21 @@ describe('attention: the ask and its answer sit under what was clicked', () => {
   test('a page whose clicked row is folded away shows the confirm at the top instead, once', { options: { boot: false } }, async ($, on) => {
     const pane = await opened($, on, 'memory')
 
-    await pane.press({ key: 'mem-do-store' })
+    await pane.press({ key: 'mem-lab-mem-consolidate' })
+    expect(keys(await pane.drawn()).filter(key => key === 'confirm')).toHaveLength(1)
+    await pane.press({ key: 'sec-mem-g-agentdb' })
 
     const tree = await pane.drawn()
 
-    expect(keys(tree).filter(candidate => candidate === 'confirm').length).toBeLessThanOrEqual(1)
+    expect(keys(tree)).not.toContain('mem-lab-mem-consolidate')
+    expect(keys(tree).filter(candidate => candidate === 'confirm')).toHaveLength(1)
+    expect(keys(tree).indexOf('confirm')).toBeLessThan(keys(tree).indexOf('mem-do-store'))
     await pane.unmount()
   })
 
   test('a headless ask (no press) is drawn at the top, above the body', { options: { boot: false } }, async ($, on) => {
     const pane = await opened($, on, 'metaharness')
+    await pane.press({ key: 'sec-mh-evolve' })
 
     await $.command.run(command('run mh-flywheel-run'))
 

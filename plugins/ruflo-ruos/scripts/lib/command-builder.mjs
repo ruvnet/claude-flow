@@ -229,12 +229,6 @@ export function buildProbe(n) {
 }
 
 /**
- * @param {string} stdout
- * @param {string} n
- */
-export const parseProbe = (stdout, n) => marker(n, 'RUNNER_OK').test(stdout);
-
-/**
  * @typedef {object} PollResult
  * @property {number|null} exitCode  null while running
  * @property {number} size           total log size on the desktop

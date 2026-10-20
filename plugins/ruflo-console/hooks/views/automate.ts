@@ -7,7 +7,8 @@ import type { LabCost } from '../mh-lab'
 import { neuralEntries } from '../neural'
 import { slot } from './attention'
 import { loopRows } from './loops'
-import { ago, button, clip, col, row, rule, text, THEME, type Ctx } from './common'
+import { ago, button, clip, col, type Ctx, row, rule, tagChip, text, THEME } from './common'
+import { frameResult } from './status-card'
 import { selection } from './select'
 
 /** Result lines in view at once; j/k scroll the rest. */
@@ -27,7 +28,7 @@ export type Item = { id: string; label: string; cost: LabCost }
 export function strip(ctx: Ctx, key: string, items: readonly Item[]): RenderElement {
   return row(
     ctx,
-    items.flatMap(item => [ctx.kit.Text({ bold: true, color: TAG[item.cost].color(), children: ` ${TAG[item.cost].text}` }), ctx.kit.Button({ key: `run-${item.id}`, label: `▸ ${item.label}`, plain: true, onPress: () => void ctx.act.run(item.id) })]),
+    items.flatMap(item => [tagChip(ctx, TAG[item.cost].text, TAG[item.cost].color()), ctx.kit.Button({ key: `run-${item.id}`, label: `▸ ${item.label}`, plain: true, onPress: () => void ctx.act.run(item.id) })]),
     key,
   )
 }
@@ -35,16 +36,17 @@ export function strip(ctx: Ctx, key: string, items: readonly Item[]): RenderElem
 /** True when Enter repeats the text the pending ask came from: the field holds the keys, so Enter again confirms. */
 export function isAskedAgain(ctx: Ctx, id: string, value: string): boolean {
   const pending = ctx.state.pending
-  const entry = [...automateEntries(ctx.state), ...neuralEntries(ctx.state)].find(candidate => candidate.id === id)
+  const again = ctx.state.askedAgain
 
-  return pending !== null && value.trim() !== '' && entry?.make?.(value)?.label === pending.label
+  // The same entry, the same text, and the very card that text raised (its id): a card with the same words that replaced it is not it.
+  return pending !== null && pending.id !== undefined && again !== null && value.trim() !== '' && again.entry === id && again.text === value.trim() && again.card === pending.id
 }
 
 /** A typed entry's field: Enter runs a read at once, or asks for a change; Enter again on the same text confirms it. */
 export function field(ctx: Ctx, id: string, label: string, placeholder: string, submitLabel = 'ask'): RenderElement {
   if (ctx.kit.Input === undefined) return text(ctx, ` ${label}: this surface has no text field; /ruflo run ${id} <text> does the same`, { dimColor: true })
 
-  return ctx.kit.Input({ key: `in-${id}`, label, placeholder, submitLabel, onSubmit: value => (isAskedAgain(ctx, id, value) ? ctx.act.confirm() : void ctx.act.run(id, value)) })
+  return ctx.kit.Input({ key: `in-${id}`, label, placeholder, submitLabel, onSubmit: value => (isAskedAgain(ctx, id, value) ? ctx.act.confirm(ctx.state.pending?.id) : void ctx.act.run(id, value)) })
 }
 
 /** The last run whose id has one of `prefixes`: what it was, how it exited, its cost note and a window of its lines. */
@@ -60,7 +62,7 @@ export function resultRows(ctx: Ctx, prefixes: readonly string[]): RenderElement
   if (result === null) {
     if (running === null) rows.push(text(ctx, ' ▸ press any entry: a $0 read shows here at once; wr, cpu and $$ ask first (y), then show here', { dimColor: true }))
 
-    return rows
+    return [frameResult(ctx, rows, running !== null ? 'run' : 'idle')]
   }
 
   rows.push(text(ctx, ` ${result.label}`, { bold: true, color: result.ok ? THEME.ok : THEME.bad }))
@@ -73,7 +75,7 @@ export function resultRows(ctx: Ctx, prefixes: readonly string[]): RenderElement
     rows.push(row(ctx, [text(ctx, ` lines ${top + 1}-${Math.min(result.lines.length, top + RESULT_ROWS)} of ${result.lines.length} `, { dimColor: true }), button(ctx, 'res-up', 'up', () => ctx.act.select(-1), { hotkey: 'k' }), button(ctx, 'res-down', 'down', () => ctx.act.select(1), { hotkey: 'j' })]))
   }
 
-  return slot(ctx, rows)
+  return slot(ctx, [frameResult(ctx, rows, result.ok ? 'ok' : 'bad')])
 }
 
 /** One worker's light: running now (◌), failing (◐), has run (●), or never run here (○). */

@@ -9,9 +9,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json is valid and declares 0.1.0"
+step "1. plugin.json is valid and declares 0.1.1"
 v=$(node -e 'const p=require(process.argv[1]);if(p.name!=="ruflo-ruos")process.exit(1);console.log(p.version)' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null)
-[[ "$v" == "0.1.0" ]] && ok || bad "got '$v'"
+[[ "$v" == "0.1.1" ]] && ok || bad "got '$v'"
 
 step "2. commands, skill and agent present with frontmatter"
 miss=""

@@ -77,3 +77,14 @@ bash plugins/ruflo-aidefence/scripts/smoke.sh
 ## Architecture Decisions
 
 - [`ADR-0001` — ruflo-aidefence plugin contract (pinning, namespace coordination, 3-gate pattern, smoke as contract)](./docs/adrs/0001-aidefence-contract.md)
+
+## As a mod
+
+AIDefence also ships as a function-hook mod (ADR-445 pattern; hooks in `hooks/`, loaded with the plugin). No network, no process, no model call.
+
+- **Guard (default on)**: refuses an `aidefence_learn` sample that holds a key, token or password (learned patterns are stored and replayed). It only tightens: it never allows anything the session would deny, and the refusal never repeats the secret. Turn it off with the `guard` option.
+- **`/aidefence-mod`**: answered locally. `/aidefence-mod status`, `/aidefence-mod scan <text>`.
+- **Status file**: `.claude-flow/aidefence-mod/status.json` (`version`, `updatedMs`, counters), written at session start and whenever a call is refused; the console reads it.
+- **Options** (`userConfig`): `guard` (`on` by default).
+
+Test: `claude plugin validate plugins/ruflo-aidefence`, `claude plugin test plugins/ruflo-aidefence`, and `bash plugins/ruflo-aidefence/scripts/smoke.sh`.

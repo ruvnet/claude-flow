@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest'
 
 import { PERF, perfMemo, sparkline } from '../hooks/perf'
 import { actionTypeOf, parseDoctor, pastedOf, SECURE, SECURE_KEYWORDS, SECURE_TEXT, secMemo, secSpec, secTextSpec, textLines } from '../hooks/secure'
-import { newState } from '../hooks/state'
+import { newState, type State } from '../hooks/state'
+import { type Ctx } from '../hooks/views/common'
+import { secureView } from '../hooks/views/secure'
 
 const ESC = '\u001b'
 const SCAN_OUT = `\n${ESC}[1mSecurity Scan${ESC}[0m\n${JSON.stringify({ timestamp: '2026-10-02T21:46:00.000Z', target: '.', depth: 'quick', type: 'code', summary: { critical: 1, high: 2, medium: 0, low: 3, total: 6 }, findings: [{ severity: 'critical', type: 'AWS Access Key', location: 'src/a.ts:3', description: 'AWS Access Key' }, { severity: 'high', type: 'Hardcoded Secret', location: 'src/b.ts:9', description: 'Hardcoded Secret' }] }, null, 2)}\n`
@@ -65,13 +67,14 @@ describe('the catalogs', () => {
     expect(secTextSpec(text('policy-eval')!, 'rm -rf /', state)).toBeNull()
   })
 
-  it('pasted text: 1-2000 printable characters, no leading dash; an action type has a small charset', () => {
+  it('pasted text: 1-8000 printable characters, no leading dash; an action type has a small charset', () => {
     expect(pastedOf('  ok  ')).toBe('ok')
     expect(pastedOf('')).toBeNull()
     expect(pastedOf('-x')).toBeNull()
     expect(pastedOf('a\u0007b')).toBeNull()
-    expect(pastedOf('x'.repeat(2000))).not.toBeNull()
-    expect(pastedOf('x'.repeat(2001))).toBeNull()
+    expect(pastedOf('x'.repeat(8000))).not.toBeNull()
+    expect(pastedOf('x'.repeat(8001))).toBeNull()
+    expect(pastedOf('line one\nline two')).toBe('line one\nline two')
     expect(actionTypeOf('network.fetch')).toBe('network.fetch')
     expect(actionTypeOf('-deploy')).toBeNull()
     expect(actionTypeOf('a b')).toBeNull()
@@ -140,5 +143,45 @@ describe('the readers', () => {
     expect(sparkline([1, 1, 1])).toBe('▄▄▄')
     expect(sparkline([])).toBe('')
     expect(sparkline([1, 2, 3, 4], 2)).toBe('▁█')
+  })
+})
+
+describe('the paste field is drawn in a border', () => {
+  type El = { kind: string; props: Record<string, unknown> }
+  const make = (kind: string) => (props: Record<string, unknown>): El => ({ kind, props })
+  const kit = { Box: make('Box'), Text: make('Text'), Button: make('Button'), Input: make('Input') }
+  const act = (() => {
+    const proxy: unknown = new Proxy(() => undefined, { get: (_target, key) => (key === 'then' ? undefined : proxy), apply: () => undefined })
+
+    return proxy
+  })() as Ctx['act']
+  const flat = (node: unknown): El[] => {
+    if (typeof node !== 'object' || node === null) return []
+    const el = node as El
+    const children = el.props.children
+
+    return [el, ...(Array.isArray(children) ? children.flatMap(flat) : flat(children))]
+  }
+  const draw = (state: State, withInput: boolean) => secureView({ kit: withInput ? kit : { Box: kit.Box, Text: kit.Text, Button: kit.Button }, state, act, columns: 100, nowMs: 1_000, pictures: new Map() } as unknown as Ctx)
+
+  it('wraps the text field in a round bordered box, and the box holds that one field', () => {
+    const state = newState({ boot: false })
+
+    state.view = 'secure'
+    const boxes = flat(draw(state, true)).filter(el => el.kind === 'Box' && el.props.key === 'sec-text-box')
+
+    expect(boxes).toHaveLength(1)
+    expect(boxes[0]?.props.borderStyle).toBe('round')
+    expect(flat(boxes[0]).filter(el => el.kind === 'Input').map(el => el.props.key)).toEqual(['sec-text'])
+  })
+
+  it('keeps no field in the tree when the surface has no text field, and says how to type instead', () => {
+    const state = newState({ boot: false })
+
+    state.view = 'secure'
+    const tree = flat(draw(state, false))
+
+    expect(tree.some(el => el.kind === 'Input' || el.props.key === 'sec-text-box')).toBe(false)
+    expect(tree.some(el => typeof el.props.children === 'string' && /no text field/.test(el.props.children))).toBe(true)
   })
 })

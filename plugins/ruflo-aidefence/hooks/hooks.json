@@ -1,0 +1,6 @@
+{
+  "description": "AIDefence as a mod (ADR-445 pattern): a tighten-only guard on what `aidefence_learn` teaches the detector (patterns persist and are shown back later), /aidefence-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

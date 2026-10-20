@@ -8,9 +8,14 @@
  * ▸ ask claude / ▸ ask codex send an explaining prompt about a setting to the AI terminal at once (claude -p in plan mode, codex
  * exec read-only, the saved per-turn budget) and the reply streams in; nothing is changed by it.
  */
+import { checkLimit, countOf } from './full-text'
+import { adrDirText, patternOf } from './data/adr-write'
 import type { ActionSpec } from './actions'
+import { budgetAmount } from './cost'
 import { plain } from './data/parse'
+import { own } from './data/safe'
 import { RUFLO_MARKET } from './data/snapshot'
+import { DEFAULT_LOOP, LOOP_INTERVALS, type LoopPrefs, WRITER_CAPS } from './goap'
 import type { Host } from './host'
 import type { Runner } from './runner'
 import type { State } from './state'
@@ -23,7 +28,22 @@ export type PluginConfig = { pluginId: string; name: string; schema: Record<stri
 /** Which options a first-time person sees. Anything not listed is advanced; a plugin not listed shows its first four. */
 export const SIMPLE: Record<string, readonly string[]> = {
   'ruflo-console': ['look', 'boot', 'panel', 'fps'],
-  'ruflo-mods': ['costBudgetUsd', 'costHardStop', 'statusLine'],
+  'ruflo-mods': ['costBudgetUsd', 'costHardStop', 'statusLine', 'toolHints', 'agentTrim', 'agentTrimKeep', 'deliveryScreen'],
+}
+
+/**
+ * One honest line per ruflo-mods option the plugin's own long description is too wide for. It replaces the description on screen only: the
+ * value, its choices and how it is changed all still come from the plugin's schema, and a change is the same confirm-gated
+ * `claude plugin configure` as any other option (so it is the same safety class: it waits for the person's Yes, and Claude's console tools
+ * cannot change it below their install level).
+ */
+export const OPTION_NOTES: Record<string, Record<string, string>> = {
+  'ruflo-mods': {
+    toolHints: 'one short static usage hint on a few ruflo tools, from your CLAUDE.md; default off',
+    agentTrim: 'about 4,000 fewer prompt tokens measured; a hidden type the prompt does not name is refused when spawned',
+    agentTrimKeep: 'comma-separated agent types agentTrim must never hide',
+    deliveryScreen: 'default off; screening tuned on a small test set, real-world rate unknown',
+  },
 }
 
 /** ruflo's own configuration: key, how it is edited, and who sees it. */
@@ -44,9 +64,32 @@ export const CORE: readonly CoreKey[] = [
 export const CLAUDE_MODELS = ['default', 'haiku', 'sonnet', 'opus'] as const
 export const AI_BUDGETS = [0.25, 0.5, 1, 2] as const
 /** `autoAccept`: claude, codex and swarm turns go straight out with no confirm (they stay read-only, in plan mode, under the budget); ruflo commands still ask. */
-export type AiPrefs = { claudeModel: (typeof CLAUDE_MODELS)[number]; budgetUsd: (typeof AI_BUDGETS)[number]; autoAccept: boolean; /** Claude writes guidance after a mission goal is entered. */ guidance: boolean }
-export const DEFAULT_AI: AiPrefs = { claudeModel: 'default', budgetUsd: 1, autoAccept: false, guidance: true }
+export type AiPrefs = { claudeModel: (typeof CLAUDE_MODELS)[number]; budgetUsd: (typeof AI_BUDGETS)[number]; autoAccept: boolean; /** Claude writes guidance after a mission goal is entered. */ guidance: boolean; /** ADR-443: the active mission and task ride in Claude's prompt (changes only when the task changes). */ missionContext: boolean; /** ADR-443: the person's own gate commands, one per line or `\n`-separated (parseGates validates). */ loopGates: string; /** ADR-443: a USD cap for one mission's spend ('' none). */ missionCapUsd: string; /** ADR-444: how far Claude may drive the console with its console_* tools (they exist only when not off). */ modelControl: 'off' | 'read' | 'write' | 'manage' | 'full'; /** ADR-444: a non-read action waits for the person's Yes (ask) or confirms itself (auto). */ modelConfirm: 'ask' | 'auto'; /** ADR-480: the folder of this project's ADRs, relative to the project ('' finds it). */ adrDir: string; /** ADR-480: the style new ADRs are written in ('auto' follows the project's own). */ adrStyle: 'auto' | 'madr' | 'nygard' | 'ruflo'; /** ADR-480: the file name pattern for new ADRs, with {n} and {slug} ('' follows the project's own). */ adrPattern: string; /** ADR-483: advisor checkpoints in mission loops (plan, repeated failure, before done); each consult asks first. */ advisor: boolean; /** ADR-483: the model passed to `claude -p --model` for a consult. */ advisorModel: (typeof CLAUDE_MODELS)[number]; /** ADR-483: a line in the loop prompt asking subagents to return structured summaries only. */ subagentSummaries: boolean; /** ADR-487: show the one-time hint about the optional ruvnet-brain plugin when it is not installed (default off). */ groundingHint: boolean; /** ADR-487: the person dismissed that hint for good. */ groundingDismissed: boolean; /** ADR-487: with the brain on and a mission naming the ruvnet stack, one line in Claude's mission context points at search_ruvnet (default on). */ groundingNudge: boolean } & LoopPrefs
+export const DEFAULT_AI: AiPrefs = { claudeModel: 'default', budgetUsd: 1, autoAccept: false, guidance: true, missionContext: true, loopGates: '', missionCapUsd: '', modelControl: 'read', modelConfirm: 'ask', adrDir: '', adrStyle: 'auto', adrPattern: '', advisor: false, advisorModel: 'default', subagentSummaries: false, groundingHint: false, groundingDismissed: false, groundingNudge: true, ...DEFAULT_LOOP }
+
+const ON_OFF = ['on', 'off'] as const
+const onOff = (value: boolean) => (value ? 'on' : 'off')
+
+/**
+ * The loop-centric mission rows (ADR-441), stored with the AI preferences: the Settings page maps over this list and calls
+ * `ctx.act.settings.ai(row.patch(value))`, so a row is one entry here, not new storage.
+ */
+export const LOOP_ROWS: readonly { id: string; title: string; description: string; extra: string; options: readonly string[]; current: (p: LoopPrefs) => string; isChanged: (p: LoopPrefs) => boolean; patch: (value: string) => Partial<LoopPrefs> }[] = [
+  { id: 'loop-interval', title: 'Mission loop interval', description: 'how often a mission’s /loop ticks: each tick checks progress, fixes failures and runs the gates (default 5m)', extra: 'loop tick cadence minutes', options: LOOP_INTERVALS, current: p => p.loopInterval, isChanged: p => p.loopInterval !== DEFAULT_LOOP.loopInterval, patch: value => ({ loopInterval: LOOP_INTERVALS.find(item => item === value) ?? DEFAULT_LOOP.loopInterval }) },
+  { id: 'loop-worktrees', title: 'Worktree per writer', description: 'each writing agent works in its own git worktree, on disjoint files, so concurrent writers never collide (default on)', extra: 'loop git worktree isolation writers', options: ON_OFF, current: p => onOff(p.loopWorktrees), isChanged: p => !p.loopWorktrees, patch: value => ({ loopWorktrees: value === 'on' }) },
+  { id: 'loop-commit', title: 'Loop may commit', description: 'the loop may commit to the mission branch, and nowhere else (default on)', extra: 'loop commit branch', options: ON_OFF, current: p => onOff(p.loopCommit), isChanged: p => !p.loopCommit, patch: value => ({ loopCommit: value === 'on' }) },
+  { id: 'loop-push', title: 'Loop may push', description: 'the loop may push the mission branch to its remote (default off: it stops at the branch and says so)', extra: 'loop push remote github', options: ON_OFF, current: p => onOff(p.loopPush), isChanged: p => p.loopPush, patch: value => ({ loopPush: value === 'on' }) },
+  { id: 'loop-publish', title: 'Loop may publish', description: 'the loop may publish releases or packages the mission names (default off: nothing is published without your word)', extra: 'loop publish release npm deploy', options: ON_OFF, current: p => onOff(p.loopPublish), isChanged: p => p.loopPublish, patch: value => ({ loopPublish: value === 'on' }) },
+  { id: 'loop-writers', title: 'Max concurrent writers', description: 'the most writing agents a mission loop runs at once (default 6)', extra: 'loop concurrent parallel agents', options: WRITER_CAPS.map(String), current: p => String(p.loopWriters), isChanged: p => p.loopWriters !== DEFAULT_LOOP.loopWriters, patch: value => ({ loopWriters: WRITER_CAPS.find(item => String(item) === value) ?? DEFAULT_LOOP.loopWriters }) },
+]
 export const AI_KEY = 'ai-prefs'
+
+/** A mission spend cap as stored: '' for none, else decimal dollars from 0.01 to 10000 with at most two places; null for anything else (a `0` is not "no cap" and is refused). */
+export const capText = (value: string): string | null => {
+  const text = value.trim()
+
+  return text === '' ? '' : /^\d{1,5}(\.\d{1,2})?$/.test(text) && budgetAmount(text) !== null ? text : null
+}
 
 export type SettingsState = {
   level: Level
@@ -58,6 +101,10 @@ export type SettingsState = {
   core: Map<string, string>
   coreLoading: boolean
   ai: AiPrefs
+  /** What the person saved for Claude's control; `ai.modelControl/modelConfirm` is this lowered by `cap`, and only this is ever stored (#3814). */
+  savedControl: Pick<AiPrefs, 'modelControl' | 'modelConfirm'>
+  /** This session's RUFLO_CONSOLE_CONTROL, which can only lower the saved level (ADR-450 T12); null when unset. */
+  cap: { level: AiPrefs['modelControl']; confirm: AiPrefs['modelConfirm'] } | null
   /** The active search (applied with Enter, shown as a chip, cleared with ✕). */
   query: string
   /** Only settings that differ from their default. */
@@ -72,7 +119,7 @@ export function settingsOf(state: State): SettingsState {
   let found = states.get(state)
 
   if (found === undefined) {
-    found = { level: 'simple', plugin: 'ruflo-console', configs: new Map(), loading: new Set(), core: new Map(), coreLoading: false, ai: { ...DEFAULT_AI }, query: '', onlyChanged: false, last: null }
+    found = { level: 'simple', plugin: 'ruflo-console', configs: new Map(), loading: new Set(), core: new Map(), coreLoading: false, ai: { ...DEFAULT_AI }, savedControl: { modelControl: DEFAULT_AI.modelControl, modelConfirm: DEFAULT_AI.modelConfirm }, cap: null, query: '', onlyChanged: false, last: null }
     states.set(state, found)
   }
 
@@ -131,7 +178,7 @@ export function shownKeys(config: PluginConfig, level: Level): string[] {
 
   if (level === 'advanced') return keys
 
-  const simple = SIMPLE[config.name]
+  const simple = own(SIMPLE, config.name)
 
   return simple === undefined ? keys.slice(0, 4) : keys.filter(key => simple.includes(key))
 }
@@ -193,7 +240,7 @@ export function valueOf(config: PluginConfig, key: string, raw: string): string 
   const entry = config.schema[key]
   const value = raw.trim()
 
-  if (entry === undefined || entry.isSecret || value.includes('\n') || value.length > 200) return null
+  if (entry === undefined || entry.isSecret || value.includes('\n') || countOf(value) > OPTION_MAX) return null
   if (entry.type === 'number') return /^-?\d+(\.\d+)?$/.test(value) ? value : null
 
   const choices = config.choices[key]
@@ -226,6 +273,9 @@ export function setOption(state: State, name: string, key: string, raw: string, 
   }
 }
 
+/** The longest plugin option value the console writes (it travels as JSON on stdin; a real option is a path, a name or a short list). Over it: refused with the count. */
+export const OPTION_MAX = 4_000
+
 const CORE_VALUE = /^[A-Za-z0-9._:/-]{1,60}$/
 
 /** One ruflo config change: `ruflo config set -k <key> -v <value>`, for a key in the curated list only. */
@@ -252,20 +302,96 @@ export function askPrompt(title: string, description: string, current: string, w
   return `Explain the ruflo setting "${title}" (${where}): ${description} It is currently ${current === '' ? 'unset' : `"${current}"`}. What does each choice change, and what would you recommend for a developer working in this repository? Do not change anything.`
 }
 
+const CONTROL_ORDER: readonly AiPrefs['modelControl'][] = ['off', 'read', 'write', 'manage', 'full']
+
+/** The in-force control: what the person saved, lowered by the session cap (the lower level; ask if either asks). A saved "off" stays off. */
+function applyControl(settings: SettingsState): void {
+  const { savedControl, cap } = settings
+  const lower = cap !== null && CONTROL_ORDER.indexOf(cap.level) < CONTROL_ORDER.indexOf(savedControl.modelControl)
+
+  settings.ai.modelControl = lower && cap !== null ? cap.level : savedControl.modelControl
+  settings.ai.modelConfirm = cap?.confirm === 'ask' || savedControl.modelConfirm === 'ask' ? 'ask' : 'auto'
+}
+
+/** Sets this session's cap (null clears it) and applies it now; every later load and save applies it again, so nothing lifts it (#3814). */
+export function setControlCap(state: State, cap: SettingsState['cap']): void {
+  const settings = settingsOf(state)
+
+  settings.cap = cap
+  applyControl(settings)
+}
+
 /** Persists and loads the AI terminal's preferences (claude model, per-turn budget); a bad stored value is the default. */
 export async function loadAiPrefs(state: State, host: Host): Promise<void> {
   const stored = recordOf(await host.storeGet(AI_KEY).catch(() => undefined))
   const model = CLAUDE_MODELS.find(candidate => candidate === stored?.claudeModel)
   const budget = AI_BUDGETS.find(candidate => candidate === stored?.budgetUsd)
 
-  settingsOf(state).ai = { claudeModel: model ?? DEFAULT_AI.claudeModel, budgetUsd: budget ?? DEFAULT_AI.budgetUsd, autoAccept: stored?.autoAccept === true, guidance: stored?.guidance !== false }
+  const flag = (key: keyof LoopPrefs, fallback: boolean) => (typeof stored?.[key] === 'boolean' ? (stored[key] as boolean) : fallback)
+
+  const settings = settingsOf(state)
+
+  settings.ai = {
+    claudeModel: model ?? DEFAULT_AI.claudeModel,
+    budgetUsd: budget ?? DEFAULT_AI.budgetUsd,
+    autoAccept: stored?.autoAccept === true,
+    guidance: stored?.guidance !== false,
+    // Default `read` (Claude may look, never act), and an explicit saved "off" stays off. A missing confirm mode is `ask`: only a saved "auto" is auto.
+    modelControl: stored?.modelControl === 'off' ? 'off' : ((['read', 'write', 'manage', 'full'] as const).find(item => item === stored?.modelControl) ?? DEFAULT_AI.modelControl),
+    modelConfirm: stored?.modelConfirm === 'auto' ? 'auto' : 'ask',
+    missionContext: stored?.missionContext !== false,
+    loopGates: typeof stored?.loopGates === 'string' ? stored.loopGates : '',
+    missionCapUsd: typeof stored?.missionCapUsd === 'string' ? (capText(stored.missionCapUsd) ?? '') : '',
+    adrDir: typeof stored?.adrDir === 'string' ? (adrDirText(stored.adrDir) ?? '') : '',
+    adrStyle: (['madr', 'nygard', 'ruflo'] as const).find(item => item === stored?.adrStyle) ?? 'auto',
+    adrPattern: typeof stored?.adrPattern === 'string' ? (patternOf(stored.adrPattern) ?? '') : '',
+    advisor: stored?.advisor === true,
+    advisorModel: CLAUDE_MODELS.find(candidate => candidate === stored?.advisorModel) ?? DEFAULT_AI.advisorModel,
+    subagentSummaries: stored?.subagentSummaries === true,
+    groundingHint: stored?.groundingHint === true,
+    groundingDismissed: stored?.groundingDismissed === true,
+    groundingNudge: stored?.groundingNudge !== false,
+    loopInterval: LOOP_INTERVALS.find(item => item === stored?.loopInterval) ?? DEFAULT_LOOP.loopInterval,
+    loopWorktrees: flag('loopWorktrees', DEFAULT_LOOP.loopWorktrees),
+    loopCommit: flag('loopCommit', DEFAULT_LOOP.loopCommit),
+    // Leaving the branch is opt-in: only an explicit stored true turns these on.
+    loopPush: stored?.loopPush === true,
+    loopPublish: stored?.loopPublish === true,
+    loopWriters: WRITER_CAPS.find(item => item === stored?.loopWriters) ?? DEFAULT_LOOP.loopWriters,
+  }
+  settings.savedControl = { modelControl: settings.ai.modelControl, modelConfirm: settings.ai.modelConfirm }
+  applyControl(settings)
 }
 
 export function saveAiPrefs(state: State, host: Host, patch: Partial<AiPrefs>): void {
   const settings = settingsOf(state)
 
+  // A cap outside 0.01 to 10000 is refused (the old one stays) and says so, rather than turning into "no cap" (#3818).
+  if (patch.missionCapUsd !== undefined) {
+    const cap = capText(patch.missionCapUsd)
+
+    if (cap === null) {
+      state.outcome = { label: 'set mission spend cap', ok: false, verified: 'n/a', detail: 'a cap is 0.01 to 10000 dollars (digits and at most two decimals); leave it empty for no cap. The old value is kept.', atMs: Date.now() }
+      patch = { ...patch }
+      delete patch.missionCapUsd
+    } else patch = { ...patch, missionCapUsd: cap }
+  }
+
+  // ADR-480: a folder or a pattern that is not safe is refused (the old one stays) and says so.
+  for (const [key, ok] of [['adrDir', patch.adrDir === undefined || patch.adrDir === '' || adrDirText(patch.adrDir) !== null], ['adrPattern', patch.adrPattern === undefined || patch.adrPattern === '' || patternOf(patch.adrPattern) !== null]] as const) {
+    if (!ok) {
+      state.outcome = { label: key === 'adrDir' ? 'set the ADR folder' : 'set the ADR file name pattern', ok: false, verified: 'n/a', detail: key === 'adrDir' ? 'the ADR folder is a path inside this project: letters, digits, dots, dashes, underscores and slashes, no .. and no leading slash. The old value is kept.' : 'a file name pattern holds {n} and {slug}, ends in .md and uses letters, digits, dots, dashes and underscores. The old value is kept.', atMs: Date.now() }
+      patch = { ...patch }
+      delete patch[key]
+    }
+  }
+  if (patch.adrDir !== undefined) patch = { ...patch, adrDir: adrDirText(patch.adrDir) ?? '' }
+
+  // The person's own pick of the control level is the saved one; the session cap only shapes what is in force (#3814).
+  settings.savedControl = { modelControl: patch.modelControl ?? settings.savedControl.modelControl, modelConfirm: patch.modelConfirm ?? settings.savedControl.modelConfirm }
   settings.ai = { ...settings.ai, ...patch }
-  void host.storeSet(AI_KEY, settings.ai).catch(() => undefined)
+  applyControl(settings)
+  void host.storeSet(AI_KEY, { ...settings.ai, ...settings.savedControl }).catch(() => undefined)
   host.invalidate()
 }
 
@@ -297,7 +423,7 @@ export type SettingsActions = {
   core: (key: string, value: string) => void
   ai: (patch: Partial<AiPrefs>) => void
   /** The confirm row's "always accept": saves the preference and runs the ask that is pending. */
-  alwaysAccept: () => void
+  alwaysAccept: (seen?: number) => void
   /** Sends an explaining prompt to the AI terminal (claude or codex) now: the reply streams in, no second click. */
   ask: (agent: 'claude' | 'codex', title: string, description: string, current: string, where: string) => void
 }
@@ -309,7 +435,7 @@ export function settingsActions(state: State, host: Host, runner: Runner, load: 
 
   return {
     search: query => {
-      settings.query = plain(query, 80).trim()
+      settings.query = plain(query, Number.MAX_SAFE_INTEGER).trim()
       host.invalidate()
       if (settings.query !== '') void loadAll(state, host, names())
     },
@@ -331,14 +457,21 @@ export function settingsActions(state: State, host: Host, runner: Runner, load: 
       reloadPlugin()
       reloadCore()
     },
-    option: (name, key, value) => runner.ask(setOption(state, name, key, value, reloadPlugin), `“${plain(value, 40)}” is not a value ${key} accepts`),
+    option: (name, key, value) => runner.ask(setOption(state, name, key, value, reloadPlugin), checkLimit(value.trim(), OPTION_MAX, `the ${key} value`).ok ? `“${plain(value, 40)}” is not a value ${key} accepts` : (checkLimit(value.trim(), OPTION_MAX, `the ${key} value`) as { message: string }).message),
     core: (key, value) => runner.ask(setCore(state, key, value, reloadCore), `“${plain(value, 40)}” is not a value ${key} accepts`),
     ai: patch => saveAiPrefs(state, host, patch),
-    alwaysAccept: () => {
+    alwaysAccept: seen => {
+      // On a card that was replaced it changes nothing: no preference saved, the draft kept, and the Yes runs nothing.
+      if (seen !== undefined && state.pending?.id !== seen) {
+        void runner.confirm(seen)
+
+        return
+      }
+
       saveAiPrefs(state, host, { autoAccept: true })
       state.terminal.asked = null
       state.terminal.draft = ''
-      void runner.confirm()
+      void runner.confirm(seen)
     },
     ask: (agent, title, description, current, where) => load(agent, askPrompt(title, description, current, where)),
   }

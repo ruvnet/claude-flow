@@ -1,13 +1,13 @@
 ---
 name: vector-setup
-description: First-run setup for ruvector@0.2.25 — installs ONNX/Brain/SONA add-ons, registers the MCP server, and verifies the install via `doctor`
+description: First-run setup for ruvector@0.3.3 — installs ONNX/Brain/SONA add-ons, registers the MCP server, and verifies the install via `doctor`
 argument-hint: "[--full]"
 allowed-tools: Bash Read
 ---
 
 # Vector Setup
 
-Bootstraps `ruvector@0.2.25` and its optional add-ons so every `/vector` subcommand actually works on first run.
+Bootstraps `ruvector@0.3.3` and its optional add-ons so every `/vector` subcommand actually works on first run.
 
 ## Why this exists
 
@@ -15,7 +15,7 @@ Out of the box, several `/vector` subcommands fail with a confusing dep error:
 
 | Error | Missing package |
 |-------|-----------------|
-| `ONNX WASM files not bundled. The onnx/ directory is missing.` | `ruvector-onnx-embeddings-wasm` |
+| `ONNX WASM files not bundled. The onnx/ directory is missing.` | none — upgrade to ruvector 0.3.3, which bundles it (0.2.x lacks it) |
 | `Brain commands require @ruvector/pi-brain` | `@ruvector/pi-brain` |
 | `SONA not available. Native error: Cannot find module '/.../@ruvector/sona/index.js'` | `@ruvector/ruvllm` (JS fallback) |
 | `LLM commands require @ruvector/ruvllm` | `@ruvector/ruvllm` |
@@ -26,42 +26,40 @@ This skill installs them in one pass.
 
 1. **Pin ruvector**:
    ```bash
-   npm install ruvector@0.2.25
+   npm install ruvector@0.3.3
    ```
 2. **Install the add-ons** (idempotent — only what's missing):
    ```bash
-   npm install ruvector-onnx-embeddings-wasm \
-               @ruvector/pi-brain \
+   npm install @ruvector/pi-brain \
                @ruvector/ruvllm
    ```
    For a leaner install, pass `--full` to also pull `@ruvector/graph-node` and `@ruvector/router`:
    ```bash
-   npm install ruvector-onnx-embeddings-wasm \
-               @ruvector/pi-brain \
+   npm install @ruvector/pi-brain \
                @ruvector/ruvllm \
                @ruvector/graph-node \
                @ruvector/router
    ```
 3. **Verify the binary**:
    ```bash
-   npx -y ruvector@0.2.25 doctor
-   npx -y ruvector@0.2.25 info
+   npx -y ruvector@0.3.3 doctor
+   npx -y ruvector@0.3.3 info
    ```
 4. **Register the MCP server**:
    ```bash
-   claude mcp add ruvector -- npx -y ruvector@0.2.25 mcp start
+   claude mcp add ruvector -- npx -y ruvector@0.3.3 mcp start
    claude mcp list | grep ruvector
    ```
 5. **Sanity check** the most common subcommands:
    ```bash
-   npx -y ruvector@0.2.25 hooks route "test"
-   npx -y ruvector@0.2.25 attention list
-   npx -y ruvector@0.2.25 rvf examples
+   npx -y ruvector@0.3.3 hooks route "test"
+   npx -y ruvector@0.3.3 attention list
+   npx -y ruvector@0.3.3 rvf examples
    ```
 6. **(Optional) Generate a pi identity** for brain + edge:
    ```bash
-   npx -y ruvector@0.2.25 identity generate
-   npx -y ruvector@0.2.25 identity show
+   npx -y ruvector@0.3.3 identity generate
+   npx -y ruvector@0.3.3 identity show
    ```
 
 ## Smoke test

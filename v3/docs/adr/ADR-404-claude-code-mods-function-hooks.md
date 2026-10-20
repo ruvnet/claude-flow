@@ -1,6 +1,6 @@
 # ADR 404: Ruflo as a Claude Code Mod (Function Hooks)
 
-Status: Proposed
+Status: Accepted (implemented in plugins/ruflo-mods, PR #3608; the follow-ups listed below remain open)
 
 Date: 2026 10 01
 
@@ -83,6 +83,8 @@ The upstream reference pattern is a hybrid `hooks.json` holding classic command 
 | `engine.create` | none | Adds the `$.ruflo` noun, and takes the status-line drawer from the `$` beneath. |
 | `ui.status` (op) | statusline | One line: ruflo's own parts (skipped where the ruflo `statusline.cjs` runs) followed by other mods' segments. Only measured facts: an unmatched route says "no route (30%)", and nothing is estimated (#3567/#3572). |
 
+The table above is the original behaviour. Later work added three things it does not list: a research guard (`hooks/guard/research.ts`), `command.run` events (the `/ruflo-mods` command and the `/…-mod` commands of the plugin mods), and the guidance observation loop (ADR 447, off by default). See ADR 447.
+
 `/ruflo-mods` is namespaced. The mod never registers a built-in's name such as `/diff`, or another plugin's (`/ruos*`, `ruflo-swarm-*`), so it composes with Claude Code's built-in mods instead of shadowing them.
 
 ### The `$.ruflo` noun (contract: `plugins/ruflo-mods/types/index.d.ts`)
@@ -146,7 +148,7 @@ Middleware order is nesting, the first registered wrapping the rest. Every ruflo
 - **Tighten only.** `tool.check` merges by rank; a tie returns the chain's own object, so the `rule` `sec-default` reads is never rewritten. A property test covers every chain verdict, five policy states and seven inputs. A kit test covers two tighten-only mods side by side (ruflo plus a ruOS-style guard): a deny from either holds.
 - **Fail closed, by one step, where ruflo guards something.** An unreadable or invalid policy projection, or a failure in the chain beneath, turns `allow` into `ask`. "Missing" means ENOENT only.
 - **Input validation.** Every event field the mod reads is type-checked before use. Segments are sanitized as above. The projection is schema-validated rule by rule.
-- **No network, process, model or MCP calls; no secrets.** The smoke contract enforces this statically. The only environment variable written is `RUFLO_MODS_OWNS`; the only one read is `HOME`. No command is ever built from event input.
+- **No network, process, model or MCP calls; no secrets.** The smoke contract enforces this statically (step 8 is a regex for a literal `key = "…"` assignment: it catches a hard-coded key, not every way a secret could reach a hook; `ruflo-mods` has no runtime secret guard). The only environment variable written is `RUFLO_MODS_OWNS`; the only one read is `HOME`. No command is ever built from event input.
 - **Policy projection.**
   - **Why it exists.** A module cannot read `state.json`, whose receipt ledger is 43 MB here and over the 4 MiB limit. So `policy-runtime.ts` writes `.claude-flow/policy/claude-code.json` after each successful state write, owner-only and atomically.
   - **What it holds.** The mode and only the rules whose `actions` name `claude-code.` explicitly. Rules with no actions or `*` keep their MCP-only meaning, and the engine's default-deny never applies to Claude Code tools.
@@ -163,7 +165,7 @@ Middleware order is nesting, the first registered wrapping the rest. Every ruflo
 
 ### Scaffolding: governed mods for ruflo users
 
-`ruflo-plugin-creator` 0.3.0 adds a `create-mod` skill and `templates/mod/`. The template is a working mod:
+`ruflo-plugin-creator` 0.3.0 (0.4.0 on 2026 10 05) adds a `create-mod` skill and `templates/mod/`. The template is a working mod:
 
 - a hybrid `hooks.json` whose classic fallback exits while the module runs (`MY_MOD_ACTIVE`);
 - a host adapter over literal `$` calls, refusal-tolerant;
@@ -176,12 +178,12 @@ It is validated, kit-tested and live-loaded on 2.1.287. The skill carries the ru
 
 | Suite | Where | Result |
 |---|---|---|
-| Engine kit (`claude plugin test`), Claude Code 2.1.287 | `plugins/ruflo-mods/tests` | 15/15 |
+| Engine kit (`claude plugin test`), Claude Code 2.1.287 | `plugins/ruflo-mods/tests` | 15/15 when written; 39 in 8 files on 2026 10 05 |
 | Engine kit, mod template | `plugins/ruflo-plugin-creator/templates/mod/tests` | 1/1 |
-| Declaration-faithful harness (vitest, what CI runs) | `v3/@claude-flow/cli/__tests__/mods` | 99/99 |
+| Declaration-faithful harness (vitest, what CI runs) | `v3/@claude-flow/cli/__tests__/mods` | 99/99 when written; about 147 `it(` calls in 12 files on 2026 10 05 |
 | Typecheck against the 2.1.287 generated types | `plugins/ruflo-mods`, the template | clean |
 | `claude plugin validate` (2.1.287) | plugin, template, marketplace | pass |
-| Smoke contracts | ruflo-mods 10/10, ruflo-plugin-creator 11/11 | pass |
+| Smoke contracts | ruflo-mods 10/10, ruflo-plugin-creator 11/11 when written; 11/11 and 14/14 on 2026 10 05 | pass |
 | Existing CLI suite | `v3/@claude-flow/cli` | Same 4 memory failures as `origin/main` in the same environment, plus `helper-signing` until the manifest is re-signed |
 
 The engine-kit files import `claude-code/testing`, which the root vitest cannot resolve, so they are listed in `scripts/ci-test-baseline.txt` as #3605 and #3607 do.
@@ -287,3 +289,13 @@ Status: Proposed. This amends "A separate, opt-in plugin" above. The plugin stay
 - **`claude plugin uninstall --scope project` edits settings too.** It removes the plugin's `enabledPlugins` entry itself.
 - **Headless runs load once the marketplace is known.** After `ruflo init` has added the marketplace to the config dir, `claude -p "/ruflo-mods"` loads the mod and prints its report. This is the e2e live check. It authenticates with `CLAUDE_CODE_OAUTH_TOKEN`; no credential file is copied.
 - **A directory marketplace works, live.** A `directory` source loaded `ruflo-mods` in `claude -p` with no install record. An edit to the directory showed on the next run with no update or install in between. It was verified with a marker string changed between two runs.
+
+## Addendum 2026-10-11: the doctor names each broken state; install is one operation; the mod says when it is not fully loaded
+
+- **A switched-off plugin is not repaired by `ruflo mods install`.** Install never flips a `false` (section above). `doctor` used to answer a `false` with "not enabled", fix `ruflo mods install`, which changes nothing. It now says the plugin is disabled in that file and prints `claude plugin enable ruflo-mods@ruflo --scope <scope>`. A plugin installed for this project but enabled nowhere gets the same repair.
+- **`partial install` finding.** Some of the three mod plugins enabled and not the others, a plugin enabled with no `ruflo` marketplace declared anywhere, or keys the install record says ruflo added that the settings no longer carry. Repair: `ruflo mods install`, which is idempotent and adds exactly what is missing.
+- **Every warning or failure carries a one-line `fix`.** The exceptions are facts only the engine can change (Claude Code serving function hooks off for the account). A fresh config where nothing is cloned says that a headless `claude -p` run clones nothing, so the mod is absent there.
+- **`ruflo mods doctor --strict`** exits 1 on a warning as well as on a failure, for CI. Without it the exit code is as before (1 only on a failure).
+- **Install is one operation.** The settings file and the install record are written together; if the record cannot be written the settings go back as they were (or the file ruflo created is removed), so nothing is left that `uninstall` cannot find. A second run changes nothing and writes no second backup.
+- **Startup self-check (mod option `selfCheck`, default on).** At `session.start`, when `ruflo-console` or `ruflo-swarm` is enabled in settings but missing from the marketplace clone with no cached install, the mod says so once in a toast: a fixed line naming the plugin(s) and `claude plugin marketplace update ruflo`. Read-only, fail-open, no repository text in the line, nothing for the model. A fresh config with no clone yet says nothing (Claude Code clones at the next interactive start). It cannot know a plugin failed to load for another reason; it checks the cause the doctor already knows is silent.
+- **Not done:** the self-check does not read which plugins the engine actually loaded (the `engine.create` input lists them; not used here), and `/ruflo-mods` stays an alias of `/ruflo mods` (ADR-406), now held by a smoke step.

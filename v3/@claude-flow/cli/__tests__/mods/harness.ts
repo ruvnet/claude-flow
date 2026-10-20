@@ -19,7 +19,7 @@
  * not run), budgets, streaming events, rendering.
  */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 type AnyHook = ($: any, e: any, next: any) => any;
@@ -29,6 +29,8 @@ export interface World {
   root: string;
   /** Real files under `root`, or an in-memory map of absolute path → text. */
   files: 'real' | Map<string, { text: string; mtimeMs: number }>;
+  /** In-memory directories; initialized projects have a .claude-flow directory. */
+  dirs: Set<string>;
   env: Map<string, string>;
   settings: unknown | (() => unknown);
   statuses: (string | undefined)[];
@@ -37,15 +39,16 @@ export interface World {
   commands: string[];
   /** Per-op failure injection: `fs.read` → error to throw for a path. */
   failRead?: (path: string) => Error | undefined;
+  failStat?: (path: string) => Error | undefined;
   failLog?: boolean;
 }
 
 export function memoryWorld(root = '/work', settings: unknown = {}): World {
-  return { root, files: new Map(), env: new Map(), settings, statuses: [], logs: [], toasts: [], commands: [] };
+  return { root, files: new Map(), dirs: new Set([root, `${root}/.claude-flow`]), env: new Map(), settings, statuses: [], logs: [], toasts: [], commands: [] };
 }
 
 export function realWorld(root: string, settings: unknown = {}): World {
-  return { root, files: 'real', env: new Map(), settings, statuses: [], logs: [], toasts: [], commands: [] };
+  return { root, files: 'real', dirs: new Set(), env: new Map(), settings, statuses: [], logs: [], toasts: [], commands: [] };
 }
 
 const enoent = (path: string) => Object.assign(new Error(`ENOENT: no such file or directory, '${path}'`), { code: 'ENOENT' });
@@ -55,14 +58,16 @@ function engineOf(world: World) {
   return {
     fs: {
       async stat(path: string) {
+        const injected = world.failStat?.(path);
+        if (injected) throw injected;
         if (mem) {
           const f = mem.get(path);
+          if (!f && world.dirs.has(path)) return { kind: 'dir', size: 0, mtimeMs: 1, isLink: false };
           if (!f) throw enoent(path);
           return { kind: 'file', size: Buffer.byteLength(f.text), mtimeMs: f.mtimeMs, isLink: false };
         }
-        if (!existsSync(path)) throw enoent(path);
-        const s = statSync(path);
-        return { kind: s.isFile() ? 'file' : s.isDirectory() ? 'dir' : 'other', size: s.size, mtimeMs: s.mtimeMs, isLink: false };
+        const s = lstatSync(path);
+        return { kind: s.isFile() ? 'file' : s.isDirectory() ? 'dir' : 'other', size: s.size, mtimeMs: s.mtimeMs, isLink: s.isSymbolicLink() };
       },
       async read(path: string) {
         const injected = world.failRead?.(path);
@@ -85,7 +90,7 @@ function engineOf(world: World) {
         writeFileSync(path, text);
       },
       async exists(path: string) {
-        return mem ? mem.has(path) : existsSync(path);
+        return mem ? mem.has(path) || world.dirs.has(path) : existsSync(path);
       },
     },
     env: {

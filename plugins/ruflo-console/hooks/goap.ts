@@ -320,6 +320,45 @@ export function toMissionPlan(p: Plan, budgetMinorPerUnit = 100) {
   }
 }
 
+/**
+ * How a mission is driven (ADR-441): a bounded `/loop` whose every tick checks progress, fixes failures and runs the named gates until
+ * the finish condition holds. Writers get isolated worktrees and disjoint files. These are the user's settings; the defaults are stated
+ * up front so the loop never stops to ask. Nothing leaves the mission branch (push, publish) unless its setting is on.
+ */
+export const LOOP_INTERVALS = ['2m', '5m', '10m', '15m', '30m'] as const
+export const WRITER_CAPS = [1, 2, 4, 6, 8] as const
+export type LoopPrefs = {
+  loopInterval: (typeof LOOP_INTERVALS)[number]
+  /** Every writing agent works in its own git worktree. */
+  loopWorktrees: boolean
+  /** The loop may commit to the mission branch. */
+  loopCommit: boolean
+  loopPush: boolean
+  loopPublish: boolean
+  loopWriters: (typeof WRITER_CAPS)[number]
+}
+export const DEFAULT_LOOP: LoopPrefs = { loopInterval: '5m', loopWorktrees: true, loopCommit: true, loopPush: false, loopPublish: false, loopWriters: 6 }
+
+/** Agents that change files; the rest (research, review, audit, validate) only read. */
+const WRITERS = new Set(['coder', 'tester', 'api-docs', 'adr-architect', 'specification', 'pseudocode', 'architecture', 'security-architect', 'cicd-engineer', 'reasoningbank-learner'])
+export const isWriter = (action: Action): boolean => WRITERS.has(action.agent)
+
+/** The named gates a tick runs, from what the plan must prove: always the tests, then each check the plan's goal asks for. */
+export function gatesOf(p: Plan): string[] {
+  const gates = ['the full test suite']
+  const add = (fact: string, gate: string) => p.goal.includes(fact) && gates.push(gate)
+
+  add('integrated', 'the build and smoke checks')
+  add('reviewed', 'the review')
+  add('secured', 'the security review')
+  add('benchmarked', 'the benchmark against the baseline')
+
+  return gates
+}
+
+/** The one line that starts the loop: `/loop <interval> <objective>`, the whole objective on one line (line breaks become spaces; ADR-481). */
+export const loopCommand = (goal: string, prefs: LoopPrefs): string => `/loop ${prefs.loopInterval} ${goal.replace(/\s+/g, ' ').trim()}`
+
 /** The stages a plan runs, in lifecycle order, each with how many steps it holds. */
 export const lifecycleOf = (p: Plan): { stage: Stage; steps: number }[] =>
   STAGES.map(stage => ({ stage, steps: p.steps.filter(step => stageOf(step.action) === stage).length })).filter(entry => entry.steps > 0)

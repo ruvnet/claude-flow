@@ -1,6 +1,12 @@
 import type { BudgetLevel } from './cost/budget'
+import type { ToastInput } from './toast/policy'
 import type { EditRecord } from './learn/insights'
+import { guidanceState, type GuidanceState } from './guidance/observations'
 import type { Ownable } from './ownership'
+import { rollupState, type RollupState } from './rollup'
+import { ledgerLines } from './rollup/record'
+import { groundingLine, groundingState, type GroundingState } from './grounding'
+import { probeLine, probeState, type ProbeState } from './probe'
 import type { RouteResult } from './route/route-task'
 
 /**
@@ -21,9 +27,26 @@ export type ModState = {
   tightened: number
   observed: number
   edits: EditRecord[]
+  guidance: GuidanceState
   editCount: number
-  policy: 'none' | 'legacy' | 'observe' | 'enforce' | 'unreadable'
+  policy: 'none' | 'observe' | 'enforce' | 'unreadable'
+  /** The research run (marker startedAt) whose first web call was already put to the person. */
+  researchAsked?: string
   budget: { level: BudgetLevel; usd?: number; limit?: number }
+  /** `tool.describe` hints (ADR-451): whether the feature is on and which tools it described. */
+  toolHints: { enabled: boolean; described: Set<string> }
+  /** `agent.offer` trim (ADR-451): whether it is on, the types it hid, and the latest prompt (lower case). */
+  agentTrim: { enabled: boolean; hidden: Set<string>; prompt: string; ledger?: Promise<Record<string, number>> }
+  /** `session.receive`/`session.send` screen (ADR-451): whether it is on, deliveries consumed, sends refused. */
+  delivery: { enabled: boolean; consumed: number; blocked: number }
+  /** `session.compact` carry (ADR-451 item 7): whether it is on and how many compactions carried a block. */
+  compact: { enabled: boolean; carried: number }
+  /** Capability probe (ADR-451 item 5): engine version and which registered events fired. */
+  probe: ProbeState
+  /** Optional ruvnet-brain status (ADR-487): detect-only, off unless the grounding option is on. */
+  grounding: GroundingState
+  /** Session rollup (ADR-451 item 6): counters for the `$.store` ledger written at session end. */
+  rollup: RollupState
   /** Other mods' status segments, by id (`$.ruflo.segment`). */
   segments: Map<string, string>
   /**
@@ -31,6 +54,8 @@ export type ModState = {
    * beneath; a refused `ui.status` is swallowed, never failing a hook.
    */
   draw: (text: string | undefined) => void
+  /** Says a toast through the shared policy (ADR-477). Installed by `engine.create`; never rejects; a no-op until then. */
+  say: (input: ToastInput) => Promise<void>
 }
 
 export function createState(): ModState {
@@ -42,11 +67,20 @@ export function createState(): ModState {
     tightened: 0,
     observed: 0,
     edits: [],
+    guidance: guidanceState(),
     editCount: 0,
     policy: 'none',
     budget: { level: 'OK' },
+    toolHints: { enabled: false, described: new Set() },
+    agentTrim: { enabled: false, hidden: new Set(), prompt: '' },
+    delivery: { enabled: false, consumed: 0, blocked: 0 },
+    compact: { enabled: false, carried: 0 },
+    probe: probeState(),
+    grounding: groundingState(),
+    rollup: rollupState(),
     segments: new Map(),
     draw: () => undefined,
+    say: async () => undefined,
   }
 }
 
@@ -99,7 +133,7 @@ export function statusText(s: ModState): string | undefined {
       parts.push(s.lastRoute.matched ? `${s.lastRoute.agent} ${pct}%` : `no route (${pct}%)`)
     }
     if (s.editCount) parts.push(`${s.editCount} edit${s.editCount === 1 ? '' : 's'}`)
-    if (s.policy !== 'none' && s.policy !== 'legacy') parts.push(`policy ${s.policy}`)
+    if (s.policy !== 'none') parts.push(`policy ${s.policy}`)
     if (s.tightened) parts.push(`${s.tightened} tightened`)
     if (s.budget.limit !== undefined && s.budget.level !== 'OK') parts.push(`budget ${s.budget.level}`)
   }
@@ -109,6 +143,10 @@ export function statusText(s: ModState): string | undefined {
 
 /** Redraws the status line from the state. */
 export const redraw = (s: ModState) => s.draw(statusText(s))
+
+/** The projection state as a short fixed phrase; `unreadable` covers a hand-written legacy or unknown mode. */
+const policyWord = (p: ModState['policy']) =>
+  p === 'none' ? 'none' : p === 'unreadable' ? 'unreadable (rejected: calls ask)' : `${p} (projection read)`
 
 /** What `/ruflo-mods` prints. */
 export function report(s: ModState): string {
@@ -125,8 +163,18 @@ export function report(s: ModState): string {
     `  owns:        ${[...s.owned].join(', ') || 'nothing (classic hooks keep every event)'}`,
     `  routed:      ${s.routed} prompt(s); last ${route}`,
     `  edits:       ${s.editCount} recorded, ${s.edits.length} pending write`,
-    `  policy:      ${s.policy}; ${s.tightened} call(s) tightened, ${s.observed} observed`,
+    `  policy:      ${policyWord(s.policy)}; ${s.tightened} call(s) tightened, ${s.observed} observed`,
     `  budget:      ${budget}`,
+    `  tool hints:  ${s.toolHints.enabled ? `${s.toolHints.described.size} tool(s) described` : 'off (set the toolHints option)'}`,
+    `  agent trim:  ${s.agentTrim.enabled ? `${s.agentTrim.hidden.size} type(s) hidden` : 'off (set the agentTrim option)'}`,
+    `  delivery:    ${s.delivery.enabled ? `${s.delivery.consumed} dropped, ${s.delivery.blocked} refused` : 'off (set the deliveryScreen option)'}`,
+    `  compact:     ${s.compact.enabled ? `${s.compact.carried} compaction(s) carried a block` : 'off (set the compactCarry option)'}`,
+    `  probe:       ${probeLine(s.probe)}`,
+    `  grounding:   ${groundingLine(s.grounding)}`,
+    `  sessions:    ${s.rollup.enabled ? ledgerLines(s.rollup.recent).join('\n               ') : 'off (set the sessionRollup option)'}`,
     `  segments:    ${segments.join(', ') || 'none'}`,
-  ].join('\n')
+    `  guidance:    ${s.guidance.status}; ${s.guidance.saved} unverified observation(s), ${s.guidance.pending.length} pending, ${s.guidance.dropped} dropped`,
+  ]
+    .concat(s.guidance.idsDropped + (s.guidance.active?.idsDropped ?? 0) > 0 ? [`               ${s.guidance.idsDropped + (s.guidance.active?.idsDropped ?? 0)} tool id(s) past the 256 cap not counted`] : [])
+    .join('\n')
 }

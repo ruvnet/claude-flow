@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/swarm",
-  "version": "3.0.0",
+  "version": "3.0.2",
   "type": "module",
   "description": "Standalone swarm coordination - up to 100+ agents, 4 topologies, hive-mind, consensus",
   "main": "dist/index.js",

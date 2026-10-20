@@ -3,9 +3,17 @@
  * and the pictures computed for this frame. They call nothing on the engine; buttons call the closures in `ctx.act`.
  * Text colours are theme names only, so nothing fades on a light background.
  */
+import type { ThemeActions, ConsoleTheme } from '../themes'
 import type { AskActions } from '../ask-claude'
 import type { OptimizerActions } from '../optimizer'
+import { askedBy } from '../data/room'
+import type { RoomActions } from '../room'
+import type { SessionActions } from '../sessions'
 import type { WatchActions } from '../watch'
+import type { WhatsNewActions } from '../whatsnew'
+import type { AdrActions } from '../adr-actions'
+import type { EventsActions } from '../events-ui'
+import type { TimelineActions } from '../timeline-ui'
 import type { Attention } from './attention'
 import { HEADS, mark as marked } from './marks'
 import type { LoopActions } from '../loops'
@@ -18,24 +26,48 @@ import type { CatalogActions } from '../plugin-catalog'
 import type { SettingsActions } from '../settings'
 import type { DevtoolsActions } from '../devtools'
 import type { Grid } from '../gfx/raster'
+import { CELL_W, gridToSvg } from '../gfx/svg'
 import type { MemoryActions } from '../memory-lab'
 import type { NavActions } from '../nav-state'
 import type { SkillActions } from '../skills'
+import type { HelpActions } from '../help-actions'
+import type { PluginOp } from '../plugin-ops'
 import { START_LABEL, type StartId } from '../starts'
 import type { MoreSkillActions } from '../skills-lab'
 import { VIEWS, type HarnessId, type NavStyle, type State, type ViewId } from '../state'
+import type { UpdatesMode } from '../updates'
+import type { ToastMode } from '../toast-policy'
+import { chip, COST_CHIP } from '../menu-colors'
+import { accentOfView } from '../nav-state'
 import type { VectorActions } from '../vector'
+import type { WorkflowsActions } from '../wf-actions'
 
-export type Kit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & { Raster?: Elements['terminal']['Raster']; Input?: Elements['terminal']['Input'] }
+export type Kit = Pick<Elements['terminal'], 'Box' | 'Text' | 'Button'> & { Raster?: Elements['terminal']['Raster']; Svg?: Elements['desktop']['Svg']; Input?: Elements['terminal']['Input'] }
+
+/**
+ * The kit a surface really draws pictures with. The host completes every table it resolves with every element name, an omitted one
+ * drawing a fragment, so `Raster` is defined on the desktop too and draws nothing there: whether a picture can be drawn is the surface's
+ * to say, never the table's. The terminal gets its `Raster` and no `Svg`; every other surface gets `Svg` and no `Raster`.
+ */
+export function kitForSurface<K extends Kit>(table: K, surface: string | null | undefined): K {
+  const { Raster, Svg, ...rest } = table
+  // A host that does not name its surface predates the desktop pictures: it is the terminal, and keeps its Raster.
+  const isTerminal = surface === 'terminal' || surface === undefined || surface === null || surface === ''
+
+  return (isTerminal ? { ...rest, ...(Raster !== undefined && { Raster }) } : { ...rest, ...(Svg !== undefined && { Svg }) }) as K
+}
 
 /** What a button can ask for: every one a closure over the controller. */
 export type Actions = {
   view: (id: ViewId) => void
   refresh: () => void
+  /** Refresh and replay the intro boot screen: the footer button and the r key. */
+  restart: () => void
   help: () => void
   close: () => void
   back: () => void
-  confirm: () => void
+  /** Runs the pending ask; `seen` is the id of the card the Yes came from, so a card that took its place meanwhile is not the one run. */
+  confirm: (seen?: number) => void
   cancel: () => void
   /** j/k: moves the selection of the view in front. */
   select: (by: number) => void
@@ -60,6 +92,8 @@ export type Actions = {
   /** Puts the keys in one of the pane's fields by its key (a row that takes text focuses its field). */
   focus: (key: string) => void
   start: (id: StartId, text?: string) => void
+  /** The marketplace update on the Plugins and Plugin Catalog pages: asks first, then runs one `claude plugin` command. */
+  plugin: (op: PluginOp) => void
   /** The main menu's prompt: a key or a name takes the person to that area. */
   menu: (text: string) => void
   term: { harness: (id: HarnessId) => void; draft: (text: string) => void; submit: (text: string) => void; stop: () => void; fresh: () => void; clear: () => void; load: (id: HarnessId, text: string) => void; /** A click on an ask link: opens the terminal, picks the agent and sends the text at once (read-only, plan mode, the saved per-turn budget): the reply streams in with no second click. */ ask: (id: HarnessId, text: string) => void; /** Moves the window up (positive) or down by screen rows. */ scroll: (by: number) => void; /** Puts an earlier question back in the field. */ reuse: (text: string) => void }
@@ -79,10 +113,22 @@ export type Actions = {
   optimizer: OptimizerActions
   /** The Timeline and Events pages: look-back range, kind filter, search, pause, paging, an event's detail, and asking about one. */
   watch: WatchActions
+  /** The Events page (ADR-474): query, level, window, follow, mutes, pins, saved searches, alert rules, export. */
+  events: EventsActions
+  /** The Timeline page (ADR-474): window, zoom, pan, lane groups, sort, lane detail, cross-links, export. */
+  timeline: TimelineActions
+  /** The Room (ADR-448): the draft, what to send through, the feed's source filter, search, pause and paging. */
+  room: RoomActions
+  /** The session workspace (ADR-486): select, move, jump from the attention queue, rescan, and the (unavailable) native open. */
+  sessions: SessionActions
   /** Ask Claude about this section (a visible prompt or a /btw aside) or run the plugin command that fits it: each asks first. */
   ask: AskActions
+  /** ruHelp, the built-in help: a question, a guide, a step's button, and asking Claude with the docs. */
+  ruhelp: HelpActions
   /** Mission Control: goal, profile, create, run next, pause/resume/cancel, auto-run, ask aside, guide Claude. */
   mission: MissionActions
+  /** Claude's control of the console (ADR-444): the person takes it back, or gives it back. */
+  control: { pause: (on: boolean) => void }
   /** The Plugin Catalog: read the clone, filter, select a plugin, view or use an item, change a plugin (each asks first). */
   catalog: CatalogActions
   /** Puts text back in an entry field and gives it the keys, so what was entered can be edited and sent again. */
@@ -90,16 +136,29 @@ export type Actions = {
   /** Empties an entry field after its Enter. */
   clearField: (key: string) => void
   /** The confirm row's "always allow this kind of action": remembers the kind (Settings forgets it) and runs the pending ask. */
-  remember: () => void
+  remember: (seen?: number) => void
   /** Forgets one remembered kind of action, or all of them (an empty key). */
   forget: (key: string) => void
   /** The nav card: show a group's pages, search the pages, clear the search. */
   navigator: NavActions
   /** Sets how the main nav spells its tabs (saved). */
   nav: (style: NavStyle) => void
+  /** Sets whether to check for a newer published ruflo-console: ask first, update without asking, or never (saved). */
+  updates: (mode: UpdatesMode) => void
+  /** Checks now, whatever the daily gate or an off setting says (it still asks before installing, and skips a development checkout). */
+  checkUpdates: () => void
+  /** The Toasts setting (ADR-477): which levels draw (all, important, off), and muting or unmuting one source's toasts (saved; every toast is still recorded). */
+  toasts: { mode: (mode: ToastMode) => void; mute: (source: string) => void }
+  /** What's new (ADR-478): dismiss a pinned breaking change (or all of them), toggle the toast for a new version. */
+  whatsnew: WhatsNewActions
+  /** ADR-480: the ADRs page: filter, select, initialise, propose, change a status, attach to a mission, check scope. */
+  adrs: AdrActions
   /** Opens or closes a collapsible section (`<view>/<id>`). */
   toggle: (key: string) => void
+  /** The Workflows page: cursor keys, the inspector's tab, the confirm-gated ruflo agent verbs, and naming a transcript's path. */
+  workflows: WorkflowsActions
   /** Settings: the level, a plugin, an option or ruflo config change (each asks first), AI preferences, and ▸ ask claude/codex. */
+  themes: ThemeActions
   settings: SettingsActions
 }
 
@@ -115,27 +174,59 @@ export type Ctx = {
   cards?: boolean
   /** The page's attention panel (views/attention.ts): lab views hand their result rows to it with `slot`. */
   attention?: Attention
+  /** True while the page is drawn as a text answer a model may read (viewText): a transcript is never drawn then (ADR-486). */
+  text?: boolean
 }
 
-export type Look = 'bbs' | 'plain'
+export type Look = 'bbs' | 'plain' | 'orbital'
 
 /** The terminal theme's own colours: readable on light and dark backgrounds alike. */
 const PLAIN = { head: 'claude', ok: 'success', bad: 'error', warn: 'warning', info: 'suggestion' }
 /** The BBS look: neon magenta headings, cyan values, matrix-green labels; amber stays for attention. */
 const NEON = { head: '#ff2a6d', ok: '#39ff14', bad: '#ff3355', warn: '#ffd319', info: '#05d9e8' }
+const ORBITAL = { head: '#f06449', ok: '#72c79b', bad: '#ff6868', warn: '#e3ba74', info: '#c6cbc8' }
 const NEON_LABEL = '#2fbf71'
 
 /** The palette every view reads; `setLook` swaps it in place before a render, so callers keep using THEME.x. */
 export const THEME: { head: string; ok: string; bad: string; warn: string; info: string } = { ...PLAIN }
 let look: Look = 'plain'
 
-export function setLook(next: Look): void {
-  if (next === look) return
+export function setLook(next: Look, palette?: ConsoleTheme['palette']): void {
   look = next
-  Object.assign(THEME, next === 'bbs' ? NEON : PLAIN)
+  Object.assign(THEME, next === 'bbs' ? NEON : next === 'orbital' ? (palette ?? ORBITAL) : PLAIN)
 }
 
+export const isOrbital = (): boolean => look === 'orbital'
+
 export const isBbs = (): boolean => look === 'bbs'
+
+/**
+ * A cost tag (`$0`, `wr`, `net`, `$$`) on a run row. In the BBS look it is a solid chip, the way the menu draws a key: the ink on a ground
+ * by how much the run asks (a read green, local work or a write cyan, the network amber, spending or deleting red). In the plain look it
+ * is coloured text, as it always was. `color` is the tag's theme colour; a colour that is none of the four stays text.
+ */
+export function tagChip(ctx: Ctx, text: string, color: string): RenderElement {
+  const ground = look !== 'bbs' ? undefined : color === THEME.ok ? COST_CHIP.ok : color === THEME.info ? COST_CHIP.info : color === THEME.warn ? COST_CHIP.warn : color === THEME.bad ? COST_CHIP.bad : undefined
+
+  if (ground === undefined) return ctx.kit.Text({ bold: true, color, children: ` ${text}` })
+
+  return ctx.kit.Box({ flexDirection: 'row', children: [ctx.kit.Text({ children: ' ' }), ctx.kit.Text({ ...chip(ground), children: text })] })
+}
+
+/** Words wrapped to `width`, so a long line reads as several instead of running off the edge. */
+export function wrap(line: string, width: number): string[] {
+  const out: string[] = []
+  let current = ''
+
+  for (const word of line.split(' ')) {
+    if (current !== '' && current.length + word.length + 1 > width) {
+      out.push(current)
+      current = word
+    } else current = current === '' ? word : `${current} ${word}`
+  }
+
+  return current === '' ? out : [...out, current]
+}
 
 export const clip = (text: string, width: number): string => (text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`)
 
@@ -153,17 +244,33 @@ export function ago(atMs: number | null | undefined, nowMs: number): string {
 
 /** A count as people read it (12.3k), or n/a for a value nobody measured. */
 export function count(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return 'n/a'
+  // A count is whole and not negative; a hostile 1e300 is "1T+", never a display value (#3817).
+  if (value === null || value === undefined || !Number.isFinite(value) || value < 0) return 'n/a'
+  if (value >= 1e12) return '1T+'
   if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (Math.abs(value) >= 10_000) return `${(value / 1000).toFixed(1)}k`
 
   return String(Math.round(value * 100) / 100)
 }
 
-export const pct = (value: number | null | undefined): string => (value === null || value === undefined || !Number.isFinite(value) ? 'n/a' : `${Math.round(value * 100)}%`)
+export const pct = (value: number | null | undefined): string => (value === null || value === undefined || !Number.isFinite(value) ? 'n/a' : `${Math.round(Math.min(1, Math.max(0, value)) * 100)}%`)
 
 export function text(ctx: Ctx, children: string, props: { color?: string; bold?: boolean; dimColor?: boolean; italic?: boolean } = {}): RenderElement {
   return ctx.kit.Text({ wrap: 'truncate-end', ...props, children: clip(children, Math.max(4, ctx.columns)) })
+}
+
+/**
+ * Prose a person needs to read in full (an approval's text, a mission's objective): wrapped on word breaks into as many rows as it takes, each
+ * continuation row indented by `indent`, so a narrow terminal (80 columns in tmux) shows all of it instead of cutting it at the edge with "…".
+ */
+export function paragraph(ctx: Ctx, line: string, props: { color?: string; bold?: boolean; dimColor?: boolean; italic?: boolean } = {}, indent = ''): RenderElement[] {
+  const lead = line.match(/^ */)?.[0] ?? ''
+  const width = Math.max(16, ctx.columns - Math.max(lead.length, indent.length))
+  // A word longer than the row (an id, a path) is cut into row-sized pieces, so no character of it is lost to the edge.
+  const words = line.trimStart().split(' ').flatMap(word => (word.length <= width ? [word] : (word.match(new RegExp(`.{1,${width}}`, 'gu')) ?? [word])))
+  const parts = wrap(words.join(' '), width)
+
+  return (parts.length === 0 ? [''] : parts).map((part, i) => text(ctx, `${i === 0 ? lead : indent}${part}`, props))
 }
 
 export function row(ctx: Ctx, parts: readonly RenderChildren[], key?: string): RenderElement {
@@ -172,6 +279,11 @@ export function row(ctx: Ctx, parts: readonly RenderChildren[], key?: string): R
 
 export function col(ctx: Ctx, parts: readonly RenderChildren[], key?: string): RenderElement {
   return ctx.kit.Box({ flexDirection: 'column', ...(key !== undefined && { key }), children: [...parts] })
+}
+
+/** The colour a BBS page's section headers wear: the accent of its nav group (the menu's colours), else the theme's. Plain look: the theme's. */
+function accentOf(ctx: Ctx): string {
+  return look === 'bbs' ? (accentOfView(ctx.state.view === 'agent' ? ctx.state.back : ctx.state.view) ?? THEME.info) : THEME.info
 }
 
 /**
@@ -193,8 +305,8 @@ export function section(ctx: Ctx, id: string, title: string, right: string, chil
         ctx,
         [
           ctx.kit.Button({ key: `sec-${id}`, label: head, plain: true, onPress: () => ctx.act.toggle(key) }),
-          ctx.kit.Text({ color: THEME.info, dimColor: true, children: `${(look === 'bbs' ? '═' : '─').repeat(fill)} ` }),
-          ctx.kit.Text({ color: THEME.info, children: right }),
+          ctx.kit.Text({ color: accentOf(ctx), dimColor: true, children: `${(look === 'bbs' ? '═' : '─').repeat(fill)} ` }),
+          ctx.kit.Text({ color: accentOf(ctx), children: right }),
         ],
         `sec-row-${id}`,
       ),
@@ -207,18 +319,22 @@ export function section(ctx: Ctx, id: string, title: string, right: string, chil
 export function rule(ctx: Ctx, title: string, right = ''): RenderElement {
   if (look === 'bbs') {
     // BBS section header: ▓▒░ SWARM ░▒▓══════════ right
-    const head = `▓▒░ ${title.toUpperCase()} ░▒▓`
-    const fill = Math.max(1, ctx.columns - head.length - right.length - 2)
+    const head = `▓▒░ ${clip(title, Math.max(4, ctx.columns - 12)).toUpperCase()} ░▒▓`
+    const room = Math.max(0, ctx.columns - head.length - 3)
+    const tail = clip(right, room)
+    const fill = Math.max(1, ctx.columns - head.length - tail.length - 2)
 
-    const line = row(ctx, [ctx.kit.Text({ bold: true, color: THEME.head, children: head }), ctx.kit.Text({ color: THEME.info, dimColor: true, children: `${'═'.repeat(fill)} ` }), ctx.kit.Text({ color: THEME.info, children: right })])
+    const line = row(ctx, [ctx.kit.Text({ bold: true, color: accentOf(ctx), wrap: 'truncate-end', children: head }), ctx.kit.Text({ color: accentOf(ctx), dimColor: true, children: `${'═'.repeat(fill)} ` }), ctx.kit.Text({ color: accentOf(ctx), wrap: 'truncate-end', children: tail })])
 
     // In a card the header is the card's first row; otherwise a blank line above each section, so the board breathes instead of packing every block together.
     return ctx.cards === true ? marked(HEADS, line) : marked(HEADS, col(ctx, [ctx.kit.Text({ children: ' ' }), line]))
   }
 
-  const fill = Math.max(1, ctx.columns - title.length - right.length - 3)
+  const name = clip(title, Math.max(4, ctx.columns - 4))
+  const tail = clip(right, Math.max(0, ctx.columns - name.length - 4))
+  const fill = Math.max(1, ctx.columns - name.length - tail.length - 3)
 
-  return marked(HEADS, row(ctx, [ctx.kit.Text({ bold: true, color: THEME.head, children: title }), ctx.kit.Text({ dimColor: true, children: ` ${'─'.repeat(fill)} ` }), ctx.kit.Text({ dimColor: true, children: right })]))
+  return marked(HEADS, row(ctx, [ctx.kit.Text({ bold: true, color: THEME.head, wrap: 'truncate-end', children: name }), ctx.kit.Text({ dimColor: true, children: ` ${'─'.repeat(fill)} ` }), ctx.kit.Text({ dimColor: true, wrap: 'truncate-end', children: tail })]))
 }
 
 /** A label and its value; the value dims when it is n/a. */
@@ -235,15 +351,25 @@ export function kv(ctx: Ctx, label: string, value: string, color?: string): Rend
   ])
 }
 
-/** A Raster for a picture of this frame, or a dim note where the surface has no Raster. */
+/**
+ * A picture as the surface draws it: a Raster on the terminal, an Svg of the same cells where the surface draws vectors, or null where it
+ * draws neither or the drawing would pass the host's size limit (the caller then says it in words). `alt` is what the picture says.
+ */
+export function art(ctx: Ctx, grid: Grid | undefined, key: string, alt: string): RenderElement | null {
+  if (grid === undefined) return null
+  if (ctx.kit.Raster !== undefined) return ctx.kit.Raster(grid.toRaster(key))
+  if (ctx.kit.Svg === undefined) return null
+
+  // The words a picture falls back to say what it shows, but "needs a terminal" is not true of a surface that draws it.
+  const label = alt.replace(/\s+needs? a terminal(?: that draws pictures)?/g, '').trim() || key
+  const source = gridToSvg(grid, label)
+
+  return source === null ? null : ctx.kit.Box({ key: `svg-${key}`, children: [ctx.kit.Svg({ source, alt: label, width: grid.columns * CELL_W })] })
+}
+
+/** A picture of this frame as the surface draws it, or a dim note where it cannot be drawn. */
 export function picture(ctx: Ctx, key: string, fallback: string): RenderElement {
-  const grid = ctx.pictures.get(key)
-
-  if (grid === undefined || ctx.kit.Raster === undefined) {
-    return text(ctx, fallback, { dimColor: true })
-  }
-
-  return ctx.kit.Raster(grid.toRaster(key))
+  return art(ctx, ctx.pictures.get(key), key, fallback) ?? text(ctx, fallback, { dimColor: true })
 }
 
 export function button(ctx: Ctx, key: string, label: string, onPress: () => void, options: { hotkey?: string; primary?: boolean } = {}): RenderElement {
@@ -306,7 +432,7 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
     return row(
       ctx,
       [
-        text(ctx, `⚠ An ask is waiting on ${where?.label ?? pending.view}: ${clip(pending.label, Math.max(16, ctx.columns - 64))} `, { bold: true, color: THEME.warn }),
+        text(ctx, `⚠ An ask is waiting on ${where?.label ?? pending.view}: ${clip(askedBy(pending) + pending.label, Math.max(16, ctx.columns - 64))} `, { bold: true, color: THEME.warn }),
         button(ctx, 'confirm-go', 'Go there', () => ctx.act.view(pending.view as ViewId)),
         button(ctx, 'cancel', 'Cancel (n)', ctx.act.cancel, { hotkey: 'n' }),
       ],
@@ -314,25 +440,41 @@ export function confirmRow(ctx: Ctx): RenderElement | null {
     )
   }
 
-  return col(
-    ctx,
-    [
-      text(ctx, '▶ CONFIRM NEEDED — click Yes or press y', { bold: true, color: THEME.warn }),
-      text(ctx, `Confirm: ${pending.label.replace(/\?+$/, '')}?`, { bold: true, color: THEME.warn }),
+  // One bordered card in the warning colour: the person says yes to everything in it, so it reads as a unit, not as loose lines. Its border and
+  // padding take four columns, so the text inside is clipped to the narrower width.
+  const inner: Ctx = { ...ctx, columns: Math.max(20, ctx.columns - 4) }
+  // Drawn for a person in a pane they can see: this is now the card a bare typed yes may answer. A text answer for a model shows it to no one.
+  if (ctx.text !== true && ctx.state.pane.isShown && pending.id !== undefined) ctx.state.shownCard = pending.id
+
+  const hasMoney = pending.note !== undefined && /money|models/i.test(pending.note)
+
+  return ctx.kit.Box({
+    key: 'confirm',
+    flexDirection: 'column',
+    borderStyle: 'round',
+    borderColor: THEME.warn,
+    paddingX: 1,
+    children: [
+      row(ctx, [ctx.kit.Text({ bold: true, color: THEME.warn, children: '▶ CONFIRM NEEDED' }), ctx.kit.Text({ dimColor: true, children: '  click Yes or press y' })]),
+      text(inner, '─'.repeat(inner.columns), { dimColor: true }),
+      text(inner, `Confirm: ${askedBy(pending)}${pending.label.replace(/\?+$/, '')}?`, { bold: true, color: THEME.warn }),
       // Wrapped, not clipped: the person says yes to the whole argv, so all of it shows (a JSON argument runs long).
       ctx.kit.Text({ dimColor: true, wrap: 'wrap', children: `runs: ${pending.shows ?? `ruflo ${pending.args.join(' ')}`}` }),
-      ...(pending.note !== undefined ? [text(ctx, pending.note, { bold: /money|models/i.test(pending.note), color: /money|models/i.test(pending.note) ? THEME.bad : THEME.warn })] : []),
-      row(ctx, [
-        button(ctx, 'confirm', 'Yes, run it (y)', ctx.act.confirm, { hotkey: 'y', primary: true }),
-        button(ctx, 'cancel', 'Cancel (n)', ctx.act.cancel, { hotkey: 'n' }),
-        // A low-risk ruflo action may be remembered: it is not asked again (Settings lists and forgets it).
-        ...(pending.rememberKey !== undefined ? [button(ctx, 'remember', `Always allow “${pending.rememberKey}”`, () => ctx.act.remember())] : []),
-        // An AI terminal turn (claude -p in plan mode, codex read-only, the budget cap) may be always accepted: Settings resets it.
-        ...(ctx.state.terminal.asked !== null && pending.label === ctx.state.terminal.asked.label && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept())] : []),
-      ]),
+      ...(pending.note !== undefined ? [ctx.kit.Text({ wrap: 'wrap', bold: hasMoney, color: hasMoney ? THEME.bad : THEME.warn, children: `Effect: ${pending.note}` })] : []),
+      ctx.kit.Box({
+        flexDirection: 'row',
+        marginTop: 1,
+        children: [
+          button(ctx, 'confirm', 'Yes, run it (y)', () => ctx.act.confirm(pending.id), { hotkey: 'y', primary: true }),
+          button(ctx, 'cancel', 'Cancel (n)', ctx.act.cancel, { hotkey: 'n' }),
+          // A low-risk ruflo action may be remembered: it is not asked again (Settings lists and forgets it).
+          ...(pending.rememberKey !== undefined ? [button(ctx, 'remember', `Always allow “${pending.rememberKey}”`, () => ctx.act.remember(pending.id))] : []),
+          // An AI terminal turn (claude -p in plan mode, codex read-only, the budget cap) may be always accepted: Settings resets it.
+          ...(ctx.state.terminal.asked !== null && pending.id !== undefined && pending.id === ctx.state.terminal.asked.card && ctx.state.terminal.harness !== 'ruflo' ? [button(ctx, 'always', 'Always accept AI turns', () => ctx.act.settings.alwaysAccept(pending.id))] : []),
+        ],
+      }),
     ],
-    'confirm',
-  )
+  })
 }
 
 /** Views that draw the confirm themselves, under the field it came from (the pane then does not draw it above the body). */

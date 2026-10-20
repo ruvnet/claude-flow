@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { register } from '../../../../../plugins/ruflo-mods/hooks/register';
-import { classicConfigured, ownedEvents } from '../../../../../plugins/ruflo-mods/hooks/ownership';
+import { classicConfigured, legacyCliConfigured, ownedEvents } from '../../../../../plugins/ruflo-mods/hooks/ownership';
 import { loadMod, memoryWorld, realWorld, type World } from './harness';
 
 const REPO = resolve(__dirname, '../../../../..');
@@ -29,9 +29,9 @@ const CLASSIC = {
 
 async function start(world: World, options: Record<string, unknown> = {}) {
   const mod = loadMod(register, world, options);
-  await mod.create(); // the engine runs the engine.create fold before any other hook
+  const built = await mod.create(); // the engine runs the engine.create fold before any other hook
   const next = await mod.dispatch('session.start', { cwd: world.root, surface: 'terminal', isInteractive: true }, (e) => ({ cwd: e.cwd }));
-  return { mod, next };
+  return { mod, next, built };
 }
 
 describe('ADR-404 ownership rule', () => {
@@ -50,12 +50,75 @@ describe('ADR-404 ownership rule', () => {
     expect(ownedEvents(CLASSIC, true)).toEqual(['route', 'post-edit']);
   });
 
+  it('stands down where settings still run the CLI\'s own hooks route/post-edit (pre-hook-handler init), handshake or not', () => {
+    const legacy = (route: string, edit: string) => ({ hooks: {
+      UserPromptSubmit: [{ hooks: [{ command: route }] }],
+      PostToolUse: [{ matcher: 'Write|Edit|MultiEdit', hooks: [{ command: edit }] }],
+    } });
+    for (const s of [
+      legacy('[ -n "$PROMPT" ] && npx claude-flow@v3alpha hooks route --task "$PROMPT" --intelligence || true',
+        'if [ -n "$TOOL_INPUT_file_path" ]; then npx claude-flow@v3alpha hooks post-edit --file "$TOOL_INPUT_file_path"; fi; exit 0'),
+      legacy('npx @claude-flow/cli@latest hooks route --task "$PROMPT"', 'npx @claude-flow/cli@latest hooks post-edit --file x'),
+      legacy('npx ruflo hooks route --task "$PROMPT"', 'ruflo hooks post-edit --file x'),
+    ]) {
+      expect(legacyCliConfigured(s, 'route')).toBe(true);
+      expect(ownedEvents(s, true)).toEqual([]);
+    }
+    expect(legacyCliConfigured(CLASSIC, 'route')).toBe(false);
+    expect(legacyCliConfigured(legacy('npx claude-flow hooks router-stats', 'npx myruflo hooks post-edit'), 'route')).toBe(false);
+    expect(legacyCliConfigured(legacy('npx claude-flow hooks router-stats', 'npx myruflo hooks post-edit'), 'post-edit')).toBe(false);
+  });
+
   it('never owns pre-bash or session events', () => {
     expect(ownedEvents({}, true)).not.toContain('pre-bash');
   });
 });
 
 describe('ADR-404 session start', () => {
+  it.each(['missing', 'file'] as const)('does not route, learn or create project state when .claude-flow is %s', async (kind) => {
+    const project = mkdtempSync(join(tmpdir(), 'ruflo-mods-uninitialized-'));
+    const home = mkdtempSync(join(tmpdir(), 'ruflo-mods-initialized-home-'));
+    try {
+      if (kind === 'file') writeFileSync(join(project, '.claude-flow'), 'not a directory');
+      mkdirSync(join(home, '.claude-flow'));
+      const world = realWorld(project);
+      world.env.set('HOME', home);
+      world.env.set('RUFLO_MODS_OWNS', 'route,post-edit');
+      const before = readdirSync(project);
+      const { mod, next, built } = await start(world);
+      expect(next).toEqual({ cwd: project });
+      expect(world.env.has('RUFLO_MODS_OWNS')).toBe(false);
+
+      const original = { text: 'review this code', context: ['existing context'], wait: false, origin: { kind: 'composer' } };
+      expect(await mod.dispatch('prompt.submit', original, (e) => e)).toEqual(original);
+      await mod.dispatch('tool.call', { tool: 'Edit', file_path: join(project, 'a.ts') }, () => ({ result: 'edited' }));
+      await mod.dispatch('turn.complete', { reason: 'answer' }, () => ({ text: 'done' }));
+      await mod.dispatch('session.end', {}, () => ({ ended: true }));
+      expect(await built.ruflo.snapshot()).toMatchObject({ owned: [], routed: 0, edits: 0, lastRoute: null });
+      expect(readdirSync(project)).toEqual(before);
+      expect(existsSync(join(project, '.claude-flow', 'mods', 'session.json'))).toBe(false);
+      expect(existsSync(join(project, '.claude-flow', 'data', 'pending-insights.jsonl'))).toBe(false);
+      // The project gate only controls side effects; the installed guard still protects this session.
+      expect(await mod.dispatch('tool.check', { tool: 'Bash', input: { command: 'rm -rf /' } }, () => ({ decision: 'allow' }))).toMatchObject({ decision: 'deny' });
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('owns nothing and writes no heartbeat when the project directory cannot be verified', async () => {
+    const world = memoryWorld();
+    world.failStat = (path) => path === '/work/.claude-flow' ? new Error('EACCES: permission denied') : undefined;
+    world.env.set('RUFLO_MODS_OWNS', 'route');
+    const { mod, next, built } = await start(world);
+    expect(next).toEqual({ cwd: '/work' });
+    expect(world.env.has('RUFLO_MODS_OWNS')).toBe(false);
+    expect((world.files as Map<string, unknown>).size).toBe(0);
+    const prompt = { text: 'implement the api', wait: false, origin: { kind: 'composer' } };
+    expect(await mod.dispatch('prompt.submit', prompt, (e) => e)).toEqual(prompt);
+    expect(await built.ruflo.snapshot()).toMatchObject({ owned: [], routed: 0, edits: 0 });
+  });
+
   it('with a handshake-aware helper: owns both, sets RUFLO_MODS_OWNS, registers /ruflo-mods, writes a heartbeat', async () => {
     const world = memoryWorld('/work', CLASSIC);
     (world.files as Map<string, any>).set('/work/.claude/helpers/hook-handler.cjs', { text: '... RUFLO_MODS_OWNS ...', mtimeMs: 1 });
@@ -124,6 +187,7 @@ describe('ADR-404 no double fire with the real classic hooks', () => {
     project = mkdtempSync(join(tmpdir(), 'ruflo-mods-own-'));
     home = mkdtempSync(join(tmpdir(), 'ruflo-mods-own-home-'));
     dedup = mkdtempSync(join(tmpdir(), 'ruflo-mods-dedup-'));
+    mkdirSync(join(project, '.claude-flow'));
     mkdirSync(join(project, '.claude', 'helpers'), { recursive: true });
     for (const f of ['hook-handler.cjs', 'router.cjs', 'session.cjs', 'memory.cjs', 'intelligence.cjs']) {
       copyFileSync(join(PKG_HELPERS, f), join(project, '.claude', 'helpers', f));
@@ -163,6 +227,12 @@ describe('ADR-404 no double fire with the real classic hooks', () => {
     const helper = join(project, '.claude', 'helpers', 'hook-handler.cjs');
     writeFileSync(helper, readFileSync(helper, 'utf8').replaceAll('RUFLO_MODS_OWNS', 'RUFLO_X_OWNS'));
     expect(await promptRound('implement the api')).toBe(1);
+  });
+
+  it('outside a Ruflo project the configured classic route keeps ownership and the mod writes nothing', async () => {
+    rmSync(join(project, '.claude-flow'), { recursive: true });
+    expect(await promptRound('implement the api')).toBe(1);
+    expect(existsSync(join(project, '.claude-flow'))).toBe(false);
   });
 
   it('exactly one edit record: classic post-edit and ruflo-core post-edit stand down for the mod', async () => {

@@ -3,7 +3,31 @@
 - **Status**: Proposed
 - **Date**: 2026-07-30
 - **Related**: root `CLAUDE.md` → "Publishing to npm" (existing manual runbook), 2026-07-14 helpers-signing-key leak incident (same section), Cognitum Platform deployment table (existing WIF precedent for `meta-llm`'s CD)
-- **Supersedes**: nothing — this repo has no existing publish/release GitHub Actions workflow (`.github/workflows/` has 24 workflows; none named `*publish*` or `*release*`). This is net-new automation, not a migration.
+- **Supersedes**: nothing. When this ADR was written, the repo had no publish/release GitHub Actions workflow (24 workflows in `.github/workflows/`, none named `*publish*` or `*release*`). A token-based `stable-npm-release.yml` has since been added; see "Update 2026-09-28".
+- **Updated**: 2026-09-28 (ADR-403 leaf versioning; state of `stable-npm-release.yml`)
+
+## Update 2026-09-28 — what changed since this ADR was written
+
+- **A token-based workflow now exists.** `.github/workflows/stable-npm-release.yml`
+  (`workflow_dispatch` with an existing `v*` tag, `NPM_TOKEN`, not OIDC) publishes the three
+  train packages from the immutable tag. None of its five runs (2026-09-21, 09-27, 09-28) has succeeded. Four failed and one was cancelled.
+  - The 09-28 run for `v3.47.1` **did publish** all three packages, then failed on its own
+    post-publish check (`@claude-flow/cli@3.47.1 does not match the verified archive
+    integrity`).
+  - The registry lags after `npm publish`: `3.48.0` took about 6.5 minutes to resolve. That lag
+    is a plausible cause of the failed check, but it has not been confirmed. The check should poll
+    before comparing.
+  - The 09-27 run failed input validation (a non-tag ref).
+  - `3.48.0` was published with the manual runbook.
+- **The train is no longer always three packages.** Under ADR-403, the internal
+  `@claude-flow/*` leaves are on stable semver, and the CLI pins the non-bundled ones
+  (`cli-core`, `memory`, `neural`, `shared`) exactly. A release that changes one of them must
+  publish that leaf *before* the train, and wait until the registry resolves it.
+  Any automation built from this ADR has to cover that leaf step. Otherwise it ships a CLI
+  pinned to a version that does not exist yet, or the old copy of the leaf.
+- **Tarball contents are now constrained.** Each leaf has a `files` allowlist and no
+  `publishConfig.tag`. A CI publish should assert both, because a missing allowlist leaked
+  local runtime files into three published alpha tarballs, which are now deprecated.
 
 ## Context
 

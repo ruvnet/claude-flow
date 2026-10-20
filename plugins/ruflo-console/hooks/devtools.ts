@@ -7,15 +7,16 @@
  * its reason, never a button that can only fail. Pure: entries, specs and closures; nothing here touches `$`.
  */
 import type { ActionSpec } from './actions'
-import { devLines, fieldRule, fieldValue, tool, type DevField, type DevFields } from './data/devtools'
+import { devLines, fieldRule, fieldValue, need, tool, type DevField, type DevFields } from './data/devtools'
 import type { Host } from './host'
 import type { PaletteEntry } from './palette'
+import { SANDBOX, SANDBOX_GROUPS } from './sandbox'
 import type { State } from './state'
 
 /** `read`: local, $0, changes nothing. `local`: local compute that keeps nothing. Then writes, the network, money, deletes. */
 export type DevCost = 'read' | 'local' | 'writes' | 'network' | 'spends' | 'deletes'
 
-export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint'
+export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint' | 'tmux' | 'rvm'
 
 export type DevEntry = {
   id: string
@@ -30,6 +31,12 @@ export type DevEntry = {
   input?: DevField
   /** The argv after the CLI prefix, from the fields; null when a field breaks its rule. */
   args?: (fields: DevFields) => readonly string[] | null
+  /** A fixed command outside ruflo (tmux): the whole argv, run as it is, with no CLI prefix; null when a field breaks its rule. */
+  exec?: (fields: DevFields) => readonly string[] | null
+  /** The program the entry needs: while it is known missing, the row is n/a. */
+  needs?: 'tmux'
+  /** How its output reads, when `labLines` would not say it well. */
+  read?: (stdout: string, stderr: string, ok: boolean) => string[]
   /** Not runnable from the console: the reason the row shows instead of a button. */
   na?: string
   note?: string
@@ -50,24 +57,11 @@ export const DEV_GROUPS: readonly { id: DevGroup; title: string; right: string }
   { id: 'daa', title: 'DAA · dynamic agents', right: '.claude-flow/daa · writes ask' },
   { id: 'managed', title: 'Managed agents', right: 'Anthropic cloud · every call asks' },
   { id: 'maint', title: 'Maintenance', right: 'cleanup · update · migrate · process · appliance' },
+  ...SANDBOX_GROUPS,
 ]
 
 const SESSION = 'ruflo-console'
 const SHOT = 'ruflo-console-screenshot.png'
-
-/** A field's checked value, or null; `need` builds the argv only when every named field passes. */
-const need = (fields: DevFields, names: readonly DevField[], build: (values: Record<DevField, string>) => readonly string[]): readonly string[] | null => {
-  const values = {} as Record<DevField, string>
-
-  for (const name of names) {
-    const value = fieldValue(name, fields[name])
-
-    if (value === null) return null
-    values[name] = value
-  }
-
-  return build(values)
-}
 
 /** A `.rvf` file's branch beside it: `memory.rvf` with label `try` branches to `memory-try.rvf`. */
 export const branchPathOf = (path: string, label: string): string => (path.endsWith('.rvf') ? `${path.slice(0, -4)}-${label}.rvf` : `${path}-${label}.rvf`)
@@ -85,7 +79,7 @@ export const DEV: readonly DevEntry[] = [
   { id: 'dt-diff-stats', group: 'analyze', name: 'STATS', about: 'files, additions and deletions by status', label: 'diff stats for the ref', cost: 'read', input: 'ref', args: f => need(f, ['ref'], v => tool('analyze_diff-stats', { ref: v.ref })) },
   { id: 'dt-diff-classify', group: 'analyze', name: 'CLASSIFY', about: 'feature, fix, refactor, docs … with confidence', label: 'classify the diff', cost: 'read', input: 'ref', args: f => need(f, ['ref'], v => tool('analyze_diff-classify', { ref: v.ref })) },
   { id: 'dt-diff-risk', group: 'analyze', name: 'RISK', about: 'the overall risk score and what drives it', label: 'risk of the diff', cost: 'read', input: 'ref', args: f => need(f, ['ref'], v => tool('analyze_diff-risk', { ref: v.ref })) },
-  { id: 'dt-diff-reviewers', group: 'analyze', name: 'REVIEWERS', about: 'who should review it, from the history', label: 'suggested reviewers for the diff', cost: 'read', input: 'ref', args: f => need(f, ['ref'], v => tool('analyze_diff-reviewers', { ref: v.ref, limit: 5 })) },
+  { id: 'dt-diff-reviewers', group: 'analyze', name: 'REVIEWERS', about: 'reviewer roles suggested from file paths and risk', label: 'suggested reviewer roles for the diff', cost: 'read', input: 'ref', args: f => need(f, ['ref'], v => tool('analyze_diff-reviewers', { ref: v.ref, limit: 5 })) },
   { id: 'dt-file-risk', group: 'analyze', name: 'FILE RISK', about: 'the risk of changing the file in the path field', label: 'risk of changing the file at the path', cost: 'read', input: 'path', args: f => need(f, ['path'], v => tool('analyze_file-risk', { path: v.path })) },
 
   { id: 'dt-gh-repo', group: 'github', name: 'REPO', about: 'branches, commits, open issues and PRs of this repo', label: 'analyze this GitHub repo', cost: 'network', args: fixed(tool('github_repo_analyze', {})), note: GH },
@@ -174,21 +168,28 @@ export const DEV: readonly DevEntry[] = [
   { id: 'dt-logs', group: 'maint', name: 'LOGS', about: 'the last 50 log lines', label: 'process logs', cost: 'read', args: fixed(['process', 'logs', '--tail', '50']) },
   { id: 'dt-app-inspect', group: 'maint', name: 'APPLIANCE', about: 'the RVFA header and sections of the path field’s .rvf', label: 'appliance inspect', cost: 'read', input: 'path', args: f => need(f, ['path'], v => ['appliance', 'inspect', '-f', v.path, '--json']) },
   { id: 'dt-app-verify', group: 'maint', name: 'APPLIANCE VERIFY', about: 'its integrity (quick, no capability tests)', label: 'appliance verify --quick', cost: 'read', input: 'path', args: f => need(f, ['path'], v => ['appliance', 'verify', '-f', v.path, '--quick']) },
+  ...SANDBOX,
 ]
+
+/** What an entry's own `cost` says its class is: the console's confirm gate never reads an action as less than this. `local` and `read` declare nothing. */
+const DECLARED: Partial<Record<DevCost, NonNullable<ActionSpec['declared']>>> = { writes: 'write', network: 'network', spends: 'spend', deletes: 'delete' }
 
 /** The confirm-free spec for a local read, the asked one for the rest; null when a field breaks its rule or it is n/a. */
 export function devSpec(entry: DevEntry, fields: DevFields): ActionSpec | null {
-  const args = entry.na === undefined ? (entry.args?.(fields) ?? null) : null
+  const args = entry.na === undefined ? ((entry.exec ?? entry.args)?.(fields) ?? null) : null
 
   if (args === null) return null
 
   return {
     label: entry.label,
-    args,
+    args: entry.exec === undefined ? args : [],
+    ...(entry.exec !== undefined && { argv: args, shows: args.join(' ') }),
+    ...(entry.read !== undefined && { read: entry.read }),
     expect: entry.cost === 'read' ? 'its output in Dev Tools' : `its result in Dev Tools${entry.note !== undefined ? `; ${entry.note}` : ''}`,
     lab: entry.id,
     lines: (stdout, stderr) => devLines(entry.id, stdout, stderr),
     ...(entry.cost === 'read' && { isReadOnly: true }),
+    ...(DECLARED[entry.cost] !== undefined && { declared: DECLARED[entry.cost] }),
     ...(entry.note !== undefined && { note: entry.note }),
     ...(entry.timeoutMs !== undefined && { timeoutMs: entry.timeoutMs }),
   }
@@ -197,17 +198,21 @@ export function devSpec(entry: DevEntry, fields: DevFields): ActionSpec | null {
 /** Why an entry has nothing to run now, in the footer's words. */
 export function devWhy(entry: DevEntry, fields: DevFields): string {
   if (entry.na !== undefined) return `n/a: ${entry.na}`
+  const build = entry.exec ?? entry.args
 
   // With every failing field given a passing value it builds: the first failing field it cannot build without is the one to name.
   const failing = (Object.keys(SAMPLE) as DevField[]).filter(field => fieldValue(field, fields[field]) === null)
   const filled = (except: DevField | null): DevFields => ({ ...fields, ...Object.fromEntries(failing.filter(field => field !== except).map(field => [field, SAMPLE[field]])) })
-  const broken = entry.args === undefined || entry.args(filled(null)) === null ? undefined : failing.find(field => entry.args?.(filled(field)) === null)
+  const broken = build === undefined || build(filled(null)) === null ? undefined : failing.find(field => build(filled(field)) === null)
 
-  return broken === undefined ? 'nothing to run' : `${broken} field: ${fieldRule(broken)}`
+  if (broken === undefined) return 'nothing to run'
+
+  // An empty field is the common case: say where to type, not only the rule.
+  return `${broken} field${fields[broken].trim() === '' ? ' is empty: type it in the field above, then ▶ run' : ''}: ${fieldRule(broken)}`
 }
 
 /** A value each field accepts, to find which field kept an entry from running. */
-const SAMPLE: DevFields = { ref: 'HEAD', path: 'memory.rvf', label: 'l', url: 'https://example.com', target: '@e1', query: 'q', task: 't', cmd: 'c', id: 'i', note: 'n' }
+const SAMPLE: DevFields = { ref: 'HEAD', path: 'memory.rvf', label: 'l', url: 'https://example.com', target: '@e1', query: 'q', task: 't', cmd: 'c', id: 'i', note: 'n', session: 's', send: 'c' }
 
 /**
  * Every runnable entry as a palette entry, so `/ruflo run dt-diff HEAD~3` works headless: an entry with an input field
@@ -216,7 +221,7 @@ const SAMPLE: DevFields = { ref: 'HEAD', path: 'memory.rvf', label: 'l', url: 'h
 export function devPalette(state: State): PaletteEntry[] {
   const fields = state.devtools.fields
 
-  return DEV.filter(entry => entry.na === undefined).map(entry => {
+  return DEV.map(entry => withTmux(entry, state.devtools.tmux)).filter(entry => entry.na === undefined).map(entry => {
     const input = entry.input
 
     if (input === undefined) return { id: entry.id, group: 'devtools', label: entry.label, run: { kind: 'spec', spec: devSpec(entry, fields), why: devWhy(entry, fields) } }
@@ -228,6 +233,8 @@ export function devPalette(state: State): PaletteEntry[] {
       run: {
         kind: 'text',
         keyword: entry.id,
+        // Said when nothing builds: the field to fill and its rule, not a generic palette hint.
+        why: text => devWhy(entry, text.trim() === '' ? fields : { ...fields, [input]: text.trim() }),
         make: text => {
           if (text.trim() !== '') fields[input] = text.trim()
 
@@ -238,8 +245,11 @@ export function devPalette(state: State): PaletteEntry[] {
   })
 }
 
+/** The entry as the console can use it now: n/a, with the reason, while the program it needs is known to be missing. */
+export const withTmux = (entry: DevEntry, tmux: State['devtools']['tmux']): DevEntry => (entry.needs === 'tmux' && tmux === 'missing' && entry.na === undefined ? { ...entry, na: 'tmux is not installed on this machine: install it, then open this page again' } : entry)
+
 /** Which entry Enter in each field runs; a field with none only keeps its text. */
-const SUBMITS: Partial<Record<DevField, string>> = { task: 'dt-brain', ref: 'dt-diff', path: 'dt-cow-status', url: 'dt-br-open', target: 'dt-br-click', query: 'dt-plug-search', cmd: 'dt-term-exec' }
+const SUBMITS: Partial<Record<DevField, string>> = { task: 'dt-brain', ref: 'dt-diff', path: 'dt-cow-status', session: 'dt-sb-capture', send: 'dt-sb-send', url: 'dt-br-open', target: 'dt-br-click', query: 'dt-plug-search', cmd: 'dt-term-exec' }
 
 export type DevtoolsActions = {
   draft: (field: DevField, text: string) => void

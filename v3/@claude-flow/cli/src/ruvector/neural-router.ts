@@ -427,8 +427,13 @@ async function resolveBackend(cfg: NeuralRouterConfig): Promise<ResolvedBackend>
         if (!cal) return r;
         return {
           route: (e) => {
-            const result = r.route(e);
-            return { ...result, predictedQuality: cal.transform(result.predictedQuality) };
+            // Calibration can move a candidate across the quality bar. Select
+            // from the calibrated predictions, not the raw router's old pick.
+            const all = r.predictAll(e).map(c => ({ ...c, predictedQuality: cal.transform(c.predictedQuality) }));
+            const clearing = all.filter(c => c.predictedQuality >= cfg.qualityBar)
+              .sort((a, b) => a.costPerMTok - b.costPerMTok);
+            const pick = clearing[0] ?? [...all].sort((a, b) => b.predictedQuality - a.predictedQuality)[0];
+            return { ...pick, metBar: pick.predictedQuality >= cfg.qualityBar };
           },
           predictAll: (e) => r.predictAll(e).map(c => ({ ...c, predictedQuality: cal.transform(c.predictedQuality) })),
         };

@@ -49,11 +49,22 @@ export function classicConfigured(settings: unknown, ownable: Ownable): boolean 
 }
 
 /**
+ * Whether settings run the CLI's own `hooks route` / `hooks post-edit` on this event: the form `ruflo init` wrote before
+ * hook-handler.cjs (e.g. `npx claude-flow@v3alpha hooks route --task "$PROMPT"`). That command never reads the handshake,
+ * so the mod must stand down for it whatever the helper does.
+ */
+export function legacyCliConfigured(settings: unknown, ownable: Ownable): boolean {
+  const { event, subcommand } = CLASSIC[ownable]
+  const word = new RegExp(`(?:^|[\\s/"'])(?:@claude-flow/cli|claude-flow|ruflo)(?:@[\\w.-]+)?["']?\\s+hooks\\s+${subcommand}(?![\\w-])`)
+  return commandsOf(settings, event).some(c => word.test(c))
+}
+
+/**
  * The events the mod owns this session.
  *
  * @param settings the merged settings (`$.settings.read()`)
  * @param helperHonours whether the hook-handler.cjs the hooks run carries the marker
  */
 export function ownedEvents(settings: unknown, helperHonours: boolean): Ownable[] {
-  return OWNABLE.filter(o => !classicConfigured(settings, o) || helperHonours)
+  return OWNABLE.filter(o => !legacyCliConfigured(settings, o) && (!classicConfigured(settings, o) || helperHonours))
 }

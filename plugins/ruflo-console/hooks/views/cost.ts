@@ -3,6 +3,7 @@ import type { RenderElement } from 'claude-code'
 import { BUDGET_HELP, BUDGET_PRESETS, canSetBudget, ladderDollars, projectSpend } from '../cost'
 import type { ModelStats } from '../data/cli'
 import { button, col, kv, live, pct, picture, row, rule, sourceLine, text, THEME, type Ctx } from './common'
+import { providerRows } from './cost-providers'
 
 const LADDER = [0.5, 0.75, 0.9, 1] as const
 const dollars = (value: number | undefined | null): string => value === undefined || value === null || !Number.isFinite(value) || value < 0 ? 'n/a' : `$${value.toFixed(3)}`
@@ -71,6 +72,7 @@ export function costView(ctx: Ctx): RenderElement {
     if (used !== undefined) rows.push(text(ctx, `${' '.repeat(17)}${ladder(used, budget.limit, Math.min(40, ctx.columns - 20))}  50·75·90·100%`, { color }))
   }
   rows.push(...breakdownRows(ctx))
+  rows.push(...providerRows(ctx))
   rows.push(rule(ctx, 'Alert thresholds', 'OK below 50%'))
   for (const rung of ladderDollars(budget?.limit)) rows.push(kv(ctx, rung.level, `${rung.percent}% · ${rung.usd === null ? 'n/a' : `$${rung.usd.toFixed(2)}`}`))
   rows.push(text(ctx, ' HARD_STOP blocks new agents only when ruflo-mods costHardStop is enabled.', { dimColor: true }))

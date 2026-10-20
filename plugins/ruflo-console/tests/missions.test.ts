@@ -41,6 +41,7 @@ describe('mission control', () => {
     const { pane, clock } = await opened($, on, { ...RUFLO_FILES, '.claude-flow/missions/observation.json': MISSION_OBSERVATION })
 
     await pane.press({ key: 'mc-tab-record' })
+    await $.command.run(command('next'))
 
     const text = textOf(await pane.drawn())
 
@@ -71,7 +72,7 @@ describe('mission control', () => {
     expect(text).toContain('SPARC plan')
     expect(text).toContain('Reproduce the problem with a failing case')
     expect(text).toMatch(/Research.*→.*Build.*→.*Test.*→.*Validate.*→.*Secure.*→.*Learn/)
-    expect(text).toContain('● bug fix')
+    expect(text).toContain('bug fix · standard')
     expect(toolsRun(world.runs)).toEqual([])
 
     const field = (tree: Awaited<ReturnType<typeof pane.drawn>>) => elementsOf(tree, 'Input').find(input => keyOf(input) === 'mc-goal') as { props?: { value?: string } } | undefined
@@ -79,6 +80,8 @@ describe('mission control', () => {
     expect(field(await pane.drawn())?.props?.value ?? '').toBe('')
     await pane.press({ key: 'mc-edit-goal' })
     expect(field(await pane.drawn())?.props?.value).toBe('fix the crash when the password is empty')
+    await pane.press({ key: 'sec-options' })
+    expect(textOf(await pane.drawn())).toContain('● bug fix')
     await pane.press({ key: 'mc-profile-feature' })
     expect(textOf(await pane.drawn())).toContain('Specify the requirements and acceptance criteria')
     await pane.unmount()
@@ -225,11 +228,12 @@ describe('mission control', () => {
     await $.command.run(command())
 
     const pane = await $.ui.mount({ ...paneAt(150), surface: 'terminal' as const, plugin: PLUGIN })
-    const menu = textOf(await pane.drawn())
+    const tree = await pane.drawn()
+    const menu = textOf(tree)
 
     expect(at(menu, 'MISSION CONTROL')).toBeGreaterThan(-1)
-    expect(at(menu, 'MISSION CONTROL')).toBeLessThan(at(menu, '▓▒░ SWARM ░▒▓'))
-    expect(at(menu, '(1)')).toBeLessThan(at(menu, '(2)'))
+    const entries = elementsOf(tree, 'Button').map(keyOf).filter(key => key.startsWith('menu-go-') && key !== 'menu-go-missions-top')
+    expect(entries.slice(0, 2)).toEqual(['menu-go-missions', 'menu-go-overview'])
     expect(elementsOf(await pane.drawn(), 'Input').map(keyOf)).toContain('menu-goal')
 
     await pane.input({ key: 'menu-goal', text: 'add a dark mode toggle to settings', kind: 'submit' })

@@ -43,6 +43,19 @@ describe('register', () => {
     expect(world.opened).toEqual([])
   })
 
+  test('with panel off the explicit pane subcommand refuses and opens nothing; close still works', { options: { panel: 'off' } }, async ($, on) => {
+    const world = worldOf(on, RUFLO_RUN)
+
+    mock.clock(on)
+    await $.session.start(SESSION)
+
+    const refused = await $.command.run(command('ruflo-swarm-pane'))
+
+    expect(refused.text).toContain('swarm pane is off')
+    expect(world.opened).toEqual([])
+    expect((await $.command.run({ ...command('ruflo-swarm-pane'), args: 'close' })).text).toBe('Swarm pane hidden')
+  })
+
   test('/ruflo swarm <sub> answers as the kept alias names do; other /ruflo words pass on', async ($, on) => {
     worldOf(on, RUFLO_RUN)
     mock.clock(on)

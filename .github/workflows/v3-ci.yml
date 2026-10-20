@@ -11,6 +11,10 @@ on:
       - 'plugins/ruflo-core/scripts/witness/**'
       - 'plugins/ruflo-core/scripts/test-hooks.mjs'
       - 'plugins/ruflo-cost-tracker/scripts/test-hooks.mjs'
+      # #3558 — installed-CLI resolution for cost-tracker's memory/hooks calls
+      - 'plugins/ruflo-cost-tracker/scripts/_npx.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/_ruflo-cli.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs'
       - 'verification/**'
       # scripts/*.mjs audits (tool-descriptions, plugin-packages, hook-commands)
       - 'scripts/**'
@@ -163,6 +167,10 @@ on:
       - 'plugins/ruflo-core/scripts/witness/**'
       - 'plugins/ruflo-core/scripts/test-hooks.mjs'
       - 'plugins/ruflo-cost-tracker/scripts/test-hooks.mjs'
+      # #3558 — installed-CLI resolution for cost-tracker's memory/hooks calls
+      - 'plugins/ruflo-cost-tracker/scripts/_npx.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/_ruflo-cli.mjs'
+      - 'plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs'
       - 'scripts/**'
       - '**/hooks/hooks.json'
       - '**/scripts/ruflo-hook.cjs'
@@ -339,7 +347,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          # Node 22, not env.NODE_VERSION (20, end of life since 2026-04-30).
+          # On Node 20 an import that fails while evaluating its module graph
+          # (sharp is never built here, so agentic-flow's reasoningbank import
+          # throws) still raises an unhandled rejection after the caller has
+          # caught it. The run then reports unhandled errors that are not
+          # defects in the code under test.
+          node-version: '22'
           cache: 'pnpm'
           cache-dependency-path: v3/pnpm-lock.yaml
 
@@ -383,14 +397,38 @@ jobs:
         # known issue tracked elsewhere and shouldn't block CI when the
         # actual test outcomes were captured. Any other non-zero exit
         # (real test failures, vitest errors, etc.) still fails the job.
+        #
+        # "After all tests reported" is checked, not assumed. A crash mid-run
+        # prints no summary, and accepting it passed this job on runs that had
+        # executed a handful of the suite's files. The text summary is not
+        # enough on its own: tests that spawn vitest print their own "Test
+        # Files" lines into this log. So the run also writes a JSON report,
+        # which vitest emits once, when the top-level run ends; a crash before
+        # then leaves no report. A 139 is tolerated only when that report
+        # exists, counts at least one suite and says success (no failed files
+        # or tests), and the log has no unhandled or close-time errors, whose
+        # exit status the segfault replaces. Limits: a gracefully interrupted
+        # run also writes a report (in CI that is a cancelled job anyway), and
+        # coverage is written after the report, so it may be incomplete.
         run: |
+          REPORT="$RUNNER_TEMP/vitest-report.json"
+          rm -f "$REPORT"
           set +e
-          pnpm test
-          EXIT=$?
+          # The bin shim execs node, so a segfault surfaces as 139. Through
+          # `pnpm exec` a signalled child is reported as exit 1 instead.
+          ./node_modules/.bin/vitest run --reporter=default --reporter=json --outputFile.json="$REPORT" 2>&1 | tee "$RUNNER_TEMP/vitest-output.log"
+          EXIT=${PIPESTATUS[0]}
           set -e
           if [ "$EXIT" -eq 139 ]; then
-            echo "::warning::pnpm test exited with SIGSEGV (139) after tests completed — tolerated as native-binding cleanup race"
-            exit 0
+            # Count error lines explicitly: a scanner failure leaves ERRORS empty
+            # and fails closed instead of reading as "no errors".
+            ERRORS="$(sed -E 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/vitest-output.log" | grep -cE '^ *Errors +[0-9]+ errors?|Unhandled Errors|error during close' || true)"
+            if [ -s "$REPORT" ] && [ -s "$RUNNER_TEMP/vitest-output.log" ] && [ "$ERRORS" = "0" ] \
+              && node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit(r.success===true && r.numTotalTestSuites>0 && r.numFailedTestSuites===0 && r.numFailedTests===0 ? 0 : 1)' "$REPORT"; then
+              echo "::warning::vitest exited with SIGSEGV (139) after it reported a passing run with no unhandled errors — tolerated as a shutdown crash"
+              exit 0
+            fi
+            echo "::error::vitest exited with SIGSEGV (139) without a passing report (report present: $([ -s "$REPORT" ] && echo yes || echo no); error lines: ${ERRORS:-unreadable}); the suite did not finish, or it reported failures or unhandled errors"
           fi
           exit "$EXIT"
 
@@ -474,6 +512,11 @@ jobs:
       - name: Build
         working-directory: v3
         run: pnpm build
+
+      - name: Windows MetaHarness doctor regression (#3186)
+        if: matrix.os == 'windows-2022'
+        working-directory: v3/@claude-flow/cli
+        run: pnpm exec vitest run __tests__/doctor-metaharness-windows-3186.test.ts
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -658,6 +701,11 @@ jobs:
         shell: bash
         run: |
           node plugins/ruflo-cost-tracker/scripts/test-hooks.mjs
+
+      - name: cost-tracker prefers the installed ruflo CLI over npx @latest (#3558)
+        shell: bash
+        run: |
+          node plugins/ruflo-cost-tracker/scripts/test-cli-resolution-3558.mjs
 
   browser-rvf-create-flags-smoke:
     # Regression guard for ruvnet/ruflo#2015 — the ruflo-browser
@@ -1723,6 +1771,15 @@ jobs:
             fi
           done
 
+      - name: Fresh-consumer smoke for @claude-flow/shared (#4031, #4089)
+        # Packs the built package, installs the tarball into an empty directory and checks, with plain Node,
+        # that it ships no tests, imports on a clean install and keeps every RVF append after a damaged tail.
+        # The package's own tests run against workspace source, which cannot see packaging or declared-dependency bugs.
+        shell: bash
+        run: |
+          (cd v3 && pnpm --filter @claude-flow/shared run build)
+          node scripts/smoke-shared-fresh-consumer.mjs
+
       - name: Run plugin package audit
         shell: bash
         run: node scripts/audit-plugin-packages.mjs
@@ -1781,6 +1838,19 @@ jobs:
         # workspace source, which is exactly what makes it easy to miss.
         shell: bash
         run: node scripts/audit-leaf-package-publish.mjs
+
+      - name: Run leaf-versions-published audit (#4303)
+        # audit-wrapper-dep-ranges.mjs and audit-leaf-package-publish.mjs above
+        # only check that the CLI's pin and the leaf's own workspace version
+        # agree with EACH OTHER. #4303 slipped through both: #4279 bumped
+        # @claude-flow/memory to 3.0.6 in the workspace and pinned the CLI to
+        # match, so both audits were green — but nobody ran the standalone
+        # `npm publish` for memory, so @claude-flow/cli@3.57.2 shipped
+        # depending on a version that didn't exist, and every fresh install
+        # failed with ETARGET. This queries the live npm registry so a pin
+        # bump that outruns its own publish fails CI instead of shipping.
+        shell: bash
+        run: node scripts/audit-leaf-versions-published.mjs
 
       - name: Run better-sqlite3 override audit (#2219)
         # agentdb pins better-sqlite3 as an OPTIONAL dep at ^11.8.1, which has

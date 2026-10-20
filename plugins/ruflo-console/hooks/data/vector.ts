@@ -41,13 +41,14 @@ const NUMBER = '-?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][-+]?\\d+)?'
 const VECTOR = new RegExp(`^${NUMBER}(?:,${NUMBER})*$`)
 const NPM = /^(?:@[a-z0-9][a-z0-9._-]{0,63}\/)?[a-z0-9][a-z0-9._-]{0,127}(?:@[A-Za-z0-9.^~<>=+-]{1,40})?$/
 
-export const MAX_TEXT = 200
+export const MAX_TEXT = 8_000 // ARGV_TEXT_MAX: one argv element (ADR-481)
 
 /** Free text, trimmed, or null: empty, too long, a control character, a character outside TEXT, or a leading -. */
 export function textOf(value: string, max = MAX_TEXT): string | null {
-  const text = value.trim()
+  // Runs of spaces are one space (the text is words); nothing is cut: over `max` is null and the runner says by how much.
+  const text = value.trim().replace(/ {2,}/g, ' ')
 
-  return text === '' || text.length > max || text.startsWith('-') || !TEXT.test(text) || plain(text, max + 1) !== text ? null : text
+  return text === '' || text.length > max || text.startsWith('-') || !TEXT.test(text) ? null : text
 }
 
 export const vecIdOf = (value: string): string | null => (ID.test(value.trim()) ? value.trim() : null)
@@ -109,8 +110,8 @@ export function targetOf(value: string): Target | null {
 /** `title :: content` for brain share: both present, each plain text. */
 export function shareOf(value: string): { title: string; content: string } | null {
   const at = value.indexOf('::')
-  const title = at < 0 ? null : textOf(value.slice(0, at), 120)
-  const content = at < 0 ? null : textOf(value.slice(at + 2), 2000)
+  const title = at < 0 ? null : textOf(value.slice(0, at), 500)
+  const content = at < 0 ? null : textOf(value.slice(at + 2), MAX_TEXT)
 
   return title === null || content === null ? null : { title, content }
 }

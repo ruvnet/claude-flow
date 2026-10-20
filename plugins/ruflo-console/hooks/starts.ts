@@ -6,6 +6,8 @@
  * reaches the network, and `mods install` writes Claude Code settings; both say so on the confirm row.
  */
 import type { ActionSpec } from './actions'
+import { NOSTR_KEY, under } from './data/files'
+import { MISSION_OBJECTIVE_MAX } from './full-text'
 import { spawnAgent, swarmInit, textArg } from './ops'
 
 export type StartId =
@@ -43,7 +45,7 @@ export const START_LABEL: Record<StartId, string> = {
 }
 
 /** The ask for a start, or null when its text cannot be passed (a mission objective is the only text). */
-export function startSpec(id: StartId, nowMs: number, text = ''): ActionSpec | null {
+export function startSpec(id: StartId, nowMs: number, text = '', observeKey?: (present: boolean) => void): ActionSpec | null {
   switch (id) {
     case 'init':
       return {
@@ -85,11 +87,16 @@ export function startSpec(id: StartId, nowMs: number, text = ''): ActionSpec | n
       return {
         label: 'join the open federation with your own key (makes ~/.ruflo/nostr.key, registers on x.ruv.io: network)',
         args: ['federation', 'join'],
-        expect: 'a nostr key and a registration',
-        verify: snapshot => snapshot.hasNostrKey === true,
+        expect: 'a local Nostr key (the CLI reports registration separately)',
+        verifyLocal: async host => {
+          const home = await host.home().catch(() => undefined)
+          const present = home === undefined ? false : await host.fs.stat(under(home, NOSTR_KEY)).then(stat => stat !== undefined, () => false)
+          observeKey?.(present)
+          return present
+        },
       }
     case 'channel-read':
-      return { label: 'read the pub:announce channel (network)', args: ['federation', 'channel', '--action', 'read', '--channel', 'pub:announce', '--limit', '10'], expect: 'the latest announcements', isReadOnly: true }
+      return { label: 'read the pub:announce channel (network)', args: ['federation', 'channel', '--action', 'read', '--channel', 'pub:announce', '--limit', '10'], expect: 'the latest announcements', isReadOnly: true, declared: 'network' }
     case 'marketplace':
       return {
         label: 'add the ruflo marketplace to Claude Code and install the ruflo mods (ruflo mods install: settings.local.json + claude plugin install)',
@@ -98,7 +105,7 @@ export function startSpec(id: StartId, nowMs: number, text = ''): ActionSpec | n
         verify: snapshot => snapshot.plugins.missingFromClone !== undefined && snapshot.isRufloProject,
       }
     case 'task': {
-      const description = textArg(text, 200)
+      const description = textArg(text)
 
       return description === null
         ? null
@@ -110,7 +117,7 @@ export function startSpec(id: StartId, nowMs: number, text = ''): ActionSpec | n
           }
     }
     case 'mission': {
-      const objective = textArg(text, 300)
+      const objective = textArg(text, MISSION_OBJECTIVE_MAX)
 
       return objective === null
         ? null

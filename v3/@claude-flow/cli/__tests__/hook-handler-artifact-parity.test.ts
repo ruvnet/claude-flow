@@ -56,9 +56,14 @@ describe('hook-handler.cjs — resolveCliBinForHook validates a real dist, not j
     const idx = source.indexOf('function spawnDetachedHookRefresh');
     expect(idx).toBeGreaterThan(-1);
     const body = source.slice(idx, idx + 700);
-    expect(body).toContain('@claude-flow/cli');
-    expect(body).toContain('--prefer-offline');
+    expect(body).toContain('cliSpawnArgs(resolveCliBinForHook()');
     expect(body).not.toContain('if (!cliBin) return;');
+    // cliSpawnArgs() builds the npx fallback when no local candidate resolves.
+    const argsIdx = source.indexOf('function cliSpawnArgs');
+    expect(argsIdx).toBeGreaterThan(-1);
+    const argsBody = source.slice(argsIdx, argsIdx + 400);
+    expect(argsBody).toContain('@claude-flow/cli');
+    expect(argsBody).toContain('--prefer-offline');
   });
 });
 

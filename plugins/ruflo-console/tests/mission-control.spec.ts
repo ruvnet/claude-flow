@@ -83,6 +83,15 @@ describe('mission control: status comes from the ruflo task store', () => {
     expect(progressOf(mission, tasks)).toEqual({ done: 1, total: 3 })
   })
 
+  it('never hands a task an older CLI stored as "complete" to Claude again', () => {
+    const mission = missionOf()
+
+    expect(derive(mission, [task('r1', 'complete', [])]).get('t1')).toBe('done')
+    expect(nextTask(mission, [task('r1', 'complete', [])])?.id).toBe('t2')
+    expect(derive(mission, [task('r1', ' Done ', [])]).get('t1')).toBe('done')
+    expect(derive(mission, [task('r1', 'canceled', [])]).get('t1')).toBe('cancelled')
+  })
+
   it('hands out the first ready task, none while one is running or failed, none while paused or cancelled', () => {
     const mission = missionOf()
 

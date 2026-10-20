@@ -4,6 +4,7 @@
  * says so, and always carries a stop condition when one is set. What the person types is data: a task that begins with a slash must
  * be a plugin command the session lists, a typed task is screened by AIDefence, and everything is cut to a short single line.
  */
+import { checkLimit, LONG_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import { plain } from './data/parse'
 import type { Host } from './host'
@@ -25,6 +26,11 @@ export type LoopPreset = {
   task: string
   /** Why this one costs: what each tick does. */
   cost: string
+  /**
+   * A security sentry, offered on the Security page: `watch` finds and reports and edits nothing; `fix` also fixes the top finding,
+   * in a new worktree branch. The guard (read-only, never push) leads the task, so a cut at the length limit cannot remove it.
+   */
+  sentry?: 'watch' | 'fix'
 }
 
 export const INTERVALS = ['self-paced', '1m', '5m', '10m', '30m', '1h', '4h', '1d'] as const
@@ -50,6 +56,13 @@ export const PRESETS: readonly LoopPreset[] = [
   { id: 'hive-vote', tier: 'exotic', title: 'Hive consensus loop', about: 'each tick: the hive proposes, votes and records the decision', interval: '30m', task: 'Use the hive-mind: propose the next most valuable improvement to this project, have the workers vote, and record the decision with its tally in memory.', cost: 'a longer turn per tick: several agents' },
   { id: 'horizon', tier: 'exotic', title: 'Long-horizon tracker', about: 'checkpoint a long objective across sessions, detect drift', interval: '1h', task: '/ruflo-goals:horizon-track', cost: 'a turn per tick; writes memory checkpoints' },
   { id: 'ultralearn', tier: 'exotic', title: 'Ultralearn', about: 'deep knowledge acquisition into memory and patterns', interval: 'self-paced', task: '/ruflo-loop-workers:ruflo-loop ultralearn', cost: 'long turns; the worker schedules itself' },
+  // Security sentries (the Security page lists these): five that find and report, one that also fixes in an isolated branch.
+  { id: 'sentry-live', tier: 'practical', sentry: 'watch', title: 'Sentry: live, on change', about: 'scan as files change and report only new findings', interval: 'self-paced', task: 'Read-only. Use the Monitor tool to watch this repo: poll `git status --porcelain` every 20 s and emit a line only when it changes. On each event run `npx ruflo security scan --depth quick --type code --output json` and report only findings that are new since the last event. Edit nothing.', cost: 'a turn only when files change (events, not polling turns); edits nothing' },
+  { id: 'sentry-quick', tier: 'practical', sentry: 'watch', title: 'Sentry: quick scan', about: 'a quick code scan, new findings only', interval: '30m', task: 'Read-only. Run `npx ruflo security scan --depth quick --type code --output json`. Report only findings that are new since the last tick, by severity and file, and say nothing if there are none. Edit nothing.', cost: 'a short turn per tick; edits nothing; writes the scan report' },
+  { id: 'sentry-secrets', tier: 'practical', sentry: 'watch', title: 'Sentry: secrets and PII', about: 'secrets, PII and injection text in the tree and recent commits', interval: '4h', task: 'Read-only. Run `npx ruflo security secrets`, then check the last 20 commits and the working tree for secrets, PII or prompt-injection text. Report file and type only, and never print a value. Edit nothing.', cost: 'a short turn per tick; edits nothing; values are never shown' },
+  { id: 'sentry-nightly', tier: 'steady', sentry: 'watch', title: 'Sentry: nightly deep scan', about: 'a deep scan and STRIDE threats, grouped by root cause', interval: '1d', task: 'Read-only. Run `npx ruflo security scan --depth deep --type code --output json` and `npx ruflo security threats`. Group the findings by root cause, rank them by risk, and say what changed since yesterday. Edit nothing.', cost: 'one longer turn a day; edits nothing; writes the scan report' },
+  { id: 'sentry-deps', tier: 'steady', sentry: 'watch', title: 'Sentry: dependencies', about: 'known CVEs in the dependency tree, with the fixing version', interval: '1d', task: 'Read-only. Run `npx ruflo security cve --list`. For each vulnerable dependency give the fixed version and what an upgrade could break. Propose the upgrades; change no file and open no pull request.', cost: 'one turn a day; reaches npm (npm audit); edits nothing' },
+  { id: 'sentry-fix', tier: 'steady', sentry: 'fix', title: 'Sentry: find and fix', about: 'fix the top real finding in its own branch, never push', interval: '1h', task: 'Never push or merge, never edit this checkout. Run `npx ruflo security scan --depth quick --type code --output json`. Take the highest-severity real finding (skip false positives), make a git worktree on branch sentry/<date>-<id>, fix it with the smallest change, run the tests, commit there, and report the branch and diff.', cost: 'a turn per tick; edits files only in a new worktree branch and commits there; never pushes (the guard is the instruction, not a sandbox)' },
   { id: 'self-heal', tier: 'exotic', title: 'Self-heal the swarm', about: 'find stuck agents and claims, release, re-route', interval: '10m', task: 'Check the swarm: find agents or claims that have made no progress for 10 minutes, release or hand them off, and say what you changed.', cost: 'a turn per tick; writes through confirmed commands' },
 ]
 
@@ -69,8 +82,13 @@ export function loopsOf(state: State): LoopCfg {
 }
 
 const SLASH = /^\/([a-z0-9-]+:[A-Za-z0-9._-]+)(?: [A-Za-z0-9 ._:,=-]{0,120})?$/
-const MAX_TASK = 400
-const MAX_LOOP = 600
+/** A task longer than this is cut, so every preset must fit: the spec fails on one that does not. */
+/**
+ * A loop's task is sent on EVERY tick, billed each time, so it has a real bound (ADR-481): MAX_TASK characters for the task and MAX_LOOP for the
+ * whole `/loop` line. Over it the start is refused with the exact count and the typed task is kept; it is never cut.
+ */
+export const MAX_TASK = 4_000
+const MAX_LOOP = MAX_TASK + 200
 
 /** The stop condition as a clause for the loop's prompt, or why it is not understood. Empty is "no stop condition". */
 export function stopClause(raw: string): { ok: true; clause: string } | { ok: false; why: string } {
@@ -92,7 +110,10 @@ export function stopClause(raw: string): { ok: true; clause: string } | { ok: fa
 
 /** The exact `/loop` input for a configuration, or why it cannot run. `listed` are the slash commands the session offers. */
 export function loopInput(cfg: LoopCfg, listed: readonly string[]): { ok: true; text: string } | { ok: false; why: string } {
-  const task = plain(cfg.task, MAX_TASK).trim()
+  const task = plain(cfg.task, LONG_TEXT_MAX).trim()
+  const fit = checkLimit(task, MAX_TASK, 'the task', 'the loop sends it again on every tick')
+
+  if (!fit.ok) return { ok: false, why: fit.message }
 
   if (task === '') return { ok: false, why: 'pick a preset or type what the loop should do' }
   if (!(INTERVALS as readonly string[]).includes(cfg.interval)) return { ok: false, why: 'pick an interval' }
@@ -110,7 +131,9 @@ export function loopInput(cfg: LoopCfg, listed: readonly string[]): { ok: true; 
 
   const text = `/loop ${cfg.interval === 'self-paced' ? '' : `${cfg.interval} `}${task}${stop.clause === '' ? '' : ` ${stop.clause}`}`
 
-  return text.length > MAX_LOOP ? { ok: false, why: 'that is too long: shorten the task' } : { ok: true, text }
+  const whole = checkLimit(text, MAX_LOOP, 'the /loop line', 'the loop sends it again on every tick')
+
+  return whole.ok ? { ok: true, text } : { ok: false, why: whole.message }
 }
 
 export type LoopActions = {
@@ -125,13 +148,37 @@ export type LoopActions = {
   manage: () => void
 }
 
+/** A `/loop` input: the arguments after the command name. */
+const LOOP_COMMAND = /^\/loop(?:\s+([\s\S]*))?$/
+
 export function loopActions(state: State, host: Host, runner: Runner): LoopActions {
   const cfg = loopsOf(state)
-  const say = (label: string, ok: boolean, detail: string) => {
-    mcOf(state).last = { label, ok, detail }
+  const say = (label: string, ok: boolean, detail: string, next?: string) => {
+    mcOf(state).last = { label, ok, detail, atMs: Date.now(), ...(next !== undefined && { next }) }
     host.invalidate()
   }
-  const send = (text: string): Promise<void> => (state.turnActive ? host.fillPrompt(text).then(() => undefined) : host.submitPrompt(text))
+  // `/loop` is a slash command, so it runs as one (`$.command.run`, as if typed). Submitting it as a prompt sends the model a message that
+  // merely looks like a command: no loop is created. Any other text (the manage ask) is a real prompt. Mid-turn the command can only wait in
+  // the prompt box, and the person is told so: nothing starts until they press Enter, and a silent fill looked like a click that did nothing.
+  const send = async (text: string): Promise<void> => {
+    if (state.turnActive) {
+      const isFilled = await host.fillPrompt(text)
+
+      return say(
+        isFilled ? 'waiting in your prompt box' : 'could not fill the prompt box',
+        isFilled,
+        isFilled ? 'Claude is mid-turn, so the command is in your prompt box.' : `the prompt box is not available (a dialog is open?); type it yourself: ${plain(text, 100)}`,
+        isFilled ? 'press Enter in the prompt box to start it' : 'close the dialog, then start it again',
+      )
+    }
+
+    const loop = LOOP_COMMAND.exec(text)
+
+    if (loop === null) return host.submitPrompt(text)
+
+    await host.runSlash('loop', loop[1] ?? '')
+    say('loop command sent', true, 'Sent as /loop: it starts a Claude Code turn, and Claude reports what it scheduled in the conversation.', 'watch the conversation; ☰ list / stop my sentries shows and stops it')
+  }
   const ask = (text: string, label: string, note: string): void =>
     runner.ask(
       {
@@ -145,7 +192,7 @@ export function loopActions(state: State, host: Host, runner: Runner): LoopActio
           try {
             await send(text)
           } catch (error) {
-            say('Claude did not take it', false, plain(error instanceof Error ? error.message : String(error), 140))
+            say('Claude did not take it', false, plain(error instanceof Error ? error.message : String(error), 140), 'check the command is offered here (/reload-plugins), then start it again')
           }
         },
       } satisfies ActionSpec,
@@ -173,7 +220,7 @@ export function loopActions(state: State, host: Host, runner: Runner): LoopActio
       host.invalidate()
     },
     task: text => {
-      cfg.task = plain(text, MAX_TASK)
+      cfg.task = plain(text, LONG_TEXT_MAX)
       // A hand-written task is no longer the preset it started from.
       if (PRESETS.find(candidate => candidate.id === cfg.preset)?.task !== cfg.task) cfg.preset = null
       host.invalidate()

@@ -51,3 +51,11 @@ The smoke and the recording copy the person's Claude login (`~/.claude/.credenti
 ## 6. Tests
 
 `RUFLO_E2E_LIVE=1 bash plugins/ruflo-console/scripts/e2e-smoke.sh` (28 views, plus the debug-log check): 0 failures after the fixes. Without `RUFLO_E2E_LIVE=1` it still prints SKIP and exits 0, which `smoke.sh` step 15 checks.
+
+## Amendment (2026 10 03): the README walkthrough is the narrow cockpit
+
+GitHub shrinks the README GIF to the reader's screen width, so a 126-column cockpit is unreadable on a phone. The README now leads with `docs/assets/ruflo-console-walkthrough.gif`, recorded from the narrow cockpit (60 columns, a 40-row pane, 22 px type, short captions, cropped to the cockpit and to above Claude's own prompt lines, 776 x 1018), and links `ruflo-console-walkthrough-wide.gif` (the wide cockpit, where each icon spells its word). Both are recorded from a live pane with an isolated config and a trimmed read-only copy of the marketplace (so Plugins and the Catalog have content; nothing is installed), running the committed code of the release; no model turn is made. Watching them found defects no spec had: see the last amendments of ADR-430.
+
+## Amendment (2026 10 03, 0.26.1): near-square, the whole boot, quicker between pages
+
+The README walkthrough is recorded from a 78-column, 32-row cockpit (a 974 x 986 frame: near-square, and still large enough to read on a phone), in which the boot's whole uplink now draws (it had fallen back to the old plain log in the 60-column frame: ADR-432 section 7). Transitions between pages are about half as long (the walkthrough runs about 100 s, from 150), while the boot, the menu's entry and the refresh replay keep their full length.

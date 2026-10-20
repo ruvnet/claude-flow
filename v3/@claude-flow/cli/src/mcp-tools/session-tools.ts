@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync, readdirSync, unlinkSync, statSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import {
@@ -14,6 +15,32 @@ import {
   writeFileRestricted,
 } from '../fs-secure.js';
 import { validateIdentifier, validateText } from './validate-input.js';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Imported snapshots become live stores on restore. Validate their containers
+// before registering them, while allowing older metadata-only snapshots.
+function validateImportedSession(value: unknown): string | undefined {
+  if (!isRecord(value) || (typeof value.name !== 'string' && !isSessionRecordLike(value))) {
+    return 'Invalid session: Not a session record; expected a named snapshot or snapshot data';
+  }
+  if (value.name !== undefined && typeof value.name !== 'string') {
+    return 'Invalid session: name must be a string';
+  }
+  if (value.data === undefined) return undefined;
+  if (!isRecord(value.data)) return 'Invalid session: data must be an object';
+  for (const [component, collection] of [['tasks', 'tasks'], ['agents', 'agents'], ['memory', 'entries']]) {
+    const store = value.data[component];
+    if (store === undefined) continue;
+    if (!isRecord(store) || !isRecord(store[collection]) ||
+        Object.values(store[collection]).some(record => !isRecord(record))) {
+      return `Invalid session: data.${component}.${collection} must be a record map`;
+    }
+  }
+  return undefined;
+}
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -359,9 +386,9 @@ export const sessionTools: MCPTool[] = [
       properties: {
         name: { type: 'string', description: 'Session name' },
         description: { type: 'string', description: 'Session description' },
-        includeMemory: { type: 'boolean', description: 'Include memory in session' },
-        includeTasks: { type: 'boolean', description: 'Include tasks in session' },
-        includeAgents: { type: 'boolean', description: 'Include agents in session' },
+        includeMemory: { type: 'boolean', default: true, description: 'Include memory in session' },
+        includeTasks: { type: 'boolean', default: true, description: 'Include tasks in session' },
+        includeAgents: { type: 'boolean', default: true, description: 'Include agents in session' },
       },
       required: ['name'],
     },
@@ -378,9 +405,9 @@ export const sessionTools: MCPTool[] = [
 
       // Load related data based on options
       const { data, memoryCapture } = await loadRelatedStores({
-        includeMemory: input.includeMemory as boolean,
-        includeTasks: input.includeTasks as boolean,
-        includeAgents: input.includeAgents as boolean,
+        includeMemory: input.includeMemory !== false,
+        includeTasks: input.includeTasks !== false,
+        includeAgents: input.includeAgents !== false,
       });
 
       // Calculate stats
@@ -745,22 +772,32 @@ export const sessionTools: MCPTool[] = [
         const inputPath = String(input.inputPath ?? '');
         if (!inputPath) return { error: 'Provide inputPath (a session JSON file) or data (a session record)' };
         if (!existsSync(inputPath)) return { error: `File not found: ${inputPath}` };
-        try { parsed = JSON.parse(readFileSync(inputPath, 'utf-8')); }
+        try {
+          const bytes = readFileSync(inputPath);
+          const content = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+          parsed = JSON.parse(content.toString('utf-8'));
+        }
         catch (e) { return { error: `Invalid session JSON: ${(e as Error).message}` }; }
       }
-      if (!isSessionRecordLike(parsed)) {
-        return { error: 'Not a session record: expected an object produced by session export' };
-      }
+      const validationError = validateImportedSession(parsed);
+      if (validationError) return { error: validationError };
+      const record = parsed as Partial<SessionRecord>;
       const newId = `session-${Date.now()}-${randomUUID().slice(0, 8)}`;
-      const stats = { tasks: 0, agents: 0, memoryEntries: 0, totalSize: 0, ...(parsed.stats || {}) };
+      const stats = {
+        tasks: Object.keys((record.data?.tasks?.tasks as object) || {}).length,
+        agents: Object.keys((record.data?.agents?.agents as object) || {}).length,
+        memoryEntries: countMemoryEntries(record.data?.memory),
+        totalSize: 0,
+      };
       const session: SessionRecord = {
         sessionId: newId,
-        name: input.name ? String(input.name) : (parsed.name || 'imported-session'),
-        description: parsed.description,
+        name: input.name ? String(input.name) : (record.name || 'imported-session'),
+        description: record.description,
         savedAt: new Date().toISOString(),
         stats,
-        data: parsed.data,
+        data: record.data,
       };
+      session.stats.totalSize = Buffer.byteLength(JSON.stringify(session), 'utf-8');
       saveSession(session);
       let activated = false;
       if (input.activate === true) {

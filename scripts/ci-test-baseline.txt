@@ -8,12 +8,12 @@ plugins/ruflo-adr/scripts/__tests__/index-idempotency-2660.test.mjs
 plugins/ruflo-adr/scripts/__tests__/parser-bullets-2659.test.mjs
 plugins/ruflo-adr/scripts/__tests__/skip-brain-dir-2911.test.mjs
 plugins/ruflo-adr/scripts/__tests__/verify-read-safety-3147.test.mjs
-plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
 plugins/ruflo-core/scripts/escape-cmd-arg.test.cjs
 plugins/ruflo-core/scripts/mcp-launch.test.cjs
 plugins/ruflo-mods/tests/cost.test.ts
 plugins/ruflo-mods/tests/noun.test.ts
 plugins/ruflo-mods/tests/register.test.ts
+plugins/ruflo-mods/tests/research.test.ts
 plugins/ruflo-mods/tests/trust.test.ts
 plugins/ruflo-plugin-creator/templates/mod/tests/register.test.ts
 plugins/ruflo-workflows/scripts/gaia-audit.test.mjs
@@ -30,6 +30,7 @@ ruflo/src/ruvocal/src/lib/server/api/__tests__/user.spec.ts
 ruflo/src/ruvocal/src/lib/server/database/__tests__/rvf.spec.ts
 ruflo/src/ruvocal/src/lib/server/isURLLocal.spec.ts
 ruflo/src/ruvocal/src/lib/server/mcp/clientPool.spec.ts
+ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/mergeServers.spec.ts
 ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/wasmTools.test.ts
 ruflo/src/ruvocal/src/lib/utils/generationState.spec.ts
 ruflo/src/ruvocal/src/lib/utils/marked.spec.ts
@@ -44,6 +45,7 @@ ruflo/src/ruvocal/src/lib/utils/tree/isMessageId.spec.ts
 ruflo/src/ruvocal/src/lib/utils/tree/treeHelpers.spec.ts
 ruflo/src/ruvocal/src/lib/wasm/tests/wasm-capabilities.test.ts
 ruflo/src/ruvocal/src/routes/login/callback/updateUser.spec.ts
+scripts/__tests__/audit-leaf-versions-published.test.mjs
 scripts/__tests__/audit-supply-chain.test.mjs
 scripts/__tests__/stage-internal-runtime-bundles.test.mjs
 tests/context-persistence-hook.test.mjs
@@ -97,6 +99,7 @@ v3/@claude-flow/hooks/__tests__/channel-guard-worker.test.ts
 v3/@claude-flow/hooks/__tests__/workers.test.ts
 v3/@claude-flow/hooks/src/__tests__/guidance-provider.test.ts
 v3/@claude-flow/hooks/src/__tests__/reasoningbank.test.ts
+v3/@claude-flow/integration/src/__tests__/token-optimizer.test.ts
 v3/@claude-flow/memory/src/agentdb-backend.test.ts
 v3/@claude-flow/memory/src/agentdb-retrieval-guard.test.ts
 v3/@claude-flow/memory/src/consolidator-embedding-benchmark.test.ts
@@ -132,6 +135,8 @@ plugins/ruflo-x-gateway/test/gateway.test.mjs
 plugins/ruflo-x-gateway/test/oauth.test.mjs
 plugins/ruflo-x-gateway/test/registration.test.mjs
 plugins/ruflo-x-gateway/test/claude-directory.test.mjs
+plugins/ruflo-x-gateway/test/github.test.mjs
+plugins/ruflo-x-gateway/test/relay-robustness.test.mjs
 
 # ruflo-chatgpt-federation: same pattern — plugin-local deps (jose, nostr-tools/pure) not resolvable from root vitest
 plugins/ruflo-chatgpt-federation/test/oauth.test.mjs
@@ -173,6 +178,7 @@ plugins/ruflo-console/tests/watch.test.ts
 plugins/ruflo-console/tests/missions.test.ts
 plugins/ruflo-console/tests/settings.test.ts
 plugins/ruflo-console/tests/plugin-catalog.test.ts
+plugins/ruflo-console/tests/room-ux.test.ts
 plugins/ruflo-console/tests/sweep.test.ts
 plugins/ruflo-console/tests/devtools.test.ts
 plugins/ruflo-console/tests/evolve.test.ts
@@ -181,3 +187,4 @@ plugins/ruflo-console/tests/skills-secure.test.ts
 plugins/ruflo-console/tests/xruv.test.ts
 plugins/ruflo-console/tests/steps.test.ts
 plugins/ruflo-console/tests/nav.test.ts
+plugins/ruflo-console/tests/setup.test.ts

@@ -8,7 +8,7 @@ You are a git workflow specialist using Ruflo's diff analysis tools. Your respon
 
 1. **Analyze diffs** for risk, complexity, and change classification
 2. **Score risk** to identify high-risk changes before they merge
-3. **Recommend reviewers** based on code ownership and expertise
+3. **Suggest reviewer roles** from paths and risk; consult CODEOWNERS separately for people
 4. **Manage PRs** through their lifecycle from creation to merge
 5. **Track metrics** on merge frequency, review times, and code health
 
@@ -33,6 +33,6 @@ npx @claude-flow/cli@latest memory search --query "merge conflict resolution" --
 
 After completing tasks, store successful patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent git-specialist
 npx @claude-flow/cli@latest memory search --query "TASK_TYPE patterns" --namespace patterns
 ```

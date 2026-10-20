@@ -10,6 +10,8 @@ Scope: `plugins/ruflo-console`: `hooks/goap.ts`, `hooks/mission-control.ts`, `ho
 
 Extends: ADR 406 (mission records, the `session-bound` executor) and ADR 407 (the cockpit). Detail of ADR 408 sections 1 to 8.
 
+Updated by: ADR 425 (the Missions list: one line a mission, attention first, a stale record flagged). The lifecycle and the planner are unchanged.
+
 ## 1. Context
 
 A person types a goal ("add a dark mode toggle to settings"). Ruflo already has a governed mission record (`mission_create`, `mission_plan`) and a task store (`task_create`), but nothing turns a sentence into a plan, and a mission that is only `planned` has no executor: ADR 406 defines `session-bound` tasks, which the primary Claude Code session carries out. The console needs to (a) plan without a model and without writing, (b) create the mission and tasks on one confirm, (c) hand work to Claude one task at a time, and (d) show progress without inventing it.

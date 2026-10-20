@@ -7,7 +7,7 @@ import type { State } from './state'
 export function askPalette(state: State): PaletteEntry[] {
   const wired = askWired(state)
   const why = 'open the console first'
-  const local = (label: string, run: () => void): ActionSpec | null => (wired === undefined ? null : { label, args: [], expect: label, isReadOnly: true, run: async () => run() })
+  const local = (label: string, run: () => void | Promise<void>): ActionSpec | null => (wired === undefined ? null : { label, args: [], expect: label, isReadOnly: true, run: async () => void (await run()) })
   const text = (keyword: string, make: (value: string) => ActionSpec | null) => ({ kind: 'text' as const, keyword, make: (value: string) => (wired === undefined ? null : make(value)), why: () => why })
 
   return [

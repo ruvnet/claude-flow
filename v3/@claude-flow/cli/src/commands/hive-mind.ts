@@ -1207,6 +1207,11 @@ const consensusCommand: Command = {
     const action = ctx.flags.action as string || 'list';
     try {
       const result = await callMCPTool<Record<string, unknown>>('hive-mind_consensus', { action, proposalId: ctx.flags.proposalId, type: ctx.flags.type, value: ctx.flags.value, vote: ctx.flags.vote === 'yes', voterId: ctx.flags.voterId, hiveToken: getHiveTokenForCli() });
+      if (result.error) {
+        if (ctx.flags.format === 'json') output.printJson(result);
+        else output.printError(`Consensus error: ${String(result.error)}`);
+        return { success: false, exitCode: 1, data: result };
+      }
       if (ctx.flags.format === 'json') { output.printJson(result); return { success: true, data: result }; }
       if (action === 'list') {
         output.writeln(output.bold('\nPending Proposals'));

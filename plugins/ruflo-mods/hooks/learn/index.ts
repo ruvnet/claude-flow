@@ -1,6 +1,7 @@
 import type { EngineInterface, On } from 'claude-code'
 
 import { isMissing } from '../files'
+import type { GuidanceHooks } from '../guidance'
 import { redraw, under, type ModState } from '../state'
 import { appendRecords, EDIT_TOOLS, editedFile, MAX_LINES, PENDING_PATH, rufloSessionId, SESSION_PATH } from './insights'
 
@@ -40,9 +41,11 @@ export async function flushEdits($: EngineInterface, state: ModState): Promise<v
  * a denied one never ran, as PostToolUse never fires for it). Written per
  * turn at `turn.complete`, and at `session.end`.
  */
-export function registerLearn(on: On, state: ModState) {
+export function registerLearn(on: On, state: ModState, guidance?: GuidanceHooks) {
   on('tool.call', async ($, e, next) => {
+    const task = guidance?.active()
     const result = await next(e)
+    guidance?.tool(task, e, result)
     if (!state.owned.has('post-edit') || !EDIT_TOOLS.has(e.tool) || result.deny !== undefined) return result
 
     state.edits.push({
@@ -60,11 +63,19 @@ export function registerLearn(on: On, state: ModState) {
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e)
+    if (guidance) {
+      guidance.complete(e.turnId, e.isAborted)
+      await guidance.flush({ read: path => $.fs.read(path), write: (path, text) => $.fs.write(path, text) })
+    }
     await flushEdits($, state)
     return result
   })
 
   on('session.end', async ($, e, next) => {
+    if (guidance) {
+      guidance.end()
+      await guidance.flush({ read: path => $.fs.read(path), write: (path, text) => $.fs.write(path, text) })
+    }
     await flushEdits($, state)
     return next(e)
   })

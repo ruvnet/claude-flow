@@ -52,6 +52,17 @@
       "description": "Test gap detection, coverage analysis, and automated test generation"
     },
     {
+      "name": "agentic-qe-fleet",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
+        "path": "plugins/agentic-qe-fleet",
+        "ref": "v3.15.10",
+        "sha": "e5814a2f4f3d7995b87ebda9ad30e8a3d92cd555"
+      },
+      "description": "Agentic QE (external: maintained in proffesor-for-testing/agentic-qe, pinned to v3.15.10): a quality-engineering fleet with 11 QE agents, 9 skills, 9 commands, the agentic-qe MCP server pinned to the plugin version, and the aqe-mod guard that refuses destructive operations on AQE learning data"
+    },
+    {
       "name": "ruflo-docs",
       "source": "./plugins/ruflo-docs",
       "description": "Documentation generation, drift detection, and API docs automation"
@@ -75,6 +86,11 @@
       "name": "ruflo-aidefence",
       "source": "./plugins/ruflo-aidefence",
       "description": "AI safety scanning, PII detection, prompt injection defense, and adaptive threat learning"
+    },
+    {
+      "name": "ruflo-protector",
+      "source": "./plugins/ruflo-protector",
+      "description": "Project Anatole: an optional, learning watchdog for unattended agents (OWASP-mapped rules, a per-project baseline, learn / notify / enforce modes). Default off."
     },
     {
       "name": "ruflo-browser",

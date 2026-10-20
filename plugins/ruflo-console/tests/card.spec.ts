@@ -47,10 +47,11 @@ describe('cards', () => {
     expect(made(cards.Box(row as never)).props).toEqual(row)
   })
 
-  it('draws cards only in a page wide enough, and not in a compact pane', () => {
+  it('draws cards in a page of 44 columns or more, in a compact (short) pane too', () => {
     expect(hasCards(100, false)).toBe(true)
-    expect(hasCards(59, false)).toBe(false)
-    expect(hasCards(100, true)).toBe(false)
+    expect(hasCards(43, false)).toBe(false)
+    expect(hasCards(44, false)).toBe(true)
+    expect(hasCards(100, true)).toBe(true)
     expect(CARD_COLUMNS).toBe(4)
   })
 })

@@ -277,10 +277,10 @@ export function paneActionsOf(state: State, host: Host, control: Controller): Pa
         .fillPrompt({ text: next.text })
         .then(result => {
           if (!result.isFilled) {
-            host.toast(`Next: ${next.text}`, 8000)
+            host.toast({ level: 'info', text: `Next: ${next.text}`, timeoutMs: 8000, awayOnly: true })
           }
         })
-        .catch(() => host.toast(`Next: ${next.text}`, 8000))
+        .catch(() => host.toast({ level: 'info', text: `Next: ${next.text}`, timeoutMs: 8000, awayOnly: true }))
     },
     closeDetail: () => {
       state.detail = null

@@ -7,7 +7,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -16,6 +16,8 @@ vi.mock('../../src/memory/memory-bridge.js', () => ({ bridgeRouteTask: vi.fn(asy
 import { NO_MATCH_CONFIDENCE as CLI_NO_MATCH } from '../../src/mcp-tools/hooks-tools.js';
 import { register } from '../../../../../plugins/ruflo-mods/hooks/register';
 import { MATCH_CONFIDENCE, NO_MATCH_CONFIDENCE, routeTask, TASK_PATTERNS } from '../../../../../plugins/ruflo-mods/hooks/route/route-task';
+import { formatRoute } from '../../../../../plugins/ruflo-mods/hooks/route/format';
+import { generateHookHandler } from '../../src/init/helpers-generator';
 import { loadMod, memoryWorld, realWorld } from './harness';
 
 const CLI_ROOT = resolve(__dirname, '../..');
@@ -105,7 +107,11 @@ describe('ADR-404 mod route context equals hook-handler.cjs route output', () =>
       return { text: e.text, context: e.context };
     });
     expect(context).toHaveLength(1);
-    expect(context![0]).toBe(classicRoute(prompt));
+    const classic = classicRoute(prompt);
+    expect(context![0]).toBe(classic);
+    const box = classic.split('\n').filter((line) => /^[+|]/.test(line));
+    expect(box).toHaveLength(5);
+    expect(box.map((line) => line.length)).toEqual([64, 64, 64, 64, 64]);
   });
 
   it('adds nothing and passes the prompt through when it does not own route', async () => {
@@ -119,5 +125,33 @@ describe('ADR-404 mod route context equals hook-handler.cjs route output', () =>
     await mod.dispatch('prompt.submit', { text: 'build it', wait: false, origin: { kind: 'composer' } }, (e) => (seen = e));
     expect(seen.context).toBeUndefined();
     expect(seen.text).toBe('build it');
+  });
+});
+
+describe('#3698 route box width and fallback parity', () => {
+  let project: string;
+  const prompt = 'implement';
+  beforeAll(() => { project = mkdtempSync(join(tmpdir(), 'ruflo-route-width-')); });
+  afterAll(() => rmSync(project, { recursive: true, force: true }));
+
+  it.each([0, 0.6, 0.85, 1])('confidence %s keeps every row at 64 columns', (confidence) => {
+    const result = { agent: 'agent'.repeat(20), confidence, reason: 'reason '.repeat(20), matched: true };
+    const expected = formatRoute(prompt, result);
+    const lines = expected.split('\n').slice(2);
+    expect(lines).toHaveLength(5);
+    expect(lines.map((line) => line.length)).toEqual([64, 64, 64, 64, 64]);
+    expect(expected).toContain(`Confidence: ${(confidence * 100).toFixed(1)}%`);
+
+    writeFileSync(join(project, 'router.cjs'), `exports.routeTask = () => (${JSON.stringify(result)});`);
+    const sources = [readFileSync(join(HELPERS, 'hook-handler.cjs'), 'utf8'), generateHookHandler()];
+    for (const source of sources) {
+      const helper = join(project, 'hook-handler.cjs');
+      writeFileSync(helper, source);
+      const actual = execFileSync(process.execPath, [helper, 'route'], {
+        input: JSON.stringify({ prompt }), cwd: project, encoding: 'utf8',
+        env: { PATH: process.env.PATH, HOME: project, CLAUDE_PROJECT_DIR: project, CI: '1' },
+      }).trim();
+      expect(actual).toBe(expected);
+    }
   });
 });

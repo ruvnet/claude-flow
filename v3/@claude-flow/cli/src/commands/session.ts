@@ -9,6 +9,8 @@ import { confirm, input, select } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { stringify as stringifyYaml } from 'yaml';
+import { gzipSync, gunzipSync } from 'node:zlib';
 
 // Format date for display
 function formatDate(dateStr: string): string {
@@ -678,7 +680,7 @@ const exportCommand: Command = {
       // Format output
       let content: string;
       if (exportFormat === 'yaml') {
-        content = toSimpleYaml(result.data);
+        content = stringifyYaml(result.data);
       } else {
         content = JSON.stringify(result.data, null, 2);
       }
@@ -688,7 +690,8 @@ const exportCommand: Command = {
         ? outputPath
         : path.join(ctx.cwd, outputPath);
 
-      fs.writeFileSync(absolutePath, content, 'utf-8');
+      const bytes = compress ? gzipSync(content) : Buffer.from(content, 'utf-8');
+      fs.writeFileSync(absolutePath, bytes);
 
       spinner.succeed('Session exported');
       output.writeln();
@@ -707,7 +710,7 @@ const exportCommand: Command = {
           { property: 'Agents', value: exportStats.agentCount ?? exportStats.agents ?? 0 },
           { property: 'Tasks', value: exportStats.taskCount ?? exportStats.tasks ?? 0 },
           { property: 'Memory Entries', value: exportStats.memoryEntries ?? 0 },
-          { property: 'File Size', value: formatSize(content.length) }
+          { property: 'File Size', value: formatSize(bytes.length) }
         ]
       });
 
@@ -716,7 +719,7 @@ const exportCommand: Command = {
 
       return {
         success: true,
-        data: { sessionId, outputPath, format: exportFormat, size: content.length }
+        data: { sessionId, outputPath, format: exportFormat, size: bytes.length }
       };
     } catch (error) {
       spinner.fail('Failed to export session');
@@ -773,9 +776,11 @@ const importCommand: Command = {
     try {
       // The YAML written by `session export --format yaml` is display-only;
       // there is no YAML parser here, so say so instead of failing obscurely.
-      if (absolutePath.endsWith('.yaml') || absolutePath.endsWith('.yml')) {
+      if (/\.ya?ml(?:\.gz)?$/i.test(absolutePath)) {
         try {
-          JSON.parse(fs.readFileSync(absolutePath, 'utf-8'));
+          const bytes = fs.readFileSync(absolutePath);
+          const content = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+          JSON.parse(content.toString('utf-8'));
         } catch {
           spinner.fail('Failed to import session');
           output.printError('YAML session import is not supported. Export with --format json and import that file.');
@@ -942,37 +947,6 @@ function formatDuration(ms: number): string {
     return `${minutes}m ${seconds % 60}s`;
   }
   return `${seconds}s`;
-}
-
-function toSimpleYaml(obj: unknown, indent: number = 0): string {
-  // Simple YAML serializer (for basic types)
-  if (obj === null) return 'null';
-  if (typeof obj === 'boolean') return String(obj);
-  if (typeof obj === 'number') return String(obj);
-  if (typeof obj === 'string') return obj.includes(':') ? `"${obj}"` : obj;
-
-  const spaces = '  '.repeat(indent);
-  let result = '';
-
-  if (Array.isArray(obj)) {
-    for (const item of obj) {
-      result += `${spaces}- ${toSimpleYaml(item, indent + 1).trim()}\n`;
-    }
-    return result;
-  }
-
-  if (typeof obj === 'object') {
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === 'object' && value !== null) {
-        result += `${spaces}${key}:\n${toSimpleYaml(value, indent + 1)}`;
-      } else {
-        result += `${spaces}${key}: ${toSimpleYaml(value, indent)}\n`;
-      }
-    }
-    return result;
-  }
-
-  return String(obj);
 }
 
 // Main session command

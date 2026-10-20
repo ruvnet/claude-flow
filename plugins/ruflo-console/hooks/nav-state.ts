@@ -3,18 +3,22 @@
  * find. Pure and view-free (the nav card that draws it is views/nav.ts), so the page list, the grouping and the matching are tested
  * without a screen.
  */
+import { NAV_ACCENT } from './menu-colors'
 import { VIEWS, type State, type ViewId } from './state'
 
 /** The nav's groups, the main menu's own, each in rows short enough to spell their names: every view but the menu is in exactly one. */
 export const NAV_GROUPS: readonly { title: string; icon: string; rows: readonly (readonly ViewId[])[] }[] = [
-  { title: 'SWARM', icon: '🐝', rows: [['missions', 'overview', 'swarm', 'hive', 'claims', 'approvals'], ['automate', 'timeline', 'events']] },
-  { title: 'MIND', icon: '🧠', rows: [['learning', 'neural', 'metaharness', 'evolve'], ['memory', 'vector', 'cost', 'perf']] },
-  { title: 'SAFETY', icon: '🛡️', rows: [['secure', 'devtools']] },
-  { title: 'NETWORK', icon: '🌐', rows: [['federation', 'xruv', 'plugins', 'skills', 'market']] },
-  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'settings']] },
+  { title: 'SWARM', icon: '🐝', rows: [['missions', 'overview', 'swarm', 'workflows'], ['hive', 'claims', 'approvals']] },
+  { title: 'MIND', icon: '🧠', rows: [['learning', 'neural', 'metaharness', 'evolve', 'memory', 'vector']] },
+  { title: 'SAFETY', icon: '🛡️', rows: [['secure', 'cost', 'perf', 'timeline', 'events', 'room']] },
+  { title: 'NETWORK', icon: '🌐', rows: [['federation', 'xruv', 'sandbox', 'skills', 'market']] },
+  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'automate', 'devtools', 'plugins'], ['adrs', 'whatsnew', 'themes', 'settings']] },
 ]
 
 export const groupOf = (view: ViewId): string | null => NAV_GROUPS.find(group => group.rows.some(row => row.includes(view)))?.title ?? null
+
+/** The accent of a page's group, or null for a page in none (the menu): the colour its cards and section rules wear in the BBS look. */
+export const accentOfView = (view: ViewId): string | null => NAV_ACCENT[groupOf(view) ?? ''] ?? null
 
 /** The group whose pages the nav shows: the one the person picked while on this page, else the open page's own. */
 export function shownGroup(state: State): string {
@@ -56,7 +60,10 @@ export type NavActions = {
 export function navActions(state: State, invalidate: () => void, open: (view: ViewId) => void): NavActions {
   return {
     group: title => {
-      state.navPick = { group: title, view: state.view }
+      // On the main menu, picking the group that is already picked closes its row of pages again.
+      const isPicked = state.view === 'menu' && state.navPick !== null && state.navPick.view === 'menu' && state.navPick.group === title
+
+      state.navPick = isPicked ? null : { group: title, view: state.view }
       state.navQuery = ''
       invalidate()
     },

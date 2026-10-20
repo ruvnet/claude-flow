@@ -1,4 +1,7 @@
 import type { PluginOptions, Timer } from 'claude-code'
+import { guardOptionsOf, type GuardOptions } from './data/wf-alerts'
+import { sessionOptionsOf, type SessionOptions } from './data/sessions-options'
+import { convoOptionsOf, type ConvoOptions } from './data/wf-targets'
 
 import { emptyAuto, type AutoState } from './data/automate'
 import type { ProbeResult } from './data/cli'
@@ -7,10 +10,15 @@ import type { ConsoleEvent } from './data/events'
 import type { ReadCache } from './data/files'
 import { emptyEvolve, type EvolveState } from './data/evolve'
 import { emptySkills, type SkillsState } from './data/skills'
+import type { UpdatesMode } from './updates'
+import type { Digest, ToastPrefs } from './toast-policy'
+import { newWhatsNew, type WhatsNewState } from './whatsnew'
 import { emptyMemoryLab, type MemoryLabState } from './memory-lab'
 import { emptyVector, type VectorState } from './data/vector'
 import type { Snapshot } from './data/snapshot'
 import type { RufloRoute, RufloSnapshot } from '../types'
+import type { Notice } from './notices'
+import { emptyWf, type WfState } from './wf-state'
 
 export const PLUGIN_NAME = 'ruflo-console'
 export const PANE_ID = 'ruflo-console'
@@ -20,7 +28,7 @@ export type NavStyle = 'auto' | 'icons' | 'brief' | 'full'
 export const NAV_STYLES: readonly NavStyle[] = ['auto', 'icons', 'brief', 'full']
 export const NAV_KEY = 'nav-style'
 
-export type ViewId = 'menu' | 'overview' | 'swarm' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'market' | 'settings'
+export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'themes' | 'whatsnew' | 'adrs'
 
 /**
  * The views in tab order, each with its hotkey and the inline height it asks for. Digits are the first nine; the three
@@ -40,27 +48,33 @@ export const VIEWS: readonly { id: ViewId; key: string; label: string; short: st
   { id: 'swarm', key: '3', label: 'Swarm', short: 'Swm', icon: '🐝', blurb: 'the swarm as ruflo wrote it: topology, agents at work, and the hive-mind votes', rows: 30 },
   { id: 'hive', key: 'b', label: 'Hive-Mind', short: 'Hiv', icon: '👑', blurb: 'the queen, her workers and their votes: quorum, fault tolerance, proposals and broadcasts', rows: 40 },
   { id: 'claims', key: '4', label: 'Claims', short: 'Clm', icon: '📌', blurb: 'who holds which task: claim, release, hand off or steal, each after a y/n confirm', rows: 30 },
+  { id: 'workflows', key: '', label: 'Workflows', short: 'Wfl', icon: '🔀', blurb: 'Claude Code workflow runs and the ruflo swarm side by side: phases, agents, tokens, and what each is doing', rows: 34 },
   { id: 'federation', key: '5', label: 'Federation', short: 'Fed', icon: '🌐', blurb: 'this node, its peers, keys and channels, placed by how far each is trusted', rows: 26 },
   { id: 'plugins', key: '6', label: 'Plugins', short: 'Plg', icon: '🧩', blurb: 'ruflo plugins: installed, enabled, in the marketplace clone, and loaded as mods', rows: 30 },
   { id: 'learning', key: '7', label: 'Learning', short: 'Lrn', icon: '🧠', blurb: 'router picks and outcomes, and the RETRIEVE → JUDGE → DISTILL → CONSOLIDATE pipeline', rows: 30 },
   { id: 'metaharness', key: '8', label: 'MetaHarness', short: 'MH', icon: '🔬', blurb: 'harness readiness, the flywheel, the audit trend, and a lab that runs every MetaHarness verb', rows: 40 },
   { id: 'memory', key: '9', label: 'Memory', short: 'Mem', icon: '💾', blurb: 'the Memory Lab: browse, search, store and delete entries; AgentDB, embeddings and upkeep, each a button', rows: 60 },
-  { id: 'cost', key: 'c', label: 'Cost', short: 'Cst', icon: '💰', blurb: 'set a budget, see where spend is reported, and project its burn', rows: 40 },
+  { id: 'cost', key: 'c', label: 'Cost', short: 'Cst', icon: '💰', blurb: 'set a budget, see spend across Claude Code and Codex, and how to cut it', rows: 40 },
   { id: 'timeline', key: 'g', label: 'Timeline', short: 'Gnt', icon: '🕒', blurb: 'each agent busy or idle over the last minutes, beside Claude Code tool calls', rows: 24 },
   { id: 'approvals', key: 'q', label: 'Approvals', short: 'Apv', icon: '✅', blurb: 'decisions waiting for a person: votes, stealable claims, refused mods, budget', rows: 24 },
   { id: 'events', key: 'e', label: 'Events', short: 'Evt', icon: '📡', blurb: 'every swarm, claim, memory and mod event as it happens (f filters them)', rows: 26 },
+  { id: 'room', key: '', label: 'Room', short: 'Room', icon: '💬', blurb: 'what the people and the agents here are saying and doing, live, and the one thing waiting for a yes', rows: 30 },
   { id: 'xruv', key: 'w', label: 'x.ruv.io', short: 'XRV', icon: '🛸', blurb: 'the open agent federation: what it offers, how to join, its channels and who is on', rows: 50 },
   { id: 'terminal', key: 'i', label: 'Terminal', short: 'Trm', icon: '💻', blurb: 'an AI terminal: claude -p, codex or both, each a session that remembers the conversation, streamed live', rows: 120 },
   { id: 'skills', key: 'z', label: 'Skills', short: 'Skl', icon: '🧰', blurb: 'agent skills (npx skills, skills.sh): installed, search, use without installing, preview, add to chosen agents, update, create', rows: 60 },
-  { id: 'secure', key: 'u', label: 'Security & Doctor', short: 'Sec', icon: '🔒',blurb: 'security scans, a paste field that checks text for injection and PII, policy, and every doctor check', rows: 40 },
+  { id: 'secure', key: 'u', label: 'Security & Doctor', short: 'Sec', icon: '🔒',blurb: 'security scans, a paste field where AIDefence checks text for injection and PII, policy, sentries that scan on a schedule or on change, and every doctor check', rows: 40 },
   { id: 'perf', key: 'f', label: 'Performance', short: 'Prf', icon: '📈', blurb: 'metrics, profile, benchmarks, bottlenecks and a latency sparkline from each run', rows: 30 },
-  { id: 'automate', key: 'a', label: 'Automation', short: 'Aut', icon: '🤖', blurb: 'workflows, the twelve background workers and their daemon, autopilot, sessions, config and a task kanban', rows: 44 },
+  { id: 'automate', key: 'a', label: 'Automation', short: 'Aut', icon: '🤖', blurb: 'workflows, the twelve background workers and their daemon, loops, autopilot, sessions, config and a task kanban', rows: 44 },
   { id: 'neural', key: 'l', label: 'Learning Lab', short: 'Lab', icon: '🧪', blurb: 'train neural patterns and watch the loss, ask the router which agent fits a task, and why', rows: 36 },
   { id: 'vector', key: 'v', label: 'Vector Lab', short: 'Vec', icon: '🧲', blurb: 'ruvector: the shared brain, RVF stores, rvlite queries, decompile, workers, edge, hooks intel and your pi identity', rows: 44 },
   { id: 'evolve', key: 't', label: 'Self-Evolution', short: 'Evo', icon: '🧬', blurb: 'the governed loop: flywheel receipts, ledger, lineage, the policy gate, the witness; Autogenous and rGi', rows: 44 },
   { id: 'devtools', key: 'd', label: 'Dev Tools', short: 'Dev', icon: '🔧', blurb: 'the integration surface: GitHub, diff analysis, agenticow, WASM, browser, terminal, providers, maintenance', rows: 40 },
+  { id: 'sandbox', key: '', label: 'Sandbox', short: 'Sbx', icon: '🧫', blurb: 'isolated places to try things: tmux sessions, RVF copy-on-write branches, RVM', rows: 40 },
   { id: 'market', key: 'm', label: 'Plugin Catalog', short: 'Cat', icon: '📦', blurb: 'every ruflo plugin, mod and skill: what it ships, install, enable, disable, update, view and use', rows: 50 },
-  { id: 'settings', key: 's', label: 'Settings', short: 'Set', icon: '⚙️', blurb: 'simple to advanced settings: plugin options, ruflo config, and the AI terminal’s model and budget, each edited in place', rows: 50 },
+  { id: 'adrs', key: '', label: 'ADRs', short: 'ADR', icon: '📐', blurb: 'your project’s Architecture Decision Records: find, propose, accept and supersede them, attach them to a mission so Claude and the swarm follow what was decided', rows: 44 },
+  { id: 'whatsnew', key: '', label: 'What’s new', short: 'New', icon: '🆕', blurb: 'what changed in your ruflo plugins, newest first: from each plugin’s own CHANGELOG, breaking changes pinned until you dismiss them', rows: 40 },
+  { id: 'themes', key: '', label: 'Theme Studio', short: 'Themes', icon: '◈', blurb: 'theme selection, color picker, animated palettes and Claude or Codex theme generator', rows: 50 },
+  { id: 'settings', key: 's', label: 'Settings', short: 'Set', icon: '⚙️', blurb: 'simple to advanced settings: plugin options, ruflo config, updates, and the AI terminal’s model and budget, each edited in place', rows: 50 },
 ]
 
 export const AGENT_VIEW = { id: 'agent' as const, rows: 28 }
@@ -90,7 +104,7 @@ export const CLI_PREFIXES = {
 
 export type CliChoice = keyof typeof CLI_PREFIXES
 
-export type Options = {
+export type Options = GuardOptions & ConvoOptions & SessionOptions & {
   cli: CliChoice
   /** How often the disk is re-read while the pane or band shows (seconds, 2-60). */
   refreshSeconds: number
@@ -102,10 +116,12 @@ export type Options = {
   panel: 'auto' | 'command' | 'off'
   /** Lets the federation view ask the public relay for the roster. Off by default: no network without consent. */
   federationNetwork: boolean
-  /** `bbs`: the neon ASCII-art look (default); `plain`: the terminal theme's own colours and plain rules. */
-  look: 'bbs' | 'plain'
+  /** `bbs`: neon (default); `plain`: terminal colours; `orbital`: dark telemetry panels with red accents. */
+  look: 'bbs' | 'plain' | 'orbital'
   /** With the bbs look, a short dial-up boot screen when the cockpit opens. */
   boot: boolean
+  /** ADR-474: keep the Events and Timeline history in `.claude-flow/console/` (events.jsonl, lanes.jsonl). On by default; masked text only. */
+  eventsPersist: boolean
 }
 
 const num = (value: unknown, fallback: number, lo: number, hi: number): number => {
@@ -119,19 +135,23 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
   const value = (raw ?? {}) as Record<string, unknown>
 
   return {
-    cli: typeof value.cli === 'string' && value.cli in CLI_PREFIXES ? (value.cli as CliChoice) : 'npx-offline',
+    cli: typeof value.cli === 'string' && Object.hasOwn(CLI_PREFIXES, value.cli) ? (value.cli as CliChoice) : 'npx-offline',
     refreshSeconds: num(value.refreshSeconds, 3, 2, 60),
     fps: num(value.fps, 8, 0, 12),
     bar: value.bar === 'on' || value.bar === 'off' ? value.bar : 'auto',
     panel: value.panel === 'command' || value.panel === 'off' ? value.panel : 'auto',
     federationNetwork: value.federationNetwork === true,
-    look: value.look === 'plain' ? 'plain' : 'bbs',
+    look: value.look === 'plain' || value.look === 'orbital' ? value.look : 'bbs',
     boot: value.boot !== false,
+    eventsPersist: value.eventsPersist !== false && value.eventsPersist !== 'false',
+    ...guardOptionsOf(raw),
+    ...convoOptionsOf(raw),
+    ...sessionOptionsOf(raw),
   }
 }
 
 /** A mutating action waiting for the person's second press; `shows` is the command line when it is not a ruflo one. */
-export type Pending = { label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string }
+export type Pending = { /** Which ask this is (runner.ts hands out ids in order): a Yes names the card it answers, so another card that took its place is never the one run. */ id?: number; label: string; args: readonly string[]; expect: string; askedAtMs: number; shows?: string; note?: string; /** The kind of action, when it may be remembered (see remember.ts). */ rememberKey?: string; /** Where in its view the ask came from. */ scope?: string; /** The page that raised it: the ask shows in full there, and as a pointer on every other page. */ view?: string; /** Who raised it: Claude's tool call or the person's own action (ADR-450 T14). */ source?: 'claude' | 'you'; /** The class the entry declares for itself; the gate takes the stricter of this and the class read from its words. */ declared?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** Set only on a card Claude raised by its own direct console_run in this session: the one kind of card it may withdraw (runner.ts also matches the id). */ origin?: 'console_run'; /** The class of action, set only on Claude's asks. */ kind?: 'write' | 'network' | 'install' | 'spend' | 'delete'; /** The number of the Claude call that started this ask (ActionSpec.byCall): only that call settles it. */ byCall?: number }
 
 /** The MetaHarness lab's last run: what it was, how it exited, its cost note, and its output as lines to scroll. */
 export type LabResult = { id: string; label: string; ok: boolean; exitCode: number | null; note?: string; lines: string[]; atMs: number }
@@ -154,7 +174,7 @@ export type TermSessions = { codex?: string; claude?: string }
 export const termStoreKeyOf = (cwd: string): string => `ruflo-console/term:${cwd}`
 
 /** What an action did: what ran, how it exited, whether the disk shows the change, and anything it printed to show. */
-export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[] }
+export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[]; /** A confirm card that nobody answered within PENDING_TTL_MS and was cleared unrun (the Room shows it briefly). */ expired?: boolean }
 
 /** One module seen registering since the console loaded, as the engine's scan named it. */
 export type ModSeen = { name: string; provenance: string; isLoaded: boolean; reason?: string; atMs: number }
@@ -165,20 +185,29 @@ export type Denied = { tool: string; reason: string; atMs: number }
 /** One sample of a measured series, with when it was taken. */
 export type Sample = { atMs: number; value: number }
 
+/** One thing Claude did with the console's tools (ADR-444): what, and how it came out. */
+export type ControlEntry = { atMs: number; tool: string; summary: string; outcome: 'ok' | 'waiting' | 'denied' | 'error'; detail: string }
+
 export type State = {
   options: Options
   cwd: string
   home: string | null
+  /** Session evidence from a confirmed JOIN, kept without background key access. */
+  nostrKeyVerifiedAtMs: number | null
   /** Claude Code's config directory: `$CLAUDE_CONFIG_DIR`, else `~/.claude`. Its plugin records are read from here. */
   configDir: string | null
   /** False in a session with no pane to show (claude -p, an SDK host): views are then answered as text. */
   isInteractive: boolean
+  /** True on the standalone terminal host (ADR-489): there is no Claude session, prompt box, tab bar or mouse, so the shared chrome and the Claude-only controls are not drawn. False under Claude Code. */
+  isStandalone: boolean
   /** When this module loaded: "since the console loaded" series and stall times count from here. */
   loadedAtMs: number
   view: ViewId
   /** The view to go back to from the drill-down. */
   back: ViewId
   isHelp: boolean
+  /** ruHelp: the question typed, and the guide open (null: the index). */
+  help: { query: string; topic: string | null }
   snapshot: Snapshot | null
   cache: ReadCache
   probes: Map<string, ProbeResult>
@@ -206,6 +235,18 @@ export type State = {
   allowed: Map<string, string>
   /** The main nav's style, saved across sessions. */
   nav: NavStyle
+  /** Whether to check for a newer published ruflo-console: ask first (the default), update without asking, or never check. Kept in the plugin's store. */
+  updates: UpdatesMode
+  /** The Toasts setting (ADR-477): which levels draw and which sources are muted. Kept in the plugin's store and mirrored to a file the other plugins read. */
+  toastPrefs: ToastPrefs
+  /** The console's own toasts, drawn or not, until the Events pass takes them in (bounded). */
+  toastLog: Digest[]
+  /** What's new (ADR-478): the record of what was looked at, the changelogs read when the page opens. */
+  whatsnew: WhatsNewState
+  /** What the last update check found, in a line, for Settings; empty until one has run. */
+  updateNote: string
+  /** A published version the person has not taken ("Not now"), shown on the band as a link to Settings; empty when there is none. */
+  updateAvailable: string
   /** The nav group whose pages are showing, picked on this page (it follows the open page again once the page changes). */
   navPick: { group: string; view: ViewId } | null
   /** The nav search words (empty: no search). */
@@ -214,20 +255,35 @@ export type State = {
   commandNames: string[]
   /** True while the primary Claude session is running a turn (the band reports it each draw). */
   turnActive: boolean
+  /** Notices the band announced (notices.ts): the newest 30, a running id, and a time before which the notice row stays quiet. */
+  notices: Notice[]
+  noticeSeq: number
+  noticesQuietUntilMs: number
+  /** `/ruflo band`: the band's mode for this session over the plugin option (null = the option), and whether it shows one row. */
+  bandMode: 'auto' | 'on' | 'off' | null
+  bandCompact: boolean
+  /** When the person-facing turn began (the band shows how long Claude has been working), null between turns. */
+  turnStartedMs: number | null
   /** Collapsible sections the person flipped from their default (`<view>/<id>`): open ones closed, closed ones open. */
   sections: Set<string>
   /** What one-shot entry fields hold while typed (cleared on Enter), by field key. */
   fieldText: Map<string, string>
   /** The dock width asked for (RUFLO_CONSOLE_COLUMNS, 40 to 400); 0 leaves the engine's share. A request: a dragged width wins. */
   dockColumns: number
-  pane: { isOpen: boolean; isShown: boolean; isFocused: boolean; columns: number; rows: number; placement: 'dock' | 'inline'; isClosedByPerson: boolean; autoTried: boolean; autoReason: string; /** When the pane last opened: the BBS boot screen plays from here. */ bootAtMs: number }
-  /** The size of each Raster as last mounted, by key: a blit of any other size is refused, so none is sent. */
+  pane: { isOpen: boolean; isShown: boolean; isFocused: boolean; columns: number; rows: number; placement: 'dock' | 'inline'; isClosedByPerson: boolean; autoTried: boolean; autoReason: string; /** When the pane last opened: the BBS boot screen plays from here. */ bootAtMs: number; /** When the boot ended: the menu's entry plays from here (0: not yet). */ menuAtMs: number; /** When the page was last switched: its title strikes in from here (0: not since the pane opened). */ viewAtMs: number }
+  /** The size of each Raster as last mounted, by key: a blit of any other size is refused, so none is sent. Empty where the surface draws Svg. */
   mounted: Map<string, { columns: number; rows: number }>
+  /** How many pictures the view in front drew at its last render, Raster or Svg: the frame loop runs while there are any, as it did when all were mounted. */
+  pictured: number
   select: { claim: number; agent: number; task: number; item: number }
   /** The drill-down's agent and what `agent logs` printed for it. */
   drill: { agentId: string | null; logs: string[] | null; logsAtMs: number }
   palette: { isOpen: boolean; query: string; index: number; context: 'all' | 'selection' }
   pending: Pending | null
+  /** The id of the confirm card last put in front of the person (drawn in the shown pane, or named in a typed answer): the one card a bare `/ruflo yes` may answer. */
+  shownCard: number | null
+  /** The last field Enter that raised a card: which entry and text, and the card's id, so Enter again confirms that card and no other that merely reads the same. */
+  askedAgain: { entry: string; text: string; card: number } | null
   /** The key of the element last pressed, and the one the last ask or answer came from: the page draws them right there (views/attention.ts). */
   lastPressed: string | null
   origin: string | null
@@ -262,7 +318,7 @@ export type State = {
     scroll: number
     unseen: number
     /** The text the last Enter asked about: Enter on the same text again confirms it. */
-    asked: { key: string; label: string } | null
+    asked: { key: string; label: string; card: number | null } | null
   }
   /** The skills view: installed skills, the last search, and the change running now. */
   skills: SkillsState
@@ -275,9 +331,13 @@ export type State = {
   /** The Self-Evolution view: the flywheel files as last read, and what its checks answered. */
   evolve: EvolveState
   /** The Dev Tools view: what is typed in its fields (its runs share the lab result panel, ids dt-*). */
-  devtools: { fields: DevFields }
+  devtools: { fields: DevFields; /** Whether tmux is on this machine, from a probe when the Sandbox page opens. */ tmux: 'unknown' | 'present' | 'missing' }
   timers: Map<string, Timer>
   stats: { renders: number[]; refreshes: number[]; frames: number[] }
+  /** The Workflows page: the last read of Claude Code's run folders, the cursor, the inspector tab (wf-state.ts). */
+  wf: WfState
+  /** Claude's control of the console (ADR-444): paused by the person, the call counts, and the log the dashboard shows. */
+  control: { paused: boolean; calls: number; turnCalls: number; /** Model-driven actions this session, by class (ADR-450 T8 budget). */ used: Record<string, number>; log: ControlEntry[]; /** Until when Claude counts as driving (a tool call extends it): the console does not spend a second Claude turn on guidance meanwhile. */ drivingUntilMs: number; /** Claude's console_run / console_set calls running now: an ask that lands while one runs is settled (gated) by that call; one that lands with none running (console_open and console_state settle nothing) is checked by the runner. */ activeCalls: number; /** True while one of Claude's tool calls is running: a person's "always allow" answer must not let Claude's call skip the level and confirm checks (ADR-444). */ viaModel: boolean; /** The last number handed to a console_run / console_set call, and the number of the call whose synchronous start is running now (null when none is). */ callSeq: number; callTag: number | null }
 }
 
 export function newState(raw: PluginOptions | undefined): State {
@@ -285,12 +345,15 @@ export function newState(raw: PluginOptions | undefined): State {
     options: optionsOf(raw),
     cwd: '',
     home: null,
+    nostrKeyVerifiedAtMs: null,
     configDir: null,
     isInteractive: true,
+    isStandalone: false,
     loadedAtMs: Date.now(),
     view: 'overview',
     back: 'overview',
     isHelp: false,
+    help: { query: '', topic: null },
     snapshot: null,
     cache: new Map(),
     probes: new Map(),
@@ -310,19 +373,34 @@ export function newState(raw: PluginOptions | undefined): State {
     curveGrewAtMs: 0,
     dockColumns: 0,
     nav: 'auto',
+    updates: 'ask',
+    toastPrefs: { mode: 'all', muted: [] },
+    toastLog: [],
+    whatsnew: newWhatsNew(),
+    updateNote: '',
+    updateAvailable: '',
     navPick: null,
     navQuery: '',
     turnActive: false,
+    notices: [],
+    noticeSeq: 0,
+    noticesQuietUntilMs: 0,
+    bandMode: null,
+    bandCompact: false,
+    turnStartedMs: null,
     commandNames: [],
     allowed: new Map(),
     sections: new Set(),
     fieldText: new Map(),
-    pane: { isOpen: false, isShown: false, isFocused: false, columns: 0, rows: 0, placement: 'inline', isClosedByPerson: false, autoTried: false, autoReason: '', bootAtMs: 0 },
+    pane: { isOpen: false, isShown: false, isFocused: false, columns: 0, rows: 0, placement: 'inline', isClosedByPerson: false, autoTried: false, autoReason: '', bootAtMs: 0, menuAtMs: 0, viewAtMs: 0 },
     mounted: new Map(),
+    pictured: 0,
     select: { claim: 0, agent: 0, task: 0, item: 0 },
     drill: { agentId: null, logs: null, logsAtMs: 0 },
     palette: { isOpen: false, query: '', index: 0, context: 'all' },
     pending: null,
+    shownCard: null,
+    askedAgain: null,
     lastPressed: null,
     origin: null,
     outcome: null,
@@ -337,9 +415,11 @@ export function newState(raw: PluginOptions | undefined): State {
     auto: emptyAuto(),
     vector: emptyVector(),
     evolve: emptyEvolve(),
-    devtools: { fields: emptyFields() },
+    devtools: { fields: emptyFields(), tmux: 'unknown' },
     timers: new Map(),
     stats: { renders: [], refreshes: [], frames: [] },
+    wf: emptyWf(),
+    control: { paused: false, calls: 0, turnCalls: 0, used: {}, log: [], drivingUntilMs: 0, activeCalls: 0, viaModel: false, callSeq: 0, callTag: null },
   }
 }
 
@@ -385,11 +465,15 @@ export const BOOT_MIN_MS = 5_400
 export const BOOT_MAX_MS = 8_000
 
 export function isBooting(state: State, nowMs: number): boolean {
-  if (state.options.look !== 'bbs' || !state.options.boot || state.pane.bootAtMs === 0) return false
+  if (!['bbs', 'orbital'].includes(state.options.look) || !state.options.boot || state.pane.bootAtMs === 0) return false
+  // Reduced motion skips Orbital's decorative intro and cannot leave a static loader blocking the page.
+  if (state.options.look === 'orbital' && state.options.fps === 0) return false
 
   const age = nowMs - state.pane.bootAtMs
 
-  return age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
+  return state.options.look === 'orbital'
+    ? age >= 0 && age < 6_000 && (age < 1_500 || state.snapshot === null)
+    : age >= 0 && age < BOOT_MAX_MS && (age < BOOT_MIN_MS || state.snapshot === null)
 }
 
 /**

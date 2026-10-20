@@ -31,10 +31,10 @@ describe('dev tools', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const { text, tree } = await drawn($, 'devtools')
+    const { text, tree } = await drawn($, 'devtools', 110, ['dt-github', 'dt-ruvllm', 'dt-managed', 'dt-maint', 'dt-result'])
 
     for (const title of ['CAPABILITY BRAIN', 'ANALYZE · GIT DIFF', 'GITHUB & DELIVERY', 'AGENTICOW', 'WASM AGENTS', 'BROWSER', 'TERMINAL SESSIONS', 'PROVIDERS', 'PLUGIN REGISTRY', 'RUVLLM', 'DAA', 'MANAGED AGENTS', 'MAINTENANCE']) expect(text.toUpperCase()).toContain(title)
-    expect(text).toMatch(/ net \n PULL REQUESTS \.+/)
+    expect(text).toMatch(/net \n PULL REQUESTS \.+/)
     expect(text).toContain(' n/a ')
     expect(text).toContain('nothing run yet')
     expect(inputKeys(tree)).toEqual(expect.arrayContaining(['dt-field-brain-task', 'dt-field-analyze-ref', 'dt-field-browser-url', 'dt-field-terminal-cmd']))
@@ -59,6 +59,7 @@ describe('dev tools', () => {
     expect(text).toContain('totalFiles: 3')
     expect(runsOf('analyze_diff-stats')).toEqual([['mcp', 'exec', '-t', 'analyze_diff-stats', '-p', '{"ref":"HEAD"}']])
 
+    await pane.press({ key: 'sec-dt-github' })
     await pane.press({ key: 'dt-gh-prs' })
     text = textOf(await pane.drawn())
     expect(text).toContain('Confirm: list pull requests?')
@@ -86,6 +87,7 @@ describe('dev tools', () => {
     expect(world.runs.filter(argv => argv.includes('terminal_execute')).map(argv => argv.slice(4))).toEqual([['mcp', 'exec', '-t', 'terminal_execute', '-p', '{"command":"git status"}']])
 
     expect((await $.command.run(command('run dt-wasm-gallery'))).text).toBe('✗ WASM gallery: the templates · exit 0\n  ✗ Error: Failed to initialize @ruvector/rvagent-wasm')
-    expect((await $.command.run(command('run dt-br-open javascript:alert(1)'))).text).toMatch(/^nothing to do: type "dt-br-open <text>"/)
+    expect((await $.command.run(command('run dt-br-open javascript:alert(1)'))).text).toMatch(/^nothing to do: url field: an http\(s\) URL/)
+    expect(world.runs.some(argv => argv.includes('browser_open'))).toBe(false)
   })
 })

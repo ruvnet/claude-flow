@@ -6,11 +6,13 @@ import { VIEWS, viewOf } from '../hooks/state'
 const RESERVED = ['p', 'x', 'r', 'h', 'j', 'k', 'y', 'n', 'o']
 
 describe('main nav hotkeys', () => {
-  it('every view has one, a single digit or lowercase letter, and no two share it', () => {
-    const keys = VIEWS.map(view => view.key)
+  it('every view has one (a single digit or lowercase letter) or none (reached by name), and no two share one', () => {
+    // Every letter is a view key or reserved, so Sandbox and Theme Studio have no key: they are reached from the menu, the nav or by typing `sandbox` or `themes`.
+    const keys = VIEWS.map(view => view.key).filter(key => key !== '')
 
     expect(keys.every(key => /^[0-9a-z]$/.test(key))).toBe(true)
     expect(new Set(keys).size).toBe(keys.length)
+    expect(VIEWS.filter(view => view.key === '').map(view => view.id)).toEqual(['workflows', 'room', 'sandbox', 'adrs', 'whatsnew', 'themes'])
   })
 
   it('none takes a key the footer, the confirm row, scrolling or the menu prompt owns', () => {
@@ -27,7 +29,7 @@ describe('main nav hotkeys', () => {
 
   it('a view is reached by its key and by its id', () => {
     for (const view of VIEWS) {
-      expect(viewOf(view.key), view.id).toBe(view.id)
+      if (view.key !== '') expect(viewOf(view.key), view.id).toBe(view.id)
       expect(viewOf(view.id), view.id).toBe(view.id)
     }
   })

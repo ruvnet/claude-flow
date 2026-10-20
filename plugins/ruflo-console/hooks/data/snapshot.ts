@@ -3,6 +3,8 @@
  * ruflo marketplace clone's manifest. A fact a file does not hold is null and its read's reason says why; the views
  * draw that as n/a, missing or too large, never as zero.
  */
+import { readAnatole, type AnatoleFacts } from './anatole'
+import { readRecall, type RecallFacts } from './recall'
 import {
   enabledOf,
   parseActivity,
@@ -25,6 +27,8 @@ import {
 } from './facts'
 import { parseMissions, type MissionObservation } from './missions'
 import { readBounded, readDisk, textOf, type ProjectKey, type Read, type ReadCache, type ReaderFs } from './files'
+import { parseAgentdbMod, type AgentdbMod } from './agentdb-mod'
+import { readMods, type ModsFacts } from './mods'
 import {
   parseAgents,
   parseClaims,
@@ -48,6 +52,8 @@ export const EXPECTED_IN_MARKET = ['ruflo-core', 'ruflo-mods', 'ruflo-swarm'] as
 export type PluginsFacts = {
   installed: Installed[] | null
   enabled: Set<string>
+  /** Whether the merged settings held an `enabledPlugins` record at all: without one, "not enabled" is not known (ADR-485). */
+  enabledKnown?: boolean
   markets: Marketplace[] | null
   /** The ruflo clone's plugin names, or null when the clone or its manifest is not readable. */
   rufloOffered: string[] | null
@@ -78,17 +84,25 @@ export type Snapshot = {
   hasNostrKey: boolean | null
   plugins: PluginsFacts
   missions: MissionObservation | null
+  /** The ruflo-agentdb mod's own status file (ADR-445); null while the mod has not written one. */
+  agentdbMod: AgentdbMod | null
+  /** Project Anatole's reported files (ADR-453): unauthenticated, bounded, shape-checked. */
+  anatole?: AnatoleFacts
+  /** What the intelligence hook recalls from and what the neural verbs act on (ADR-456): bounded reads, never a prompt the hook did not keep. */
+  recall?: RecallFacts
+  /** Every `.claude-flow/<short>-mod/status.json` the per-plugin mods wrote (ADR-446), bounded and shape-checked. */
+  mods: ModsFacts
   changed: number
   readAtMs: number
 }
 
-export type ReadStatus = 'ok' | 'missing' | 'too-large' | 'refused'
+export type ReadStatus = 'ok' | 'missing' | 'too-large' | 'refused' | 'not-regular'
 
 const statusOf = (read: Read): ReadStatus => (read.text !== null ? 'ok' : read.reason)
 
 /** Reads and parses everything; never rejects. `settings` is the merged settings, for `enabledPlugins`. */
-export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, home: string | null, settings: unknown, nowMs: number, configDir?: string | null): Promise<Snapshot> {
-  const disk = await readDisk(fs, cache, cwd, home, configDir === undefined ? (home === null ? null : `${home}/.claude`) : configDir)
+export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, home: string | null, settings: unknown, nowMs: number, configDir?: string | null, federationNetwork = false): Promise<Snapshot> {
+  const disk = await readDisk(fs, cache, cwd, home, configDir === undefined ? (home === null ? null : `${home}/.claude`) : configDir, federationNetwork)
   const text = (key: ProjectKey) => textOf(disk.project[key])
   const stored = parseSwarmStore(text('swarm'))
   const pointer = parseSwarmPointer(text('pointer'))
@@ -122,11 +136,16 @@ export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, 
     plugins: {
       installed: parseInstalled(textOf(disk.home.installed)),
       enabled: enabledOf(settings),
+      enabledKnown: typeof (settings as { enabledPlugins?: unknown } | null)?.enabledPlugins === 'object' && (settings as { enabledPlugins?: unknown }).enabledPlugins !== null,
       markets,
       rufloOffered: offered,
       missingFromClone: offered === null ? [] : EXPECTED_IN_MARKET.filter(name => !offered.includes(name)),
     },
     missions: parseMissions(text('missions')),
+    agentdbMod: parseAgentdbMod(text('agentdbMod')),
+    mods: await readMods(fs, cache, cwd),
+    anatole: await readAnatole(fs, cache, cwd),
+    recall: await readRecall(fs, cache, cwd),
     changed: disk.changed,
     readAtMs: nowMs,
   }

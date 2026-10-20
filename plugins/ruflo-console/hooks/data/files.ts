@@ -4,13 +4,13 @@
  * fact, and a file over READ_MAX bytes is never read (`.claude-flow/policy/state.json` reaches 40 MB in a busy project).
  *
  * Never listed here, never read: `.claude-flow/federation/key-*.json`, `~/.ruflo/nostr.key` and `~/.ruflo/channels.json`
- * hold private keys. The console names the first by listing the folder and the second by `stat` alone.
+ * hold private keys. The console names the first by listing the folder and stats the second only with federation enabled.
  */
 
 /** The `$.fs` calls a reader makes; each may reject. */
 export type ReaderFs = {
   read: (path: string) => Promise<string>
-  stat: (path: string) => Promise<{ mtimeMs?: number; size?: number } | undefined>
+  stat: (path: string) => Promise<{ mtimeMs?: number; size?: number; kind?: string; isLink?: boolean } | undefined>
   list: (path: string) => Promise<readonly { name: string; kind?: string; size?: number; mtimeMs?: number }[]>
 }
 
@@ -36,6 +36,7 @@ export const PROJECT = {
   helpersVersion: '.claude/helpers/.helpers-version',
   config: '.claude-flow/config.yaml',
   missions: '.claude-flow/missions/observation.json',
+  agentdbMod: '.claude-flow/agentdb-mod/status.json',
 } as const
 
 export type ProjectKey = keyof typeof PROJECT
@@ -50,7 +51,7 @@ export const FEDERATION_DIR = '.claude-flow/federation'
 export const NOSTR_KEY = '.ruflo/nostr.key'
 
 /** What one read came to: the text, or why there is none. */
-export type Read = { text: string; mtimeMs: number } | { text: null; reason: 'missing' | 'too-large' | 'refused'; size?: number }
+export type Read = { text: string; mtimeMs: number } | { text: null; reason: 'missing' | 'too-large' | 'refused' | 'not-regular'; size?: number }
 
 /** The text of each file as last read, by path, with the mtime and size it was read at. */
 export type ReadCache = Map<string, { mtimeMs: number; size: number; text: string } | { missingUntilMs: number }>
@@ -58,9 +59,12 @@ export type ReadCache = Map<string, { mtimeMs: number; size: number; text: strin
 /** A path found missing is not stat-ed again for this long: a file ruflo creates shows up within it. */
 export const MISSING_RECHECK_MS = 10_000
 
-/** Reads one file, unless its mtime and size match what was read last; stats first, so a huge file is never read. */
-export async function readBounded(fs: ReaderFs, cache: ReadCache, path: string): Promise<Read> {
-  let stat: { mtimeMs?: number; size?: number } | undefined
+/**
+ * Reads one file, unless its mtime and size match what was read last; stats first, so a huge file is never read. With `regularOnly`, a path the
+ * engine's stat reports as a link (it follows links and reads their target, even outside the project) or as anything but a file is never read.
+ */
+export async function readBounded(fs: ReaderFs, cache: ReadCache, path: string, max = READ_MAX, regularOnly = false): Promise<Read> {
+  let stat: Awaited<ReturnType<ReaderFs['stat']>>
 
   const before = cache.get(path)
 
@@ -76,10 +80,16 @@ export async function readBounded(fs: ReaderFs, cache: ReadCache, path: string):
     return { text: null, reason: 'missing' }
   }
 
+  if (regularOnly && (stat?.isLink === true || (stat?.kind !== undefined && stat.kind !== 'file'))) {
+    cache.delete(path)
+
+    return { text: null, reason: 'not-regular' }
+  }
+
   const mtimeMs = stat?.mtimeMs ?? -1
   const size = stat?.size ?? -1
 
-  if (size > READ_MAX) {
+  if (size > max) {
     cache.delete(path)
 
     return { text: null, reason: 'too-large', size }
@@ -111,20 +121,21 @@ export const under = (root: string, path: string): string => `${root.replace(/\/
 export type DiskRead = { project: Record<ProjectKey, Read>; home: Record<keyof typeof HOME, Read>; changed: number; federationNodes: string[] | null; hasNostrKey: boolean | null }
 
 /** Reads every file in parallel; nothing here rejects. `home` and `configDir` are null when unknown. */
-export async function readDisk(fs: ReaderFs, cache: ReadCache, cwd: string, home: string | null, configDir: string | null = home === null ? null : `${home}/.claude`): Promise<DiskRead> {
+export async function readDisk(fs: ReaderFs, cache: ReadCache, cwd: string, home: string | null, configDir: string | null = home === null ? null : `${home}/.claude`, federationNetwork = false): Promise<DiskRead> {
   const mtimeOf = (held: ReadCache extends Map<string, infer V> ? V : never) => ('mtimeMs' in held ? held.mtimeMs : -1)
   const before = new Map([...cache].map(([path, held]) => [path, mtimeOf(held)]))
   const projectKeys = Object.keys(PROJECT) as ProjectKey[]
   const homeKeys = Object.keys(HOME) as (keyof typeof HOME)[]
   const missingHome: Read = { text: null, reason: 'missing' }
   const [projectReads, homeReads, federationNodes, hasNostrKey] = await Promise.all([
-    Promise.all(projectKeys.map(key => readBounded(fs, cache, under(cwd, PROJECT[key])))),
+    // ADR-450 T2: the one mod status file read here must be a regular file, like the per-plugin ones in readMods.
+    Promise.all(projectKeys.map(key => readBounded(fs, cache, under(cwd, PROJECT[key]), READ_MAX, key === 'agentdbMod'))),
     Promise.all(homeKeys.map(key => (configDir === null ? Promise.resolve(missingHome) : readBounded(fs, cache, under(configDir, HOME[key]))))),
     fs
       .list(under(cwd, FEDERATION_DIR))
       .then(entries => entries.flatMap(entry => (/^key-[A-Za-z0-9._-]{1,64}\.json$/.test(entry.name) ? [entry.name.slice(4, -5)] : [])).slice(0, 50))
       .catch(() => null),
-    home === null ? Promise.resolve(null) : fs.stat(under(home, NOSTR_KEY)).then(() => true, () => false),
+    home === null || !federationNetwork ? Promise.resolve(null) : fs.stat(under(home, NOSTR_KEY)).then(stat => stat !== undefined, () => false),
   ])
   const project = Object.fromEntries(projectKeys.map((key, i) => [key, projectReads[i] as Read])) as Record<ProjectKey, Read>
   const homeRecord = Object.fromEntries(homeKeys.map((key, i) => [key, homeReads[i] as Read])) as Record<keyof typeof HOME, Read>

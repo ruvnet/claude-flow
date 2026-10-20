@@ -7,6 +7,7 @@
  * for a mission described. Text is data: nothing from a plugin is interpreted.
  */
 import { plain } from './data/parse'
+import { ARGV_TEXT_MAX, chunksOf, LONG_TEXT_MAX } from './full-text'
 import type { Host } from './host'
 import { CLI_PREFIXES, type State } from './state'
 import { GOALS_PLUGIN } from './mission-skills'
@@ -99,19 +100,50 @@ async function piiVerdict(state: State, host: Host, text: string): Promise<strin
  * `unavailable` (the screen warns; it never blocks on a missing detector), and the text is never shown in the result.
  */
 export async function screenText(state: State, host: Host, raw: string): Promise<Screen> {
-  const text = plain(raw, 2_000).trim()
+  // All of the text is screened (ADR-481): a long text goes through in overlapping pieces that each fit one argv element, never only its head.
+  const text = plain(raw, LONG_TEXT_MAX).trim()
 
   if (text === '') return { status: 'safe', detail: 'nothing to screen' }
 
-  const [safe, pii] = await Promise.all([verdict(state, host, 'aidefence_is_safe', text), piiVerdict(state, host, text)])
+  const answers = await Promise.all(chunksOf(text, ARGV_TEXT_MAX, 200).map(async piece => ({ safe: await verdict(state, host, 'aidefence_is_safe', piece), pii: await piiVerdict(state, host, piece) })))
 
-  if (safe?.startsWith('UNSAFE') === true) return { status: 'unsafe', detail: plain(safe, 160) }
-  if (pii?.startsWith('PII FOUND') === true || safe?.startsWith('PII FOUND') === true) return { status: 'pii', detail: 'personal or secret data detected' }
-  // Both detectors must answer: half an answer is not a screen.
-  if (safe === null || pii === null) return { status: 'unavailable', detail: 'AIDefence did not fully answer (is @claude-flow/aidefence installed?): the text was not fully screened' }
+  const unsafe = answers.find(answer => answer.safe?.startsWith('UNSAFE') === true)
+
+  if (unsafe?.safe != null) return { status: 'unsafe', detail: plain(unsafe.safe, 160) }
+  if (answers.some(answer => answer.pii?.startsWith('PII FOUND') === true || answer.safe?.startsWith('PII FOUND') === true)) return { status: 'pii', detail: 'personal or secret data detected' }
+  // Both detectors must answer for every piece: half an answer is not a screen.
+  if (answers.some(answer => answer.safe === null || answer.pii === null)) return { status: 'unavailable', detail: 'AIDefence did not fully answer (is @claude-flow/aidefence installed?): the text was not fully screened' }
 
   return { status: 'safe', detail: 'no threats or PII found' }
 }
 
 export const blocksGuidance = (screen: Screen | null): boolean => screen !== null && (screen.status === 'unsafe' || screen.status === 'pii')
 export const blocksCreate = (screen: Screen | null): boolean => screen?.status === 'unsafe'
+
+/** Deep research (ADR-439): what the person chooses, and the one command the console prepares from it. The console never fetches. */
+export const RESEARCH_DEPTHS = ['quick', 'standard', 'deep'] as const
+export type ResearchDepth = (typeof RESEARCH_DEPTHS)[number]
+export const RESEARCH_DEFAULT_CAP = '2'
+
+/** The spend cap, decimal dollars only like the budget (no flags, exponents or currency marks), from 0.10 to 50. */
+export function capUsd(text: string): number | null {
+  const value = text.trim()
+  const amount = Number(value)
+
+  return /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) && Number.isFinite(amount) && amount >= 0.1 && amount <= 50 ? amount : null
+}
+
+/** Why a research start is refused before anything is screened or asked; null when the input is usable. */
+export function researchWhy(question: string, cap: number | null): string | null {
+  if (question === '') return 'type the research question first'
+  if (question.startsWith('-')) return 'the question may not start with -'
+
+  return cap === null ? 'the cap must be a number of dollars from 0.10 to 50' : null
+}
+
+/** The slash-command arguments, the contract with the ruflo-goals skill: `--depth <d> --cap-usd <usd> <question>`. */
+export const researchArgs = (question: string, depth: ResearchDepth, cap: number): string => `--depth ${depth} --cap-usd ${cap} ${question}`
+
+/** The confirm text, in words: what pressing yes starts, what it allows, what is untrusted, and when anything is stored. */
+export const researchConfirm = (depth: ResearchDepth, cap: number, screen: Screen): string =>
+  `Starts a billed Claude Code turn. Allows web search and fetch up to $${cap} (${depth} depth). Web content is untrusted. Nothing is stored until you accept the report.${screen.status === 'unavailable' ? ' AIDefence could not screen the question.' : ''}`

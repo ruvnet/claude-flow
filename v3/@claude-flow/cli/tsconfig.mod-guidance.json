@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@claude-flow/security/safe-git": ["../security/src/safe-git.ts"]
+    }
+  },
+  "include": ["src/guidance/mod-projection.ts", "src/guidance/mod-sources.ts"]
+}

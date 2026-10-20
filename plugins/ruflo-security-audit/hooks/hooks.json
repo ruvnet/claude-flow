@@ -1,0 +1,6 @@
+{
+  "description": "Security audit as a mod (ADR-445 pattern): a guard that keeps secrets out of memory written to security, audit and CVE namespaces (findings quote what they found), `/secaudit-mod`, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

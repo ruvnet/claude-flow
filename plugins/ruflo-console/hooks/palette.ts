@@ -11,12 +11,14 @@ import { claimTask, handoffClaim, releaseClaim, stealClaim, type ActionSpec } fr
 import { MEM_KEYWORDS, MEM_LAB, memSpecOf, memWhy } from './memory-lab'
 import { EVOLVE, evolveSpec, evolveWhy } from './evolve'
 import { askPalette } from './ask-palette'
+import { adrPalette } from './adr-palette'
 import { missionPalette } from './mission-palette'
 import { catalogPalette } from './plugin-catalog'
 import { settingsPalette } from './settings-palette'
 import { devPalette } from './devtools'
 import { LAB, labSpec, labWhy } from './mh-lab'
 import { PERF } from './perf'
+import { anatolePalette } from './anatole'
 import { SECURE, SECURE_KEYWORDS, SECURE_TEXT, secSpec, secTextSpec } from './secure'
 import { skillPaletteEntries } from './skills-lab'
 import { automateEntries } from './automate'
@@ -26,13 +28,23 @@ import { VIEWS, type State, type ViewId } from './state'
 import { XRUV } from './xruv'
 import { VEC, vecSpec, vecWhy } from './vector'
 import { selection } from './views/select'
+import { plain } from './data/parse'
 
 export type PaletteRun =
   | { kind: 'spec'; spec: ActionSpec | null; why: string }
   | { kind: 'view'; view: ViewId }
   | { kind: 'drill'; agentId: string }
   | { kind: 'text'; keyword: string; make: (text: string) => ActionSpec | null; why?: (text: string) => string }
-  | { kind: 'command'; name: 'refresh' | 'help' | 'close' }
+  | { kind: 'command'; name: 'refresh' | 'help' | 'close' | 'withdraw' }
+
+/** The entry Claude uses to take back its own waiting ask; it is listed only while a card Claude raised is waiting. */
+export const WITHDRAW_ID = 'ask-withdraw'
+
+/** A card Claude raised by its own console_run, of the write class: the only kind it may withdraw (the runner also matches the card's id). */
+export const canWithdraw = (state: State): boolean => state.pending?.source === 'claude' && state.pending.origin === 'console_run' && state.pending.kind === 'write'
+
+/** How Claude can stop waiting on its own card, for a refusal's text: withdraw it. Any other card waits for the person or its window. */
+export const withdrawHint = (state: State): string => (canWithdraw(state) ? `, or withdraw your own ask with console_run ${WITHDRAW_ID}` : '')
 
 export type PaletteEntry = { id: string; label: string; group: string; run: PaletteRun }
 
@@ -102,7 +114,7 @@ export function paletteEntries(state: State, nowMs: number): PaletteEntry[] {
   for (const type of AGENT_TYPES) add(`spawn-${type}`, 'swarm', `spawn ${/^[aeiou]/.test(type) ? 'an' : 'a'} ${type} agent`, { kind: 'spec', spec: spawnAgent(type, nowMs), why: 'unknown agent type' })
 
   // One-click starts, also reachable as `/ruflo run <id>`: everything an empty section offers.
-  for (const id of START_IDS) add(id, 'start', `${START_LABEL[id]}`, { kind: 'spec', spec: startSpec(id, nowMs), why: 'that start cannot run here' })
+  for (const id of START_IDS) add(id, 'start', `${START_LABEL[id]}`, { kind: 'spec', spec: startSpec(id, nowMs, '', present => { state.nostrKeyVerifiedAtMs = present ? Date.now() : null }), why: 'that start cannot run here' })
   add('task', 'start', 'task <text>: put a task on the board', { kind: 'text', keyword: 'task', make: text => startSpec('task', nowMs, text) })
   add('mission', 'start', 'mission <objective>: create an ADR-406 mission', { kind: 'text', keyword: 'mission', make: text => startSpec('mission', nowMs, text) })
 
@@ -176,7 +188,9 @@ export function paletteEntries(state: State, nowMs: number): PaletteEntry[] {
   // Dev Tools: local reads run at once, the rest ask first; an entry with a field takes its text (see devtools.ts).
   out.push(...devPalette(state))
   out.push(...catalogPalette(state))
+  out.push(...anatolePalette(state))
   out.push(...missionPalette(state))
+  out.push(...adrPalette(state))
   out.push(...askPalette(state))
   out.push(...settingsPalette(state))
 
@@ -188,6 +202,8 @@ export function paletteEntries(state: State, nowMs: number): PaletteEntry[] {
 
   for (const view of VIEWS) add(`view-${view.id}`, 'views', `go to ${view.label}${view.key === '' ? '' : ` (${view.key})`}`, { kind: 'view', view: view.id })
 
+  // Claude can take back its own waiting ask (never the person's): a read, it runs nothing and only clears the card.
+  if (canWithdraw(state) && state.pending !== null) add(WITHDRAW_ID, 'console', `withdraw Claude's waiting ask ("${plain(state.pending.label, 60)}"): nothing runs`, { kind: 'command', name: 'withdraw' })
   add('refresh', 'console', 'refresh now', { kind: 'command', name: 'refresh' })
   add('help', 'console', 'help: keys and commands', { kind: 'command', name: 'help' })
   add('close', 'console', 'close the console', { kind: 'command', name: 'close' })
@@ -211,9 +227,13 @@ export function filterPalette(entries: readonly PaletteEntry[], query: string, c
 
       return score === null ? [] : [{ entry, score }]
     })
-    .sort((a, b) => b.score - a.score)
+    // What can run comes first, so the best match, which Enter runs, is something that runs; each half keeps its own order.
+    .sort((a, b) => Number(isUnavailable(a.entry)) - Number(isUnavailable(b.entry)) || b.score - a.score)
     .map(match => match.entry)
 }
+
+/** An entry that cannot run now (its spec is null: a mod that is not seated, a missing selection). */
+export const isUnavailable = (entry: PaletteEntry): boolean => entry.run.kind === 'spec' && entry.run.spec === null
 
 /** The argument a text entry takes from the query: everything after its keyword. */
 export const textOfQuery = (query: string, keyword: string): string => query.trim().slice(keyword.length).trim()

@@ -16,7 +16,7 @@ export type RufloSnapshot = {
   owned: readonly ('route' | 'post-edit')[]
   routed: number
   lastRoute: RufloRoute | null
-  policy: 'none' | 'legacy' | 'observe' | 'enforce' | 'unreadable'
+  policy: 'none' | 'observe' | 'enforce' | 'unreadable'
   tightened: number
   observed: number
   edits: number

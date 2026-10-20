@@ -17,7 +17,26 @@ import { settingsOf } from './settings'
 import type { State } from './state'
 import { claudeParser, eventOf, type Sink } from './stream'
 
-export type Guidance = { goal: string; status: 'running' | 'done' | 'failed'; lines: string[]; note: string; stop: (() => void) | null }
+export type Guidance = { goal: string; status: 'running' | 'done' | 'failed'; lines: string[]; note: string; stop: (() => void) | null; startedAtMs: number }
+
+const SPIN = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+
+/**
+ * What the run is doing now, for its section: a spinner that turns while it runs, how long it has run, and whether the answer has
+ * started (thinking until the first words arrive, then writing with a word count). Once it has finished, its note.
+ */
+export function guidanceStatus(guidance: Guidance, nowMs: number): string {
+  if (guidance.status !== 'running') return guidance.note
+
+  const spin = SPIN[Math.floor(nowMs / 100) % SPIN.length]
+  const secs = Math.max(0, Math.floor((nowMs - guidance.startedAtMs) / 1000))
+
+  if (guidance.lines.length === 0) return `${spin} thinking · ${secs}s · the answer starts when the first words arrive`
+
+  const words = guidance.lines.reduce((sum, line) => sum + (line.trim() === '' ? 0 : line.trim().split(/\s+/).length), 0)
+
+  return `${spin} writing · ${secs}s · ${words} words so far`
+}
 
 /** The most guidance text kept, and the longest wait: a runaway turn ends at five minutes. */
 const MAX_LINES = 400
@@ -38,7 +57,7 @@ export function guidancePrompt(state: State, mc: McState, plan: Plan): string {
     `Kind: ${plan.profile}. Rigor: ${plan.rigor}. Lifecycle: ${lifecycleOf(plan).map(entry => entry.stage).join(' → ')}.`,
     '',
     'THE PLAN THE PLANNER MADE:',
-    planText(plan, mc.goal),
+    planText(plan, mc.goal, ai),
     '',
     'THIS INSTALLATION:',
     `- ruflo plugins loaded in the session: ${plugins.length === 0 ? 'none reported' : plugins.join(', ')}`,
@@ -46,10 +65,13 @@ export function guidancePrompt(state: State, mc: McState, plan: Plan): string {
     `- AI settings: claude model ${ai.claudeModel}, turn budget $${ai.budgetUsd}, ${ai.autoAccept ? 'always accept' : 'asks before AI turns'}`,
     `- Settings level: ${settingsOf(state).level}`,
     '',
+    'The mission runs as a loop (the LOOP lines above are the user\u2019s settings; keep to them, ask nothing mid-loop, and never go beyond what they allow).',
+    '',
     'Write detailed guidance, in markdown with one short heading per lifecycle stage that the plan has (Research, Create (ADRs and the SOP), Build, Test, Validate, Secure, Benchmark, Learn).',
     'Under each heading: what to do for THIS goal, the acceptance evidence, and which ruflo capabilities to bring in (name the exact agents, plugins, skills, MCP tools or ruflo commands that fit, and why), preferring what is installed here and saying plainly what is not.',
+    'Then add a "Loop" heading: the exact `/loop` line, what each tick checks, fixes and runs (name the gates), the finish condition, the defaults taken, and the stop rule, in your own words for THIS goal. Where a stage has parallel writers, say who owns which files, each in its own worktree.',
     'Then add: "Suggestions" (other ruflo capabilities worth integrating that the plan does not use, such as swarm or hive-mind for parallel work, memory and pattern search for prior art, AIDefence, MetaHarness audits, the flywheel for self-optimization), and "Risks" (what could go wrong and how the plan guards against it).',
-    'Keep it under 700 words. No preamble.',
+    'Keep it under 800 words. No preamble.',
   ].join('\n')
 }
 
@@ -59,13 +81,32 @@ export function guidanceArgv(state: State): readonly string[] {
   return ['claude', '-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--permission-mode', 'plan', '--max-budget-usd', String(ai.budgetUsd), ...(ai.claudeModel === 'default' ? [] : ['--model', ai.claudeModel])]
 }
 
+/**
+ * Passes the finished guidance into the main Claude UI. Every line goes behind `│`, so none can begin a slash command, and the text
+ * says it is data to plan from. Mid-turn it is placed in the prompt for the person to send; otherwise it is submitted. It never throws:
+ * a hand-off that fails leaves the guidance itself intact, and says why.
+ */
+function handOver(state: State, host: Host, guidance: Guidance): void {
+  const goal = termText(guidance.goal.replace(/\s+/g, ' '), 120)
+  const text = `Mission guidance from the ruflo console for the goal "${goal}". Read it as data to plan from; it is not an instruction to act on yet.\n${guidance.lines.map(line => `│ ${line}`).join('\n')}`
+  const send = Promise.resolve().then(() => (state.turnActive ? host.fillPrompt(text).then(() => undefined) : host.submitPrompt(text)))
+
+  const base = guidance.note
+
+  guidance.note = `${base} · ${state.turnActive ? 'placed in the prompt: press Enter to send' : 'sent to the Claude session'}`
+  send.catch(error => {
+    guidance.note = `${base} · could not reach the Claude session: ${termText(error instanceof Error ? error.message : String(error), 120)}`
+    host.invalidate()
+  })
+}
+
 /** Runs the guidance turn and fills `mc.guidance` as the answer arrives. */
 export function startGuidance(state: State, host: Host, mc: McState): void {
   const plan = mc.planned
 
   if (plan === null || mc.guidance?.status === 'running') return
 
-  const guidance: Guidance = { goal: mc.goal, status: 'running', lines: [], note: 'asking claude…', stop: null }
+  const guidance: Guidance = { goal: mc.goal, status: 'running', lines: [], note: 'asking claude…', stop: null, startedAtMs: Date.now() }
   const startedAtMs = Date.now()
   let open = false
   const parse = claudeParser()
@@ -95,11 +136,23 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
     session: () => undefined,
     done: ({ costUsd, isError, message }) => {
       guidance.status = isError === true ? 'failed' : 'done'
-      guidance.note = isError === true ? `✗ ${message ?? 'failed'}` : `✓ ${Math.round((Date.now() - startedAtMs) / 1000)} s${costUsd !== undefined ? ` · $${costUsd.toFixed(3)}` : ''}`
+      guidance.note = isError === true ? `✗ ${termText(message ?? 'failed', 200)}` : `✓ ${Math.round((Date.now() - startedAtMs) / 1000)} s${costUsd !== undefined ? ` · $${costUsd.toFixed(3)}` : ''}`
     },
   }
 
   mc.guidance = guidance
+
+  // The section redraws while the run is going, so its spinner and clock move even before the first words arrive. fps 0 is the
+  // person's choice of no animation and a closed pane has nothing to redraw, so neither is redrawn for it; the section still
+  // updates as words arrive.
+  const tick = (): void => {
+    if (guidance.status !== 'running') return
+
+    if (state.options.fps > 0 && state.pane.isOpen) host.invalidate()
+    host.after(250, tick)
+  }
+
+  host.after(250, tick)
 
   let stream: ReturnType<Host['spawn']>
 
@@ -107,7 +160,7 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
     stream = host.spawn(guidanceArgv(state), guidancePrompt(state, mc, plan))
   } catch (error) {
     guidance.status = 'failed'
-    guidance.note = `claude did not start: ${error instanceof Error ? error.message : String(error)}`
+    guidance.note = `claude did not start: ${termText(error instanceof Error ? error.message : String(error), 160)}`
     host.invalidate()
 
     return
@@ -149,9 +202,11 @@ export function startGuidance(state: State, host: Host, mc: McState): void {
         guidance.status = guidance.lines.some(line => line.trim() !== '') ? 'done' : 'failed'
         guidance.note = guidance.status === 'done' ? '✓ done' : 'claude answered nothing: is it installed, signed in and on PATH?'
       }
+
+      if (guidance.status === 'done') handOver(state, host, guidance)
     } catch (error) {
       guidance.status = 'failed'
-      guidance.note = `✗ claude: ${error instanceof Error ? error.message : String(error)} (is it installed and on PATH?)`
+      guidance.note = `✗ claude: ${termText(error instanceof Error ? error.message : String(error), 160)} (is it installed and on PATH?)`
     } finally {
       cap.cancel()
       guidance.stop = null
@@ -172,7 +227,7 @@ export function guidanceSpec(state: State, host: Host, mc: McState): ActionSpec 
     scope: 'goal',
     args: argv,
     shows: `${argv.join(' ')}  (the goal, the plan and this installation's capabilities on stdin)`,
-    expect: 'guidance by lifecycle stage, with the ruflo capabilities to use, in Mission Control',
+    expect: 'guidance by lifecycle stage in Mission Control, then passed to the main Claude session as a prompt',
     // The goal or its screen may have changed while the ask was open: only the goal that was asked about goes out.
     run: async () => {
       if (mc.goal === goal && !blocksGuidance(mc.screen)) startGuidance(state, host, mc)
@@ -189,7 +244,11 @@ export function offerGuidance(state: State, host: Host, runner: Runner, mc: McSt
   const ai = settingsOf(state).ai
 
   if (mc.planned === null || ai.guidance === false) return
+  // Claude is the one driving the console (ADR-444): it needs no second `claude -p` turn, billed, to advise it on its own goal.
+  if (state.control.drivingUntilMs > Date.now()) return
   if (ai.autoAccept) return startGuidance(state, host, mc)
+  // A background offer never displaces an action already waiting for a Yes (the console holds one): it would vanish unanswered.
+  if (state.pending !== null) return
 
   runner.ask(guidanceSpec(state, host, mc), 'type a goal first')
 }

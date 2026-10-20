@@ -7,26 +7,38 @@ import type { RenderElement } from 'claude-code'
 
 import { HELP } from '../commands'
 import { slashFor } from '../ask-claude'
+import { askedBy } from '../data/room'
 import { launchRows } from './launch'
 import { donated, newAttention, panelOf, wrapKit } from './attention'
 import { CARD_COLUMNS, hasCards, withCards } from './card'
 import { groupedTabs } from './nav'
 import { stepsRows } from './steps'
 import { optimizerResult } from './optimizer'
+import { fitFooter, type FooterItem } from '../footer-layout'
+import { chip } from '../menu-colors'
+import { accentOfView } from '../nav-state'
 import { isBooting, isCompactPane, NAV_STYLES, VIEWS, type ViewId } from '../state'
 import { agentView } from './agent'
 import { automateResult, automateView } from './automate'
 import { claimsView } from './claims'
-import { ago, button, clip, col, confirmInline, confirmRow, isBbs, row, setLook, text, THEME, type Ctx } from './common'
+import { ago, art as drawArt, button, clip, col, confirmRow, isBbs, isOrbital, row, setLook, text, THEME, type Ctx } from './common'
 import { costView } from './cost'
 import { evolveResult, evolveView } from './evolve'
 import { catalogView } from './plugin-catalog'
+import { activeTheme } from '../themes'
+import { themesView } from './themes'
 import { settingsView } from './settings'
+import { whatsnewView } from './whatsnew'
+import { adrsView } from './adr'
 import { devtoolsResult, devtoolsView } from './devtools'
+import { sandboxView } from './sandbox'
 import { federationView } from './federation'
 import { hiveView } from './hive'
 import { learningView } from './learning'
-import { approvalsView, eventsView, timelineView } from './manage'
+import { eventsView } from './events'
+import { approvalsView } from './manage'
+import { timelineView } from './timeline'
+import { roomView } from './room'
 import { memoryView } from './memory'
 import { menuView } from './menu'
 import { metaharnessView } from './metaharness'
@@ -34,30 +46,33 @@ import { labResult } from './mh-lab'
 import { neuralResult, neuralView } from './neural'
 import { missionControlView } from './mission-control'
 import { overviewView } from './overview'
+import { withIcons } from './pane-icons'
+import { helpView } from './help'
 import { paletteView } from './palette'
 import { perfResult, perfView } from './perf'
 import { pluginsView } from './plugins'
 import { secureResult, secureView } from './secure'
 import { skillsView } from './skills'
 import { swarmView } from './swarm'
+import { workflowsPage } from './wf-page'
 import { terminalView } from './terminal'
 import { vectorResult, vectorView } from './vector'
 import { xruvView } from './xruv'
 
 export const NARROW = 44
-
 /** The keyless views that keep a tab of their own (the rest are reached from the main menu). */
-const CORE_TABS = new Set<ViewId>(['hive', 'skills', 'cost', 'timeline', 'approvals', 'events', 'xruv', 'terminal'])
+const CORE_TABS = new Set<ViewId>(['hive', 'skills', 'cost', 'timeline', 'approvals', 'events', 'room', 'xruv', 'terminal'])
 
 /** The networks the Wildcat strip names, each with the view a click on it opens. */
 const NETWORKS: readonly (readonly [string, ViewId])[] = [['x.ruv.io', 'xruv'], ['relay.ruv.io', 'xruv'], ['agentbbs', 'federation'], ['mcp', 'plugins'], ['claude code', 'terminal']]
 /** Width from which every tab spells its name beside its emoji (the 1-9 row is about 128 columns with names). */
 const WIDE_TABS = 140
 
-const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
+export const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   menu: menuView,
   overview: overviewView,
   swarm: swarmView,
+  workflows: workflowsPage,
   hive: hiveView,
   claims: claimsView,
   federation: federationView,
@@ -69,6 +84,7 @@ const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   timeline: timelineView,
   approvals: approvalsView,
   events: eventsView,
+  room: roomView,
   missions: missionControlView,
   xruv: xruvView,
   terminal: terminalView,
@@ -80,8 +96,11 @@ const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   vector: vectorView,
   evolve: evolveView,
   devtools: devtoolsView,
+  sandbox: sandboxView,
   market: catalogView,
+  themes: themesView,
   settings: settingsView,
+  whatsnew: whatsnewView, adrs: adrsView,
   agent: agentView,
 }
 
@@ -90,7 +109,12 @@ function tabs(ctx: Ctx): RenderElement {
     const index = VIEWS.findIndex(view => view.id === ctx.state.view)
     const label = index < 0 ? 'Agent' : (VIEWS[index]?.label ?? '')
 
-    return text(ctx, `${index < 0 ? '·' : `${index + 1}/${VIEWS.length}`} ${label} · /ruflo help`, { bold: true, color: THEME.head })
+    const where = `${index < 0 ? '·' : `${index + 1}/${VIEWS.length}`} ${label}`
+
+    // Even this narrow, the BBS look keeps its colours: the page is a solid chip in its group's accent, with the way to help beside it.
+    return isBbs()
+      ? row(ctx, [ctx.kit.Text({ ...chip(accentOfView(ctx.state.view === 'agent' ? ctx.state.back : ctx.state.view) ?? '#05d9e8'), bold: true, children: ` ${where} ` }), ctx.kit.Text({ dimColor: true, children: ' /ruflo help' })])
+      : text(ctx, `${where} · /ruflo help`, { bold: true, color: THEME.head })
   }
 
   // Two rows: the nine data views (1-9), then the management views and the two boards (g q e m, w x.ruv.io, i terminal). Each tab is its emoji; the
@@ -171,18 +195,13 @@ function blurb(ctx: Ctx): RenderElement | null {
   ], 'about')
 }
 
-function help(ctx: Ctx): RenderElement {
-  return col(ctx, [...HELP.split('\n').map((line, i) => text(ctx, line || ' ', i === 0 ? { bold: true, color: THEME.head } : /^[A-Z]/.test(line) ? { bold: true } : { dimColor: i > 20 })), row(ctx, [button(ctx, 'help-close', 'Back', ctx.act.help, { hotkey: 'h' })])], 'help')
-}
-
-
 function footer(ctx: Ctx, isPlaced = false): RenderElement {
   const { state, nowMs } = ctx
   const outcome = isPlaced ? null : state.outcome
   const parts: RenderElement[] = []
 
   // Something is waiting for a yes or no: said here, where the keys are, wherever the confirm itself sits.
-  if (state.pending !== null && (state.pending.view === undefined || state.pending.view === state.view)) parts.push(text(ctx, `⚠ confirm needed: ${clip(state.pending.label, Math.max(20, ctx.columns - 40))} — y yes · n cancel${isPlaced ? ' (under what you clicked)' : ''}`, { bold: true, color: THEME.warn }))
+  if (state.pending !== null && (state.pending.view === undefined || state.pending.view === state.view)) parts.push(text(ctx, `⚠ confirm needed: ${clip(askedBy(state.pending) + state.pending.label, Math.max(20, ctx.columns - 40))} — y yes · n cancel${isPlaced ? ' (under what you clicked)' : ''}`, { bold: true, color: THEME.warn }))
 
   if (outcome !== null && nowMs - outcome.atMs < 90_000) {
     parts.push(
@@ -197,23 +216,49 @@ function footer(ctx: Ctx, isPlaced = false): RenderElement {
   // BBS: the link status in modem-speak, [LINK OK] ▸ sync 3s · keys on.
   const read = state.snapshot === null ? (isBbs() ? '[DIALING…]' : 'reading…') : isBbs() ? `[LINK OK] ▸ sync ${ago(state.snapshot.readAtMs, nowMs).replace(' ago', '')}` : `read ${ago(state.snapshot.readAtMs, nowMs)}`
   const keys = state.pane.isFocused ? 'keys on' : 'keys off: click the pane (or /ruflo …)'
+  const slash = slashFor(state, state.view)
+  // The buttons, most important first. Each has a short form and a priority: a narrow pane shortens the least important, then drops them
+  // (a dropped one stays, hidden, so its hotkey still works) instead of running off the edge and cutting the last in half.
+  const items: FooterItem[] = ctx.columns < NARROW
+    ? []
+    : [
+        { id: 'palette', full: 'Palette', short: 'p', priority: 1 },
+        ...(state.view === 'agent' || state.palette.isOpen ? [] : [{ id: 'actions', full: 'Actions', short: 'x', priority: 5 }]),
+        ...(state.palette.isOpen ? [] : [{ id: 'ask-claude', full: '✦ Ask Claude', short: '✦', priority: 2 }]),
+        ...(state.palette.isOpen || slash === null ? [] : [{ id: 'ask-slash', full: `▸ /${slash}`, short: '▸', priority: 7 }]),
+        { id: 'refresh', full: 'Refresh', short: 'r', priority: 6 },
+        { id: 'help', full: 'Help', short: 'h', priority: 3 },
+        { id: 'close', full: 'Close', short: '×', priority: 4 },
+      ]
+  // Keep the focus state whole: a clipped "keys …" does not tell the person where their typing will go.
+  const fit = fitFooter(items, ctx.columns - 2, isBbs() && state.snapshot !== null ? 23 : 10)
+  const press: Record<string, () => void> = { palette: () => ctx.act.palette('all'), actions: () => ctx.act.palette('selection'), 'ask-claude': () => ctx.act.ask.ask(), 'ask-slash': () => ctx.act.ask.slash(), refresh: ctx.act.restart, help: ctx.act.help, close: ctx.act.close }
+  const hotkey: Record<string, string> = { palette: 'p', actions: 'x', refresh: 'r', help: 'h' }
+  const full = new Map(items.map(item => [item.id, item.full]))
+  const statusRoom = Math.max(10, ctx.columns - fit.used - 3)
+  const focusLabel = !state.pane.isFocused && keys.length + 25 > statusRoom ? 'keys off' : keys
+  const syncRoom = Math.max(0, statusRoom - 9 - focusLabel.length - 1)
+  // BBS: the link in colour ([LINK OK] green, how fresh the read is, whether the keys are on); plain: one dim line, as before.
+  const status =
+    isBbs() && state.snapshot !== null
+      ? [
+          ctx.kit.Text({ bold: true, color: THEME.ok, children: '[LINK OK]' }),
+          ...(syncRoom === 0 ? [] : [ctx.kit.Text({ dimColor: true, children: clip(` ▸ sync ${ago(state.snapshot.readAtMs, nowMs).replace(' ago', '')} · `, syncRoom) })]),
+          ctx.kit.Text({ bold: state.pane.isFocused, color: state.pane.isFocused ? THEME.ok : THEME.warn, children: `${focusLabel} ` }),
+        ]
+      : [text(ctx, `${clip(`${read} · ${keys}`, statusRoom)} `, { dimColor: true })]
 
   parts.push(
     row(ctx, [
-      text(ctx, `${clip(`${read} · ${keys}`, Math.max(10, ctx.columns - 46))} `, { dimColor: true }),
-      ...(ctx.columns >= NARROW
-        ? [
-            button(ctx, 'palette', 'Palette', () => ctx.act.palette('all'), { hotkey: 'p' }),
-            ...(state.view === 'agent' || state.palette.isOpen ? [] : [button(ctx, 'actions', 'Actions', () => ctx.act.palette('selection'), { hotkey: 'x' })]),
-            ...(state.palette.isOpen ? [] : [button(ctx, 'ask-claude', '✦ Ask Claude', () => ctx.act.ask.ask())]),
-            ...(state.palette.isOpen || slashFor(state, state.view) === null ? [] : [button(ctx, 'ask-slash', `▸ /${slashFor(state, state.view)}`, () => ctx.act.ask.slash())]),
-            button(ctx, 'refresh', 'Refresh', ctx.act.refresh, { hotkey: 'r' }),
-            button(ctx, 'help', 'Help', ctx.act.help, { hotkey: 'h' }),
-            button(ctx, 'close', 'Close', ctx.act.close),
-          ]
-        : []),
+      ...status,
+      ...fit.shown.map(entry => button(ctx, entry.id, entry.label, press[entry.id] as () => void, hotkey[entry.id] === undefined ? {} : { hotkey: hotkey[entry.id] })),
     ]),
   )
+
+  // A dropped button's hotkey must still work from here: drawn hidden, the engine still arms it.
+  const hiddenKeys = fit.hidden.filter(id => hotkey[id] !== undefined)
+
+  if (hiddenKeys.length > 0) parts.push(ctx.kit.Box({ key: 'footer-keys', display: 'none', children: hiddenKeys.map(id => button(ctx, id, full.get(id) ?? id, press[id] as () => void, { hotkey: hotkey[id] as string })) } as never))
 
   return col(ctx, parts, 'footer')
 }
@@ -238,23 +283,32 @@ function wildcat(ctx: Ctx): { strip: RenderElement[]; art: RenderElement[] } {
         ctx.kit.Text({ bold: true, color: THEME.ok, children: clip('AGENTS WELCOME.', Math.max(4, ctx.columns - 16)) }),
       ], 'welcome'),
       // Each network is a link to the view that shows it.
-      row(ctx, [
-        ctx.kit.Text({ color: THEME.head, children: 'NETWORKS: ' }),
-        ...NETWORKS.flatMap(([name, view], i) => [
-          ...(i > 0 ? [ctx.kit.Text({ color: THEME.info, dimColor: true, children: ' * ' })] : []),
-          ctx.kit.Button({ key: `net-${view}-${i}`, label: name, plain: true, onPress: () => ctx.act.view(view) }),
-        ]),
-      ], 'networks'),
+      // (A row that wraps, so a narrow pane breaks it onto a second line rather than squeezing the names together.)
+      ctx.kit.Box({
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        key: 'networks',
+        children: [
+          ctx.kit.Text({ color: THEME.head, children: 'NETWORKS: ' }),
+          ...NETWORKS.flatMap(([name, view], i) => [
+            ...(i > 0 ? [ctx.kit.Text({ color: THEME.info, dimColor: true, children: ' * ' })] : []),
+            ctx.kit.Button({ key: `net-${view}-${i}`, label: name, plain: true, onPress: () => ctx.act.view(view) }),
+          ]),
+        ],
+      }),
     ],
-    art: art !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(art.toRaster('title'))] : [],
+    art: listOf(drawArt(ctx, art, 'title', `ruflo console: ${ctx.state.view}`)),
   }
 }
+
+const listOf = <T>(item: T | null): T[] => (item === null ? [] : [item])
 
 /** The views whose lab result block can be drawn alone (so finding it costs one block, not a second page). */
 const RESULT_OF: Partial<Record<ViewId, (ctx: Ctx) => RenderElement[]>> = {
   overview: optimizerResult,
   metaharness: labResult,
   devtools: devtoolsResult,
+  sandbox: devtoolsResult,
   vector: vectorResult,
   evolve: evolveResult,
   secure: secureResult,
@@ -265,24 +319,24 @@ const RESULT_OF: Partial<Record<ViewId, (ctx: Ctx) => RenderElement[]>> = {
 }
 
 export function paneView(base: Ctx): RenderElement {
-  setLook(base.state.options.look)
+  setLook(base.state.options.look, activeTheme(base.state).palette)
 
   // Every Button and Input remembers its key, and a column that holds the origin of the current ask places the confirm and the answer after it.
   const attention = newAttention(base.state.origin, [])
   const ctx: Ctx = { ...base, kit: wrapKit(base.kit, base.state, attention), attention }
 
-  // The BBS boot screen: the first seconds after the pane opens (or until the first read lands, at most 6 s).
+  // The selected boot screen: a bounded intro while the first snapshot arrives.
   if (isBooting(ctx.state, ctx.nowMs)) {
     const boot = ctx.pictures.get('boot')
 
-    return boot !== undefined && ctx.kit.Raster !== undefined
-      ? col(ctx, [ctx.kit.Raster(boot.toRaster('boot'))], 'boot')
-      : col(ctx, [text(ctx, 'CONNECT 115200 · RUFLO AGENT SWARM CONSOLE · loading…', { bold: true, color: THEME.head })], 'boot')
+    const intro = drawArt(ctx, boot, 'boot', 'RUFLO AGENT SWARM CONSOLE · loading…')
+
+    return col(ctx, [intro ?? text(ctx, 'RUFLO AGENT SWARM CONSOLE · loading…', { bold: true, color: THEME.head })], 'boot')
   }
   // A section of a page is a bordered card (views/card.ts): the body is drawn narrower by the border and padding, through a kit that groups its rows.
-  const cardsOn = hasCards(base.columns, isCompactPane(base.state)) && !ctx.state.palette.isOpen && !ctx.state.isHelp
-  const bodyCtx: Ctx = cardsOn ? { ...ctx, columns: ctx.columns - CARD_COLUMNS, cards: true, kit: withCards(ctx.kit) } : ctx
-  const drawBody = () => (ctx.state.palette.isOpen ? paletteView(ctx) : ctx.state.isHelp ? help(ctx) : BODIES[ctx.state.view](bodyCtx))
+  const cardsOn = hasCards(base.columns, isCompactPane(base.state))
+  const bodyCtx: Ctx = cardsOn ? { ...ctx, columns: ctx.columns - CARD_COLUMNS, cards: true, kit: withCards(ctx.kit, isBbs() ? (accentOfView(ctx.state.view === 'agent' ? ctx.state.back : ctx.state.view) ?? undefined) : undefined) } : ctx
+  const drawBody = () => (ctx.state.palette.isOpen ? paletteView(bodyCtx) : ctx.state.isHelp ? helpView(bodyCtx) : BODIES[ctx.state.view](bodyCtx))
   // A lab's result block is drawn first into the panel (pass one), then the page is drawn with the panel placed under the clicked row.
   if (ctx.state.origin !== null && (ctx.state.lab.result !== null || ctx.state.lab.running !== null)) {
     attention.donated = donated(ctx, () => {
@@ -318,37 +372,51 @@ export function paneView(base: Ctx): RenderElement {
 
   // Placed under what was clicked: not drawn again at the top.
   const confirm = attention.placed ? null : confirmRow(ctx)
+  // An inline view may fold away its confirm, or be covered by Help. Suppress the fallback only when the body actually drew it.
+  const hasInlineConfirm = attention.keys.get(body)?.has('confirm') === true
   const header = ctx.pictures.get('header')
   const isCompact = isCompactPane(ctx.state)
-  const title = !isCompact && header !== undefined && ctx.kit.Raster !== undefined ? [ctx.kit.Raster(header.toRaster('header'))] : []
+  // A surface that draws no Raster (the desktop draws the same picture as an Svg) gets the Orbital banner's words where the picture is not drawn.
+  const fallbackBrand = isOrbital() && ctx.kit.Raster === undefined ? [text(ctx, 'RUFLO / AGENT SWARM CONSOLE', { bold: true, color: THEME.head, wrap: 'truncate-end' })] : []
+  // The logo banner leads the main menu in every layout, compact too (the other pages lead with their own title art there).
+  const banner = (!isCompact || ctx.state.view === 'menu') && header !== undefined ? drawArt(ctx, header, 'header', 'RUFLO / AGENT SWARM CONSOLE') : null
+  const title = banner !== null ? [banner] : ctx.state.view === 'menu' ? fallbackBrand : []
   const about = blurb(ctx)
-  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: [] }
+  const orbitalArt = isOrbital() ? drawArt(ctx, ctx.pictures.get('title'), 'title', `ruflo console: ${ctx.state.view}`) : null
+  const bbs = isBbs() ? wildcat(ctx) : { strip: [], art: orbitalArt !== null ? [orbitalArt] : ctx.state.view !== 'menu' ? fallbackBrand : [] }
   // The status row (keys, sync, Palette, Actions) sits above the body, so a tall view cannot push it off the screen; only the main menu keeps it below its prompt, as a BBS does.
   const isMenu = ctx.state.view === 'menu'
   // The terminal's own Enter-again confirm stays under its field, where the field is.
   const isTerminal = ctx.state.view === 'terminal'
   const gap = isBbs() && !isCompact && !isMenu ? [text(ctx, ' ')] : []
   // The confirm row sits above the body in both layouts: below it, a tall view would push the question off the screen.
-  // Compact keeps every page's title and its line of purpose; only the banner and the spacing go.
+  // Compact keeps every page's title and its line of purpose; only the banner and the spacing go. The title leads, then the tabs, as in the wide layout.
   const parts = isCompact
-    ? [tabs(ctx), ...bbs.art, ...(about !== null ? [about] : []), ...(confirm !== null && !confirmInline(ctx.state.view, ctx.state.pending?.scope) ? [confirm] : []), footer(ctx, attention.placed), body]
-    : !isMenu && isBbs()
+    ? [...(ctx.state.view === 'menu' && title.length > 0 ? title : bbs.art), ...(about !== null ? [about] : []), tabs(ctx), ...(confirm !== null && !hasInlineConfirm ? [confirm] : []), footer(ctx, attention.placed), body]
+    : !isMenu && (isBbs() || isOrbital())
       ? // Every page but the main menu leads with its own title and purpose line; the welcome line and network links follow, with a blank row between the blocks.
-        [...bbs.art, ...(about !== null ? [about] : []), ...(cardsOn ? [] : [...gap, ...bbs.strip, ...gap]), tabs(ctx), ...(cardsOn ? [] : gap), footer(ctx, attention.placed), ...(confirm !== null && !isTerminal && !confirmInline(ctx.state.view, ctx.state.pending?.scope) ? [confirm] : []), body, ...(confirm !== null && isTerminal ? [confirm] : [])]
-      : [...title, ...(isMenu && isBbs() ? [text(ctx, ' ')] : []), ...bbs.strip, ...(isMenu && isBbs() ? [text(ctx, ' ')] : []), ...gap, tabs(ctx), ...gap, ...(isMenu && isBbs() ? [] : [...bbs.art, ...(about !== null ? [about] : [])]), ...gap, ...(isMenu ? [] : [footer(ctx, attention.placed)]), ...(confirm !== null && !isTerminal && !confirmInline(ctx.state.view, ctx.state.pending?.scope) ? [confirm] : []), body, ...(confirm !== null && isTerminal ? [confirm] : []), ...gap, ...(isMenu ? [footer(ctx, attention.placed)] : [])]
+        [...bbs.art, ...(about !== null ? [about] : []), ...(cardsOn ? [] : [...gap, ...bbs.strip, ...gap]), tabs(ctx), ...(cardsOn ? [] : gap), footer(ctx, attention.placed), ...(confirm !== null && !isTerminal && !hasInlineConfirm ? [confirm] : []), body, ...(confirm !== null && isTerminal ? [confirm] : [])]
+      : [...title, ...(isMenu && isBbs() ? [text(ctx, ' ')] : []), ...bbs.strip, ...(isMenu && isBbs() ? [text(ctx, ' ')] : []), ...gap, tabs(ctx), ...gap, ...(isMenu && isBbs() ? [] : [...bbs.art, ...(about !== null ? [about] : [])]), ...gap, ...(isMenu ? [] : [footer(ctx, attention.placed)]), ...(confirm !== null && !isTerminal && !hasInlineConfirm ? [confirm] : []), body, ...(confirm !== null && isTerminal ? [confirm] : []), ...gap, ...(isMenu ? [footer(ctx, attention.placed)] : [])]
 
-  return ctx.kit.Box({ flexDirection: 'column', children: parts })
+  // The leading rows that sit beside the icons: the header art (one picture) and the line that says what the page is for; on the menu, the banner and the blank row under it.
+  const lead = isCompact
+    ? (ctx.state.view === 'menu' && title.length > 0 ? title.length : bbs.art.length) + (about !== null ? 1 : 0)
+      : !isMenu && (isBbs() || isOrbital())
+      ? bbs.art.length + (about !== null ? 1 : 0)
+      : title.length + (isMenu && isBbs() ? 1 : 0)
+
+  return ctx.kit.Box({ flexDirection: 'column', ...(isOrbital() ? { backgroundColor: activeTheme(ctx.state).palette.background } : {}), children: withIcons(ctx, parts, lead) })
 }
 
 type Plain = { type: string; props: { children?: unknown; label?: string } }
 
-const plainKit = (): Ctx['kit'] => {
+export const plainKit = (): Ctx['kit'] => {
   const element = (type: string) => (props: Record<string, unknown>) => ({ type, props }) as never
 
   return { Box: element('Box'), Text: element('Text'), Button: element('Button') }
 }
 
-function linesOf(node: unknown, out: string[]): void {
+export function linesOf(node: unknown, out: string[]): void {
   if (node === null || node === undefined || typeof node === 'boolean') return
   if (typeof node === 'string' || typeof node === 'number') {
     out.push(String(node))
@@ -384,11 +452,10 @@ function linesOf(node: unknown, out: string[]): void {
  * a surface without the pane, or a script that wants to read what the console sees.
  */
 export function viewText(ctx: Omit<Ctx, 'kit' | 'pictures'>, view: ViewId): string {
-  const body = BODIES[view]({ ...ctx, kit: plainKit(), pictures: new Map() })
+  const body = BODIES[view]({ ...ctx, kit: plainKit(), pictures: new Map(), text: true })
   const out: string[] = []
 
   linesOf(body, out)
 
   return out.map(line => line.trimEnd()).filter(line => line !== '').join('\n')
 }
-

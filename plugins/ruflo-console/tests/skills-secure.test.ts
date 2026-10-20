@@ -25,9 +25,9 @@ import { drawn } from './fixtures/views'
 describe('skills, security and performance', () => {
   test('skills: installed, search and create sections; opening lists, nothing else runs until asked and confirmed', { options: { boot: false } }, async ($, on) => {
     const world = worldOf(on, RUFLO_FILES)
-    const skillRuns = () => world.runs.filter(argv => argv[2] === 'skills').map(argv => argv.slice(3).join(' '))
+    const skillRuns = () => world.runs.filter(argv => argv[2] === 'skills@1.7.2').map(argv => argv.slice(3).join(' '))
 
-    world.respond = argv => (argv[2] !== 'skills' ? cliAnswer(argv) : argv[3] === 'ls' ? { exitCode: 0, stdout: argv.includes('-g') ? LS_GLOBAL : '[]', stderr: '' } : argv[3] === 'find' ? { exitCode: 0, stdout: FIND_OUT, stderr: '' } : { exitCode: 0, stdout: 'done\n', stderr: '' })
+    world.respond = argv => (argv[2] !== 'skills@1.7.2' ? cliAnswer(argv) : argv[3] === 'ls' ? { exitCode: 0, stdout: argv.includes('-g') ? LS_GLOBAL : '[]', stderr: '' } : argv[3] === 'find' ? { exitCode: 0, stdout: FIND_OUT, stderr: '' } : { exitCode: 0, stdout: 'done\n', stderr: '' })
     mock.clock(on)
     await $.session.start(SESSION)
 
@@ -58,7 +58,7 @@ describe('skills, security and performance', () => {
     // The scope is chosen once, above the lists; ▸ add then installs there.
     await pane.press({ key: 'sk-scope-global' })
     await pane.press({ key: 'sk-add-0' })
-    expect(textOf(await pane.drawn())).toContain('runs: npx -y skills add mattpocock/skills@tdd -g -y')
+    expect(textOf(await pane.drawn())).toContain('runs: npx -y skills@1.7.2 add mattpocock/skills@tdd -g -y')
     expect(skillRuns().some(line => line.startsWith('add'))).toBe(false)
 
     await pane.press({ key: 'confirm' })
@@ -77,11 +77,11 @@ describe('skills, security and performance', () => {
     mock.clock(on)
     await $.session.start(SESSION)
 
-    const { text, tree } = await drawn($, 'secure')
+    const { text, tree } = await drawn($, 'secure', 110, ['sec-scan', 'sec-doctor'])
 
     for (const section of ['FINDINGS', 'CHECK TEXT', 'SCAN & INSPECT', 'DOCTOR', 'RESULT']) expect(text).toContain(section)
     expect(text).toContain('nothing run yet')
-    expect(text).toMatch(/n\/a {2}VALIDATE/)
+    expect(text).toMatch(/n\/a\s+VALIDATE/)
     expect(inputKeys(tree)).toEqual(['sec-text'])
     expect(elementsOf(tree, 'Button').map(keyOf)).toEqual(expect.arrayContaining(['run-sec-scan-quick', 'run-sec-threats', 'run-doc-all', 'run-doc-fix', 'run-doc-node', 'run-aid-pii', 'run-policy-status']))
     expect(ours()).toEqual([])
@@ -132,6 +132,7 @@ describe('skills, security and performance', () => {
     await pane.press({ key: 'run-perf-metrics' })
     expect(textOf(await pane.drawn())).toMatch(/event loop\s+\n?▁█/)
 
+    await pane.press({ key: 'sec-perf-record' })
     await pane.press({ key: 'run-perf-report' })
     expect(textOf(await pane.drawn())).toContain('runs: ruflo mcp exec -t performance_report -p {"format":"detailed"}')
     expect(world.runs.some(argv => argv.includes('performance_report'))).toBe(false)
@@ -141,10 +142,10 @@ describe('skills, security and performance', () => {
   test('skills: use, preview, targets, maintain and scan; reads run on a click, every change asks with its argv and cost', { options: { boot: false } }, async ($, on) => {
     const files = { ...RUFLO_FILES, 'package.json': JSON.stringify({ dependencies: { react: '19' } }), '.claude/agents/coder.md': 'Use the tdd skill.' }
     const world = worldOf(on, files)
-    const skillRuns = () => world.runs.filter(argv => argv[2] === 'skills').map(argv => argv.slice(3).join(' '))
+    const skillRuns = () => world.runs.filter(argv => argv[2] === 'skills@1.7.2').map(argv => argv.slice(3).join(' '))
     const answer = (argv: readonly string[]) => (argv[3] === 'ls' ? (argv.includes('-g') ? LS_GLOBAL : '[]') : argv[3] === 'find' ? FIND_OUT : argv[3] === 'use' ? USE_OUT : argv.includes('--list') ? LIST_OUT : 'done\n')
 
-    world.respond = argv => (argv[2] !== 'skills' ? cliAnswer(argv) : { exitCode: 0, stdout: answer(argv), stderr: '' })
+    world.respond = argv => (argv[2] !== 'skills@1.7.2' ? cliAnswer(argv) : { exitCode: 0, stdout: answer(argv), stderr: '' })
     mock.clock(on)
     await $.session.start(SESSION)
 
@@ -163,7 +164,7 @@ describe('skills, security and performance', () => {
     await pane.press({ key: 'sk-update-all' })
     const asked = textOf(await pane.drawn())
 
-    expect(asked).toContain('runs: npx -y skills update -p -y')
+    expect(asked).toContain('runs: npx -y skills@1.7.2 update -p -y')
     expect(asked).toMatch(/network: fetches each skill/)
     expect(skillRuns()).toEqual(['ls --json', 'ls -g --json'])
     await pane.press({ key: 'confirm' })
@@ -172,7 +173,7 @@ describe('skills, security and performance', () => {
 
     // ▸ restore asks, and is not run when cancelled.
     await pane.press({ key: 'sk-restore' })
-    expect(textOf(await pane.drawn())).toContain('runs: npx -y skills experimental_install')
+    expect(textOf(await pane.drawn())).toContain('runs: npx -y skills@1.7.2 experimental_install')
     await pane.press({ key: 'cancel' })
     expect(skillRuns()).not.toContain('experimental_install')
 

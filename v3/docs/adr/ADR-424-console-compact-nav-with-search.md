@@ -12,6 +12,8 @@ Scope: `plugins/ruflo-console`: `hooks/nav-state.ts`, `hooks/views/nav.ts`, `hoo
 
 Extends: ADR 422 (cards and the grouped nav), which this replaces for the nav card.
 
+Superseded in part by: ADR 442 (the Plugins page sits in TOOLS, not NETWORK).
+
 ## 1. Context
 
 The grouped nav of ADR 422 listed every page at once: a title row with the style chooser, then a row per group, nine rows in a bordered card at 100 columns. It was complete but long, and finding a page meant reading all of it.

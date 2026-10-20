@@ -2,6 +2,7 @@ import type { RenderElement } from 'claude-code'
 
 import type { Channels, Peers, Roster } from '../data/cli'
 import { ago, col, kv, live, picture, rule, sourceLine, starts, text, THEME, type Ctx } from './common'
+import { fedNodesOf } from './frames'
 
 /**
  * This node's federation standing from local state and local CLI answers only. The roster lives on the public relay,
@@ -17,15 +18,21 @@ export function federationView(ctx: Ctx): RenderElement {
   const rows: RenderElement[] = [rule(ctx, 'Map', 'this node · peers · keys · channels · roster')]
 
   rows.push(picture(ctx, 'fedmap', 'map needs a terminal'))
-  rows.push(text(ctx, '● pinned peer (solid) · own key (solid) · channel (dashed) · ○ roster member (sparse, unvetted) · a dot runs an edge for 2 s after a sync', { dimColor: true }))
+  if (fedNodesOf(state).length === 0) rows.push(text(ctx, ' Nothing to draw yet: a key, a pinned peer or a channel adds a node.', { dimColor: true }))
+  rows.push(text(ctx, '● pinned peer or own key: solid · channel: dashed', { dimColor: true }))
+  rows.push(text(ctx, '○ roster member: sparse, unvetted · a dot runs an edge for 2 s after a sync', { dimColor: true }))
   rows.push(rule(ctx, 'This node', 'local only'))
+  const confirmed = snap?.hasNostrKey === null && state.nostrKeyVerifiedAtMs !== null
+  const present = confirmed
+    ? `confirmed by JOIN ${ago(state.nostrKeyVerifiedAtMs, nowMs)} (never read here)`
+    : '~/.ruflo/nostr.key present (never read here)'
 
   rows.push(
     kv(
       ctx,
       'nostr identity',
-      snap?.hasNostrKey === true ? '~/.ruflo/nostr.key present (never read here)' : snap?.hasNostrKey === false ? 'none yet (join below makes one)' : 'n/a',
-      snap?.hasNostrKey === true ? THEME.ok : undefined,
+      snap?.hasNostrKey === true || confirmed ? present : snap?.hasNostrKey === false ? 'none yet (join below makes one)' : 'n/a',
+      snap?.hasNostrKey === true || confirmed ? THEME.ok : undefined,
     ),
   )
   rows.push(kv(ctx, 'federation keys', nodes === null ? 'n/a — no .claude-flow/federation' : nodes.length === 0 ? 'none' : `${nodes.length} node ids: ${nodes.slice(0, 4).join(', ')}${nodes.length > 4 ? ' …' : ''} (keys never read)`))

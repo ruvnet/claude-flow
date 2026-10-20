@@ -35,7 +35,11 @@ export type World = {
   runs: string[][]
   /** Every path the mod asked fs.read for, refused or not. */
   reads: string[]
+  /** Every path the mod asked fs.stat for, including cached and refused reads. */
+  stats: string[]
   inputs: string[]
+  /** The lines the console drew with `$.ui.toast` (ADR-477: after the shared policy). */
+  toasts: string[]
   /** Prompts the mod submitted to the primary session (`$.prompt.submit`). */
   prompts: string[]
   /** Text the mod put in the prompt box (`$.prompt.fill`). */
@@ -89,7 +93,9 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, options
     files: all,
     runs: [],
     reads: [],
+    stats: [],
     inputs: [],
+    toasts: [],
     prompts: [],
     fills: [],
     blits: [],
@@ -110,7 +116,11 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, options
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('fs.read', ($, e) => (world.reads.push(e.path), refuse || !all.has(e.path) ? { deny: `ENOENT: ${e.path}` } : { value: all.get(e.path) as string }))
   on('fs.stat', ($, e) => {
+    world.stats.push(e.path)
     const text = all.get(e.path)
+
+    // A folder that holds a file stats as a directory, as a real one does (the ADRs page asks before it lists).
+    if (!refuse && text === undefined && [...all.keys()].some(path => path.startsWith(`${e.path}/`))) return { value: { kind: 'dir' as const, size: 0, mtimeMs: 1, isLink: false } }
 
     return refuse || text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: { kind: 'file' as const, size: text.length, mtimeMs: mtimes.get(e.path) ?? 0, isLink: false } }
   })
@@ -176,7 +186,7 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, options
 
     return { value: {} }
   })
-  on('ui.toast', () => ({ value: undefined }))
+  on('ui.toast', ($, e) => (world.toasts.push(e.text), { value: undefined }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', ($, e) => ({ text: e.answer }))
 

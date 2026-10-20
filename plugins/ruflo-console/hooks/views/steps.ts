@@ -88,8 +88,8 @@ export const STEPS: Partial<Record<ViewId, { title: string; steps: readonly Step
   plugins: {
     title: 'Get the ruflo plugins',
     steps: [
-      { label: 'Add the ruflo marketplace', why: 'so Claude Code can install its plugins', go: { start: 'marketplace' } },
-      { label: 'Open the Plugin Catalog', why: 'every plugin, mod and skill', go: { view: 'market' } },
+      { label: 'Add the ruflo marketplace', why: 'so Claude Code can install its plugins', go: { start: 'marketplace' }, done: s => s.plugins.markets?.some(market => market.name === 'ruflo') === true },
+      { label: 'Install a ruflo plugin', why: 'pick one below, or in the Plugin Catalog', go: { view: 'market' }, done: s => (s.plugins.installed ?? []).some(plugin => plugin.marketplace === 'ruflo') },
     ],
   },
 }
@@ -101,7 +101,9 @@ export function stepsRows(ctx: Ctx): RenderElement[] {
 
   if (plan === undefined || snapshot === null || ctx.state.palette.isOpen || ctx.state.isHelp) return []
 
-  const done = plan.steps.map(step => step.done?.(snapshot) === true)
+  // A JOIN receipt completes this card only; unknown current key status must still ask before a read can create a key.
+  const done = plan.steps.map(step => step.done?.(snapshot) === true ||
+    ('start' in step.go && step.go.start === 'federation-join' && snapshot.hasNostrKey === null && ctx.state.nostrKeyVerifiedAtMs !== null))
   const checkable = plan.steps.filter(step => step.done !== undefined).length
 
   // Every step the disk can check is done (and there is at least one): the card has done its job.

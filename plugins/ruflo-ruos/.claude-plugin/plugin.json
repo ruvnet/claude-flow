@@ -1,7 +1,7 @@
 {
   "name": "ruflo-ruos",
   "description": "Run ruflo swarm agents on your own ruOS cloud desktops via the tenant-authenticated fleet MCP or per-tenant SSH; optional and removable (ADR-405)",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

@@ -91,3 +91,20 @@ describe('the nav actions', () => {
     expect(state.navQuery).toBe('')
   })
 })
+
+describe('finding what is on a page, not only the page', () => {
+  it('searching for a capability by its own name finds the page it is on', () => {
+    // Each of these is a section or a feature, not a page: the page's description has to name it for the search to find it.
+    const where: Record<string, ViewId> = {
+      sentries: 'secure',
+      doctor: 'secure',
+      aidefence: 'secure',
+      updates: 'settings',
+      loops: 'automate',
+      autopilot: 'automate',
+      kanban: 'automate',
+    }
+
+    for (const [word, view] of Object.entries(where)) expect(findPages(word), word).toContain(view)
+  })
+})

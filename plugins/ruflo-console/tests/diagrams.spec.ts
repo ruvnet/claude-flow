@@ -8,7 +8,7 @@ import { gaugePicture, pipelinePicture, radarPicture, samplesPicture, trendPictu
 import { flowModelOf, flowPicture, flowRows, ringOf } from '../hooks/gfx/flow'
 import { federationPicture, ganttPicture, heatmapPicture } from '../hooks/gfx/maps'
 import { BOOT_MODULES, BOOT_ROWS } from '../hooks/gfx/boot'
-import { activityPicture, bannerPicture, bootPicture, curvePicture, edges, headerPicture, layout, markPicture, topologyPicture, type TopoModel } from '../hooks/gfx/pictures'
+import { activityPicture, bannerPicture, bootPicture, curvePicture, edges, headerPicture, layout, markPicture, palettePicture, topologyPicture, type TopoModel } from '../hooks/gfx/pictures'
 import { isBooting, newState, optionsOf } from '../hooks/state'
 import type { Grid } from '../hooks/gfx/raster'
 import { parseClaims, type ClaimRecord } from '../hooks/data/parse'
@@ -139,9 +139,10 @@ describe('BBS look', () => {
     expect(on.encode()).not.toBe(off.encode())
   })
 
-  it('bbs is the default look; plain is the only other value', () => {
+  it('bbs stays the default; plain and orbital are opt-in', () => {
     expect(optionsOf(undefined).look).toBe('bbs')
     expect(optionsOf({ look: 'plain' } as never).look).toBe('plain')
+    expect(optionsOf({ look: 'orbital' } as never).look).toBe('orbital')
     expect(optionsOf({ look: 'neon' } as never).look).toBe('bbs')
   })
 })
@@ -149,18 +150,20 @@ describe('BBS look', () => {
 describe('BBS boot screen', () => {
   const text = (grid: ReturnType<typeof bootPicture>, width: number) => Array.from({ length: grid.rows }, (_, y) => String.fromCodePoint(...Array.from({ length: width }, (_, x) => grid.glyph(x, y) || 32))).join('\n')
 
-  it('dials, connects, draws the logo and fills a bar from elapsed time and answered reads', () => {
-    expect(text(bootPicture('demo', 60, 100, 0, 10), 60)).toContain('ATDT')
-    expect(text(bootPicture('demo', 60, 100, 0, 10), 60)).not.toContain('CONNECT')
+  it('draws the logo and fills a bar from elapsed time and answered reads, with no modem dial-up', () => {
+    for (const age of [100, 700, 2_000, 5_400]) {
+      const shown = text(bootPicture('demo', 60, age, 5, 10), 60)
+
+      expect(shown, `${age} ms`).not.toMatch(/ATDT|RING|CONNECT 115200/)
+    }
 
     const done = text(bootPicture('demo', 60, 5_400, 10, 10), 60)
 
-    expect(done).toContain('CONNECT 115200 / ARQ / V.42bis')
     expect(done).toContain('│ ~~~~~ │')
     expect(done).toContain('▐▌')
-    // The tubes are dark before the line connects, lit once it has: the same cell, two colours.
+    // The tubes are dark before the sign switches on, lit once it has: the same cell, two colours.
     const fgAt = (age: number) => { const g = bootPicture('demo', 60, age, 3, 10); for (let i = 0; i < g.columns * g.rows; i++) if (g.cells[i * 3] === 0x256d) return g.cells[i * 3 + 1]; return -1 }
-    expect(fgAt(500)).not.toBe(fgAt(3_800))
+    expect(fgAt(300)).not.toBe(fgAt(3_800))
     expect(done).toContain('> handshake ok · node demo')
     expect(done).toContain('100%  reads 10/10')
   })
@@ -191,6 +194,30 @@ describe('BBS boot screen', () => {
     expect(bootPicture('demo', 80, 5_400, 10, 10).rows).toBe(BOOT_ROWS)
   })
 
+  it('reports the self-check: [ OK ] only for an area whose check passed, [FAIL] and its problem for one that did not, READY counting what was verified', () => {
+    const rows = BOOT_ROWS + 1 + BOOT_MODULES.length + 1
+    const passing = BOOT_MODULES.map(entry => ({ area: entry.name, ok: true, problems: [] as string[] }))
+    const withFailure = passing.map(result => (result.area === 'Security' ? { ...result, ok: false, problems: ['aid-check: an empty field must be refused'] } : result))
+    const good = text(bootPicture('demo', 80, 5_400, 10, 10, rows, passing), 80)
+    const bad = text(bootPicture('demo', 80, 5_400, 10, 10, rows, withFailure), 80)
+
+    expect(good).toContain('[ OK ] Security')
+    expect(good).toContain(`${BOOT_MODULES.length} of ${BOOT_MODULES.length} areas verified`)
+    expect(good).toContain('[ OK ] READY')
+    expect(good).not.toContain('[FAIL]')
+
+    expect(bad).toContain('[FAIL] Security')
+    expect(bad).toContain('aid-check: an empty field must be refused')
+    expect(bad).toContain('[ OK ] Missions')
+    expect(bad).toContain(`${BOOT_MODULES.length - 1} of ${BOOT_MODULES.length} areas verified · 1 failed`)
+    expect(bad).toContain('[FAIL] READY')
+
+    // An area still starting shows [ .. ] whatever its verdict: the result appears when the next area begins.
+    const securityAt = 1_500 + 120 * BOOT_MODULES.findIndex(entry => entry.name === 'Security')
+
+    expect(text(bootPicture('demo', 80, securityAt + 10, 10, 10, rows, withFailure), 80)).toContain('[ .. ] Security')
+  })
+
   it('plays at least 5.4 s, longer while the first read is out, never past 8 s; only with the bbs look and boot on', () => {
     const state = newState({})
 
@@ -204,5 +231,52 @@ describe('BBS boot screen', () => {
     expect(isBooting(state, 9_500)).toBe(false)
     expect(isBooting({ ...state, options: { ...state.options, boot: false } }, 1_100)).toBe(false)
     expect(isBooting({ ...state, options: { ...state.options, look: 'plain' } }, 1_100)).toBe(false)
+  })
+})
+
+describe('the menu palette strip', () => {
+  const colors = [0xff0000, 0x00ff00, 0x0000ff]
+  const fg = (grid: ReturnType<typeof palettePicture>, x: number): number => grid.cells[x * 3 + 1] as number
+  const base = (x: number, columns: number): number => colors[Math.min(colors.length - 1, Math.floor((x * colors.length) / columns))] as number
+  /** The cell the light is on: the one furthest from its own colour. */
+  const litAt = (grid: ReturnType<typeof palettePicture>): number => {
+    const far = (x: number): number => [0, 8, 16].reduce((sum, shift) => sum + Math.abs(((fg(grid, x) >> shift) & 255) - ((base(x, grid.columns) >> shift) & 255)), 0)
+
+    return Array.from({ length: grid.columns }, (_, x) => x).sort((a, b) => far(b) - far(a))[0] as number
+  }
+
+  it('is one row of blocks, and at rest is exactly the colours, a segment each', () => {
+    const grid = palettePicture(60, 0, colors)
+
+    expect([grid.columns, grid.rows]).toEqual([60, 1])
+    for (let x = 0; x < 60; x++) {
+      expect(grid.cells[x * 3], `char ${x}`).toBe(0x2580)
+      expect(fg(grid, x), `colour ${x}`).toBe(base(x, 60))
+    }
+    expect(fg(grid, 0)).toBe(0xff0000)
+    expect(fg(grid, 30)).toBe(0x00ff00)
+    expect(fg(grid, 59)).toBe(0x0000ff)
+  })
+
+  it('has a band of light that brightens the cells it is on and leaves the rest alone', () => {
+    const grid = palettePicture(60, 1_512, colors)
+
+    expect(litAt(grid)).toBe(30)
+    expect(fg(grid, 30)).not.toBe(base(30, 60))
+    expect((fg(grid, 30) >> 16) & 255).toBeGreaterThan(150)
+    expect(fg(grid, 0)).toBe(base(0, 60))
+    expect(fg(grid, 59)).toBe(base(59, 60))
+  })
+
+  it('moves along the strip as the clock runs, about three cells a frame at 8 fps, and starts again after it leaves', () => {
+    expect(litAt(palettePicture(60, 1_512, colors))).toBe(30)
+    expect(litAt(palettePicture(60, 1_512 + 360, colors))).toBe(40)
+    expect(Array.from(palettePicture(60, 36 * 84, colors).cells)).toEqual(Array.from(palettePicture(60, 0, colors).cells))
+    expect(Array.from(palettePicture(60, 0, colors).cells)).not.toEqual(Array.from(palettePicture(60, 1_512, colors).cells))
+  })
+
+  it('holds for a tiny width and an empty list of colours without throwing', () => {
+    expect(palettePicture(1, 500, colors).columns).toBe(1)
+    expect(palettePicture(8, 500, []).rows).toBe(1)
   })
 })

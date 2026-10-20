@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { lifecycleOf, plan, profileOf, PROFILES, RIGORS, STAGES, toMissionPlan, type Plan } from '../hooks/goap'
+import { DEFAULT_LOOP, gatesOf, isWriter, lifecycleOf, loopCommand, plan, profileOf, PROFILES, RIGORS, STAGES, toMissionPlan, type Plan } from '../hooks/goap'
 
 const must = (profile: Parameters<typeof plan>[0], rigor: Parameters<typeof plan>[1]): Plan => plan(profile, rigor) as Plan
 const ids = (p: Plan) => p.steps.map(step => step.action.id)
@@ -131,5 +131,29 @@ describe('goal-oriented action planner over SPARC', () => {
     expect(lifecycleOf(must('feature', 'lean')).map(entry => entry.stage)).not.toEqual(expect.arrayContaining(['Secure', 'Benchmark', 'Learn']))
     expect(lifecycleOf(must('bugfix', 'standard')).map(entry => entry.stage)).toEqual(expect.arrayContaining(['Research', 'Secure', 'Learn']))
     expect(lifecycleOf(must('research', 'standard')).map(entry => entry.stage)).toContain('Learn')
+  })
+})
+
+describe('loop-centric helpers (ADR-441)', () => {
+  it('the defaults are the stated ones: 5m, worktrees on, commit on, push and publish off, six writers', () => {
+    expect(DEFAULT_LOOP).toEqual({ loopInterval: '5m', loopWorktrees: true, loopCommit: true, loopPush: false, loopPublish: false, loopWriters: 6 })
+  })
+
+  it('the loop command is one bounded line carrying the interval', () => {
+    expect(loopCommand('add  a\ndark mode', DEFAULT_LOOP)).toBe('/loop 5m add a dark mode')
+    expect(loopCommand('x', { ...DEFAULT_LOOP, loopInterval: '15m' })).toBe('/loop 15m x')
+    expect(loopCommand('y'.repeat(500), DEFAULT_LOOP).length).toBe('/loop 5m '.length + 500)
+  })
+
+  it('the gates always include the tests and follow what the plan must prove', () => {
+    expect(gatesOf(must('bugfix', 'lean'))).toEqual(['the full test suite', 'the build and smoke checks'])
+    expect(gatesOf(must('feature', 'thorough'))).toEqual(['the full test suite', 'the build and smoke checks', 'the review', 'the security review', 'the benchmark against the baseline'])
+  })
+
+  it('writers are the agents that change files; researchers and reviewers only read', () => {
+    const p = must('feature', 'standard')
+
+    expect(p.steps.filter(step => step.action.id === 'implement').every(step => isWriter(step.action))).toBe(true)
+    expect(p.steps.filter(step => ['research-context', 'review', 'security-review'].includes(step.action.id)).some(step => isWriter(step.action))).toBe(false)
   })
 })

@@ -3,7 +3,8 @@ import type { RenderElement } from 'claude-code'
 import type { Channels, Registry, Roster } from '../data/cli'
 import type { SwarmMessages, WorkClaims } from '../data/xruv'
 import { BBS_SERVE_COMMAND, INVITE_COMMAND, UNREGISTER_WHY, XRUV, type XEntry, type XGroup } from '../xruv'
-import { ago, button, clip, col, kv, live, row, rule, sourceLine, text, THEME, type Ctx } from './common'
+import { ago, button, clip, col, type Ctx, kv, live, row, rule, sourceLine, tagChip, text, THEME } from './common'
+import { frameResult } from './status-card'
 
 /** Result lines in view at once; j/k scroll the rest. */
 export const XRUV_ROWS = 8
@@ -49,7 +50,7 @@ function entryRow(ctx: Ctx, entry: XEntry, lead: number): RenderElement {
   return row(
     ctx,
     [
-      ctx.kit.Text({ bold: true, color: tag.color(), children: ` ${tag.text}` }),
+      tagChip(ctx, tag.text, tag.color()),
       ctx.kit.Button({ key: `xr-name-${entry.id}`, label: ` ${entry.name} `.padEnd(lead, '.'), plain: true, onPress: press }),
       ctx.kit.Button({ key: `xr-about-${entry.id}`, label: clip(` ${entry.about}`, Math.max(4, ctx.columns - lead - 18)), plain: true, dimColor: true, onPress: press }),
       ...(action === null ? [] : [action]),
@@ -73,8 +74,12 @@ function identityRows(ctx: Ctx, lead: number): RenderElement[] {
   const hasKey = state.snapshot?.hasNostrKey ?? null
   const reg = live<Registry>(state.probes.get('registry'))?.registration
   const rows: RenderElement[] = [rule(ctx, 'Identity', 'your own key · the file is never read')]
+  const confirmed = hasKey === null && state.nostrKeyVerifiedAtMs !== null
+  const present = confirmed
+    ? `confirmed by JOIN ${ago(state.nostrKeyVerifiedAtMs, ctx.nowMs)} (never read here)`
+    : 'present: ~/.ruflo/nostr.key (never read here)'
 
-  rows.push(kv(ctx, 'nostr key', hasKey === null ? 'n/a' : hasKey ? 'present: ~/.ruflo/nostr.key (never read here)' : 'none yet: JOIN makes ~/.ruflo/nostr.key', hasKey === true ? THEME.ok : undefined))
+  rows.push(kv(ctx, 'nostr key', hasKey || confirmed ? present : hasKey === null ? 'n/a' : 'none yet: JOIN makes ~/.ruflo/nostr.key', hasKey || confirmed ? THEME.ok : undefined))
   rows.push(kv(ctx, 'pubkey', state.xruv.pubkey !== null ? `${state.xruv.pubkey.slice(0, 16)}…${state.xruv.pubkey.slice(-6)}` : 'n/a — named by the next JOIN, ACCEPT or PUBLISH result'))
   rows.push(kv(ctx, 'registration', reg === undefined ? 'n/a — open or closed is in the registry (▸ fetch below)' : `${reg.isOpen ? 'open' : 'closed'}${reg.auth !== undefined ? ` · ${reg.auth}` : ''} · JOIN checks membership first and registers only if needed`, reg?.isOpen === true ? THEME.ok : undefined))
 
@@ -239,7 +244,7 @@ function resultRows(ctx: Ctx): RenderElement[] {
   if (result === null) {
     if (running === null) rows.push(text(ctx, ' ▸ fetch shows its answer here at once; a write shows here after you confirm (y)', { dimColor: true }))
 
-    return rows
+    return [frameResult(ctx, rows, running !== null ? 'run' : 'idle')]
   }
 
   rows.push(text(ctx, ` ${result.label}`, { bold: true, color: result.ok ? THEME.ok : THEME.bad }))
@@ -259,7 +264,7 @@ function resultRows(ctx: Ctx): RenderElement[] {
     )
   }
 
-  return rows
+  return [frameResult(ctx, rows, result.ok ? 'ok' : 'bad')]
 }
 
 /**

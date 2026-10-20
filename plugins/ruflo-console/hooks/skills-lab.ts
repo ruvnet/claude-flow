@@ -57,6 +57,7 @@ export function useSpec(state: State, host: Host, found: FoundSkill, load: (text
     shows: argv.join(' '),
     expect: 'the skill’s prompt typed into the AI terminal',
     isReadOnly: true,
+    declared: 'network',
     note: NOTES.use,
     run: async () => {
       const skills = state.skills
@@ -99,6 +100,7 @@ export function previewFoundSpec(state: State, host: Host, found: FoundSkill): A
     shows: argv.join(' '),
     expect: 'the repository’s skills in the preview panel',
     isReadOnly: true,
+    declared: 'network',
     note: NOTES.list,
     run: async () => {
       const skills = state.skills
@@ -131,7 +133,7 @@ export const isSafeDir = (path: string): boolean => path.startsWith('/') && !pat
 
 /** Reads a SKILL.md (bounded), checks it and keeps the result as the preview; never runs it. */
 async function previewFile(state: State, fs: ReaderFs, title: string, path: string, folder: string): Promise<void> {
-  const read = await readBounded(fs, state.cache, path)
+  const read = await readBounded(fs, state.cache, path, undefined, true)
   const text = textOf(read)
 
   if (text === null) {
@@ -301,7 +303,7 @@ export function moreSkillActions(state: State, host: Host, runner: Runner, load:
       if (name === null) return runner.ask(null, 'type the skill’s name in the create field first')
 
       skills.authored = name
-      void readBounded(host.fs, state.cache, under(state.cwd, `${name}/SKILL.md`)).then(read => {
+      void readBounded(host.fs, state.cache, under(state.cwd, `${name}/SKILL.md`), undefined, true).then(read => {
         const text = textOf(read)
         const lines = text === null ? [`${name}/SKILL.md: ${'reason' in read ? read.reason : 'unread'} (▸ create makes it)`] : checkLines(checkSkillMd(text, name))
 
@@ -318,7 +320,7 @@ export function moreSkillActions(state: State, host: Host, runner: Runner, load:
  */
 export function skillPaletteEntries(state: State): PaletteEntry[] {
   const wired = hosts.get(state)
-  const why = 'the skills view is not wired yet'
+  const why = 'the console is not running in this session: open it first (console_open skills)'
   const spec = (make: (host: Host) => ActionSpec): { kind: 'spec'; spec: ActionSpec | null; why: string } => ({ kind: 'spec', spec: wired === undefined ? null : make(wired.host), why })
   const find = (text: string): ActionSpec | null => {
     const argv = findArgv(text)
@@ -331,6 +333,7 @@ export function skillPaletteEntries(state: State): PaletteEntry[] {
       shows: argv.join(' '),
       expect: 'the results in the skills view',
       isReadOnly: true,
+      declared: 'network',
       note: 'network: asks skills.sh',
       run: async () => {
         state.skills.searchDraft = text

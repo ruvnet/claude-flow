@@ -44,7 +44,9 @@ describe.skipIf(!CLI_BUILT)('ADR-404 mods through the built CLI', () => {
 
       // No marketplace clone in this isolated config yet: a warning (Claude
       // Code clones it at its next interactive start), not a failure.
-      const status = JSON.parse(t.run('mods', 'status', '--json').replace(/^[^[]*/, ''));
+      // Startup integrity warnings begin with [WARN]; the JSON array begins on its own line.
+      const statusOutput = t.run('mods', 'status', '--json');
+      const status = JSON.parse(statusOutput.match(/^\[\s*\n[\s\S]*^\]$/m)?.[0] ?? statusOutput);
       const named = (name: string) => status.find((f: { name: string }) => f.name === name);
       expect(named('ruflo-mods plugin').status).toBe('pass'); // enabled in settings
       expect(named('ruflo marketplace')).toMatchObject({ status: 'warn', fix: expect.stringContaining('--scope project') });
