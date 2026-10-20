@@ -403,9 +403,10 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'swarm-coordination',
     name: 'Swarm & Coordination',
-    prefixes: ['swarm_', 'coordination_', 'daa_'],
+    // team_: host-agnostic Agent Teams bus (ADR-402)
+    prefixes: ['swarm_', 'coordination_', 'daa_', 'team_'],
     description: 'Topology-aware multi-agent coordination, task ownership, and collective scheduling.',
-    taskSignals: ['swarm', 'concurrent', 'parallel', 'coordinate', 'multi-agent'],
+    taskSignals: ['swarm', 'concurrent', 'parallel', 'coordinate', 'multi-agent', 'agent team'],
     commands: ['swarm init', 'swarm status', 'swarm coordinate'],
     skills: ['swarm-orchestration', 'swarm-advanced'],
     agents: ['coordinator', 'coder', 'tester', 'reviewer'],
@@ -680,6 +681,7 @@ const TOOL_OWNERSHIP: ReadonlyArray<{
   { prefixes: ['guidance_'], packageOwner: '@claude-flow/guidance', pluginOwner: 'ruflo-core' },
   { prefixes: ['seraphina_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-core' },
   { prefixes: ['x_federation_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-x-gateway' },
+  { prefixes: ['team_'], packageOwner: '@claude-flow/cli' },
 ] as const;
 
 function ownershipForTool(
