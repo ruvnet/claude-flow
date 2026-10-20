@@ -198,16 +198,14 @@ function getSwarmStatus(swarmId?: string) {
     }
   }
 
-  // Calculate dynamic progress based on actual state
-  // If no swarm state, show 0%. Otherwise calculate from completed tasks
+  // Progress is completed / total tasks. With no tasks there is nothing to be
+  // a fraction of, so it is `null` with a reason — never an invented number
+  // (#3572: a hard-coded 5% was shown for a swarm with no tasks, forever).
   const totalTasks = completedTasks + inProgressTasks + pendingTasks;
-  let progress = 0;
-  if (totalTasks > 0) {
-    progress = Math.round((completedTasks / totalTasks) * 100);
-  } else if (swarmState) {
-    // Swarm initialized but no tasks yet
-    progress = 5;
-  }
+  const progress: number | null = totalTasks > 0
+    ? Math.round((completedTasks / totalTasks) * 100)
+    : null;
+  const progressReason: string | null = totalTasks > 0 ? null : 'no tasks';
 
   // Determine status
   let status = 'idle';
@@ -245,6 +243,7 @@ function getSwarmStatus(swarmId?: string) {
       completed: 0
     },
     progress,
+    progressReason,
     tasks: {
       total: totalTasks,
       completed: completedTasks,
@@ -768,7 +767,9 @@ const statusCommand: Command = {
     output.writeln();
 
     // Progress bar
-    output.writeln(`Overall Progress: ${output.progressBar(status.progress, 100, 40)}`);
+    output.writeln(status.progress === null
+      ? `Overall Progress: ${output.dim(`n/a (${status.progressReason})`)}`
+      : `Overall Progress: ${output.progressBar(status.progress, 100, 40)}`);
     output.writeln();
 
     // Agent status

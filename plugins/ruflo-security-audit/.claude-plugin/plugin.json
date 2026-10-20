@@ -1,7 +1,7 @@
 {
   "name": "ruflo-security-audit",
   "description": "Security review, dependency scanning, policy gates, and CVE monitoring",
-  "version": "0.2.1",
+  "version": "0.3.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,21 @@
     "mcp",
     "cve-monitoring",
     "policy-gates",
-    "shell-injection"
-  ]
+    "shell-injection",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse audit findings that quote a live secret into memory.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

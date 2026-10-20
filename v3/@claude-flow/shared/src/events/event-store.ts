@@ -348,12 +348,15 @@ export class EventStore extends EventEmitter {
     sql += ' ORDER BY timestamp ASC';
 
     // Pagination
-    if (filter.limit) {
+    if (filter.limit !== undefined) {
       sql += ' LIMIT ?';
       params.push(filter.limit);
+    } else if (filter.offset !== undefined) {
+      // SQLite requires LIMIT before OFFSET; -1 means no upper bound.
+      sql += ' LIMIT -1';
     }
 
-    if (filter.offset) {
+    if (filter.offset !== undefined) {
       sql += ' OFFSET ?';
       params.push(filter.offset);
     }
@@ -422,10 +425,13 @@ export class EventStore extends EventEmitter {
       'SELECT * FROM snapshots WHERE aggregate_id = ? ORDER BY version DESC LIMIT 1'
     );
 
-    const row = stmt.getAsObject([aggregateId]);
+    stmt.bind([aggregateId]);
+    // sql.js getAsObject() yields undefined-valued column keys when no row matched,
+    // so step first and treat absence explicitly.
+    const row = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();
 
-    if (!row || Object.keys(row).length === 0) {
+    if (!row) {
       return null;
     }
 

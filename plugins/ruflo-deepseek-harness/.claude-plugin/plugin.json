@@ -1,9 +1,35 @@
 {
   "name": "ruflo-deepseek-harness",
   "description": "DeepSeek model harness for ruflo — agents, commands, scripts, and skills for running and evaluating DeepSeek-backed workflows within the ruflo swarm.",
-  "version": "0.1.0",
-  "author": { "name": "ruvnet", "url": "https://github.com/ruvnet" },
+  "version": "0.2.5",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
   "homepage": "https://github.com/ruvnet/ruflo",
   "license": "MIT",
-  "keywords": ["ruflo", "deepseek", "harness", "llm", "agents", "skills"]
+  "keywords": [
+    "ruflo",
+    "deepseek",
+    "harness",
+    "llm",
+    "agents",
+    "skills",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse prompts sent to the DeepSeek API that hold a key, token or password. On by default; it only ever tightens.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

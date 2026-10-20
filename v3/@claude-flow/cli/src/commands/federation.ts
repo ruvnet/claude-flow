@@ -14,7 +14,7 @@ function printJsonOrTable(ctx: CommandContext, data: unknown, title: string): vo
 }
 async function run(ctx: CommandContext, tool: string, args: Record<string, unknown>, title: string): Promise<CommandResult> {
   try {
-    // CLI flag --gateway takes precedence over the RUFLO_X_GATEWAY_URL env var (ADR-125).
+    // Credential-bearing and gateway-read tools require --gateway to match trusted server configuration.
     const data = await callMCPTool(tool, { gatewayUrl: ctx.flags.gateway, ...args });
     printJsonOrTable(ctx, data, title);
     if (data && typeof data === 'object' && (('ok' in data && data.ok === false) || ('degraded' in data && data.degraded === true))) return { success: false, exitCode: 1, data };
@@ -30,7 +30,7 @@ export const federationCommand: Command = {
   description: 'Open swarm federation via x.ruv.io — sync messages, roster, claims, registry, invites (Nostr, signed, membership-gated)',
   options: [
     { name: 'format', short: 'f', description: 'Output format (json|text)', type: 'string', default: 'text' },
-    { name: 'gateway', description: 'Gateway base URL (takes precedence over RUFLO_X_GATEWAY_URL; default https://x.ruv.io)', type: 'string' },
+    { name: 'gateway', description: 'Gateway URL; reads/admin writes require it to match RUFLO_X_GATEWAY_URL (default https://x.ruv.io); join selects its registration origin', type: 'string' },
   ],
   subcommands: [
     { name: 'join', description: 'Join the open swarm with YOUR OWN key without an invite on open relays (generates ~/.ruflo/nostr.key if absent, registers via NIP-98, verifies via NIP-42)',

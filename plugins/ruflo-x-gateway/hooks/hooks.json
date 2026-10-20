@@ -1,0 +1,6 @@
+{
+  "description": "x gateway as a mod (ADR-445 pattern): a guard that keeps secrets and credentials out of messages published to the open swarm, `/xgw-mod`, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

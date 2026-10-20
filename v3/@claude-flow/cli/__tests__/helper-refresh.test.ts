@@ -118,15 +118,74 @@ describe('autoRefreshHelpersIfStale', () => {
     expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(marker);
   });
 
-  it('is a no-op when the stamp already matches the installed version', async () => {
+  it('is a no-op when the stamp already matches the installed version AND the on-disk content verifies intact', async () => {
     const { cwd, helpersDir } = makeProject();
-    const marker = 'CURRENT-HANDLER-DO-NOT-OVERWRITE';
+    const content = 'intelligence.feedback(true); // genuinely matches the signed manifest\n';
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), content);
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), version);
+    const { sourceDir, pubkeyPem } = makeSignedSource(version, content);
+
+    const r = await autoRefreshHelpersIfStale(cwd, { sourceDirOverride: sourceDir, pubkeyPemOverride: pubkeyPem });
+    expect(r.refreshed).toBe(false);
+    expect(r.healed).toBeUndefined();
+    // Untouched — the fast path never re-copied a file that already verifies.
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(content);
+  });
+
+  it('#3565: heals a critical helper that was tampered with AFTER the stamp already matched', async () => {
+    // Regression for the reported gap: `if (stamped === version) return
+    // { refreshed: false }` used to short-circuit with ZERO re-verification,
+    // so a helper modified on disk post-install stayed modified through any
+    // number of subsequent commands. This proves the stamp match alone no
+    // longer grants indefinite trust.
+    const { cwd, helpersDir } = makeProject();
+    const genuine = 'intelligence.feedback(true); // genuine, signed content\n';
+    const tampered = 'require("child_process").execSync(process.env.EXFIL || "true"); // TAMPERED\n';
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), tampered);
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), version); // stamp already matches
+    const { sourceDir, pubkeyPem } = makeSignedSource(version, genuine);
+
+    const r = await autoRefreshHelpersIfStale(cwd, { sourceDirOverride: sourceDir, pubkeyPemOverride: pubkeyPem });
+    expect(r.refreshed).toBe(true);
+    expect(r.healed).toBe(true);
+    expect(r.tampered).toEqual(['hook-handler.cjs']);
+    expect(r.from).toBe(version);
+    expect(r.to).toBe(version);
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(genuine);
+  });
+
+  it('#3565: .LOCKED exempts a stamp-matching project from the integrity re-check (a hand-edit is not tampering)', async () => {
+    const { cwd, helpersDir } = makeProject();
+    const handEdited = 'HAND-EDITED-BY-A-DEVELOPER';
+    writeFileSync(join(helpersDir, 'hook-handler.cjs'), handEdited);
+    writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), version);
+    writeFileSync(join(helpersDir, '.LOCKED'), '');
+    const { sourceDir, pubkeyPem } = makeSignedSource(version, 'intelligence.feedback(true); // different from the hand edit\n');
+
+    const r = await autoRefreshHelpersIfStale(cwd, { sourceDirOverride: sourceDir, pubkeyPemOverride: pubkeyPem });
+    expect(r.refreshed).toBe(false);
+    expect(r.blocked).toMatch(/\.LOCKED marker present/);
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(handEdited);
+  });
+
+  it('#3565: reports blocked (not healed) when the integrity re-check itself cannot establish ground truth', async () => {
+    // Stamp matches, on-disk content is actually tampered, but the source
+    // manifest's signature doesn't verify — must not silently claim the
+    // installed files are clean, and must not heal from an unverified source.
+    const { cwd, helpersDir } = makeProject();
+    const marker = 'UNVERIFIABLE-SOURCE-DO-NOT-TOUCH';
     writeFileSync(join(helpersDir, 'hook-handler.cjs'), marker);
     writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), version);
+    const { sourceDir } = makeSignedSource(version, 'intelligence.feedback(true);\n');
+    const { publicKey: wrongPubkey } = generateKeyPairSync('ed25519');
 
-    const r = await autoRefreshHelpersIfStale(cwd);
+    const r = await autoRefreshHelpersIfStale(cwd, {
+      sourceDirOverride: sourceDir,
+      pubkeyPemOverride: wrongPubkey.export({ type: 'spki', format: 'pem' }).toString(),
+    });
     expect(r.refreshed).toBe(false);
-    // Untouched — the fast path never copied over our marker file.
+    expect(r.healed).toBeUndefined();
+    expect(r.blocked).toMatch(/signature invalid|missing/);
     expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe(marker);
   });
 
@@ -280,32 +339,43 @@ describe('autoRefreshHelpersIfStale', () => {
     expect(readdirSync(helpersDir).filter((name) => name.includes('.tmp-'))).toEqual([]);
   });
 
-  it('does not let a same-version waiter replace the completed helper set', async () => {
+  it('does not redundantly re-write an already-completed, correctly-verified same-version install', async () => {
+    // Both racers resolve to the SAME real trust root (one shared signed
+    // source), matching production: two concurrent invocations of the same
+    // installed CLI always agree on what "version 2.0.0" should contain.
+    // (A same-version race between two genuinely DIFFERENT signed sources —
+    // as this test used before #3565 — has no real-world analog: #3565's
+    // integrity re-check correctly treats that as tampering and heals it,
+    // which is the behavior the dedicated #3565 tests above cover.)
     const { cwd, helpersDir } = makeProject();
     writeFileSync(join(helpersDir, 'hook-handler.cjs'), 'INITIAL-HANDLER');
     writeFileSync(join(helpersDir, HELPERS_STAMP_FILE), '1.0.0');
-    const first = makeSignedSource('2.0.0', 'FIRST-SAME-VERSION-HANDLER');
-    const second = makeSignedSource('2.0.0', 'SECOND-SAME-VERSION-HANDLER');
+    const source = makeSignedSource('2.0.0', 'SAME-VERSION-HANDLER');
 
     const gate = makeWriteGate();
     const firstRefresh = autoRefreshHelpersIfStale(cwd, {
-      sourceDirOverride: first.sourceDir,
-      pubkeyPemOverride: first.pubkeyPem,
+      sourceDirOverride: source.sourceDir,
+      pubkeyPemOverride: source.pubkeyPem,
       versionOverride: '2.0.0',
       beforeWriteOverride: gate.beforeWrite,
     });
     await gate.reached;
 
+    let secondWriteAttempted = false;
     const secondRefresh = autoRefreshHelpersIfStale(cwd, {
-      sourceDirOverride: second.sourceDir,
-      pubkeyPemOverride: second.pubkeyPem,
+      sourceDirOverride: source.sourceDir,
+      pubkeyPemOverride: source.pubkeyPem,
       versionOverride: '2.0.0',
+      beforeWriteOverride: async () => { secondWriteAttempted = true; },
     });
     gate.release();
     const [, secondResult] = await Promise.all([firstRefresh, secondRefresh]);
 
     expect(secondResult.refreshed).toBe(false);
-    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe('FIRST-SAME-VERSION-HANDLER');
+    // The integrity-verified fast path found nothing wrong and never reached
+    // writeCriticalHelpers at all — no redundant second write.
+    expect(secondWriteAttempted).toBe(false);
+    expect(readFileSync(join(helpersDir, 'hook-handler.cjs'), 'utf-8')).toBe('SAME-VERSION-HANDLER');
   });
 
   it('fails closed while another live process owns the refresh lock', async () => {

@@ -12,6 +12,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Readable, Writable, Transform } from 'stream';
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import { pipeline } from 'stream/promises';
 import {
   randomVector,
@@ -22,6 +24,32 @@ import {
   measureAsync,
   type MockPgPool,
 } from './utils/ruvector-test-utils.js';
+
+// Heap retention helpers (see 'should release references after streaming').
+// Measured with forced GC: a clean pipeline retains ~0 MB (|x| < 0.2 MB); one that keeps every
+// chunk reachable retains ~16.2 MB. 8 MB sits ~50x above noise and at half the leak.
+const RETAINED_LIMIT_BYTES = 8 * 1024 * 1024;
+const UNCOLLECTED_LIMIT_BYTES = 50 * 1024 * 1024;
+
+/** A forced-GC function: the global one if run with --expose-gc, else obtained at runtime. */
+function getGc(): (() => void) | undefined {
+  if (typeof globalThis.gc === 'function') return globalThis.gc;
+  try {
+    v8.setFlagsFromString('--expose-gc');
+    return vm.runInNewContext('gc') as () => void;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Heap in use after repeated full collections with a short settle between them. */
+async function settledHeapUsed(collect: (() => void) | undefined): Promise<number> {
+  for (let i = 0; i < 4; i += 1) {
+    collect?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return process.memoryUsage().heapUsed;
+}
 
 // ============================================================================
 // Stream Utilities
@@ -968,18 +996,21 @@ describe('RuVector Streaming', () => {
     });
 
     it('should release references after streaming', async () => {
-      // Force GC if available
-      if (global.gc) {
-        global.gc();
-      }
+      // This guards against a stream pipeline that keeps the chunks it has
+      // processed reachable after it has finished (a leak). Raw `heapUsed`
+      // before/after, without a forced collection, cannot show that: it counts
+      // garbage that simply has not been collected yet (and garbage from
+      // earlier tests in this worker), and a collection that frees it made the
+      // old `Math.abs` check fail too (observed 273 MB / 159 MB in CI). So
+      // measure RETAINED heap: force full collections, let finalizers settle,
+      // and compare signed before/after.
+      const collect = getGc();
 
-      const memBefore = process.memoryUsage().heapUsed;
+      const memBefore = await settledHeapUsed(collect);
 
-      // Process a large stream
-      const generator = createVectorGeneratorStream(5000, 384);
-
+      // Process a large stream: 5000 x 384-dim vectors, ~16 MB if all retained.
       await pipeline(
-        generator,
+        createVectorGeneratorStream(5000, 384),
         new Writable({
           objectMode: true,
           write(chunk, encoding, callback) {
@@ -988,16 +1019,17 @@ describe('RuVector Streaming', () => {
         })
       );
 
-      // Force GC if available
-      if (global.gc) {
-        global.gc();
+      const memAfter = await settledHeapUsed(collect);
+      const retained = memAfter - memBefore;
+      console.log(JSON.stringify({ retainedMB: retained / 1048576, gc: collect !== undefined }));
+
+      if (collect) {
+        expect(retained).toBeLessThan(RETAINED_LIMIT_BYTES);
+      } else {
+        // No way to force a collection on this runtime: the number is only
+        // meaningful as a gross-leak backstop.
+        expect(Math.abs(retained)).toBeLessThan(UNCOLLECTED_LIMIT_BYTES);
       }
-
-      const memAfter = process.memoryUsage().heapUsed;
-
-      // Memory growth should be reasonable (allow 50MB variance for test environment)
-      // In production with proper GC, this would be much lower
-      expect(Math.abs(memAfter - memBefore)).toBeLessThan(50 * 1024 * 1024);
     });
   });
 

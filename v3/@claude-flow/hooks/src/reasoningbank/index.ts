@@ -587,6 +587,9 @@ export class ReasoningBank extends EventEmitter {
       if (now - pattern.createdAt > maxAge && pattern.usageCount < 2) {
         this.shortTermPatterns.delete(id);
         await this.deleteFromStorage(id);
+        if (this.hnswIndex) {
+          await this.hnswIndex.removePoint(id);
+        }
         patternsPruned++;
       }
     }
@@ -601,6 +604,9 @@ export class ReasoningBank extends EventEmitter {
           const toRemove = patterns[i].quality >= patterns[j].quality ? patterns[j] : patterns[i];
           this.shortTermPatterns.delete(toRemove.id);
           await this.deleteFromStorage(toRemove.id);
+          if (this.hnswIndex) {
+            await this.hnswIndex.removePoint(toRemove.id);
+          }
           duplicatesRemoved++;
         }
       }

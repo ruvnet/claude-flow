@@ -56,7 +56,7 @@ This directory contains all Architecture Decision Records for Claude-Flow v3.
 | ADR-027 | RuVector PostgreSQL Integration | ✅ Implemented | [ADR-027-ruvector-postgresql-integration.md](./ADR-027-ruvector-postgresql-integration.md) |
 | ADR-028 | Neural Attention Mechanisms | ✅ Implemented | [ADR-028-neural-attention-mechanisms.md](./ADR-028-neural-attention-mechanisms.md) |
 | ADR-029 | GNN Integration | ✅ Implemented | [ADR-029-gnn-integration.md](./ADR-029-gnn-integration.md) |
-| ADR-030 | Agentic QE Integration | ✅ Implemented | [ADR-030-agentic-qe-integration.md](./ADR-030-agentic-qe-integration.md) |
+| ADR-030 | Agentic QE Integration | ⛔ Superseded (in-repo plugin removed; use the `agentic-qe` package) | [ADR-030-agentic-qe-integration.md](./ADR-030-agentic-qe-integration.md) |
 | ADR-031 | Prime Radiant Integration | ✅ Implemented | [ADR-031-prime-radiant-integration.md](./ADR-031-prime-radiant-integration.md) |
 
 ### Packaging & Branding (ADR-042 to ADR-048)

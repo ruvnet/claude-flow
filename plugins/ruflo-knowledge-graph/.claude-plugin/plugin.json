@@ -1,7 +1,7 @@
 {
   "name": "ruflo-knowledge-graph",
-  "description": "Knowledge graph construction \u2014 entity extraction, relation mapping, and pathfinder graph traversal",
-  "version": "0.2.1",
+  "description": "Knowledge graph construction — entity extraction, relation mapping, and pathfinder graph traversal. As a mod (ADR-445): keeps secrets out of the graph, confirms graph deletes, /kg-mod, and a status file the console shows",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,33 @@
     "pathfinder",
     "mcp",
     "pathfinder-traversal",
-    "entity-extraction"
-  ]
+    "entity-extraction",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse tool calls that are clearly harmful in this plugin's domain (see README, As a mod).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "confirmDeletes": {
+      "type": "string",
+      "title": "Confirm graph deletes",
+      "description": "Require confirm: true on causal node and edge deletes.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

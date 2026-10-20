@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { readRecordStore } from './record-store.js';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 
@@ -14,12 +15,29 @@ const STORAGE_DIR = '.claude-flow';
 const TASK_DIR = 'tasks';
 const TASK_FILE = 'store.json';
 
+export const TASK_STATUSES = ['pending', 'in_progress', 'completed', 'failed', 'cancelled'] as const;
+type TaskStatus = (typeof TASK_STATUSES)[number];
+
+// Spellings agents write for the same five states (seen in the wild: "complete").
+const STATUS_ALIASES: Readonly<Record<string, TaskStatus>> = {
+  complete: 'completed', done: 'completed', canceled: 'cancelled',
+  running: 'in_progress', 'in-progress': 'in_progress', inprogress: 'in_progress',
+};
+
+/** The canonical status for a written one (trimmed, any case, known aliases), or null when it is none of the five. */
+export function statusOf(value: unknown): TaskStatus | null {
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase();
+  if ((TASK_STATUSES as readonly string[]).includes(key)) return key as TaskStatus;
+  return Object.hasOwn(STATUS_ALIASES, key) ? STATUS_ALIASES[key] : null;
+}
+
 interface TaskRecord {
   taskId: string;
   type: string;
   description: string;
   priority: 'low' | 'normal' | 'high' | 'critical';
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
+  status: TaskStatus;
   progress: number;
   assignedTo: string[];
   tags: string[];
@@ -50,16 +68,7 @@ function ensureTaskDir(): void {
 }
 
 function loadTaskStore(): TaskStore {
-  try {
-    const path = getTaskPath();
-    if (existsSync(path)) {
-      const data = readFileSync(path, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch {
-    // Return empty store on error
-  }
-  return { tasks: {}, version: '3.0.0' };
+  return readRecordStore(getTaskPath(), 'tasks', () => ({ tasks: {}, version: '3.0.0' }));
 }
 
 function saveTaskStore(store: TaskStore): void {
@@ -91,7 +100,7 @@ function updateAgents(agentIds: string[], mutate: (agent: AgentRow) => void): vo
       if (!store.agents) continue;
       let touched = false;
       for (const id of agentIds) {
-        if (store.agents[id]) {
+        if (Object.prototype.hasOwnProperty.call(store.agents, id) && store.agents[id]) {
           mutate(store.agents[id]);
           touched = true;
         }
@@ -337,7 +346,9 @@ export const taskTools: MCPTool[] = [
       type: 'object',
       properties: {
         taskId: { type: 'string', description: 'Task ID' },
-        status: { type: 'string', description: 'New status' },
+        // No schema enum: the HTTP/WebSocket registry validates enums before the handler, which would refuse the aliases there
+        // while stdio accepted them. The handler is the one place that normalises and refuses, for every transport.
+        status: { type: 'string', description: 'New status: pending, in_progress, completed, failed or cancelled' },
         progress: { type: 'number', description: 'Progress percentage (0-100)' },
         assignTo: { type: 'array', items: { type: 'string' }, description: 'Agent IDs to assign' },
         result: { type: 'object', description: 'Result data (e.g. the failure of a failed task)' },
@@ -348,35 +359,82 @@ export const taskTools: MCPTool[] = [
       // Validate user-provided input (#1425)
       const vId = validateIdentifier(input.taskId, 'taskId');
       if (!vId.valid) return { success: false, error: vId.error };
+      // A status outside the five is stored as written otherwise, and every reader that buckets
+      // by status (task_list filters, the console kanban) then miscounts it: "complete" read as pending.
+      const status = input.status === undefined ? undefined : statusOf(input.status);
+      if (status === null) {
+        return { success: false, error: `status must be one of ${TASK_STATUSES.join(', ')}` };
+      }
+
+      if (input.assignTo !== undefined && (!Array.isArray(input.assignTo)
+        || !input.assignTo.every(id => validateIdentifier(id, 'assignTo').valid))) {
+        return { success: false, error: 'assignTo must be an array of agent ids' };
+      }
 
       const store = loadTaskStore();
       const taskId = input.taskId as string;
       const task = store.tasks[taskId];
 
       if (task) {
-        if (input.status) {
-          const newStatus = input.status as TaskRecord['status'];
+        // Worker effects run AFTER the task store is saved, as task_complete does: a failed save must not leave
+        // workers freed and counted against a task that still reads unfinished.
+        let afterSave: (() => void) | undefined;
+        const previouslyAssigned = Array.isArray(task.assignedTo) ? [...task.assignedTo] : [];
+        if (status !== undefined) {
+          const newStatus = status;
+          const wasCompleted = task.status === 'completed';
           task.status = newStatus;
           if (newStatus === 'in_progress' && !task.startedAt) {
             task.startedAt = new Date().toISOString();
           }
-          // A failed task frees its workers, as task_complete and task_cancel do;
-          // otherwise a worker whose run failed stays `busy` forever.
-          if (newStatus === 'failed') {
+          // A finished task frees its workers, as task_complete and task_cancel do; otherwise a worker
+          // whose task was finished through task_update stays `busy` forever, and a later task_complete
+          // returns early because the status already reads completed.
+          if (newStatus === 'failed' || newStatus === 'cancelled') {
             task.completedAt = new Date().toISOString();
-            releaseAgents(task.assignedTo, taskId);
+            afterSave = () => releaseAgents(previouslyAssigned, taskId);
+          }
+          if (newStatus === 'completed' && !wasCompleted) {
+            task.completedAt = new Date().toISOString();
+            // Credited only to a worker still holding this task, so complete -> pending -> complete
+            // (no reassignment in between) never counts the same work twice.
+            afterSave = () => updateAgents(previouslyAssigned, (agent) => {
+              if (agent.currentTask === taskId) {
+                agent.status = 'idle';
+                agent.currentTask = null;
+                agent.taskCount = ((agent.taskCount as number) || 0) + 1;
+              }
+            });
           }
         }
         if (typeof input.progress === 'number') {
           task.progress = Math.min(100, Math.max(0, input.progress as number));
         }
+        // Completing is 100% whatever progress the same call carried.
+        if (task.status === 'completed') task.progress = 100;
         if (input.assignTo) {
           task.assignedTo = input.assignTo as string[];
+          // Reassignment must update the same worker stores as task_assign.
+          // Terminal transitions release/credit the workers that held the task
+          // before this update; replacement assignees did not perform that work.
+          if (!['completed', 'failed', 'cancelled'].includes(task.status)) {
+            afterSave = () => {
+              releaseAgents(previouslyAssigned.filter(id => !task.assignedTo.includes(id)), taskId);
+              // Echoing retained assignees must not take them from another task or re-credit completed work.
+              updateAgents(task.assignedTo.filter(id => !previouslyAssigned.includes(id)), agent => {
+                agent.status = 'busy';
+                agent.currentTask = taskId;
+              });
+            };
+          } else if (!afterSave) {
+            afterSave = () => releaseAgents(previouslyAssigned, taskId);
+          }
         }
         if (input.result && typeof input.result === 'object') {
           task.result = input.result as Record<string, unknown>;
         }
         saveTaskStore(store);
+        afterSave?.();
 
         return {
           success: true,
@@ -422,6 +480,11 @@ export const taskTools: MCPTool[] = [
 
       const previouslyAssigned = [...task.assignedTo];
 
+      // Load agent store to sync worker state
+      const agentStorePath = join(getProjectCwd(), STORAGE_DIR, 'agents', 'store.json');
+      readRecordStore<{ agents: Record<string, Record<string, unknown>> }>(
+        agentStorePath, 'agents', () => ({ agents: {} }),
+      );
       if (input.unassign) {
         // Revert previously assigned agents to idle
         releaseAgents(previouslyAssigned, taskId);

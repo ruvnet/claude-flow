@@ -75,16 +75,9 @@ async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCto
   const resolutionStrategies = [
     // Strategy 1: Direct import (works if installed as CLI dependency)
     async () => (await import(codexModuleId)).CodexInitializer,
-    // Strategy 2: Project node_modules (works if installed in user's project)
-    async () => {
-      const projectPath = path.join(cwd, 'node_modules', '@claude-flow', 'codex', 'dist', 'index.js');
-      if (fs.existsSync(projectPath)) {
-        const mod = await import(`file://${projectPath}`);
-        return mod.CodexInitializer;
-      }
-      throw new Error('Not found in project');
-    },
-    // Strategy 3: Global node_modules
+    // (No project node_modules strategy: init must not import code the
+    // target project supplies.)
+    // Strategy 2: Global node_modules
     async () => {
       const { execSync } = await import('child_process');
       const globalPath = execSync('npm root -g', { encoding: 'utf-8' }).trim();
@@ -108,13 +101,22 @@ async function resolveCodexInitializer(cwd: string): Promise<CodexInitializerCto
   return undefined;
 }
 
+// Trust level for a newly generated .codex/config.toml. Safe by default: only
+// an explicit `--codex-trust full` (or RUFLO_CODEX_TRUST=full, read by the
+// adapter) restores danger-full-access. Anything else is rejected here.
+export function readCodexTrustFlag(flags: Record<string, unknown>): 'standard' | 'full' | undefined | null {
+  const raw = flags.codexTrust ?? flags['codex-trust'];
+  if (raw === undefined || raw === null || raw === false || raw === '') return undefined;
+  return raw === 'standard' || raw === 'full' ? raw : null;
+}
+
 // Keep Codex out of the CLI dependency graph so cold `npx ruflo --version`
 // remains fast (#2561). An explicit `init --codex` may fetch the small,
 // stable adapter on demand when it is not already installed by an umbrella
 // package, the current project, or the global npm prefix.
 export function runCodexInitializerCli(
   cwd: string,
-  options: { template: string; force: boolean; dual: boolean },
+  options: { template: string; force: boolean; dual: boolean; codexTrust?: 'standard' | 'full' },
 ): boolean {
   const npxArgs = [
     '-y',
@@ -124,6 +126,7 @@ export function runCodexInitializerCli(
     options.template,
     ...(options.force ? ['--force'] : []),
     ...(options.dual ? ['--dual'] : []),
+    ...(options.codexTrust ? ['--codex-trust', options.codexTrust] : []),
   ];
 
   const result = process.platform === 'win32'
@@ -150,6 +153,7 @@ async function maybeAutoDetectCodex(
   options: { force: boolean; minimal: boolean; full: boolean },
 ): Promise<void> {
   try {
+    const codexTrust = readCodexTrustFlag(ctx.flags) ?? undefined;
     // The CLI parser turns `--no-codex-detect` into `codexDetect: false`.
     // Retain the literal key for programmatic CommandContext callers.
     if (ctx.flags.codexDetect === false || ctx.flags['no-codex-detect'] === true) return;
@@ -170,6 +174,7 @@ async function maybeAutoDetectCodex(
       template: (options.minimal ? 'minimal' : options.full ? 'full' : 'default') as 'minimal' | 'default' | 'full' | 'enterprise',
       force: options.force,
       dual: false, // Claude Code files were already written by the main init flow above
+      codexTrust,
     });
 
     if (!result.success) return; // best-effort — never fail the primary init over this
@@ -393,6 +398,11 @@ async function initCodexAction(
   options: { codexMode: boolean; dualMode: boolean; force: boolean; minimal: boolean; full: boolean }
 ): Promise<CommandResult> {
   const { force, minimal, full, dualMode } = options;
+  const codexTrust = readCodexTrustFlag(ctx.flags);
+  if (codexTrust === null) {
+    output.printError(`Invalid --codex-trust: ${String(ctx.flags.codexTrust ?? ctx.flags['codex-trust'])} (valid: standard, full)`);
+    return { success: false, exitCode: 1 };
+  }
 
   output.writeln();
   output.writeln(output.bold('Initializing RuFlo V3 for OpenAI Codex'));
@@ -410,7 +420,7 @@ async function initCodexAction(
     if (!CodexInitializer) {
       spinner.stop();
       output.printInfo('Fetching the stable Codex adapter for this initialization...');
-      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode });
+      const success = runCodexInitializerCli(ctx.cwd, { template, force, dual: dualMode, codexTrust });
       if (!success) {
         output.printError('Codex initialization failed while running @claude-flow/codex@latest.');
         return { success: false, exitCode: 1 };
@@ -425,6 +435,7 @@ async function initCodexAction(
       template: template as 'minimal' | 'default' | 'full' | 'enterprise',
       force,
       dual: dualMode,
+      codexTrust,
     });
 
     if (!result.success) {
@@ -461,14 +472,22 @@ async function initCodexAction(
     );
     output.writeln();
 
+    // The trust level of .codex/config.toml is always shown (never truncated
+    // behind other warnings): it decides what Codex may do without asking.
+    const isTrustNote = (w: string) => w.startsWith('.codex/config.toml');
+    const trustNotes = (result.warnings ?? []).filter(isTrustNote);
+    for (const note of trustNotes) output.printInfo(note);
+    if (trustNotes.length > 0) output.writeln();
+
     // Warnings
-    if (result.warnings && result.warnings.length > 0) {
+    const otherWarnings = (result.warnings ?? []).filter((w) => !isTrustNote(w));
+    if (otherWarnings.length > 0) {
       output.printWarning('Warnings:');
-      for (const warning of result.warnings.slice(0, 5)) {
+      for (const warning of otherWarnings.slice(0, 5)) {
         output.printInfo(`  • ${warning}`);
       }
-      if (result.warnings.length > 5) {
-        output.printInfo(`  ... and ${result.warnings.length - 5} more`);
+      if (otherWarnings.length > 5) {
+        output.printInfo(`  ... and ${otherWarnings.length - 5} more`);
       }
       output.writeln();
     }
@@ -866,6 +885,20 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
       }
     }
 
+    // ADR-404 (amended: mods default-on in init) — enable the ruflo mod
+    // plugins in the committed .claude/settings.json, then install them with
+    // claude. Additive: the classic hooks just written stay the fallback.
+    // --no-mods opts out; --no-plugin-install writes settings only.
+    if (ctx.flags.mods !== false) {
+      output.writeln();
+      try {
+        const { applyMods } = await import('../mods/apply.js');
+        await applyMods(ctx.cwd, { scope: 'project', pluginInstall: ctx.flags.pluginInstall !== false && ctx.flags['plugin-install'] !== false, skipInTestEnv: true });
+      } catch (err) {
+        output.writeln(output.warning(`  ruflo mods not enabled: ${err instanceof Error ? err.message : String(err)}`));
+      }
+    }
+
     if (!startDaemon && !startAll) {
       const bin = (process.argv[1] || '').includes('ruflo') ? 'ruflo' : 'claude-flow';
       output.writeln(output.bold('Next steps:'));
@@ -1166,6 +1199,17 @@ const wizardCommand: Command = {
         }
       }
 
+      // ADR-404 amendment — the wizard enables the mods as `ruflo init` does.
+      if (ctx.flags.mods !== false) {
+        output.writeln();
+        try {
+          const { applyMods } = await import('../mods/apply.js');
+          await applyMods(ctx.cwd, { scope: 'project', pluginInstall: ctx.flags.pluginInstall !== false && ctx.flags['plugin-install'] !== false, skipInTestEnv: true });
+        } catch (err) {
+          output.writeln(output.warning(`  ruflo mods not enabled: ${err instanceof Error ? err.message : String(err)}`));
+        }
+      }
+
       // Initialize embeddings if enabled
       let embeddingsInitialized = false;
       if (enableEmbeddings) {
@@ -1444,14 +1488,27 @@ const upgradeCommand: Command = {
     {
       name: 'settings',
       short: 's',
-      description: 'Merge new settings (Agent Teams, hooks) into existing settings.json',
+      description: 'Merge new settings (Agent Teams, hooks, ruflo mods) into existing settings.json',
       type: 'boolean',
       default: false,
+    },
+    {
+      // ADR-404 amendment — the same merge + plugin install as `ruflo init`.
+      name: 'mods',
+      description: 'Merge the ruflo mod plugins into .claude/settings.json and install them (also implied by --add-missing and --settings; --no-mods to skip)',
+      type: 'boolean',
+    },
+    {
+      name: 'plugin-install',
+      description: 'With mods: run claude plugin install (--no-plugin-install to merge settings only)',
+      type: 'boolean',
+      default: true,
     },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const addMissing = (ctx.flags['add-missing'] || ctx.flags.addMissing) as boolean;
     const upgradeSettings = (ctx.flags.settings) as boolean;
+    const upgradeMods = ctx.flags.mods === true || (ctx.flags.mods !== false && (addMissing || upgradeSettings));
 
     output.writeln();
     output.writeln(output.bold('Upgrading RuFlo'));
@@ -1487,6 +1544,15 @@ const upgradeCommand: Command = {
 
       spinner.succeed('Upgrade complete!');
       output.writeln();
+
+      // ADR-404 amendment — merge the mod plugins without clobbering: only
+      // keys that are absent are added, and each is reported.
+      if (upgradeMods) {
+        const { applyMods, describeAdded } = await import('../mods/apply.js');
+        const mods = await applyMods(ctx.cwd, { scope: 'project', pluginInstall: ctx.flags.pluginInstall !== false && ctx.flags['plugin-install'] !== false, skipInTestEnv: true });
+        result.settingsUpdated = [...(result.settingsUpdated ?? []), ...describeAdded(mods.install.added)];
+        output.writeln();
+      }
 
       // Show what was updated
       if (result.updated.length > 0) {
@@ -1670,6 +1736,19 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      // ADR-404 amendment — on by default; nothing loads where function hooks are off.
+      name: 'mods',
+      description: 'Enable the ruflo mod plugins in .claude/settings.json (default on; --no-mods to skip); classic hooks stay as fallback',
+      type: 'boolean',
+      default: true,
+    },
+    {
+      name: 'plugin-install',
+      description: 'With mods: refresh the ruflo marketplace and claude plugin install the mods (--no-plugin-install to write settings only)',
+      type: 'boolean',
+      default: true,
+    },
+    {
       name: 'with-embeddings',
       description: 'Initialize ONNX embedding subsystem with hyperbolic support',
       type: 'boolean',
@@ -1693,6 +1772,11 @@ export const initCommand: Command = {
       description: 'Initialize for both Claude Code and OpenAI Codex',
       type: 'boolean',
       default: false,
+    },
+    {
+      name: 'codex-trust',
+      description: 'Trust level of the generated .codex/config.toml: standard (default: workspace-write sandbox, on-request approvals, cached web search) or full (danger-full-access, no approvals, live web search). An existing file is never rewritten',
+      type: 'string',
     },
     {
       name: 'no-codex-detect',

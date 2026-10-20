@@ -253,7 +253,7 @@ test('channels: tools are registered, private publish refused, ids validated', a
   const rpc = (m) => fetch(base + '/mcp', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify(m) }).then((r) => r.text());
   const list = await rpc({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
   for (const n of ['channel_list', 'channel_sync', 'channel_publish']) assert.ok(list.includes(`"name":"${n}"`), n);
-  assert.ok(list.includes('Use when'), 'ADR-112 descriptions');
+  assert.ok(list.includes('Lists recently observed swarm channels'), 'channel list description');
 
   // channel_publish is admin-gated like every other gateway-identity write
   const noTok = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'channel_publish', arguments: { channel: 'pub:ops', msgType: 'Status', payload: {} } } });
@@ -426,8 +426,8 @@ test('onboarding: exposed as an open tool and an open resource', async () => {
   const ob = tools.find((t) => t.name === 'federation_onboarding');
   assert.ok(ob, 'federation_onboarding must be registered');
   assert.deepEqual(ob.inputSchema.required ?? [], [], 'onboarding must take no credential');
-  assert.match(ob.description, /Use when/);
-  assert.match(ob.description, /wrong turn|is wrong/);
+  assert.match(ob.description, /onboarding guide/);
+  assert.doesNotMatch(ob.description, /\b(use when|wrong turn|is wrong|other tool|ignore previous)\b/i);
 
   // Callable with no arguments and no token at all.
   const called = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'federation_onboarding', arguments: {} } });
@@ -472,12 +472,18 @@ const EXPECTED_ANNOTATIONS = {
   claims_release:         { readOnlyHint: false, destructiveHint: true,  idempotentHint: false, openWorldHint: true  },
   // Open world: answers come from an external model, and each call spends budget.
   seraphina_guidance:     { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true  },
+  // ADR-485: read-only views of public GitHub/npm. Open world: third parties write the content.
+  ruv_github_search:      { readOnlyHint: true,  destructiveHint: false, idempotentHint: true,  openWorldHint: true  },
+  ruv_github_repo:        { readOnlyHint: true,  destructiveHint: false, idempotentHint: true,  openWorldHint: true  },
+  ruv_github_file:        { readOnlyHint: true,  destructiveHint: false, idempotentHint: true,  openWorldHint: true  },
+  ruv_registry_latest:    { readOnlyHint: true,  destructiveHint: false, idempotentHint: true,  openWorldHint: true  },
 };
 
 /** Tools whose handler cannot mutate anything — the server's own read set. */
 const READ_ONLY_TOOL_NAMES = new Set([
   'federation_identity', 'federation_sync', 'claims_status',
   'channel_list', 'channel_sync', 'federation_onboarding',
+  'ruv_github_search', 'ruv_github_repo', 'ruv_github_file', 'ruv_registry_latest',
 ]);
 
 async function listToolsOverHttp() {
@@ -560,7 +566,8 @@ test('annotations: openWorldHint marks the multi-owner relay and external model'
     tools.filter((t) => t.annotations.openWorldHint).map((t) => t.name),
     ['federation_sync', 'claims_status', 'federation_join', 'federation_publish',
       'claims_issue', 'claims_release', 'federation_admit', 'channel_list',
-      'channel_sync', 'channel_publish', 'seraphina_guidance'],
+      'channel_sync', 'channel_publish', 'seraphina_guidance',
+      'ruv_github_search', 'ruv_github_repo', 'ruv_github_file', 'ruv_registry_latest'],
     'only fixed local metadata, static guidance, and local invite minting are closed world',
   );
 });
@@ -604,6 +611,11 @@ const toolsAt = async (base, path) => {
   return JSON.parse(raw.slice(raw.indexOf('{'))).result.tools;
 };
 
+const resourcesAt = async (base, path) => {
+  const raw = await rpcAt(base, path, { jsonrpc: '2.0', id: 1, method: 'resources/list', params: {} });
+  return JSON.parse(raw.slice(raw.indexOf('{'))).result.resources;
+};
+
 test('review endpoint: legacy /mcp keeps its full surface, secret arguments included', async () => {
   // The isolation has two halves and this is the one that is easy to break by
   // accident. /mcp is the compatibility surface; if adding the review profile
@@ -612,7 +624,7 @@ test('review endpoint: legacy /mcp keeps its full surface, secret arguments incl
   const gw = await startGateway();
   const legacy = await toolsAt(gw.base, '/mcp');
   const names = legacy.map((t) => t.name).sort();
-  assert.equal(legacy.length, 14, 'legacy /mcp must still advertise all 14 tools');
+  assert.equal(legacy.length, 18, 'legacy /mcp advertises the 14 federation tools plus the 4 ADR-485 GitHub query tools');
   assert.ok(names.includes('federation_invite_mint'), 'membership admin must remain on /mcp');
   assert.ok(names.includes('federation_admit'), 'membership admin must remain on /mcp');
   // The adminToken ARGUMENT is legacy behaviour and must remain available. It is
@@ -627,7 +639,7 @@ test('review endpoint: legacy /mcp keeps its full surface, secret arguments incl
   gw.close();
 });
 
-test('review endpoint: advertises 12 tools, dropping only membership administration', async () => {
+test('review endpoint: advertises 12 tools, dropping membership administration and the ADR-485 GitHub tools', async () => {
   process.env.RUFLO_ADMIN_TOKEN = 'test-admin-token';
   const gw = await startGateway();
   const [legacy, review] = [await toolsAt(gw.base, '/mcp'), await toolsAt(gw.base, '/chatgpt/mcp')];
@@ -638,9 +650,48 @@ test('review endpoint: advertises 12 tools, dropping only membership administrat
   // Exactly the two that decide who may exist on the relay. `federation_invite_mint`
   // also RETURNS an invite code, so no amount of argument reshaping would make it
   // acceptable — it has to be withheld.
-  assert.deepEqual(withheld, ['federation_admit', 'federation_invite_mint']);
+  // The four ruv_* GitHub/npm tools (ADR-485) are legacy-only: the directory profiles were
+  // reviewed with a fixed tool list, so widening them is a re-review, not a deploy detail.
+  assert.deepEqual(withheld, ['federation_admit', 'federation_invite_mint', 'ruv_github_file', 'ruv_github_repo', 'ruv_github_search', 'ruv_registry_latest']);
   // Nothing was invented for the review surface that is not a real tool.
   assert.deepEqual([...reviewNames].filter((n) => !legacyNames.has(n)), []);
+  gw.close();
+});
+
+test('Claude directory endpoint exposes the same hardened 12-tool profile', async () => {
+  process.env.RUFLO_ADMIN_TOKEN = 'test-admin-token';
+  const gw = await startGateway();
+  const [chatgpt, claude] = await Promise.all([
+    toolsAt(gw.base, '/chatgpt/mcp'),
+    toolsAt(gw.base, '/claude/mcp'),
+  ]);
+  assert.equal(claude.length, 12);
+  assert.deepEqual(claude, chatgpt,
+    'Claude and ChatGPT directory profiles must not drift in tools, schemas, titles, or annotations');
+  gw.close();
+});
+
+test('Claude directory tool descriptions contain capability facts, not model-routing instructions', async () => {
+  process.env.RUFLO_ADMIN_TOKEN = 'test-admin-token';
+  const gw = await startGateway();
+  const tools = await toolsAt(gw.base, '/claude/mcp');
+  const prohibited = /\b(use when|wrong turn|is wrong|ignore (?:all |any )?(?:previous |prior )?instructions?|call (?:the )?\w+ tool|users? should|instead use)\b/i;
+  for (const tool of tools) {
+    assert.doesNotMatch(tool.description, prohibited, `${tool.name} description contains routing or model-behavior instructions`);
+  }
+  gw.close();
+});
+
+test('Claude directory endpoint exposes the five documented ruv:// resources', async () => {
+  const gw = await startGateway();
+  const resources = await resourcesAt(gw.base, '/claude/mcp');
+  assert.deepEqual(resources.map((resource) => resource.uri).sort(), [
+    'ruv://claims/board',
+    'ruv://federation/onboarding',
+    'ruv://federation/registry',
+    'ruv://swarm/channels',
+    'ruv://swarm/roster',
+  ]);
   gw.close();
 });
 
@@ -922,7 +973,7 @@ test('untrusted: the review endpoint gets the same envelope, not a weaker one', 
     JSON.stringify({ type: 'Status', from: 'attacker', note: INJECTION }))]);
   const gw = createGateway({ relay: relay.url, keyFile: '/tmp/x-gw-inj3-' + Date.now() + '.key', port: 0 });
   const port = await gw.listen(0); const base = `http://127.0.0.1:${port}`;
-  for (const path of ['/mcp', '/chatgpt/mcp']) {
+  for (const path of ['/mcp', '/chatgpt/mcp', '/claude/mcp']) {
     assertFenced(await callTool(base, path, 'federation_sync', { sinceSeconds: 3600 }), { label: path });
   }
   gw.server.close(); relay.wss.close();

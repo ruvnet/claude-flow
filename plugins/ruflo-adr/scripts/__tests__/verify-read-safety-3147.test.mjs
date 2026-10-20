@@ -71,6 +71,10 @@ console.log(JSON.stringify(rows.slice(0, limit)));
       VERIFY_FORMAT: format,
       FAKE_MODE: mode,
       FAKE_CALLS: calls,
+      // #3558: pin the npx shim — a built checkout or an installed ruflo on
+      // PATH would otherwise be preferred over it (lib/ruflo-cli.mjs).
+      RUFLO_PLUGIN_SKIP_LOCAL_CLI: '1',
+      RUFLO_PLUGIN_SKIP_PATH_CLI: '1',
       ...extraEnv,
     },
     encoding: 'utf8',

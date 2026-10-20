@@ -276,6 +276,7 @@ export class WorkerQueue extends EventEmitter {
   private workerId: string;
   private heartbeatTimer?: NodeJS.Timeout;
   private processingTasks: Set<string> = new Set();
+  private retryTimers: Set<NodeJS.Timeout> = new Set();
   private isShuttingDown = false;
   private maxConcurrent = 1;
   private initialized = false;
@@ -366,9 +367,9 @@ export class WorkerQueue extends EventEmitter {
     // Check queues in priority order
     for (const workerType of workerTypes) {
       const queueName = this.getQueueName(workerType);
-      const taskId = this.store.popFromQueue(queueName);
-
-      if (taskId) {
+      let taskId: string | null;
+      // Cancelled or otherwise stale entries do not exhaust this worker type.
+      while ((taskId = this.store.popFromQueue(queueName)) !== null) {
         const task = this.store.getTask(taskId);
         if (task && task.status === 'pending') {
           task.status = 'processing';
@@ -396,6 +397,11 @@ export class WorkerQueue extends EventEmitter {
       return;
     }
 
+    // Late or duplicate outcomes must not rewrite a settled task.
+    if (['completed', 'failed', 'timeout', 'cancelled'].includes(task.status)) {
+      return;
+    }
+
     task.status = 'completed';
     task.completedAt = new Date();
     task.result = result;
@@ -418,6 +424,11 @@ export class WorkerQueue extends EventEmitter {
       return;
     }
 
+    // Late or duplicate outcomes must not rewrite a settled task.
+    if (['completed', 'failed', 'timeout', 'cancelled'].includes(task.status)) {
+      return;
+    }
+
     this.processingTasks.delete(taskId);
 
     // Check if we should retry
@@ -431,10 +442,13 @@ export class WorkerQueue extends EventEmitter {
 
       // Re-queue with delay (exponential backoff)
       const delay = Math.min(30000, 1000 * Math.pow(2, task.retryCount));
-      setTimeout(() => {
+      // Tracked so shutdown() can release it
+      const timer = setTimeout(() => {
+        this.retryTimers.delete(timer);
         const queueName = this.getQueueName(task.workerType);
         this.store.pushToQueue(queueName, taskId, PRIORITY_SCORES[task.priority]);
       }, delay);
+      this.retryTimers.add(timer);
 
       this.emit('taskRetrying', { taskId, retryCount: task.retryCount, delay });
     } else {
@@ -652,6 +666,10 @@ export class WorkerQueue extends EventEmitter {
     for (const taskId of this.processingTasks) {
       await this.fail(taskId, 'Worker shutdown', false);
     }
+
+    // Release scheduled retry timers (they would hold the process open)
+    for (const timer of this.retryTimers) clearTimeout(timer);
+    this.retryTimers.clear();
 
     // Stop store cleanup
     this.store.stopCleanup();

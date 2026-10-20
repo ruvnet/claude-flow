@@ -5,10 +5,10 @@ description: Neural pattern training, prediction, compression, and pipeline opti
 
 Neural system commands — dispatch by subcommand parsed from the user's input:
 
-1. **train** — `mcp__plugin_ruflo-core_ruflo__neural_train` with `--pattern-type` (`coordination|edit|task`) and `--epochs N`.
+1. **train** — `mcp__plugin_ruflo-core_ruflo__neural_train` with `{ modelType: "moe"|"transformer"|"classifier"|"embedding", epochs: N }` (`modelType` is required). The CLI equivalent is `neural train --pattern coordination|optimization|prediction|security|testing --epochs N`.
 2. **status** — `mcp__plugin_ruflo-core_ruflo__neural_status` (SONA + MoE state, active patterns, training in flight).
-3. **patterns** — `mcp__plugin_ruflo-core_ruflo__neural_patterns` to list learned patterns; supports `--list` and `--filter`.
-4. **predict** — `mcp__plugin_ruflo-core_ruflo__neural_predict` with `--input "<task description>"` to get a predicted outcome.
+3. **patterns** — `mcp__plugin_ruflo-core_ruflo__neural_patterns` with `{ action: "list"|"get"|"store"|"search"|"delete" }` (default list; `search` takes `query` and `limit`).
+4. **predict** — `mcp__plugin_ruflo-core_ruflo__neural_predict` with `{ input: "<task description>", topK? }` to get a predicted outcome.
 5. **optimize** — `mcp__plugin_ruflo-core_ruflo__neural_optimize` to retune the pipeline based on recent outcomes.
 6. **compress** — `mcp__plugin_ruflo-core_ruflo__neural_compress` to compact stored patterns (storage efficiency, runs after consolidation).
 

@@ -1,0 +1,4 @@
+{
+  "description": "Market data as a mod (ADR-445): a tighten-only guard on market writes (no secrets or credentialed feed URLs stored), a status file the console reads, and /market-mod.",
+  "modules": ["./register.ts"]
+}

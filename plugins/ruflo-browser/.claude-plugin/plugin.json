@@ -1,7 +1,7 @@
 {
   "name": "ruflo-browser",
-  "description": "Session-as-skill browser automation: Playwright + RVF cognitive containers + ruvector trajectories + AgentDB selector memory + AIDefence PII/injection gates",
-  "version": "0.2.1",
+  "description": "Session-as-skill browser automation: Playwright + RVF cognitive containers + ruvector trajectories + AgentDB selector memory + AIDefence PII/injection gates As a mod (ADR-445 pattern): a tighten-only tool guard, a local slash command, and a status file the console shows.",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -19,6 +19,33 @@
     "replay",
     "trajectory",
     "agentdb",
-    "aidefence"
-  ]
+    "aidefence",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Tool guard",
+      "description": "Refuse clearly harmful calls to this plugin's tools (tighten-only: it can only deny, never allow).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "strictUrls": {
+      "type": "string",
+      "title": "Strict URLs",
+      "description": "Also refuse plain http URLs outside localhost.",
+      "required": false,
+      "default": "off",
+      "options": [
+        "off",
+        "on"
+      ]
+    }
+  }
 }

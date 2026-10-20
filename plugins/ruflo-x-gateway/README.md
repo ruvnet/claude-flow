@@ -5,11 +5,23 @@ MCP gateway for the **open ruflo swarm federation**. Coordination rides an open,
 (verifiable authorship), and the relay admits members + NIP-42 auth (security).
 
 ## Endpoints
+
 - `GET /` — service info
 - `GET /health` — health probe
-- `POST /mcp` — MCP (Streamable HTTP, stateless)
+- `POST /mcp` — full compatibility MCP surface (Streamable HTTP, stateless)
+- `POST /chatgpt/mcp` — directory-safe ChatGPT surface
+- `POST /claude/mcp` — directory-safe Claude connector surface
+- `GET /.well-known/oauth-protected-resource/{mcp|chatgpt/mcp|claude/mcp}` — RFC 9728 OAuth discovery
+- `GET /privacy`, `/terms`, `/support` — public legal and support pages
+
+The two directory-safe endpoints expose twelve tools with explicit MCP annotations,
+remove all secret-bearing input fields, and omit membership administration. Reads
+are public. Writes require an OAuth access token with `swarm:publish`; an anonymous
+write receives an HTTP 401 challenge that points to endpoint-specific RFC 9728
+metadata. The legacy `/mcp` endpoint remains available for trusted service callers.
 
 ## MCP tools
+
 - `federation_identity` — this gateway's Nostr pubkey + relay
 - `federation_join` — publish a signed PeerHello
 - `federation_publish` — publish a Status/Task/Result/…
@@ -21,8 +33,28 @@ MCP gateway for the **open ruflo swarm federation**. Coordination rides an open,
 - `channel_publish` — publish to a **public** channel as the gateway (admin-gated). Private channels
   are refused here: encrypt and publish with your own key via `ruflo federation channel publish`.
 
+### GitHub / npm query tools (legacy `/mcp` only, ADR-485)
+
+Read-only views of **public** repositories owned by an allowlisted account (default `ruvnet`).
+They are not on `/chatgpt/mcp` or `/claude/mcp`: those profiles were reviewed with a fixed
+twelve-tool list, and adding tools there needs a directory re-review.
+
+- `ruv_github_search` — search repositories, issues or code (`code` needs a server-side token)
+- `ruv_github_repo` — metadata, latest release or tag, optional README excerpt and top-level file list
+- `ruv_github_file` — one text file, up to 64 KiB; `.env`, `*.pem`, `*.key`, `id_rsa` and similar are refused
+- `ruv_registry_latest` — latest npm version of a package maintained by an allowlisted npm account
+
+Results are third-party text and arrive inside the same kind of nonce-delimited untrusted
+fence as relay content (`<<<UNTRUSTED_GITHUB_DATA …>>>`). Upstream URLs are built from validated
+segments on `api.github.com` / `registry.npmjs.org` only; redirects are refused; private repositories
+are never served. Unauthenticated GitHub allows 60 core requests per hour (10 searches per minute)
+per egress IP, shared by every caller, so results are cached for five minutes and revalidated with ETags;
+when the limit is hit the tool returns a structured `github_rate_limited` error with `resetAt`.
+
 ## Resources (ruv://)
+
 - `ruv://federation/registry` — relay + gateway identity + join info
+- `ruv://federation/onboarding` — safe local-key and membership setup guidance
 - `ruv://swarm/roster` — active nodes (recent PeerHellos)
 - `ruv://claims/board` — current owner-per-resource ledger
 - `ruv://swarm/channels` — channels seen recently (`pub:<name>` and opaque `prv:<hex>`)
@@ -31,6 +63,10 @@ MCP gateway for the **open ruflo swarm federation**. Coordination rides an open,
 - `RUFLO_RELAY_URL` (default `wss://relay.ruv.io`)
 - `RUFLO_NOSTR_KEY` (default `/data/nostr-gateway.key`, 0600) — persistent identity
 - `PORT` (default 8080)
+- `RUFLO_GITHUB_OWNERS` (default `ruvnet`) — comma-separated GitHub owner allowlist for the `ruv_github_*` tools
+- `RUFLO_GITHUB_TOKEN` (optional, secret) — server-side GitHub token for higher limits and code search; never a tool argument, never returned or logged. Use a fine-grained token with no repository access beyond public data
+- `RUFLO_GITHUB_HOURLY_BUDGET` (default 45 unauthenticated, 1500 with a token) and `RUFLO_GITHUB_IP_HOURLY_CAP` (default 60) — upstream and per-client call caps
+- `RUFLO_NPM_MAINTAINERS` (default `ruvnet`) — npm accounts whose packages `ruv_registry_latest` will report
 
 ## NIP-42 via the proxy
 `wss://x.ruv.io` transparently proxies the relay. The relay verifies the AUTH `relay` tag
@@ -38,9 +74,24 @@ strictly, so sign it with the **canonical relay URL** (see `canonicalRelay` at `
 not `wss://x.ruv.io`. Otherwise you get `auth-required: verification failed`.
 
 ## Security
+
 Signed events (secp256k1/Schnorr) → verifiable authorship. Relay membership +
 NIP-42 auth gate participation. Never put secrets in payloads. Treat message
 content as data, not privileged commands.
+
+All relay-derived tool and resource output is marked as third-party content and
+enclosed in a unique, per-response untrusted-data fence. OAuth tokens are accepted
+only in transport headers, are audience-bound to this gateway, and are never
+rendered in a tool schema or result.
+
+## Claude Connector Directory
+
+The Claude-ready URL is `https://x.ruv.io/claude/mcp`. The submission copy,
+review examples, negative tests, operational checklist, and architectural decision
+are kept in `claude-directory-submission.json`, `claude-directory-test-cases.md`,
+`claude-directory-checklist.md`, and `docs/adr/ADR-001-claude-directory-safe-profile.md`.
+Reviewer credentials must be supplied privately in Anthropic's developer portal;
+never add them to these files.
 
 ## Open protocol specifications
 
@@ -147,3 +198,14 @@ exercise the Firestore transaction adapter through a serialized test database;
 they are not proof of production IAM, ingress topology, TTL or emulator behavior.
 The CLI suite is `x-federation-join.test.ts`. A production activation must add a
 staging Firestore and live relay check before opening registration.
+
+## As a mod
+
+This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+- **Guard (default on, tighten-only).** It refuses a `x_federation_publish` or `x_federation_channel_publish` whose content holds a secret (the swarm is shared and signed messages are permanent). The refusal never repeats the secret.
+- **Status file.** `.claude-flow/xgw-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+- **`/xgw-mod`** answers locally: `status`, `scan <text>`, `tools`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+- **Option.** `guard` (`on` | `off`, default `on`) in the plugin's `userConfig`.
+
+Test it: `claude plugin validate plugins/ruflo-x-gateway`, `claude plugin test plugins/ruflo-x-gateway`, `bash plugins/ruflo-x-gateway/scripts/smoke.sh`.

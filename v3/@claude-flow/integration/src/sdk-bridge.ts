@@ -334,16 +334,8 @@ export class SDKBridge extends EventEmitter {
   }
 
   private async detectVersion(): Promise<SDKVersion> {
-    // Detect agentic-flow version dynamically
-    try {
-      const af = await import('agentic-flow');
-      const version = (af as Record<string, unknown>)['VERSION'] as string | undefined;
-      if (version) {
-        return this.parseVersion(version);
-      }
-    } catch {
-      // agentic-flow not available, use fallback version
-    }
+    // No published agentic-flow root exports `VERSION`, and importing the root
+    // entry runs its CLI `main()` in 3.0.0-alpha.x, so use the baseline version.
     return this.parseVersion('2.0.1-alpha.50');
   }
 

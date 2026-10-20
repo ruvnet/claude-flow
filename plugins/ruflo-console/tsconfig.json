@@ -1,0 +1,19 @@
+{
+  "//": "Self-contained on purpose: bundlers (vite/esbuild in the root CI vitest) load this file for every module they transform, so it must not extend a file that only exists after Claude Code (>= 2.1.287) has loaded the plugin. Claude Code writes its declarations to .claude-plugin/types/ (gitignored) when it LOADS the plugin (`claude plugin validate` does not); tsc -p . then reads them through typeRoots. A fresh clone or worktree has none and tsc stops at TS2688: scripts/typecheck.sh copies them from the main checkout, then runs tsc.",
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment",
+    "typeRoots": ["./.claude-plugin/types"],
+    "types": ["claude-code", "claude-code-tools", "claude-code-mcp"]
+  },
+  "include": ["hooks", "tui", "types", "tests"]
+}

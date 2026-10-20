@@ -133,6 +133,13 @@ describe.skipIf(!CLI_BUILT)('ADR-323 typed memory provenance', () => {
     expect(keys).not.toContain('misc/note');
   });
 
+  it('SmartRetrieval returns every matching entry instead of fusing them into one (#2271)', () => {
+    // The fixture entries were stored seconds apart, so their 12-char search ids collide.
+    const r = searchJson('deploy', workdir, ['--smart']);
+    const keys = r.results.map(x => x.key);
+    expect(keys).toEqual(expect.arrayContaining(['user/goal', 'agent/plan', 'tool/deploy', 'misc/note']));
+  });
+
   it('preserves an existing provenance type when an upsert omits the flag', () => {
     const updated = run(
       ['memory', 'store', '-k', 'agent/plan', '-n', 'adr323', '--value', 'updated deploy plan'],

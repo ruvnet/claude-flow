@@ -74,7 +74,7 @@ Reserved namespaces (do not shadow): `pattern`, `claude-memories`, `default`. Se
 - **ruflo-rag-memory**: Simple store/search/recall — use for quick key-value memory when full AgentDB isn't needed
 - **ruflo-intelligence**: SONA neural patterns use AgentDB for pattern storage and HNSW retrieval
 - **ruflo-browser**: composes the namespace convention (`browser-sessions/-selectors/-templates/-cookies`)
-- **ruflo-ruvector**: sibling substrate plugin (pinned `ruvector@0.2.25`)
+- **ruflo-ruvector**: sibling substrate plugin (pinned `ruvector@0.2.27`)
 
 ### Neural Learning
 

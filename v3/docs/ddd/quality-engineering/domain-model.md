@@ -1,5 +1,7 @@
 # Quality Engineering Domain Model
 
+> **Retired (2026-10-09):** the in-repo `v3/plugins/agentic-qe` implementation described here was removed; it never wrapped the real `agentic-qe` package. This document is kept for history. Use the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) npm package or its Claude Code plugin `agentic-qe-fleet` ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)).
+
 ## Overview
 
 This document defines the domain entities, value objects, aggregates, and domain services for the Quality Engineering bounded contexts in the agentic-qe plugin.

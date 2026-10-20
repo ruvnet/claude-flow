@@ -12,10 +12,12 @@
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { basename, dirname, join, resolve } from 'path';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'crypto';
-import type { MCPTool } from './types.js';
+import { getProjectCwd, type MCPTool } from './types.js';
 import { validateIdentifier } from './validate-input.js';
+import { DEFAULT_SEARCH_THRESHOLD, nearMisses } from '../memory/search-defaults.js';
 
 // Legacy JSON store interface (for migration)
 interface LegacyMemoryEntry {
@@ -66,7 +68,16 @@ const MAX_QUERY_LENGTH = 4096;
 // validateMemoryInput. Imported by sanitizeMemoryKey so write-side sanitization
 // and read-side rejection can never drift apart (the symmetry bug behind #1884).
 const DANGEROUS_KEY_CHARS = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/g;
-const DANGEROUS_KEY_PATTERN = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/;
+export const DANGEROUS_KEY_PATTERN = /[;&|`$(){}[\]<>!#\\\0]|\.\.[/\\]/;
+
+/**
+ * #3570: the one key rule for every memory write path (MCP store, CLI store,
+ * import). Plain `/` stays legal (`probe/x`); traversal and shell metacharacters
+ * do not. Returns the error message, or null when the key is acceptable.
+ */
+export function memoryKeyError(key: string): string | null {
+  return DANGEROUS_KEY_PATTERN.test(key) ? 'Key contains disallowed characters' : null;
+}
 
 function validateMemoryInput(key?: string, value?: string, query?: string, namespace?: string): void {
   if (key && key.length > MAX_KEY_LENGTH) {
@@ -79,9 +90,8 @@ function validateMemoryInput(key?: string, value?: string, query?: string, names
     throw new Error(`Query exceeds maximum length of ${MAX_QUERY_LENGTH} characters`);
   }
   // Reject path traversal and shell metacharacters in keys/namespaces (#1425)
-  if (key && DANGEROUS_KEY_PATTERN.test(key)) {
-    throw new Error('Key contains disallowed characters');
-  }
+  const keyError = key ? memoryKeyError(key) : null;
+  if (keyError) throw new Error(keyError);
   if (namespace && DANGEROUS_KEY_PATTERN.test(namespace)) {
     throw new Error('Namespace contains disallowed characters');
   }
@@ -166,7 +176,22 @@ function resolveProjectMemoryDir(claudeProjectsDir: string, projectPathOverride?
   if (projectPathOverride && projectPathOverride.length > 0) {
     sources.push(projectPathOverride);
   } else {
-    sources.push(process.cwd());
+    const project = getProjectCwd();
+    sources.push(project);
+    // Claude Code shares auto-memory across linked Git worktrees under the
+    // main checkout's project slug. Preserve the direct-path match first,
+    // then try the common Git directory's parent. Explicit overrides above
+    // remain authoritative, and non-Git projects need no Git dependency.
+    try {
+      const commonDir = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+        cwd: project,
+        encoding: 'utf-8',
+        timeout: 1000,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+      if (basename(commonDir) === '.git') sources.push(dirname(resolve(project, commonDir)));
+    } catch { /* Git unavailable or not a repository: use the project path */ }
   }
 
   for (const source of sources) {
@@ -235,13 +260,29 @@ function loadLegacyStore(): LegacyMemoryStore | null {
 /**
  * Mark migration as complete
  */
-function markMigrationComplete(): void {
+function markMigrationComplete(counts?: { migrated: number; total: number }): void {
   const legacyDir = resolve(LEGACY_MEMORY_DIR);
   if (!existsSync(legacyDir)) mkdirSync(legacyDir, { recursive: true });
   writeFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), JSON.stringify({
     migratedAt: new Date().toISOString(),
     version: '3.0.0',
+    ...(counts ?? {}),
   }), 'utf-8');
+}
+
+/**
+ * Counts recorded by the migration that wrote the marker, or null when no
+ * marker (or an older marker without counts) is present.
+ */
+function readMigrationCounts(): { migrated: number; total: number } | null {
+  try {
+    const marker = JSON.parse(readFileSync(resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)), 'utf-8'));
+    return typeof marker?.migrated === 'number' && typeof marker?.total === 'number'
+      ? { migrated: marker.migrated, total: marker.total }
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -267,6 +308,19 @@ async function getMemoryFunctions() {
     initializeMemoryDatabase,
     checkMemoryInitialization,
   };
+}
+
+/**
+ * Path of the CLI's own store (.swarm/memory.db or CLAUDE_FLOW_DB_PATH), or
+ * undefined when the memory module cannot say (#4148). Never throws.
+ */
+async function resolveCliStorePath(): Promise<string | undefined> {
+  try {
+    const mod = await import('../memory/memory-initializer.js');
+    return typeof mod.resolveDbPath === 'function' ? mod.resolveDbPath() : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -424,7 +478,7 @@ async function ensureInitialized(dbPath?: string): Promise<void> {
           }
 
           console.error(`[MCP Memory] Migrated ${migrated}/${Object.keys(legacyStore.entries).length} entries`);
-          markMigrationComplete();
+          markMigrationComplete({ migrated, total: Object.keys(legacyStore.entries).length });
         }
       }
     }
@@ -491,6 +545,10 @@ export const memoryTools: MCPTool[] = [
       }
 
       validateMemoryInput(key, value, undefined, namespace);
+      // #3570: a namespace written here must be exportable and purgeable, so it
+      // passes the same validator export and purge use.
+      const vNs = validateIdentifier(namespace, 'namespace');
+      if (!vNs.valid) throw new Error(vNs.error);
 
       const startTime = performance.now();
 
@@ -611,7 +669,7 @@ export const memoryTools: MCPTool[] = [
         query: { type: 'string', description: 'Search query (semantic similarity)' },
         namespace: { type: 'string', description: 'Namespace to search (default: all namespaces — omit to search across every namespace)' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
-        threshold: { type: 'number', description: 'Minimum raw retrieval relevance 0-1 for candidate admission, applied per query before SmartRetrieval ranking; not a floor on rankingScore (default: 0.3)' },
+        threshold: { type: 'number', description: 'Minimum raw retrieval relevance 0-1 for candidate admission, applied per query before SmartRetrieval ranking; not a floor on rankingScore (default: 0.2; calibrated for the bundled embedding model, pass 0 to see every match)' },
         smart: { type: 'boolean', description: 'Enable SmartRetrieval — query expansion, RRF fusion, recency boost, MMR diversity; preserves raw similarity and adds rankingScore (default: false)' },
         provenance_filter: {
           type: 'array',
@@ -642,7 +700,8 @@ export const memoryTools: MCPTool[] = [
       // in the search layer actually fires.
       const namespace = input.namespace as string | undefined;
       const limit = (input.limit as number) ?? 10;
-      const threshold = (input.threshold as number) ?? 0.3;
+      const threshold = (input.threshold as number) ?? DEFAULT_SEARCH_THRESHOLD;
+      const thresholdWasDefault = input.threshold === undefined || input.threshold === null;
 
       validateMemoryInput(undefined, undefined, query, namespace);
 
@@ -680,7 +739,11 @@ export const memoryTools: MCPTool[] = [
               });
               return {
                 results: r.results.map(e => ({
-                  id: e.id,
+                  // #2271: searchEntries() truncates ids to 12 chars ("entry_" +
+                  // the leading digits of Date.now()), so entries written within
+                  // ~2.8h share one id and RRF fused them into a single result.
+                  // SmartRetrieval dedupes on id: give it the (namespace, key) tuple.
+                  id: JSON.stringify([e.namespace, e.key]),
                   key: e.key,
                   content: e.content,
                   score: e.score,
@@ -717,10 +780,15 @@ export const memoryTools: MCPTool[] = [
               };
             });
 
+            const smartNearMisses = results.length === 0 && thresholdWasDefault
+              ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+              : undefined;
+
             return {
               query,
               results,
               total: results.length,
+              ...(smartNearMisses ?? {}),
               searchTime: `${duration.toFixed(2)}ms`,
               backend: 'SmartRetrieval (RRF + MMR + Recency)',
               stats: smartResult.stats,
@@ -770,10 +838,15 @@ export const memoryTools: MCPTool[] = [
           };
         });
 
+        const nearMissInfo = results.length === 0 && thresholdWasDefault
+          ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+          : undefined;
+
         return {
           query,
           results,
           total: results.length,
+          ...(nearMissInfo ?? {}),
           searchTime: `${duration.toFixed(2)}ms`,
           backend: 'HNSW + sql.js',
           ...(smartFallbackReason ? { smartFallback: smartFallbackReason } : {}),
@@ -1009,11 +1082,17 @@ export const memoryTools: MCPTool[] = [
     handler: async (input) => {
       const force = input.force as boolean;
 
-      // Remove migration marker if forcing
+      // Remove the migration marker if forcing. hasLegacyStore() checks the marker
+      // beside the legacy store, so that is the one force must clear (#4194);
+      // the old .swarm marker path is cleared too for compatibility.
       if (force) {
-        const markerPath = getMigrationMarkerPath();
-        if (existsSync(markerPath)) {
-          unlinkSync(markerPath);
+        for (const markerPath of [
+          resolve(join(LEGACY_MEMORY_DIR, MIGRATION_MARKER)),
+          getMigrationMarkerPath(),
+        ]) {
+          if (existsSync(markerPath)) {
+            unlinkSync(markerPath);
+          }
         }
       }
 
@@ -1027,13 +1106,38 @@ export const memoryTools: MCPTool[] = [
         };
       }
 
+      // A marker beside the store means a migration already ran; ensureInitialized
+      // would move nothing, so say so instead of reporting the store's size.
+      if (!hasLegacyStore()) {
+        return {
+          success: true,
+          message: 'Legacy store already migrated (marker present); nothing was moved. Pass force: true to re-run.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       // Run migration via ensureInitialized
       await ensureInitialized();
 
+      // ensureInitialized swallows errors and records what it moved in the marker.
+      const counts = readMigrationCounts();
+      if (!counts) {
+        return {
+          success: false,
+          message: 'Migration did not complete; no entries were recorded as migrated. See the MCP server log.',
+          migrated: 0,
+          total: Object.keys(legacyStore.entries).length,
+        };
+      }
+
       return {
         success: true,
-        message: 'Migration completed',
-        migrated: Object.keys(legacyStore.entries).length,
+        message: counts.migrated === counts.total
+          ? 'Migration completed'
+          : `Migration completed with failures: ${counts.migrated} of ${counts.total} entries migrated`,
+        migrated: counts.migrated,
+        total: counts.total,
         backend: await describeBackend(),
       };
     },
@@ -1124,6 +1228,7 @@ export const memoryTools: MCPTool[] = [
 
       let imported = 0;
       let skipped = 0;
+      const importErrors: string[] = [];
       // #1791.8 — Claude Code's `~/.claude/projects/` accumulates historical
       // project_id directories (truncated forms, sandbox cwds, renamed
       // workspaces) that all contain copies of the same memory files. The
@@ -1168,7 +1273,7 @@ export const memoryTools: MCPTool[] = [
             // #1884 — sanitize key so memory_delete can later remove it. Without
             // this, dangerous chars from frontmatter `name` strand the key.
             const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}`);
-            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true });
+            const stored = await storeEntry({ key, value: body, namespace: ns, generateEmbeddingFlag: true, upsert: true });
             if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
             imported++;
           } else {
@@ -1180,13 +1285,17 @@ export const memoryTools: MCPTool[] = [
               // #1884 — sanitize so any dangerous chars in the heading don't
               // produce keys memory_delete will reject.
               const key = sanitizeMemoryKey(`claude:${memFile.project}:${name}:${sectionTitle.slice(0, 50)}`);
-              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true });
+              const stored = await storeEntry({ key, value: sectionBody, namespace: ns, generateEmbeddingFlag: true, upsert: true });
               if (!stored.success) throw new Error(stored.error || `Failed to store ${key}`);
               imported++;
             }
           }
-        } catch {
+        } catch (err) {
           skipped++;
+          // Say why a file was skipped instead of returning a bare failure (#4197).
+          if (importErrors.length < 5) {
+            importErrors.push(`${memFile.path}: ${err instanceof Error ? err.message : String(err)}`);
+          }
         }
       }
 
@@ -1206,6 +1315,7 @@ export const memoryTools: MCPTool[] = [
         skipped,
         duplicatesSkipped,
         excludedByPattern,
+        ...(importErrors.length > 0 ? { errors: importErrors } : {}),
         files: memoryFiles.length,
         projects: projects.size,
         namespace: ns,
@@ -1465,7 +1575,8 @@ export const memoryTools: MCPTool[] = [
       const dryRun = input.dryRun !== false; // default true
       const namespace = input.namespace ? String(input.namespace) : undefined;
       if (namespace) { const v = validateIdentifier(namespace, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      const all = await listEntries({ limit: 100000, namespace });
+      // #4056: TTL hides expired rows from normal reads, so the cleanup has to ask for them.
+      const all = await listEntries({ limit: 100000, namespace, includeExpired: true });
       const now = Date.now();
       const expired = all.entries.filter(e => {
         const exp = (e as { expiresAt?: string | number | null }).expiresAt;
@@ -1552,7 +1663,49 @@ export const memoryTools: MCPTool[] = [
       // entry body. Without this, `value` is always null because listEntries
       // strips content by default (callers pay for the JSON parse only when
       // they need it).
-      const all = await listEntries({ limit: 100000, namespace, includeContent: true });
+      // A successful export must cover the whole reported store. Read all
+      // pages before touching an existing snapshot, including on read failure.
+      type ExportEntry = Awaited<ReturnType<typeof listEntries>>['entries'][number];
+      const readStore = async (dbPath?: string): Promise<{ entries: ExportEntry[] } | { error: string }> => {
+        const out: ExportEntry[] = [];
+        let total: number | undefined;
+        do {
+          const page = await listEntries({ limit: 10000, offset: out.length, namespace, includeContent: true, ...(dbPath ? { dbPath } : {}) });
+          if (!page.success) return { error: page.error || 'Could not read memory for export' };
+          total ??= page.total;
+          if (page.entries.length === 0 && out.length < total) {
+            return { error: `Incomplete memory export: read ${out.length} of ${total} entries` };
+          }
+          out.push(...page.entries);
+        } while (out.length < total);
+        return { entries: out };
+      };
+      const primary = await readStore();
+      if ('error' in primary) return { error: primary.error };
+      // #4148: the default reader is the AgentDB bridge, but the CLI's own store
+      // (.swarm/memory.db, possibly encrypted) can hold rows the bridge never
+      // sees, so an export silently covered one store and reported success. Read
+      // the CLI store too and merge, newest copy of a (namespace, key) winning.
+      const warnings: string[] = [];
+      const stores: Array<{ store: string; entries: number }> = [{ store: 'default', entries: primary.entries.length }];
+      const merged = new Map<string, ExportEntry>();
+      const keep = (e: ExportEntry): void => {
+        const id = `${e.namespace}\u0000${e.key}`;
+        const have = merged.get(id);
+        if (!have || String(e.updatedAt) > String(have.updatedAt)) merged.set(id, e);
+      };
+      primary.entries.forEach(keep);
+      const cliStore = await resolveCliStorePath();
+      if (cliStore && existsSync(cliStore)) {
+        const secondary = await readStore(cliStore);
+        if ('error' in secondary) {
+          warnings.push(`Could not read the CLI store ${cliStore} (${secondary.error}); the export covers the AgentDB store only.`);
+        } else {
+          stores.push({ store: cliStore, entries: secondary.entries.length });
+          secondary.entries.forEach(keep);
+        }
+      }
+      const all = { entries: [...merged.values()] };
       const payload = {
         schema: 'ruflo-memory-export/v1',
         exportedAt: new Date().toISOString(),
@@ -1575,6 +1728,8 @@ export const memoryTools: MCPTool[] = [
         outputPath,
         format: (input.format as string) || 'json',
         exported: { entries: all.entries.length, vectors: vectorsWithEmb, patterns: 0 },
+        stores,
+        ...(warnings.length ? { warnings } : {}),
         fileSize: `${Buffer.byteLength(JSON.stringify(payload))}B`,
         note: input.format === 'csv' ? 'CSV not implemented yet — wrote JSON' : undefined,
       };
@@ -1603,6 +1758,9 @@ export const memoryTools: MCPTool[] = [
       await ensureInitialized(dbPath);
       const { storeEntry } = await getMemoryFunctions();
       const t0 = Date.now();
+      // Values are re-embedded on import; count the vectors actually written
+      // rather than reporting a constant 0 next to entries that show a vector.
+      let vectors = 0;
       const inputPath = String(input.inputPath ?? '');
       if (!inputPath || !existsSync(inputPath)) return { error: `File not found: ${inputPath || '(empty)'}` };
       let doc: { entries?: Array<{ key: string; namespace?: string; value?: unknown }> };
@@ -1611,19 +1769,43 @@ export const memoryTools: MCPTool[] = [
       const entries = Array.isArray(doc.entries) ? doc.entries : [];
       const nsOverride = input.namespace ? String(input.namespace) : undefined;
       if (nsOverride) { const v = validateIdentifier(nsOverride, 'namespace'); if (!v.valid) throw new Error(v.error); }
-      let imported = 0; let skipped = 0;
+      // #3570: validate every entry's namespace up front so a bad file writes nothing.
+      if (!nsOverride) {
+        for (const e of entries) {
+          if (e && typeof e.key === 'string' && e.namespace !== undefined) {
+            const v = validateIdentifier(String(e.namespace), 'namespace');
+            if (!v.valid) throw new Error(v.error);
+          }
+        }
+      }
+      // #3570 follow-up: keys get the same up-front, all-or-nothing check.
+      for (const e of entries) {
+        if (e && typeof e.key === 'string') {
+          const keyError = memoryKeyError(e.key);
+          if (keyError) throw new Error(`${keyError}: ${JSON.stringify(e.key)}`);
+        }
+      }
+      let imported = 0; let skipped = 0; let failed = 0;
+      const errors: string[] = [];
       for (const e of entries) {
         if (!e || typeof e.key !== 'string') { skipped++; continue; }
         const value = typeof e.value === 'string' ? e.value : JSON.stringify(e.value ?? null);
         try {
           const result = await storeEntry({ key: e.key, value, namespace: nsOverride ?? e.namespace ?? 'default', upsert: input.merge !== false, dbPath });
-          if (result.success) imported++;
-          else skipped++;
-        } catch { skipped++; }
+          if (!result.success) throw new Error(result.error || 'Memory write was rejected');
+          imported++;
+          if (result.embedding) vectors++;
+        } catch (error) {
+          failed++;
+          if (errors.length < 10) errors.push(`${e.key}: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
       return {
+        success: failed === 0,
+        error: failed > 0 ? `${failed} memory write(s) failed: ${errors.join('; ')}` : undefined,
+        failed,
         inputPath,
-        imported: { entries: imported, vectors: 0, patterns: 0 },
+        imported: { entries: imported, vectors, patterns: 0 },
         skipped,
         duration: Date.now() - t0,
       };

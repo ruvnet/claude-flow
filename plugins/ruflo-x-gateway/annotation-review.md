@@ -1,6 +1,8 @@
 # RuFlo Federation tool annotation review
 
-Endpoint: `https://x.ruv.io/chatgpt/mcp`
+Directory-safe endpoints: `https://x.ruv.io/chatgpt/mcp` and
+`https://x.ruv.io/claude/mcp`. A contract test requires their tool tables,
+schemas, titles, and annotations to remain identical.
 
 All four MCP hints are explicit booleans for every exposed tool. The relay is
 classified as open-world because its channels, resources, publishers, and

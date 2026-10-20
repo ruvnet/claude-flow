@@ -11,6 +11,12 @@ plugins/ruflo-adr/scripts/__tests__/verify-read-safety-3147.test.mjs
 plugins/ruflo-business-pods/scripts/pod-tick.test.mjs
 plugins/ruflo-core/scripts/escape-cmd-arg.test.cjs
 plugins/ruflo-core/scripts/mcp-launch.test.cjs
+plugins/ruflo-mods/tests/cost.test.ts
+plugins/ruflo-mods/tests/noun.test.ts
+plugins/ruflo-mods/tests/register.test.ts
+plugins/ruflo-mods/tests/research.test.ts
+plugins/ruflo-mods/tests/trust.test.ts
+plugins/ruflo-plugin-creator/templates/mod/tests/register.test.ts
 plugins/ruflo-workflows/scripts/gaia-audit.test.mjs
 ruflo/src/ruvocal/src/lib/components/chat/MarkdownRenderer.svelte.test.ts
 ruflo/src/ruvocal/src/lib/migrations/migrations.spec.ts
@@ -25,6 +31,7 @@ ruflo/src/ruvocal/src/lib/server/api/__tests__/user.spec.ts
 ruflo/src/ruvocal/src/lib/server/database/__tests__/rvf.spec.ts
 ruflo/src/ruvocal/src/lib/server/isURLLocal.spec.ts
 ruflo/src/ruvocal/src/lib/server/mcp/clientPool.spec.ts
+ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/mergeServers.spec.ts
 ruflo/src/ruvocal/src/lib/server/textGeneration/mcp/wasmTools.test.ts
 ruflo/src/ruvocal/src/lib/utils/generationState.spec.ts
 ruflo/src/ruvocal/src/lib/utils/marked.spec.ts
@@ -126,7 +133,56 @@ v3/plugins/quantum-optimizer/tests/mcp-tools.test.ts
 plugins/ruflo-x-gateway/test/gateway.test.mjs
 plugins/ruflo-x-gateway/test/oauth.test.mjs
 plugins/ruflo-x-gateway/test/registration.test.mjs
+plugins/ruflo-x-gateway/test/claude-directory.test.mjs
+plugins/ruflo-x-gateway/test/github.test.mjs
 
 # ruflo-chatgpt-federation: same pattern — plugin-local deps (jose, nostr-tools/pure) not resolvable from root vitest
 plugins/ruflo-chatgpt-federation/test/oauth.test.mjs
 plugins/ruflo-chatgpt-federation/test/publisher.test.mjs
+# ruflo-swarm: Claude Code engine-kit tests (import 'claude-code/testing', which exists only inside `claude plugin test plugins/ruflo-swarm`); root vitest cannot resolve it. The pure readers run under root vitest via tests/parse.spec.ts
+plugins/ruflo-swarm/tests/controller.test.ts
+plugins/ruflo-swarm/tests/host.test.ts
+plugins/ruflo-swarm/tests/pane.test.ts
+plugins/ruflo-swarm/tests/parse.test.ts
+plugins/ruflo-swarm/tests/register.test.ts
+plugins/ruflo-swarm/tests/ruos.test.ts
+plugins/ruflo-swarm/tests/views.test.ts
+
+
+# ruflo-ruos (ADR-405, PR #3605): node:test files, not vitest suites — root vitest reports
+# "No test suite found". They run via `bash plugins/ruflo-ruos/scripts/smoke.sh` (node --test).
+plugins/ruflo-ruos/tests/adapter.test.mjs
+plugins/ruflo-ruos/tests/command-builder.test.mjs
+plugins/ruflo-ruos/tests/ledger-cli.test.mjs
+plugins/ruflo-ruos/tests/requirements.test.mjs
+plugins/ruflo-ruos/tests/transports.test.mjs
+plugins/ruflo-ruos/tests/validate-autostop.test.mjs
+plugins/ruflo-ruos/tests/vendored-types.test.mjs
+# ruflo-ruos mod test: imports 'claude-code/testing' (run by `claude plugin test plugins/ruflo-ruos`)
+plugins/ruflo-ruos/tests/mod.test.ts
+# ruflo-console: Claude Code engine-kit tests (import 'claude-code/testing', run by `claude plugin test plugins/ruflo-console`);
+# root vitest cannot resolve that import. The pure readers and graphics run under root vitest via tests/*.spec.ts
+plugins/ruflo-console/tests/actions.test.ts
+plugins/ruflo-console/tests/behaviour.test.ts
+plugins/ruflo-console/tests/palette.test.ts
+plugins/ruflo-console/tests/views.test.ts
+plugins/ruflo-console/tests/labs.test.ts
+plugins/ruflo-console/tests/attention.test.ts
+plugins/ruflo-console/tests/loops.test.ts
+plugins/ruflo-console/tests/learning.test.ts
+plugins/ruflo-console/tests/matrix.test.ts
+plugins/ruflo-console/tests/optimizer.test.ts
+plugins/ruflo-console/tests/watch.test.ts
+plugins/ruflo-console/tests/missions.test.ts
+plugins/ruflo-console/tests/settings.test.ts
+plugins/ruflo-console/tests/plugin-catalog.test.ts
+plugins/ruflo-console/tests/room-ux.test.ts
+plugins/ruflo-console/tests/sweep.test.ts
+plugins/ruflo-console/tests/devtools.test.ts
+plugins/ruflo-console/tests/evolve.test.ts
+plugins/ruflo-console/tests/vector.test.ts
+plugins/ruflo-console/tests/skills-secure.test.ts
+plugins/ruflo-console/tests/xruv.test.ts
+plugins/ruflo-console/tests/steps.test.ts
+plugins/ruflo-console/tests/nav.test.ts
+plugins/ruflo-console/tests/setup.test.ts
