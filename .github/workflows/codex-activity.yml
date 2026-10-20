@@ -1,0 +1,45 @@
+name: Codex activity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'v3/@claude-flow/codex/**'
+      - 'scripts/smoke-codex-activity.mjs'
+      - '.github/workflows/codex-activity.yml'
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/codex/**'
+      - 'scripts/smoke-codex-activity.mjs'
+      - '.github/workflows/codex-activity.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-activity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  activity:
+    name: Codex activity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install Codex package dependencies
+        run: npm install --prefix v3/@claude-flow/codex --workspaces=false --ignore-scripts --legacy-peer-deps --package-lock=false --no-audit --no-fund
+      - run: npm run build --prefix v3/@claude-flow/codex
+      - name: Test activity reader and viewer
+        working-directory: v3/@claude-flow/codex
+        run: npm test -- --run tests/activity-files.test.ts tests/activity-parser.test.ts tests/activity-viewer.test.ts
+      - run: node scripts/smoke-codex-activity.mjs
