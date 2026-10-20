@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { aiPage, locateTuiBundle, tuiCommand } from '../src/commands/tui.js';
+import { aiPage, locateTuiBundle, lookFlags, tuiCommand } from '../src/commands/tui.js';
 
 /** The command names capability-brain.ts lists, read from the source so the test fails if `tui` is dropped. */
 const COMMANDS_FOR_BRAIN = [...readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'mcp-tools', 'capability-brain.ts'), 'utf8').matchAll(/'([a-z][a-z-]*)'/g)].map(match => match[1]);
@@ -64,8 +64,8 @@ describe('tui command', () => {
     expect(result).toMatchObject({ success: false, exitCode: 1 });
   });
 
-  it.skipIf(locateTuiBundle() === null)('opens each of the six pages with --plain, and refuses Room and anything else with exit 2 (real bundle)', async () => {
-    for (const view of ['overview', 'cost', 'swarm', 'events', 'missions', 'ai']) {
+  it.skipIf(locateTuiBundle() === null)('opens each of the six pages and any other console view with --plain, and refuses an unknown name with exit 2 (real bundle)', async () => {
+    for (const view of ['overview', 'cost', 'swarm', 'events', 'missions', 'ai', 'menu', 'federation', 'settings', 'room']) {
       const lines: string[] = [];
       const real = process.stdout.write.bind(process.stdout);
       process.stdout.write = ((chunk: string | Uint8Array) => (lines.push(String(chunk)), true)) as typeof process.stdout.write;
@@ -80,7 +80,7 @@ describe('tui command', () => {
       expect(lines.join(''), view).not.toContain(process.env.OPENROUTER_API_KEY ?? '\u0000never');
     }
 
-    for (const view of ['room', 'nope']) {
+    for (const view of ['nope', 'federation; rm -rf /']) {
       expect(await tuiCommand.action!({ args: [], flags: { view, plain: true }, cwd: tmp() } as never), view).toMatchObject({ success: false, exitCode: 2 });
     }
   });
@@ -146,5 +146,26 @@ describe('tui command', () => {
     }
     expect(out.join('')).toBe('');
     expect(errs.join('')).toMatch(/not an interactive terminal.*--plain/s);
+  });
+});
+
+describe('the look and motion flags', () => {
+  it('pass a valid look, an fps from 0 to 30 (a number or digits), --no-anim, --no-pictures and --boot, and nothing else', () => {
+    expect(lookFlags({})).toEqual({});
+    expect(lookFlags({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true, mouse: true })).toEqual({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true, mouse: true });
+    expect(lookFlags({ look: 'bbs', fps: '30' })).toEqual({ look: 'bbs', fps: 30 });
+    expect(lookFlags({ fps: 0 })).toEqual({ fps: 0 });
+  });
+
+  it('ignore a bad value instead of passing it on', () => {
+    expect(lookFlags({ look: 'neon; rm -rf /', fps: 31 })).toEqual({});
+    expect(lookFlags({ look: 7, fps: -1 })).toEqual({});
+    expect(lookFlags({ fps: '1e9' })).toEqual({});
+    expect(lookFlags({ fps: 'NaN', anim: true, pictures: true, boot: false })).toEqual({});
+    expect(lookFlags(undefined)).toEqual({});
+  });
+
+  it('are listed in the command\'s options', () => {
+    expect((tuiCommand.options ?? []).map(option => option.name)).toEqual(expect.arrayContaining(['look', 'fps', 'anim', 'pictures', 'boot', 'mouse']));
   });
 });

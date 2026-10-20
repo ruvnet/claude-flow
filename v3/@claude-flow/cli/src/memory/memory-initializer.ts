@@ -12,6 +12,7 @@ import type { AppendCondition } from './append-conditions.js';
 
 import { loadBetterSqlite3 } from './shared-sqlite.js';
 import { resolveMemoryRoot } from './memory-root.js';
+import { DEFAULT_SEARCH_THRESHOLD } from './search-defaults.js';
 import { liveMemoryRowSql } from './live-memory-row.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS, type EmbeddingQ8 } from './embedding-q8.js';
 import * as fs from 'fs';
@@ -21,6 +22,7 @@ import { createRequire } from 'node:module';
 import { readFileMaybeEncrypted, writeDbImagePreservingFormat, writeFileAtomic, writeFileRestricted } from '../fs-secure.js';
 import { restoreMemoryDbFromBackup } from '../services/memory-backup.js';
 import { validateIdentifier } from '../mcp-tools/validate-input.js';
+import { resolveModelCacheDir } from './model-cache-dir.js';
 
 /**
  * ADR-323 — typed memory provenance. Distinguishes WHO/WHAT wrote a memory
@@ -2259,7 +2261,18 @@ interface EmbeddingModel {
   model: unknown;
   tokenizer: unknown;
   dimensions: number;
+  /**
+   * ADR-454: distinguishes a hash-fallback state that's legitimately
+   * permanent (no transformers package importable at all) from one caused
+   * by an environmental/fixable failure (EACCES, ENOSPC, a transient
+   * download failure) that should be retried rather than memoized forever.
+   */
+  degradedReason?: 'permanent' | 'retryable';
+  lastAttemptAt?: number;
 }
+
+/** ADR-454: minimum interval before a 'retryable' degraded state re-attempts real init. */
+const MODEL_INIT_RETRY_INTERVAL_MS = 60_000;
 
 /**
  * State of the LOCAL embedding chain only (transformers.js / agentic-flow /
@@ -2330,8 +2343,17 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
   error?: string;
 }> {
   if (embeddingModelState?.loaded) {
-    return { success: true, dimensions: embeddingModelState.dimensions, modelName: 'cached', loadTime: 0 };
+    const isRetryableDue =
+      embeddingModelState.degradedReason === 'retryable' &&
+      Date.now() - (embeddingModelState.lastAttemptAt ?? 0) >= MODEL_INIT_RETRY_INTERVAL_MS;
+    if (!isRetryableDue) {
+      return { success: true, dimensions: embeddingModelState.dimensions, modelName: 'cached', loadTime: 0 };
+    }
+    // Fall through to re-attempt real initialization — the retryable
+    // failure (e.g. EACCES on the model cache dir) may now be fixed.
   }
+
+  let sawRetryableFailure = false;
 
   try {
     // ADR-094: prefer @huggingface/transformers (clears protobufjs <7.5.5
@@ -2341,6 +2363,7 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
     // @claude-flow/embeddings/src/transformers-loader.ts.
     let transformersSource: '@huggingface/transformers' | '@xenova/transformers' | null = null;
     let pipelineFn: ((task: string, model?: string) => Promise<unknown>) | null = null;
+    let transformersModule: Record<string, unknown> | null = null;
 
     {
       const tryLoad = async (specifier: string): Promise<Record<string, unknown> | null> => {
@@ -2351,11 +2374,13 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
       if (hf && typeof hf.pipeline === 'function') {
         pipelineFn = hf.pipeline as (t: string, m?: string) => Promise<unknown>;
         transformersSource = '@huggingface/transformers';
+        transformersModule = hf;
       } else {
         const xen = await tryLoad('@xenova/transformers');
         if (xen && typeof xen.pipeline === 'function') {
           pipelineFn = xen.pipeline as (t: string, m?: string) => Promise<unknown>;
           transformersSource = '@xenova/transformers';
+          transformersModule = xen;
         }
       }
     }
@@ -2373,6 +2398,15 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
         if (verbose) {
           console.log(`Loading ONNX embedding model via ${transformersSource} (all-MiniLM-L6-v2)...`);
         }
+
+        // ADR-454: route model downloads to a user-writable cache dir —
+        // the package-relative default is root-owned under a system-prefix
+        // global install, which throws EACCES for the runtime user.
+        const cacheDir = resolveModelCacheDir();
+        fs.mkdirSync(cacheDir, { recursive: true });
+        const env = transformersModule?.env as { cacheDir: string } | undefined;
+        if (env) env.cacheDir = cacheDir;
+
         const embedder = await pipelineFn('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
 
         embeddingModelState = {
@@ -2389,6 +2423,10 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
           loadTime: Date.now() - startTime
         };
       } catch (err) {
+        // ADR-454: a real backend was importable and callable — this failure
+        // (EACCES, ENOSPC, transient network error, etc.) is environmental,
+        // not a missing dependency, so it must not be memoized permanently.
+        sawRetryableFailure = true;
         if (verbose) {
           console.warn(
             `${transformersSource} pipeline init failed (${err instanceof Error ? err.message : String(err)}); ` +
@@ -2407,16 +2445,20 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
         console.log('Loading agentic-flow ReasoningBank embedding model...');
       }
 
+      // #3113: register a callable, like the ruvector branch below —
+      // generateLocalEmbedding() only invokes function models. The bundled
+      // model is all-MiniLM-L6-v2 (384-dim, per agentic-flow's
+      // getEmbeddingDimensions()).
       embeddingModelState = {
         loaded: true,
-        model: { embed: reasoningBank.computeEmbedding },
+        model: (text: string) => reasoningBank.computeEmbedding(text),
         tokenizer: null,
-        dimensions: 768
+        dimensions: 384
       };
 
       return {
         success: true,
-        dimensions: 768,
+        dimensions: 384,
         modelName: 'agentic-flow/reasoningbank',
         loadTime: Date.now() - startTime
       };
@@ -2463,12 +2505,18 @@ async function loadLocalEmbeddingChain(verbose = false, startTime = Date.now()):
     // No agentic-flow root-entry fallback: no published root exports
     // `embeddings`, and importing it runs its CLI main() in 3.0.0-alpha.x.
 
-    // No ONNX model available - use fallback
+    // No ONNX model available - use fallback.
+    // ADR-454: mark whether this is a permanent (no backend importable at
+    // all) or retryable (a backend existed but init failed for an
+    // environmental reason) degraded state, so a later call can re-attempt
+    // real initialization once the condition is fixed.
     embeddingModelState = {
       loaded: true,
       model: null, // Will use simple hash-based fallback
       tokenizer: null,
-      dimensions: 128 // Smaller fallback dimensions
+      dimensions: 128, // Smaller fallback dimensions
+      degradedReason: sawRetryableFailure ? 'retryable' : 'permanent',
+      lastAttemptAt: Date.now()
     };
 
     return {
@@ -2548,7 +2596,16 @@ export async function generateLocalEmbedding(text: string): Promise<{
   // loadEmbeddingModel(), which is bridge-first — when the bridge answered
   // there, no local model was ever loaded and this function always returned
   // the hash fallback.
-  if (!embeddingModelState?.loaded) {
+  //
+  // ADR-454: also re-attempt when the memoized state is a 'retryable'
+  // degraded fallback whose retry interval has elapsed — otherwise this
+  // guard short-circuits past loadLocalEmbeddingChain()'s own retry check
+  // and the fix (e.g. a now-writable cache dir) never gets exercised.
+  const shouldRetryLoad =
+    !embeddingModelState?.loaded ||
+    (embeddingModelState.degradedReason === 'retryable' &&
+      Date.now() - (embeddingModelState.lastAttemptAt ?? 0) >= MODEL_INIT_RETRY_INTERVAL_MS);
+  if (shouldRetryLoad) {
     await loadLocalEmbeddingChain();
   }
 
@@ -2569,10 +2626,13 @@ export async function generateLocalEmbedding(text: string): Promise<{
   if (state.model && typeof (state.model as any) === 'function') {
     try {
       const output = await (state.model as any)(text, { pooling: 'mean', normalize: true });
-      // Handle both @xenova/transformers (output.data) and ruvector (plain array) formats
+      // Handle @xenova/transformers (output.data), ruvector (plain array) and
+      // typed-array (ReasoningBank Float32Array, #3114) formats. DataView is an
+      // ArrayBuffer view without an iterator (Array.from gives []), so exclude it.
       const embedding = output?.data
         ? Array.from(output.data as Float32Array)
-        : Array.isArray(output) ? output : null;
+        : Array.isArray(output) ? output
+        : ArrayBuffer.isView(output) && !(output instanceof DataView) ? Array.from(output as Float32Array) : null;
       if (embedding) {
         return {
           embedding,
@@ -3186,7 +3246,7 @@ export async function searchEntries(options: {
     query,
     namespace,
     limit = 10,
-    threshold = 0.3,
+    threshold = DEFAULT_SEARCH_THRESHOLD,
     dbPath: customPath,
     provenanceFilter
   } = options;
@@ -3210,7 +3270,11 @@ export async function searchEntries(options: {
 
     // Try RaBitQ pre-filter first (32× compressed Hamming scan)
     try {
-      const { searchRabitq } = await import('./rabitq-index.js');
+      const { ensureRabitqIndex, searchRabitq } = await import('./rabitq-index.js');
+      // #4203: build/rebuild on demand — without this the index was only ever
+      // populated by the explicit `embeddings_rabitq_build` tool, so this
+      // pre-filter always missed.
+      await ensureRabitqIndex({ dbPath, dimensions: queryEmbedding.length });
       const rabitqCandidates = await searchRabitq(queryEmbedding, { k: limit * 2, namespace: effectiveNamespace });
       if (rabitqCandidates && rabitqCandidates.length > 0) {
         // Rerank candidates with exact cosine similarity from SQLite
@@ -3459,6 +3523,8 @@ export async function listEntries(options: {
   includeEmbedding?: boolean;
   /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only; normal reads hide them. */
   includeExpired?: boolean;
+  /** Require entries to include all of these tags (AND). */
+  tags?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -3477,6 +3543,8 @@ export async function listEntries(options: {
     provenanceType?: string;
     /** ADR-472: present when `includeEmbedding: true` and the row has a valid stored vector. */
     embeddingQ8?: EmbeddingQ8;
+    /** Tag set stored with the entry (empty array when none). */
+    tags?: string[];
   }[];
   total: number;
   error?: string;
@@ -3506,7 +3574,8 @@ export async function listEntries(options: {
     limit = 20,
     offset = 0,
     dbPath: customPath,
-    provenanceFilter
+    provenanceFilter,
+    tags: requiredTags,
   } = options;
 
   const swarmDir = getMemoryRoot();
@@ -3536,18 +3605,43 @@ export async function listEntries(options: {
     // #2120 — accept `status IS NULL` alongside `'active'`. Old DBs
     // that predate the status column may have NULL after migration.
     // See memory-bridge.ts:bridgeListEntries for full context.
-    // Get total count
     const whereClauses = [liveMemoryRowSql({ includeExpired: options.includeExpired })];
     const whereParams: string[] = [];
     if (namespace) {
       whereClauses.push('namespace = ?');
       whereParams.push(namespace);
     }
+    // ADR-323: restrict to the requested provenance types. This must be
+    // ANDed alongside any tags filter below, never replaced by it — dropping
+    // this clause lets unverified user_claim rows leak into results that
+    // are supposed to be tool_result-only.
     if (provenanceFilter?.length) {
       whereClauses.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
       whereParams.push(...provenanceFilter);
     }
+    // Tags are stored as JSON-array TEXT (e.g. `["a","b"]`). Match each
+    // required tag as an exact element via SQLite's json_each so a tag of
+    // `prod` can't be satisfied by a substring like `"prod` or by a
+    // differently-cased value like `PROD` (LIKE is ASCII case-insensitive
+    // and matches raw JSON-array bytes, not parsed array elements).
+    const tagFilter = Array.isArray(requiredTags)
+      ? requiredTags.filter((t): t is string => typeof t === 'string' && t.length > 0)
+      : [];
+    for (const tag of tagFilter) {
+      whereClauses.push(`EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)`);
+      whereParams.push(tag);
+    }
     const whereSql = whereClauses.join(' AND ');
+
+    // `|| 100` would treat an explicit `limit: 0` as falsy and silently
+    // substitute the default (returning rows instead of the requested
+    // zero) — only fall back to the default when parsing genuinely failed.
+    const parsedLimit = parseInt(String(limit), 10);
+    const safeLimit = Number.isNaN(parsedLimit) ? 100 : parsedLimit;
+    const parsedOffset = parseInt(String(offset), 10);
+    const safeOffset = Number.isNaN(parsedOffset) ? 0 : parsedOffset;
+
+    // Get total count
     const countStmt = db.prepare(`SELECT COUNT(*) as cnt FROM memory_entries WHERE ${whereSql}`);
     if (whereParams.length > 0) countStmt.bind(whereParams);
     const countRows: unknown[][] = [];
@@ -3555,25 +3649,23 @@ export async function listEntries(options: {
       countRows.push(countStmt.get());
     }
     countStmt.free();
-    const countResult = countRows.length > 0 ? [{ values: countRows }] : [];
-    const total = countResult[0]?.values?.[0]?.[0] as number || 0;
+    const total = (countRows[0]?.[0] as number) || 0;
 
-    // Get entries
-    const safeLimit = Math.min(parseInt(String(limit), 10) || 100, options.includeEmbedding ? MAX_LIST_EMBEDDINGS : Number.MAX_SAFE_INTEGER);
-    const safeOffset = parseInt(String(offset), 10) || 0;
-    // #2120 — same NULL-as-active acceptance as the count above.
+    // Get entries. ADR-472: embedding rows are capped at MAX_LIST_EMBEDDINGS.
+    const listLimit = options.includeEmbedding ? Math.min(safeLimit, MAX_LIST_EMBEDDINGS) : safeLimit;
+    // Include tags so export/list can round-trip them.
     const listStmt = db.prepare(
-      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
+      `SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at, tags
        FROM memory_entries WHERE ${whereSql}
        ORDER BY updated_at DESC LIMIT ? OFFSET ?`
     );
-    listStmt.bind([...whereParams, safeLimit, safeOffset]);
+    listStmt.bind([...whereParams, listLimit, safeOffset]);
     const listRows: unknown[][] = [];
     while (listStmt.step()) {
       listRows.push(listStmt.get());
     }
     listStmt.free();
-    const result = listRows.length > 0 ? [{ values: listRows }] : [];
+
     const entries: {
       id: string;
       key: string;
@@ -3587,49 +3679,59 @@ export async function listEntries(options: {
       content?: string;
       provenanceType?: string;
       embeddingQ8?: EmbeddingQ8;
+      tags?: string[];
     }[] = [];
 
-    if (result[0]?.values) {
-      for (const row of result[0].values) {
-        const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal] = row as [
-          string, string, string, string, string | null, number, string, string, string | null, number | null
-        ];
-        const entry: {
-          id: string;
-          key: string;
-          namespace: string;
-          size: number;
-          accessCount: number;
-          createdAt: string;
-          updatedAt: string;
-          expiresAt?: number | null;
-          hasEmbedding: boolean;
-          content?: string;
-          provenanceType?: string;
-          embeddingQ8?: EmbeddingQ8;
-        } = {
-          // #2073: don't truncate id when content is requested — callers
-          // (notably memory_export) need the full id to round-trip via import.
-          id: options.includeContent ? String(id) : String(id).substring(0, 20),
-          key: key || String(id).substring(0, 15),
-          namespace: ns || 'default',
-          size: (content || '').length,
-          accessCount: accessCount || 0,
-          createdAt: createdAt || new Date().toISOString(),
-          updatedAt: updatedAt || new Date().toISOString(),
-          expiresAt: expiresAtVal ?? null,
-          hasEmbedding: !!embedding && embedding.length > 10,
-          provenanceType: provenanceTypeVal || 'unknown'
-        };
-        if (options.includeContent) {
-          entry.content = content || '';
-        }
-        if (options.includeEmbedding) {
-          const q8 = encodeEmbeddingQ8(embedding);
-          if (q8) entry.embeddingQ8 = q8;
-        }
-        entries.push(entry);
+    for (const row of listRows) {
+      const [id, key, ns, content, embedding, accessCount, createdAt, updatedAt, provenanceTypeVal, expiresAtVal, tagsJson] = row as [
+        string, string, string, string, string | null, number, string, string, string | null, number | null, string | null
+      ];
+      let tags: string[] = [];
+      if (tagsJson) {
+        try {
+          const parsed = JSON.parse(tagsJson);
+          if (Array.isArray(parsed)) {
+            tags = parsed.filter((t): t is string => typeof t === 'string');
+          }
+        } catch { /* invalid tags JSON */ }
       }
+      const entry: {
+        id: string;
+        key: string;
+        namespace: string;
+        size: number;
+        accessCount: number;
+        createdAt: string;
+        updatedAt: string;
+        expiresAt?: number | null;
+        hasEmbedding: boolean;
+        content?: string;
+        provenanceType?: string;
+        embeddingQ8?: EmbeddingQ8;
+        tags?: string[];
+      } = {
+        // #2073: don't truncate id when content is requested — callers
+        // (notably memory_export) need the full id to round-trip via import.
+        id: options.includeContent ? String(id) : String(id).substring(0, 20),
+        key: key || String(id).substring(0, 15),
+        namespace: ns || 'default',
+        size: (content || '').length,
+        accessCount: accessCount || 0,
+        createdAt: createdAt || new Date().toISOString(),
+        updatedAt: updatedAt || new Date().toISOString(),
+        expiresAt: expiresAtVal ?? null,
+        hasEmbedding: !!embedding && embedding.length > 10,
+        provenanceType: provenanceTypeVal || 'unknown',
+        tags,
+      };
+      if (options.includeContent) {
+        entry.content = content || '';
+      }
+      if (options.includeEmbedding) {
+        const q8 = encodeEmbeddingQ8(embedding);
+        if (q8) entry.embeddingQ8 = q8;
+      }
+      entries.push(entry);
     }
 
     db.close();

@@ -267,6 +267,7 @@ export function createSpec(state: State, host: Host, onDone: () => void): Action
       cancelled: false,
       auto: false,
       createdAtMs: Date.now(),
+      ...(state.cwd !== '' && { cwd: state.cwd }),
     }
 
     record(record0, { type: 'mission.created', status: 'draft' })

@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-adr`.
 
+## 0.5.8 — 2026-10-14
+- fix: the ADR parser reads the leading status keyword, so `superseded by [ADR-025](…) (date)`, `accepted (date) — note` and `Accepted (date) · **AMENDED …**` are no longer indexed as Unknown (adr-review enforces only accepted ADRs, so those ADRs were being skipped); `superseded by ADR-X` now records the supersedes edge; README.md, index.md and template*.md files in docs/adr are no longer indexed as ADRs; `adr-verify` reports any ADR left at Unknown (exit 1 under VERIFY_STRICT=1) (#4126, thanks @ronmikailov)
+
 ## 0.5.7 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 

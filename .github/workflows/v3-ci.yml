@@ -1839,6 +1839,19 @@ jobs:
         shell: bash
         run: node scripts/audit-leaf-package-publish.mjs
 
+      - name: Run leaf-versions-published audit (#4303)
+        # audit-wrapper-dep-ranges.mjs and audit-leaf-package-publish.mjs above
+        # only check that the CLI's pin and the leaf's own workspace version
+        # agree with EACH OTHER. #4303 slipped through both: #4279 bumped
+        # @claude-flow/memory to 3.0.6 in the workspace and pinned the CLI to
+        # match, so both audits were green — but nobody ran the standalone
+        # `npm publish` for memory, so @claude-flow/cli@3.57.2 shipped
+        # depending on a version that didn't exist, and every fresh install
+        # failed with ETARGET. This queries the live npm registry so a pin
+        # bump that outruns its own publish fails CI instead of shipping.
+        shell: bash
+        run: node scripts/audit-leaf-versions-published.mjs
+
       - name: Run better-sqlite3 override audit (#2219)
         # agentdb pins better-sqlite3 as an OPTIONAL dep at ^11.8.1, which has
         # no Node 24/25/26 prebuild → the optional native build fails silently

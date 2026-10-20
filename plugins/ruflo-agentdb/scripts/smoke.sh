@@ -4,9 +4,9 @@
 # CLI MCP surface plus three documentation invariants.
 #
 # This script verifies plugin structural soundness and source-level
-# contracts. Live MCP-tool exercise (against a running daemon with the
-# bridge wired) is layered on top via the optional --live flag, but the
-# default invocation is offline-safe and CI-friendly.
+# contracts. The default invocation is offline-safe and CI-friendly and does
+# NOT call any MCP tool. Pass --live to exercise the real CLI tools
+# (agentdb_health durable check and a store/recall round trip) in a temp dir.
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/../.." && pwd)"
@@ -48,10 +48,10 @@ grep -q "## Namespace convention" "$ROOT/README.md" \
   && ok || bad "Namespace convention section missing"
 
 # 1. Plugin version + new keywords
-step "1. plugin.json declares version 0.4.9 with rabitq + namespace-convention keywords"
+step "1. plugin.json declares version 0.4.10 with rabitq + namespace-convention keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.4.9" ]]; then
-  bad "expected 0.4.9, got '$v'"
+if [[ "$v" != "0.4.10" ]]; then
+  bad "expected 0.4.10, got '$v'"
 else
   miss=""
   for k in rabitq quantization namespace-convention controller-bridge; do
@@ -186,17 +186,32 @@ else
   bad "pluralization callout missing (must contrast pattern vs patterns)"
 fi
 
-# Live mode (optional, requires daemon)
+# Live mode (optional): exercises the real CLI MCP tools in a throwaway project dir.
+# The default run above is offline and only checks plugin structure and source/doc
+# invariants; it passes even when the AgentDB substrate is broken. --live is the
+# check that proves the substrate works (#4133).
 if [[ "$LIVE" == "1" ]]; then
-  step "L1 (live): agentdb_health responds (requires running daemon)"
-  if command -v claude-flow >/dev/null 2>&1; then
-    if claude-flow mcp call agentdb_health 2>/dev/null | grep -q '"available"'; then
-      ok
-    else
-      bad "agentdb_health did not return an 'available' field"
-    fi
+  if command -v ruflo >/dev/null 2>&1; then RUFLO=(ruflo)
+  elif command -v npx >/dev/null 2>&1; then RUFLO=(npx -y @claude-flow/cli@latest)
+  else RUFLO=(); fi
+  mcp_exec() { (cd "$LIVE_DIR" && "${RUFLO[@]}" mcp exec -t "$1" ${2:+-p "$2"} 2>/dev/null); }
+  if [[ ${#RUFLO[@]} -eq 0 ]]; then
+    step "L0 (live): ruflo CLI available"; bad "neither ruflo nor npx on PATH"
   else
-    bad "claude-flow CLI not on PATH (skipping --live checks)"
+    LIVE_DIR="$(mktemp -d)"
+    mkdir -p "$LIVE_DIR/.swarm"
+    trap 'rm -rf "$LIVE_DIR"' EXIT
+
+    step "L1 (live): agentdb_health reports available and durable"
+    health="$(mcp_exec agentdb_health)"
+    if grep -q '"available": true' <<<"$health" && grep -q '"durable": true' <<<"$health"; then ok
+    else bad "agentdb_health must report available:true and durable:true (volatile fallback?)"; fi
+
+    step "L2 (live): hierarchical store then recall round trip"
+    stored="$(mcp_exec agentdb_hierarchical-store '{"key":"smoke-probe","value":"zebrafish","tier":"semantic"}')"
+    recalled="$(mcp_exec agentdb_hierarchical-recall '{"query":"zebrafish","topK":3}')"
+    if grep -q '"key": "smoke-probe"' <<<"$stored" && grep -q '"value": "zebrafish"' <<<"$recalled"; then ok
+    else bad "stored entry did not come back from agentdb_hierarchical-recall"; fi
   fi
 fi
 

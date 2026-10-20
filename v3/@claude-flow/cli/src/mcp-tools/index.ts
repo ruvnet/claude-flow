@@ -70,3 +70,5 @@ export { businessPodTools } from './business-pod-tools.js';
 export { httpFetchTools } from './http-fetch-tools.js';
 // ADR-406 — mission semantic operations
 export { missionTools, createMissionTools } from './mission-tools.js';
+// ADR-402 — host-agnostic Agent Teams bus
+export { teamTools } from './team-tools.js';

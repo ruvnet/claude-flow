@@ -1,4 +1,5 @@
 import { config } from "$lib/server/config";
+import { mergeMcpServers } from "./mergeServers";
 import { MessageUpdateType, type MessageUpdate } from "$lib/types/MessageUpdate";
 import { getMcpServers } from "$lib/server/mcp/registry";
 import { isValidUrl } from "$lib/server/urlSafety";
@@ -98,13 +99,7 @@ export async function* runMcpFlow({
 			// Invalidate cached tool list when the set of servers changes at request-time
 			resetMcpToolsCache();
 			// Deduplicate by server name (request takes precedence)
-			const byName = new Map<
-				string,
-				{ name: string; url: string; headers?: Record<string, string> }
-			>();
-			for (const s of servers) byName.set(s.name, s);
-			for (const s of custom) byName.set(s.name, s);
-			servers = [...byName.values()];
+			servers = mergeMcpServers(servers, custom);
 			try {
 				logger.debug(
 					{

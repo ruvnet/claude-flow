@@ -86,10 +86,16 @@
  */
 
 import { createRequire } from 'node:module';
-import { createServer, type Server } from 'node:http';
+import type { Server } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { MCPTool, MCPToolResult } from './types.js';
+
+// Lazy, CommonJS-style load of node:http: an ESM `import … from 'node:http'`
+// materialises every export of the builtin, which trips http's lazy undici
+// getters (~2.5 MB heap / ~6 MB RSS) at MCP startup even when no server is
+// ever started. require() of the builtin does not touch those getters.
+const loadHttp = (): typeof import('node:http') => createRequire(import.meta.url)('node:http');
 import { validateText, validateIdentifier } from './validate-input.js';
 import { execBrowserCommand } from './browser-tools.js';
 import { storeEntry } from '../memory/memory-initializer.js';
@@ -219,7 +225,7 @@ export interface LLMProxyHandle {
 
 export function startLocalLLMProxy(real: { baseURL: string; apiKey: string }): Promise<LLMProxyHandle> {
   return new Promise((resolve, reject) => {
-    const server: Server = createServer((req, res) => {
+    const server: Server = loadHttp().createServer((req, res) => {
       const target = `${real.baseURL.replace(/\/+$/, '')}${req.url ?? ''}`;
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));

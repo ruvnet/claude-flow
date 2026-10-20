@@ -277,11 +277,9 @@ function sessionGet(key) {
 
 function sessionSet(key, value) {
   try {
-    if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
-    let session = {};
-    if (fs.existsSync(SESSION_FILE)) {
-      session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
-    }
+    // Session creation belongs to session.cjs; recall may run before SessionStart.
+    if (!fs.existsSync(SESSION_FILE)) return;
+    const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
     if (!session.context) session.context = {};
     session.context[key] = value;
     session.updatedAt = new Date().toISOString();
@@ -739,27 +737,69 @@ function appendRecall(detailed, meta) {
  * getContext(prompt) — Called from route. Budget: <15ms.
  * Matches prompt to ranked entries, returns top-5 formatted context.
  */
+/**
+ * Inflection variants of a prompt term (plural, -ed, -ing, -ion and their
+ * stems), so "migrations" finds an entry that says "migration" and "deploying"
+ * finds "deploy". Exact term matching alone lost what the old trigram overlap
+ * caught (#4136). The stem keeps at least 4 characters so short words stay exact.
+ */
+function termVariants(word) {
+  const out = new Set([word]);
+  for (const suffix of ['s', 'es', 'ed', 'ing', 'ion', 'ions']) out.add(word + suffix);
+  for (const suffix of ['ions', 'ion', 'ing', 'ed', 'es', 's']) {
+    if (word.length - suffix.length >= 4 && word.endsWith(suffix)) {
+      const stem = word.slice(0, -suffix.length);
+      out.add(stem); out.add(stem + 'e'); out.add(stem + 's');
+    }
+  }
+  return [...out];
+}
+
 function getContextDetailed(prompt) {
   if (!prompt) return null;
 
   const ranked = readJSON(RANKED_PATH);
   if (!ranked || !ranked.entries || ranked.entries.length === 0) return null;
 
-  const promptWords = tokenize(prompt);
+  const promptWords = [...new Set(tokenize(prompt))];
   if (promptWords.length === 0) return null;
-  const promptTrigrams = trigrams(promptWords);
 
-  const ALPHA = 0.6; // content match weight
-  const MIN_THRESHOLD = 0.05;
+  // Query coverage is independent of entry length: a short diagnostic prompt
+  // must still find its exact terms inside a long memory section (#4136).
+  // IDF downweights generic terms shared by many entries. Terms absent from
+  // every entry still count against coverage, so two incidental words cannot
+  // hide the rest of an unrelated prompt.
+  const candidates = ranked.entries.map(entry => ({ entry, words: new Set(entry.words || []) }));
+  const variants = promptWords.map(termVariants);
+  const hasTerm = (words, i) => variants[i].some(v => words.has(v));
+  const weights = promptWords.map((word, i) => {
+    const frequency = candidates.reduce((count, candidate) => count + Number(hasTerm(candidate.words, i)), 0);
+    return Math.log1p((candidates.length - frequency + 0.5) / (frequency + 0.5));
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) return null;
+
+  const MIN_COVERAGE = 0.15;
   const TOP_K = 5;
 
   // Score each entry
   const scored = [];
-  for (const entry of ranked.entries) {
-    const entryTrigrams = trigrams(entry.words || []);
-    const contentMatch = jaccardSimilarity(promptTrigrams, entryTrigrams);
-    const score = ALPHA * contentMatch + (1 - ALPHA) * (entry.pageRank || 0);
-    if (score >= MIN_THRESHOLD) {
+  for (const { entry, words } of candidates) {
+    let matchedWeight = 0;
+    let matchedTerms = 0;
+    for (let i = 0; i < promptWords.length; i++) {
+      if (weights[i] > 0 && hasTerm(words, i)) {
+        matchedWeight += weights[i];
+        matchedTerms++;
+      }
+    }
+    // A single common word in a long prompt is not evidence of relevance;
+    // PageRank can order relevant entries but cannot make one relevant.
+    if (matchedTerms < Math.min(2, promptWords.length)) continue;
+    const coverage = matchedWeight / totalWeight;
+    if (coverage >= MIN_COVERAGE) {
+      const pageRank = Math.max(0, Math.min(1, Number(entry.pageRank) || 0));
+      const score = 0.9 * coverage + 0.1 * pageRank;
       scored.push({ ...entry, score });
     }
   }

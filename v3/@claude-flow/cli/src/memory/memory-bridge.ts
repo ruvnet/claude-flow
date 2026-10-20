@@ -20,10 +20,11 @@ import { AppendConditionFailed, assertAppendConditions, validateAppendConditions
 
 import { liveMemoryRowSql } from './live-memory-row.js';
 import { resolveAgentdbBetterSqlite3 } from './shared-sqlite.js';
+import { DEFAULT_SEARCH_THRESHOLD } from './search-defaults.js';
 import { encodeEmbeddingQ8, MAX_LIST_EMBEDDINGS } from './embedding-q8.js';
 import * as path from 'path';
 import * as crypto from 'crypto';
-import { realpathSync } from 'node:fs';
+import { mkdirSync, realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { validateFeedbackPatterns } from './feedback-patterns.js';
@@ -270,7 +271,12 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
           origLog.apply(console, args);
         };
 
+        // #4132: better-sqlite3 cannot create a missing parent directory. In a
+        // fresh checkout or worktree `.swarm/` does not exist yet, so AgentDB
+        // failed to open, the degraded registry was cached for the server's
+        // lifetime and hierarchical memory silently ran volatile.
         try {
+          if (resolvedPath !== ':memory:') mkdirSync(path.dirname(resolvedPath), { recursive: true });
           await (registry as any).initialize({
             // #2786: use agentdb-memory.db (plaintext) so native better-sqlite3 doesn't hit the encrypted memory.db.
             dbPath: resolvedPath,
@@ -1398,7 +1404,7 @@ export async function bridgeSearchEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { query: queryStr, namespace, limit = 10, threshold = 0.3, provenanceFilter } = options;
+    const { query: queryStr, namespace, limit = 10, threshold = DEFAULT_SEARCH_THRESHOLD, provenanceFilter } = options;
     const effectiveNamespace = namespace || 'all';
     const startTime = Date.now();
 
@@ -1545,6 +1551,8 @@ export async function bridgeListEntries(options: {
   includeEmbedding?: boolean;
   /** #4056: also return rows whose TTL has passed (with `expiresAt`). For cleanup only. */
   includeExpired?: boolean;
+  /** Require entries to include all of these tags (AND). */
+  tags?: string[];
 }): Promise<{
   success: boolean;
   entries: {
@@ -1562,6 +1570,8 @@ export async function bridgeListEntries(options: {
     content?: string;
     provenanceType?: string;
     embeddingQ8?: { dims: number; scale: number; b64: string };
+    /** Tag set stored with the entry (empty array when none). */
+    tags?: string[];
   }[];
   total: number;
   error?: string;
@@ -1574,7 +1584,7 @@ export async function bridgeListEntries(options: {
   if (!ctx) return null;
 
   try {
-    const { namespace, limit = 20, offset = 0, provenanceFilter } = options;
+    const { namespace, limit = 20, offset = 0, provenanceFilter, tags: requiredTags } = options;
     if (provenanceFilter?.some(p => !isValidProvenanceType(p))) return null;
 
     const filters: string[] = [];
@@ -1587,6 +1597,20 @@ export async function bridgeListEntries(options: {
       filters.push(`provenance_type IN (${provenanceFilter.map(() => '?').join(',')})`);
       filterParams.push(...provenanceFilter);
     }
+    // Tags are stored as JSON-array TEXT (e.g. `["a","b"]`). Match each
+    // required tag as an exact element via SQLite's json_each so the filter
+    // runs in SQL instead of pulling the whole table into memory to filter
+    // there. A LIKE-based substring match is ASCII case-insensitive (so
+    // `prod` would match `PROD`) and matches raw JSON bytes rather than
+    // parsed array elements (so a tag literally containing `"prod` could
+    // false-match) — json_each compares real, decoded array values.
+    const tagFilter = Array.isArray(requiredTags)
+      ? requiredTags.filter((t): t is string => typeof t === 'string' && t.length > 0)
+      : [];
+    for (const tag of tagFilter) {
+      filters.push(`EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)`);
+      filterParams.push(tag);
+    }
     const extraFilter = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
 
     // #2120 — `status IS NULL` accepted alongside `'active'`. Old
@@ -1598,6 +1622,14 @@ export async function bridgeListEntries(options: {
     // "legacy-active" — the safe default for any entry that predates the
     // status column.
     const statusFilter = liveMemoryRowSql({ includeExpired: options.includeExpired });
+
+    // `|| 20` would treat an explicit `limit: 0` as falsy and silently
+    // substitute the default (returning 20 rows instead of the requested
+    // zero) — only fall back to the default when parsing genuinely failed.
+    const parsedLimit = parseInt(String(limit), 10);
+    const safeLimit = Number.isNaN(parsedLimit) ? 20 : parsedLimit;
+    const parsedOffset = parseInt(String(offset), 10);
+    const safeOffset = Number.isNaN(parsedOffset) ? 0 : parsedOffset;
 
     // Count
     let total = 0;
@@ -1614,15 +1646,25 @@ export async function bridgeListEntries(options: {
     // List
     const entries: any[] = [];
     try {
+      // Include tags so export/list can round-trip them.
       const stmt = ctx.db.prepare(`
-        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at
+        SELECT id, key, namespace, content, embedding, access_count, created_at, updated_at, provenance_type, expires_at, tags
         FROM memory_entries
         WHERE ${statusFilter} ${extraFilter}
         ORDER BY updated_at DESC
         LIMIT ? OFFSET ?
       `);
-      const rows = stmt.all(...filterParams, options.includeEmbedding ? Math.min(limit, MAX_LIST_EMBEDDINGS) : limit, offset);
+      const rows = stmt.all(...filterParams, options.includeEmbedding ? Math.min(safeLimit, MAX_LIST_EMBEDDINGS) : safeLimit, safeOffset);
       for (const row of rows) {
+        let tags: string[] = [];
+        if (row.tags) {
+          try {
+            const parsed = typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags;
+            if (Array.isArray(parsed)) {
+              tags = parsed.filter((t: unknown): t is string => typeof t === 'string');
+            }
+          } catch { /* invalid tags JSON */ }
+        }
         const entry: Record<string, unknown> = {
           // #2073: don't truncate id when content is requested — callers
           // (notably memory_export) need the full id to round-trip via import.
@@ -1636,6 +1678,7 @@ export async function bridgeListEntries(options: {
           expiresAt: row.expires_at ?? null,
           hasEmbedding: !!(row.embedding && String(row.embedding).length > 10),
           provenanceType: row.provenance_type || 'unknown',
+          tags,
         };
         if (options.includeContent) {
           entry.content = row.content || '';
@@ -2071,9 +2114,94 @@ export async function bridgeGetVectorSearchStatus(
 }
 
 /**
+ * #4203: RaBitQ pre-filter for the bridge's vector search.
+ *
+ * The index yields candidate ids from a 32×-compressed Hamming scan; each is
+ * reranked here with the same exact cosine similarity the exhaustive scan uses,
+ * so scores keep their meaning and only the scanned set shrinks (the candidate
+ * window `k * 2` is then widened 3× by `searchRabitq` itself).
+ *
+ * Returns null whenever the index cannot answer this query — WASM missing, too
+ * few vectors, or an index built for another store/dimension — so the caller
+ * runs its unchanged brute-force scan. Keyword/BM25 recall is unaffected: this
+ * only ever replaces the cosine scan.
+ */
+async function rabitqSearchAndRerank(
+  db: any,
+  queryEmbedding: number[],
+  options: { k: number; threshold: number; namespace?: string; dbPath?: string },
+): Promise<Array<{ id: string; key: string; content: string; score: number; namespace: string }> | null> {
+  try {
+    const { ensureRabitqIndex, searchRabitq } = await import('./rabitq-index.js');
+
+    const ready = await ensureRabitqIndex({ dbPath: options.dbPath, dimensions: queryEmbedding.length });
+    if (!ready) return null;
+
+    const candidates = await searchRabitq(queryEmbedding, {
+      k: options.k * 2,
+      namespace: options.namespace,
+    });
+    if (!candidates || candidates.length === 0) return null;
+
+    // Fetch exactly the candidates (id is the primary key) instead of the
+    // 10k-row full scan; chunked to stay well inside SQLite's parameter limit.
+    const rowsById = new Map<string, { key: string; namespace: string; content: string; score: number }>();
+    const ids = candidates.map(c => c.id);
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const placeholders = chunk.map(() => '?').join(',');
+      const rows: any[] = db.prepare(`
+        SELECT id, key, namespace, content, embedding
+        FROM memory_entries
+        WHERE id IN (${placeholders}) AND ${liveMemoryRowSql()} AND embedding IS NOT NULL
+      `).all(...chunk);
+
+      for (const row of rows) {
+        let embedding: number[];
+        try {
+          embedding = JSON.parse(row.embedding) as number[];
+        } catch {
+          continue;
+        }
+        if (!Array.isArray(embedding) || embedding.length !== queryEmbedding.length) continue;
+        rowsById.set(String(row.id), {
+          key: row.key || String(row.id),
+          namespace: row.namespace || 'default',
+          content: row.content || '',
+          score: cosineSim(queryEmbedding, embedding),
+        });
+      }
+    }
+
+    const results: Array<{ id: string; key: string; content: string; score: number; namespace: string }> = [];
+    for (const candidate of candidates) {
+      const row = rowsById.get(candidate.id);
+      if (!row || row.score < options.threshold) continue;
+      results.push({
+        id: candidate.id.substring(0, 12),
+        key: row.key || candidate.id.substring(0, 15),
+        content: row.content.substring(0, 60) + (row.content.length > 60 ? '...' : ''),
+        score: row.score,
+        namespace: row.namespace,
+      });
+    }
+
+    if (results.length === 0) return null;
+    results.sort((a, b) => b.score - a.score);
+    return results.slice(0, options.k);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Search AgentDB v3's embedder + SQLite entries via a full-table scan and
  * brute-force cosine similarity. NOT HNSW-accelerated — see #2922. Returns
  * null if unavailable.
+ *
+ * #4203: when a RaBitQ index is available the Hamming-scan candidate set is
+ * reranked exactly instead of scanning the whole table; the exhaustive loop
+ * below stays the fallback, so results and scores keep their meaning.
  */
 export async function bridgeSearchBruteForceCosine(
   queryEmbedding: number[],
@@ -2095,10 +2223,21 @@ export async function bridgeSearchBruteForceCosine(
 
   try {
     const k = options?.k ?? 10;
-    const threshold = options?.threshold ?? 0.3;
+    const threshold = options?.threshold ?? DEFAULT_SEARCH_THRESHOLD;
     const nsFilter = options?.namespace && options.namespace !== 'all'
       ? `AND namespace = ?`
       : '';
+
+    // #4203: try the RaBitQ pre-filter before the exhaustive scan below. A null
+    // result (no index / unavailable / nothing above threshold) falls through
+    // to the unchanged brute-force path.
+    const accelerated = await rabitqSearchAndRerank(ctx.db, queryEmbedding, {
+      k,
+      threshold,
+      namespace: options?.namespace,
+      dbPath,
+    });
+    if (accelerated) return accelerated;
 
     let rows: any[];
     try {
@@ -3724,6 +3863,47 @@ export async function bridgeGetAllEmbeddings(options?: {
     }
 
     return results;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Count the embeddings `bridgeGetAllEmbeddings()` would export (#4203).
+ * RaBitQ's auto-build uses this as its cheap "has the corpus drifted?" probe —
+ * a COUNT instead of re-reading every embedding blob. With `dimensions` it
+ * counts only rows build() would keep, so the drift ratio compares like with
+ * like. Returns null if the bridge is unavailable.
+ */
+export async function bridgeCountEmbeddings(options?: {
+  dimensions?: number;
+  dbPath?: string;
+}): Promise<number | null> {
+  if (!operationContext.getStore()?.active) return withBridgeOperation(() => bridgeCountEmbeddings(options));
+  const registry = await getRegistry(options?.dbPath);
+  if (!registry) return null;
+
+  const ctx = getDb(registry);
+  if (!ctx) return null;
+
+  const dims = options?.dimensions;
+  try {
+    if (dims != null) {
+      try {
+        const row = ctx.db.prepare(
+          `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL AND json_array_length(embedding) = ?`,
+        ).get(dims);
+        return row?.cnt ?? 0;
+      } catch {
+        // JSON1 unavailable in this SQLite build — fall through to the
+        // unfiltered count rather than losing the probe entirely.
+      }
+    }
+
+    const row = ctx.db.prepare(
+      `SELECT COUNT(*) as cnt FROM memory_entries WHERE ${liveMemoryRowSql()} AND embedding IS NOT NULL`,
+    ).get();
+    return row?.cnt ?? 0;
   } catch {
     return null;
   }

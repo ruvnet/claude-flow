@@ -9,6 +9,11 @@
  *  1. build() — bulk-load all embeddings from SQLite into the WASM index
  *  2. search() — fast Hamming scan → candidate ids → caller reranks
  *  3. rebuild() — called when entry count drifts >20% from last build
+ *
+ * #4203: step 3 is driven by `ensureRabitqIndex()`, which the search paths
+ * call before `searchRabitq()`. Previously the only caller of the build was
+ * the explicit `embeddings_rabitq_build` tool, so the index was effectively
+ * never populated and every `searchRabitq()` returned null.
  */
 
 import * as fs from 'fs';
@@ -26,14 +31,26 @@ interface RabitqState {
   dimensions: number;
   builtAt: number;
   vectorCount: number;
+  /** Resolved source database the index was built from (#4203). An index built
+   *  from one store must not answer a query aimed at another one — same reason
+   *  the bridge registry cache is keyed by path (#3196). */
+  sourcePath?: string;
 }
 
 const RABITQ_SEED = 42n;
 const RABITQ_RERANK_FACTOR = 20;
 const REBUILD_DRIFT_THRESHOLD = 0.2; // rebuild when count drifts >20%
+/** #4203: minimum gap between auto-build attempts, so a store that is still
+ *  too small cannot turn every search into a build attempt. */
+const AUTO_BUILD_RETRY_MS = 60_000;
+const RABITQ_UNAVAILABLE_ERROR = '@ruvector/rabitq-wasm not available';
 
 let rabitqState: RabitqState | null = null;
 let rabitqInitializing = false;
+let lastAutoBuildAttempt = 0;
+/** Set once the WASM module is known to be missing for this process: retrying
+ *  the same failing dynamic import on every search buys nothing. */
+let autoBuildDisabled = false;
 
 async function loadRabitqModule(): Promise<{
   RabitqIndex: any;
@@ -88,7 +105,7 @@ export async function buildRabitqIndex(options?: {
     const mod = await loadRabitqModule();
     if (!mod) {
       rabitqInitializing = false;
-      return { success: false, vectorCount: 0, dimensions: 0, compressionRatio: 0, buildTimeMs: 0, error: '@ruvector/rabitq-wasm not available' };
+      return { success: false, vectorCount: 0, dimensions: 0, compressionRatio: 0, buildTimeMs: 0, error: RABITQ_UNAVAILABLE_ERROR };
     }
 
     const dimensions = options?.dimensions ?? 384;
@@ -171,6 +188,7 @@ export async function buildRabitqIndex(options?: {
       dimensions,
       builtAt: Date.now(),
       vectorCount: entries.length,
+      sourcePath: options?.dbPath ? path.resolve(options.dbPath) : undefined,
     };
 
     // Persist metadata for fast reload hint
@@ -288,6 +306,105 @@ export async function shouldRebuildRabitq(currentEntryCount: number): Promise<bo
 
   const drift = Math.abs(currentEntryCount - rabitqState.vectorCount) / Math.max(rabitqState.vectorCount, 1);
   return drift > REBUILD_DRIFT_THRESHOLD;
+}
+
+/**
+ * Whether the in-memory index can answer a query for this store/dimension.
+ * `undefined` dbPath means "the default store", matching build's own default.
+ */
+function isRabitqUsable(options?: { dbPath?: string; dimensions?: number }): boolean {
+  if (!rabitqState) return false;
+  if (options?.dimensions != null && rabitqState.dimensions !== options.dimensions) return false;
+  const sourcePath = options?.dbPath ? path.resolve(options.dbPath) : undefined;
+  return rabitqState.sourcePath === sourcePath;
+}
+
+/**
+ * Count the rows `buildRabitqIndex()` would load, using the cheapest source
+ * available: the bridge's COUNT (WAL-visible, same rows build prefers) with a
+ * sql.js COUNT of the same file as fallback. Returns 0 when neither is
+ * readable, which simply leaves the caller on its non-RaBitQ path.
+ */
+async function countIndexableEntries(options?: { dbPath?: string; dimensions?: number }): Promise<number> {
+  const dimensions = options?.dimensions ?? 384;
+
+  try {
+    const { bridgeCountEmbeddings } = await import('./memory-bridge.js');
+    const bridgeCount = await bridgeCountEmbeddings({ dimensions, dbPath: options?.dbPath });
+    if (bridgeCount !== null) return bridgeCount;
+  } catch { /* bridge unavailable, fall through */ }
+
+  const dbPath = options?.dbPath
+    ? path.resolve(options.dbPath)
+    : path.join(path.resolve(process.cwd(), '.swarm'), 'memory.db');
+  if (!fs.existsSync(dbPath)) return 0;
+
+  let db: any = null;
+  try {
+    const initSqlJs = (await import('sql.js')).default;
+    const SQL = await initSqlJs();
+    db = new SQL.Database(fs.readFileSync(dbPath));
+
+    const count = (dimFilter: string) => db.exec(`
+      SELECT COUNT(*) FROM memory_entries
+      WHERE status = 'active' AND embedding IS NOT NULL${dimFilter}
+    `);
+
+    let result;
+    try {
+      // Same rows build() keeps: only embeddings of the requested width.
+      result = count(` AND json_array_length(embedding) = ${dimensions}`);
+    } catch {
+      result = count('');
+    }
+    return Number(result[0]?.values?.[0]?.[0] ?? 0);
+  } catch {
+    return 0;
+  } finally {
+    try { db?.close(); } catch { /* ignore */ }
+  }
+}
+
+/**
+ * Auto-build / auto-rebuild entry point (#4203).
+ *
+ * Search paths call this before `searchRabitq()`: it lets `shouldRebuildRabitq()`
+ * decide whether the index is missing or has drifted past the 20% threshold and
+ * builds it when so. Never throws — a missing WASM module, an unreadable store
+ * or an index built for another store/dimension just leaves the caller's
+ * existing non-RaBitQ path untouched. Returns whether an index usable for these
+ * options exists afterwards.
+ */
+export async function ensureRabitqIndex(options?: {
+  dbPath?: string;
+  dimensions?: number;
+}): Promise<boolean> {
+  if (autoBuildDisabled || rabitqInitializing) return isRabitqUsable(options);
+
+  const dimensions = options?.dimensions ?? 384;
+  const now = Date.now();
+  if (now - lastAutoBuildAttempt < AUTO_BUILD_RETRY_MS) return isRabitqUsable(options);
+  lastAutoBuildAttempt = now;
+
+  let currentEntryCount = 0;
+  try {
+    currentEntryCount = await countIndexableEntries({ dbPath: options?.dbPath, dimensions });
+  } catch {
+    currentEntryCount = 0;
+  }
+
+  if (isRabitqUsable(options)) {
+    // Same store and width: rebuild only once the corpus has drifted >20%.
+    if (!(await shouldRebuildRabitq(currentEntryCount))) return true;
+  } else if (!rabitqState) {
+    // Nothing built yet: honour the "enough vectors to be worth it" floor.
+    if (!(await shouldRebuildRabitq(currentEntryCount))) return false;
+  }
+  // Either the index is stale for this store/width, or the entry count drifted.
+
+  const result = await buildRabitqIndex({ dbPath: options?.dbPath, dimensions });
+  if (!result.success && result.error === RABITQ_UNAVAILABLE_ERROR) autoBuildDisabled = true;
+  return isRabitqUsable(options);
 }
 
 /**
