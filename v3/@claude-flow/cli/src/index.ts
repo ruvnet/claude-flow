@@ -41,6 +41,13 @@ function getPackageVersion(): string {
 
 export const VERSION = getPackageVersion();
 
+/** Commands that only observe the running system and must not start or write anything. */
+export const OBSERVE_ONLY_COMMANDS: ReadonlySet<string> = new Set(['harness']);
+
+export function isObserveOnlyCommand(name: string | undefined): boolean {
+  return name !== undefined && OBSERVE_ONLY_COMMANDS.has(name);
+}
+
 export interface CLIOptions {
   name?: string;
   description?: string;
@@ -132,8 +139,14 @@ export class CLI {
         this.output.printDebug(`CWD: ${process.cwd()}`);
       }
 
+      // Observe-only commands (e.g. `harness`, run from SessionStart hooks)
+      // report on the running system, so they must not change it: no update
+      // check, no policy migration, no helper refresh, no proven-config
+      // adoption, no daemon autostart.
+      const observeOnly = isObserveOnlyCommand(commandPath[0] ?? positional[0]);
+
       // Run startup update check (non-blocking, silent on skip)
-      if (!flags.noUpdate && flags.update !== false && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json)) {
+      if (!flags.noUpdate && flags.update !== false && commandPath[0] !== 'update' && !(commandPath[0] === 'doctor' && flags.json) && !observeOnly) {
         this.checkForUpdatesOnStartup().catch(() => {/* silent */});
       }
 
@@ -143,7 +156,7 @@ export class CLI {
       // command can't exit before the copy lands; the fast path is a single
       // stamp read + string compare (sub-ms), and the copy runs at most once per
       // version bump. Best-effort + silent — never blocks or fails a command.
-      if (commandPath[0] !== 'init' && commandPath[0] !== 'update') {
+      if (commandPath[0] !== 'init' && commandPath[0] !== 'update' && !observeOnly) {
         // ADR-324: existing installations acquire a versioned policy state on
         // first use. Migration is additive and starts in legacy mode, so older
         // AgentDB, MCP, hooks, and swarm workflows keep their exact behavior.
