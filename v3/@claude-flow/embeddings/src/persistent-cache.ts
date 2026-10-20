@@ -53,6 +53,7 @@ export class PersistentEmbeddingCache {
   private db: SqlJsDatabase | null = null;
   private SQL: SqlJsStatic | null = null;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
   private dirty = false;
   private hits = 0;
   private misses = 0;
@@ -75,7 +76,15 @@ export class PersistentEmbeddingCache {
    */
   private async ensureInitialized(): Promise<void> {
     if (this.initialized) return;
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initialize().finally(() => {
+        this.initializationPromise = null;
+      });
+    }
+    return this.initializationPromise;
+  }
 
+  private async initialize(): Promise<void> {
     try {
       // Dynamically import sql.js
       const initSqlJs = (await import('sql.js')).default;
