@@ -6,7 +6,7 @@ import { feedbackPatternsSchema, validateFeedbackPatterns } from '../memory/feed
 
 import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import * as nodeFs from 'fs';
-import { dirname, join, resolve } from 'path';
+import { dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validatePath } from './validate-input.js';
 import { commandRecordingDisabled, redactCommandForStorage } from '../services/command-recording.js';
@@ -5429,7 +5429,17 @@ export const hooksCodemod: MCPTool = {
         const v = validatePath(p, 'path');
         if (!v.valid) return v.error;
         const abs = resolve(cwd, v.sanitized);
-        if (!abs.startsWith(cwd)) return `path escapes project root: ${p}`;
+        // Anchor containment at a path-separator boundary — an unanchored
+        // `abs.startsWith(cwd)` string-prefix check would let an absolute
+        // path like `${cwd}-staging/x.ts` pass as "inside" `cwd`. Matches
+        // the pattern already used correctly elsewhere in this codebase
+        // (@claude-flow/security's `isWithinPrefix`, hooks/workers, plugins/security).
+        // KNOWN LIMITATION (disclosed 2026-10-20, not fixed here): this
+        // compares the resolved-but-not-realpath'd path, so a symlink
+        // inside cwd pointing outside it still escapes containment
+        // (CWE-59, a distinct/broader gap than the CWE-22 prefix bug this
+        // anchors). Needs fs.realpathSync-based containment as a follow-up.
+        if (abs !== cwd && !abs.startsWith(cwd + sep)) return `path escapes project root: ${p}`;
         out.add(abs);
         return undefined;
       };
@@ -5451,7 +5461,7 @@ export const hooksCodemod: MCPTool = {
         }
         for (const m of matches) {
           const abs = resolve(cwd, m);
-          if (abs.startsWith(cwd) && CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) {
+          if ((abs === cwd || abs.startsWith(cwd + sep)) && CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) {
             out.add(abs);
           }
         }
