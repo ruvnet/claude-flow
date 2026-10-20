@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { generateKeyPair, exportJWK, SignJWT } from 'jose';
 import { createGateway } from '../src/server.mjs';
-import { protectedResourceMetadata, SCOPE_READ, SCOPE_PUBLISH } from '../src/oauth.mjs';
+import { protectedResourceMetadata, SCOPE_READ, SCOPE_PUBLISH, SCOPE_OFFLINE } from '../src/oauth.mjs';
 
 const CLIENT_ID = 'ruflo-x-gateway';
 
@@ -61,10 +61,25 @@ const toolText = (r) => r.body?.result?.content?.[0]?.text ?? JSON.stringify(r.b
 
 test('the gateway advertises its own scopes, not the connector\'s', () => {
   const m = protectedResourceMetadata({ resource: 'https://x.example', issuer: 'https://auth.example' });
-  assert.deepEqual(m.scopes_supported, ['swarm:read', 'swarm:publish']);
+  assert.deepEqual(m.scopes_supported, ['swarm:read', 'swarm:publish', 'offline_access']);
   // Sharing federation:* would be safe (audience pinning is what isolates), but
   // distinct scopes keep a consent screen honest about what this resource grants.
   assert.ok(!m.scopes_supported.some((s) => s.startsWith('federation:')));
+});
+
+test('the gateway advertises offline_access so a compliant client can refresh without re-auth', () => {
+  // auth.cognitum.one only issues a refresh_token when a client requests this
+  // scope (confirmed against its own /.well-known/openid-configuration:
+  // grant_types_supported includes refresh_token, scopes_supported includes
+  // offline_access). RFC 9728 has a client request only scopes this resource's
+  // metadata says it supports, so omitting it here was the actual cause of a
+  // full browser re-auth every time the short-lived access token expired.
+  const m = protectedResourceMetadata({ resource: 'https://x.example', issuer: 'https://auth.example' });
+  assert.ok(m.scopes_supported.includes(SCOPE_OFFLINE));
+  assert.equal(SCOPE_OFFLINE, 'offline_access');
+  // offline_access must never gate a tool call the way SCOPE_READ/SCOPE_PUBLISH
+  // do — it only controls refresh_token issuance at the authorization server.
+  assert.ok(![SCOPE_READ, SCOPE_PUBLISH].includes(SCOPE_OFFLINE));
 });
 
 test('discovery echoes the identifier the client asked about', async () => {

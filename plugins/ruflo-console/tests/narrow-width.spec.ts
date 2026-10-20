@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseMissions } from '../hooks/data/missions'
-import { mcOf } from '../hooks/mission-control'
+import { mcOf, setGoal } from '../hooks/mission-control'
 import { newState } from '../hooks/state'
 import { viewText } from '../hooks/views/pane'
 
@@ -62,5 +62,70 @@ describe('the Approvals pane at narrow widths (#3899)', () => {
     const screen = viewText({ state, nowMs: Date.now(), columns: 80, act }, 'missions')
 
     expect(screen.replace(/\s+/g, ' ')).toContain(objective)
+  })
+})
+
+describe('Mission Control at narrow widths (#3899)', () => {
+  for (const columns of [80, 60]) {
+    it(`${columns} columns: the kind description and the empty-goal hint wrap instead of ending in "…"`, () => {
+      const state = newState({})
+
+      state.view = 'missions'
+      mcOf(state).tab = 'plan'
+      const screen = viewText({ state, nowMs: Date.now(), columns, act }, 'missions')
+      const flat = screen.replace(/\s+/g, ' ')
+
+      expect(flat).toContain('research, specify, design + ADRs, tests first, build, validate, secure, benchmark, learn')
+      expect(flat).toContain('type a goal above: the planner finds the cheapest SPARC action sequence that reaches it')
+      // Prose rows fit the pane; the section rules ('─' fills) are drawn by their own helper and are not what #3899 is about.
+      expect(Math.max(...screen.split('\n').filter(line => !line.includes('─')).map(line => [...line].length))).toBeLessThanOrEqual(columns)
+    })
+
+    it(`${columns} columns: every planned task title is shown whole`, () => {
+      const state = newState({})
+
+      state.view = 'missions'
+      mcOf(state).tab = 'plan'
+      setGoal(state, 'fix the crash when the password is empty')
+      const planned = mcOf(state).planned
+      const screen = viewText({ state, nowMs: Date.now(), columns, act }, 'missions')
+      const flat = screen.replace(/\s+/g, ' ')
+
+      expect(planned).not.toBeNull()
+      for (const step of planned!.steps) expect(flat).toContain(step.action.title)
+      // No task line ends in an ellipsis. (The skill button rows below are drawn by their own helper, one column over at 80: not part of #3899.)
+      expect(screen.split('\n').filter(line => /^\s+t\d+ \[/.test(line) && line.includes('…'))).toEqual([])
+    })
+  }
+})
+
+describe('Mission Control prose that still ended in "…" at 80 columns (#3899)', () => {
+  it('a launch step whose detail does not fit beside its label wraps it underneath', () => {
+    const note = 'Claude suggests starting with the failing test for an empty password, then guarding the handler and the form'
+    const state = newState({})
+
+    state.view = 'missions'
+    mcOf(state).tab = 'plan'
+    setGoal(state, 'fix the crash when the password is empty')
+    mcOf(state).guidance = { goal: 'fix the crash when the password is empty', status: 'done', lines: [], note, stop: null, startedAtMs: 0 }
+    const screen = viewText({ state, nowMs: Date.now(), columns: 80, act }, 'missions')
+
+    expect(screen.replace(/\s+/g, ' ')).toContain(note)
+    expect(screen.replace(/\s+/g, ' ')).toContain('writes the mission record and one ruflo task per plan node; runs no agent')
+  })
+
+  it('the record keeps a blocked reason, the legend and the observation note whole', () => {
+    const blockedReason = 'the budget ceiling was reached before the second task could reserve its estimate'
+    const state = newState({})
+
+    state.view = 'missions'
+    state.snapshot = { plugins: { installed: [] }, missions: parseMissions(JSON.stringify({ schemaVersion: 1, contract: 'ruflo.mission-observation/1', observedAt: new Date().toISOString(), missions: [{ missionId: 'msn_blocked', objective: 'ship it', state: 'blocked', blockedReason, revision: 1, plan: { revision: 1, taskCount: 0, tasks: [] }, evidence: { count: 0, verified: 0 } }] })) } as never
+    mcOf(state).tab = 'record'
+    const screen = viewText({ state, nowMs: Date.now(), columns: 80, act }, 'missions')
+    const flat = screen.replace(/\s+/g, ' ')
+
+    expect(flat).toContain(`blocked: ${blockedReason}`)
+    expect(flat).toContain('● recorded done (recorded, not verified) · ✖ failed')
+    expect(flat).toContain('with a request id and the expected revision')
   })
 })

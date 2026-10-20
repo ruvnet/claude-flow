@@ -81,6 +81,19 @@ export interface RuvllmStatus {
   available: boolean;
   initialized: boolean;
   version: string | null;
+  /** Present when unavailable: how to install the missing package. */
+  hint?: string;
+}
+
+/** #4149: the wasm package is an optional add-on, not bundled with the CLI. */
+export const RUVLLM_WASM_INSTALL_HINT =
+  '@ruvector/ruvllm-wasm is not installed. Install it next to the CLI: ' +
+  '"npm i -g @ruvector/ruvllm-wasm" for a global install, or ' +
+  '"npm i @ruvector/ruvllm-wasm" in your project.';
+
+function isModuleNotFound(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND';
 }
 
 // ── WASM Module Detection & Init ─────────────────────────────
@@ -114,6 +127,9 @@ export async function initRuvllmWasm(): Promise<void> {
     mod.initSync({ module: wasmBytes });
     _wasmReady = true;
   } catch (err) {
+    if (isModuleNotFound(err)) {
+      throw new Error(`Failed to initialize @ruvector/ruvllm-wasm: ${RUVLLM_WASM_INSTALL_HINT}`);
+    }
     throw new Error(`Failed to initialize @ruvector/ruvllm-wasm: ${err}`);
   }
 }
@@ -124,7 +140,7 @@ export async function initRuvllmWasm(): Promise<void> {
 export async function getRuvllmStatus(): Promise<RuvllmStatus> {
   const available = await isRuvllmWasmAvailable();
   if (!available) {
-    return { available: false, initialized: false, version: null };
+    return { available: false, initialized: false, version: null, hint: RUVLLM_WASM_INSTALL_HINT };
   }
   try {
     const mod = await import('@ruvector/ruvllm-wasm');

@@ -25,6 +25,20 @@ jobs:
             console.log('Marketplace:', catalog.name);
             console.log('Plugins:', catalog.plugins.length);
             for (const p of catalog.plugins) {
+              // An external plugin (maintained in another repository) is listed by a git source pinned to a commit:
+              // its files are not in this repository, so only the entry itself is checked here; smoke-all-plugins
+              // checks out the pinned commit and runs the plugin's own smoke.
+              if (typeof p.source !== 'string') {
+                const s = p.source || {};
+                // Same rules as scripts/external-plugins.mjs: github.com/<owner>/<repo> only, a relative path of plain names without . or ..
+                const m = typeof s.url === 'string' ? /^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/.exec(s.url) : null;
+                if (s.source !== 'git-subdir' || m === null || [m[1], m[2].replace(/\.git$/, '')].some((x) => x === '' || x === '.' || x === '..')) throw new Error('External plugin ' + p.name + ': source must be a git-subdir with url https://github.com/<owner>/<repo>');
+                if (typeof s.path !== 'string' || !/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(s.path) || s.path.split('/').some((x) => x === '..' || x === '.')) throw new Error('External plugin ' + p.name + ': path must be a relative folder of plain names without . or ..');
+                if (typeof s.sha !== 'string' || s.sha.length !== 40 || /[^0-9a-f]/.test(s.sha)) throw new Error('External plugin ' + p.name + ': source must pin a full 40-character commit sha');
+                if (!p.description) throw new Error('External plugin ' + p.name + ': missing description');
+                console.log('  OK', p.name, '(external', s.url, s.path + '@' + (s.ref || s.sha) + ')');
+                continue;
+              }
               const dir = p.source;
               if (!fs.existsSync(dir)) throw new Error('Missing plugin dir: ' + dir);
               const manifest = dir + '/.claude-plugin/plugin.json';

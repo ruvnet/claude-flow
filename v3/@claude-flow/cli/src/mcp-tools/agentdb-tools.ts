@@ -98,6 +98,19 @@ async function bridgeUnavailableResult(): Promise<{ error: string; hint: string 
     hint: 'Check Node version + try `ruflo memory init` to initialize manually.',
   };
 }
+// #4135 / #4161: graph reads (agentdb_graph-query, agentdb_graph-pathfinder) open the
+// graph_edges database; under encryption at rest that file is an RFE1 blob they cannot
+// open. A recorded edge is then unreadable even though the write reports success, so the
+// write says so instead of letting a caller assume it can read the edge back.
+async function unreadableEdgeWarning(): Promise<string | undefined> {
+  try {
+    const { isBridgeDbEncryptedAtRest } = await getGraphEdgeWriter();
+    if (!isBridgeDbEncryptedAtRest()) return undefined;
+    return 'Edge recorded, but graph reads (agentdb_graph-query, agentdb_graph-pathfinder) cannot open the graph_edges database because it is encrypted at rest (RFE1), so this edge cannot be read back yet. Your data is intact (#2889, #4135).';
+  } catch {
+    return undefined;
+  }
+}
 let memInitMod: typeof import('../memory/memory-initializer.js') | null = null;
 async function getMemInit() {
   if (!memInitMod) memInitMod = await import('../memory/memory-initializer.js');
@@ -568,7 +581,9 @@ export const agentdbCausalEdge: MCPTool = {
             // Also record in AgentDB bridge for compatibility
             const bridge = await getBridge();
             await bridge.bridgeRecordCausalEdge({ sourceId, targetId, relation, weight: typeof params.weight === 'number' ? validateScore(params.weight, 0.5) : undefined }).catch(() => {});
-            return { ...graphResult, _graphNodeBackend: true, ...(legacyWarning && { warning: legacyWarning }) };
+            const unreadable = await unreadableEdgeWarning();
+            const warning = [legacyWarning, unreadable].filter(Boolean).join(' ');
+            return { ...graphResult, _graphNodeBackend: true, ...(unreadable && { readable: false }), ...(warning && { warning }) };
           }
         }
       } catch { /* graph-node not available, fall through */ }
@@ -581,7 +596,9 @@ export const agentdbCausalEdge: MCPTool = {
         weight: typeof params.weight === 'number' ? validateScore(params.weight, 0.5) : undefined,
       });
       const baseResult = result ?? { success: false, error: 'AgentDB bridge not available. Use memory_store/memory_search instead.' };
-      return legacyWarning ? { ...baseResult, warning: legacyWarning } : baseResult;
+      const unreadable = baseResult.success === false ? undefined : await unreadableEdgeWarning();
+      const warning = [legacyWarning, unreadable].filter(Boolean).join(' ');
+      return warning ? { ...baseResult, ...(unreadable && { readable: false }), warning } : baseResult;
     } catch (error) {
       return { success: false, error: sanitizeError(error) };
     }
@@ -1138,6 +1155,9 @@ export const agentdbGraphQuery: MCPTool = {
         } catch (error) {
           return { success: false, error: `Retained SQL graph query failed: ${sanitizeError(error)}`, mode, nodeId };
         }
+        // #4135: name the real reason when the retained store is encrypted at rest.
+        const encryptedAtRest = await getGraphEdgeWriter().then((w) => w.isBridgeDbEncryptedAtRest()).catch(() => false);
+        if (encryptedAtRest) return { success: false, ...(await bridgeUnavailableResult()), mode, nodeId };
         return { success: false, error: 'Retained SQL graph_edges backend is unavailable for k-hop query', mode, nodeId };
       }
 

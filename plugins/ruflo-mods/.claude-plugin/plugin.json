@@ -1,7 +1,7 @@
 {
   "name": "ruflo-mods",
   "description": "ruflo as a Claude Code mod (function hooks, ADR-404): in-process prompt routing, edit learning signals, tighten-only tool checks from ruflo policy, the cost-tracker budget ladder, a mod trust gate for newly installed mods, and the $.ruflo noun other mods compose their status with. Opt-in and removable: the classic hook-handler hooks stay the default and take every event back whenever the mod is not loaded.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -113,7 +113,7 @@
     "modTrust": {
       "type": "string",
       "title": "Mod trust gate",
-      "description": "How ruflo treats a hooks module installed or hot-reloaded after it (a mod Claude wrote, say). \"observe\" (default): name what it can do (host commands, network, environment, file writes, tool verdicts) in the transcript. \"refuse-risky\": refuse user-tier mods that can do any of those, unless listed in modTrustAllow. \"off\": do not watch.",
+      "description": "How ruflo treats a hooks module installed or hot-reloaded after it (a mod Claude wrote, say). \"observe\" (default): name what it can do (host commands, network, MCP tools, messages to other agents, settings, environment, file writes, starting agents, submitting prompts, running tools; hooks, including globs and negations, on tool verdicts, tool calls, prompts, agent spawns, tool descriptions, the transcript, compaction, model requests, other mods, or the file reads, settings and environment other mods decide by) in the transcript. \"refuse-risky\": refuse user-tier mods that can do any of those, unless listed in modTrustAllow. \"off\": do not watch.",
       "required": false,
       "default": "observe",
       "options": [

@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.7 — 2026-10-14
+- fix: memory-search, the memory-specialist agent, `/recall` and `/ruflo-memory` no longer tell the model to run `ruvector search --hybrid` / `--graph-rag` (the ruvector CLI takes a database path and a `--vector` JSON array, not a text query); they use `memory search --type hybrid` and `--smart`, say plainly that this plugin has no text-query Graph RAG, and single-quote the query as untrusted shell input (#4153, thanks @rudycelekli for the PR and @ronmikailov for the report)
+
 ## 0.3.6 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 

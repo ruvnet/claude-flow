@@ -8,6 +8,7 @@
  */
 import type { ActionSpec } from './actions'
 import { type CatalogMode, type CatalogPlugin, readCatalog, readDoc, visible } from './data/plugin-catalog'
+import { safeInstallPath } from './data/cost-ledger'
 import { plain } from './data/parse'
 import { RUFLO_MARKET } from './data/snapshot'
 import type { Host } from './host'
@@ -131,7 +132,16 @@ export function loadCatalog(state: State, host: Host): void {
 
   catalog.loading = true
   host.invalidate()
-  void readCatalog(host.fs, market.location)
+  // Where each installed ruflo plugin lives: an external one (no copy in the clone) is read from there.
+  const installed = new Map(
+    (state.snapshot?.plugins.installed ?? []).flatMap(plugin => {
+      const path = plugin.marketplace === RUFLO_MARKET ? safeInstallPath(plugin.installPath) : undefined
+
+      return path === undefined ? [] : [[plugin.name, path] as const]
+    }),
+  )
+
+  void readCatalog(host.fs, market.location, installed)
     .then(plugins => {
       catalog.plugins = plugins
       catalog.why = plugins === null ? 'the clone’s marketplace.json is not readable' : plugins.length === 0 ? 'the clone lists no plugins' : ''

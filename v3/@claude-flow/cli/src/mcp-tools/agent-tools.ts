@@ -11,6 +11,7 @@ import { readRecordStore } from './record-store.js';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validateAgentSpawn } from './validate-input.js';
 import { executeAgentTask } from './agent-execute-core.js';
+import { AGENT_HEALTH_WINDOW, summarizeAgentExecutions, type AgentExecutionSample } from './agent-health-metrics.js';
 import { pheromoneAgentEligibility } from './swarm-tools.js';
 
 // Storage paths
@@ -29,6 +30,8 @@ type ClaudeModel = 'haiku' | 'sonnet' | 'opus' | 'opus-4.7' | 'inherit';
 interface AgentRecord {
   agentId: string;
   agentType: string;
+  /** #4300 — display name given at spawn (`agent spawn --name`). */
+  name?: string;
   status: 'idle' | 'busy' | 'terminated';
   health: number;
   taskCount: number;
@@ -44,6 +47,7 @@ interface AgentRecord {
   /** ADR-148 — concrete OpenRouter slug when provider='openrouter'. */
   openrouterModel?: string;
   lastResult?: Record<string, unknown>;
+  executionHistory?: AgentExecutionSample[];
   /**
    * ACOW — path to this agent's per-agent Copy-On-Write memory branch
    * (agenticow), set only when the agent was spawned with `memoryBase`. On
@@ -286,6 +290,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         agentType: { type: 'string', description: 'Type of agent to spawn' },
         agentId: { type: 'string', description: 'Optional custom agent ID' },
+        name: { type: 'string', description: 'Optional display name for the agent (shown by agent_list, agent_status and ruflo-console)' },
         // #2085 — accept swarmId so spawned agents register in the
         // swarm.agents array that swarm_status reports. Omit to register
         // with the most-recently-created swarm.
@@ -312,6 +317,18 @@ export const agentTools: MCPTool[] = [
 
       const agentId = (input.agentId as string) || `agent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const agentType = input.agentType as string;
+      // #4300 — older callers (including `agent spawn` before this fix) send
+      // the name only as metadata.name.
+      const metadata = input.metadata as Record<string, unknown> | undefined;
+      const rawName = input.name ?? metadata?.name;
+      let name: string | undefined;
+      if (rawName !== undefined && rawName !== '') {
+        const vName = validateText(rawName, 'name', 200);
+        if (!vName.valid) {
+          return { success: false, error: `Input validation failed: ${vName.error}` };
+        }
+        name = vName.sanitized;
+      }
       const config = (input.config as Record<string, unknown>) || {};
 
       // Add explicit model to config if provided
@@ -343,6 +360,7 @@ export const agentTools: MCPTool[] = [
       const agent: AgentRecord = {
         agentId,
         agentType,
+        ...(name ? { name } : {}),
         status: 'idle',
         health: 1.0,
         taskCount: 0,
@@ -432,6 +450,7 @@ export const agentTools: MCPTool[] = [
         success: true,
         agentId,
         agentType: agent.agentType,
+        ...(agent.name ? { name: agent.name } : {}),
         model: agent.model,
         modelRoutedBy: routingResult.routedBy,
         ...(routingResult.modelId ? { modelId: routingResult.modelId } : {}),
@@ -590,6 +609,7 @@ export const agentTools: MCPTool[] = [
         return {
           agentId: agent.agentId,
           agentType: agent.agentType,
+          ...(agent.name ? { name: agent.name } : {}),
           status: agent.status,
           health: agent.health,
           taskCount: agent.taskCount,
@@ -615,6 +635,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         status: { type: 'string', description: 'Filter by status' },
         domain: { type: 'string', description: 'Filter by domain' },
+        agentType: { type: 'string', description: 'Filter by agent type' },
         includeTerminated: { type: 'boolean', description: 'Include terminated agents' },
       },
     },
@@ -625,6 +646,10 @@ export const agentTools: MCPTool[] = [
       }
       if (input.domain) {
         const v = validateIdentifier(input.domain, 'domain');
+        if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
+      }
+      if (input.agentType) {
+        const v = validateIdentifier(input.agentType, 'agentType');
         if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
       }
 
@@ -642,10 +667,16 @@ export const agentTools: MCPTool[] = [
         agents = agents.filter(a => a.domain === input.domain);
       }
 
+      // Filter by agent type
+      if (input.agentType) {
+        agents = agents.filter(a => a.agentType === input.agentType);
+      }
+
       return {
         agents: agents.map(a => ({
           agentId: a.agentId,
           agentType: a.agentType,
+          ...(a.name ? { name: a.name } : {}),
           status: a.status,
           health: a.health,
           taskCount: a.taskCount,
@@ -656,6 +687,7 @@ export const agentTools: MCPTool[] = [
         filters: {
           status: input.status,
           domain: input.domain,
+          agentType: input.agentType,
           includeTerminated: input.includeTerminated,
         },
       };
@@ -788,7 +820,7 @@ export const agentTools: MCPTool[] = [
   },
   {
     name: 'agent_health',
-    description: 'Compute an agent\'s rolling health score (0-1) from recent task success ratio + response-latency p50/p95 + error rate. Use when native Task tool is wrong because you\'re running a long-lived agent (autonomous loop / hive-mind worker / federation peer) and need to detect degradation before the breaker trips it. For one-shot Task invocations there is no history to score. Pair with hooks_post-task so the scores stay current.',
+    description: 'Report measured agent_execute provider-call outcomes over the last 20 calls: API success-ratio health (0-1), error rate, and response-latency p50/p95. This does not measure task correctness. Agents with no observed calls have unknown health; registration is not proof of a running process. Native Task and hooks_post-task outcomes are not recorded here. Use when you need measured reliability for agents driven through agent_execute; native Task results are invisible to this tool, so inspect those directly.',
     category: 'agent',
     inputSchema: {
       type: 'object',
@@ -805,61 +837,84 @@ export const agentTools: MCPTool[] = [
 
       const store = loadAgentStore();
       const agents = Object.values(store.agents).filter(a => a.status !== 'terminated');
-      const threshold = (input.threshold as number) || 0.5;
+      const threshold = input.threshold === undefined ? 0.5 : input.threshold as number;
+      if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+        return { error: 'threshold must be a finite number between 0 and 1' };
+      }
+      const healthStatus = (health: number | null): 'healthy' | 'degraded' | 'unhealthy' | 'unknown' =>
+        health === null ? 'unknown' : health >= threshold ? 'healthy' : health >= 0.3 ? 'degraded' : 'unhealthy';
 
       if (input.agentId) {
         const agent = store.agents[input.agentId as string];
         if (agent) {
+          const metrics = summarizeAgentExecutions(agent.executionHistory);
           return {
             agentId: agent.agentId,
-            health: agent.health,
+            ...metrics,
+            healthStatus: healthStatus(metrics.health),
             status: agent.status,
-            healthy: agent.health >= threshold,
+            healthy: metrics.health === null ? null : metrics.health >= threshold,
             taskCount: agent.taskCount,
-            uptime: Date.now() - new Date(agent.createdAt).getTime(),
+            uptime: null,
+            registryAgeMs: Date.now() - new Date(agent.createdAt).getTime(),
+            windowSize: AGENT_HEALTH_WINDOW,
+            source: 'agent_execute',
           };
         }
         return { agentId: input.agentId, error: 'Agent not found' };
       }
 
-      const healthyAgents = agents.filter(a => a.health >= threshold);
-      const degradedAgents = agents.filter(a => a.health >= 0.3 && a.health < threshold);
-      const unhealthyAgents = agents.filter(a => a.health < 0.3);
-      const avgHealth = agents.length > 0 ? agents.reduce((sum, a) => sum + a.health, 0) / agents.length : 1;
+      const observed = agents.map(agent => ({ agent, metrics: summarizeAgentExecutions(agent.executionHistory) }));
+      const healthyAgents = observed.filter(({ metrics }) => healthStatus(metrics.health) === 'healthy');
+      const degradedAgents = observed.filter(({ metrics }) => healthStatus(metrics.health) === 'degraded');
+      const unhealthyAgents = observed.filter(({ metrics }) => healthStatus(metrics.health) === 'unhealthy');
+      const measuredAgents = observed.filter(({ metrics }) => metrics.health !== null);
+      const unknownCount = agents.length - measuredAgents.length;
+      const avgHealth = measuredAgents.length > 0
+        ? measuredAgents.reduce((sum, { metrics }) => sum + metrics.health!, 0) / measuredAgents.length
+        : null;
 
       return {
         // CLI expected fields
-        agents: agents.map(a => {
-          const uptime = Date.now() - new Date(a.createdAt).getTime();
+        agents: observed.map(({ agent, metrics }) => {
           return {
-            id: a.agentId,
-            type: a.agentType,
-            health: a.health >= threshold ? 'healthy' : (a.health >= 0.3 ? 'degraded' : 'unhealthy'),
-            uptime,
-            tasks: { active: a.taskCount > 0 ? 1 : 0, queued: 0, completed: a.taskCount, failed: 0 },
-            _note: 'Per-agent OS metrics not available — use system_metrics for real CPU/memory',
+            id: agent.agentId,
+            type: agent.agentType,
+            health: healthStatus(metrics.health),
+            score: metrics.health,
+            sampleCount: metrics.sampleCount,
+            errorRate: metrics.errorRate,
+            latency: metrics.latency,
+            errors: { count: metrics.failures },
+            uptime: null,
+            registryAgeMs: Date.now() - new Date(agent.createdAt).getTime(),
+            tasks: { active: agent.status === 'busy' ? 1 : 0, queued: null, completed: metrics.successes, failed: metrics.failures },
+            _note: `Provider-call outcomes and latency cover only the last ${AGENT_HEALTH_WINDOW} agent_execute calls; task correctness, process liveness and CPU/memory are not observed`,
           };
         }),
         overall: {
           healthy: healthyAgents.length,
           degraded: degradedAgents.length,
           unhealthy: unhealthyAgents.length,
+          unknown: unknownCount,
           cpu: null,
           memory: null,
           _note: 'Per-agent CPU/memory not available — use system_metrics for real OS-level stats',
-          score: Math.round(avgHealth * 100),
+          score: avgHealth === null ? null : Math.round(avgHealth * 100),
           issues: unhealthyAgents.length,
         },
         // Additional fields
         total: agents.length,
+        observedCount: measuredAgents.length,
+        unknownCount,
         healthyCount: healthyAgents.length,
         unhealthyCount: unhealthyAgents.length,
         threshold,
         avgHealth,
-        unhealthyAgents: unhealthyAgents.map(a => ({
-          agentId: a.agentId,
-          health: a.health,
-          status: a.status,
+        unhealthyAgents: unhealthyAgents.map(({ agent, metrics }) => ({
+          agentId: agent.agentId,
+          health: metrics.health,
+          status: agent.status,
         })),
       };
     },

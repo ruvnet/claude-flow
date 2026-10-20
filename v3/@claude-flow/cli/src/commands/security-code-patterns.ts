@@ -6,8 +6,8 @@
  *  - every rule is tested after comment text is blanked, so a comment naming `child_process.execFile` or `eval(` is
  *    not a finding;
  *  - eval needs a word start: "retrieval (" in prose is not a call; `eval(` and `window.eval(` still are;
- *  - command injection keeps the old rule's reach (any `exec` after `child_process` on the line), and no longer skips
- *    execSync as `exec[^S]` did;
+ *  - command injection keeps the old rule's reach (any `exec` after `child_process` on the line), and also catches
+ *    dynamic exec/execSync command strings when the import was on another line;
  *  - a pg placeholder such as `$${paramCount + 1}` is a parameter number, not a value in the SQL text. It is exempt only
  *    when its expression is a number, a loop letter, `params.length`-style, or a name containing `param` or `placeholder`, it
  *    stands where SQL takes a value, and it is not inside a quoted SQL string.
@@ -23,6 +23,44 @@ export type CodePattern = {
 
 /** No `g` flag, so `test` keeps no lastIndex between lines. */
 const re = (pattern: RegExp) => (line: string) => pattern.test(line)
+
+/** Detect a dynamic shell command at an exec/execSync call site, independent of its import. */
+const interpolatedExec = (line: string): boolean => {
+  let quote: "'" | '"' | '`' | null = null
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (quote !== null) {
+      if (ch === '\\') { i++; continue }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue }
+    if (i > 0 && /[\w$]/.test(line[i - 1])) continue
+    const name = line.startsWith('execSync', i) ? 'execSync' : line.startsWith('exec', i) ? 'exec' : ''
+    if (!name) continue
+    let arg = i + name.length
+    while (/\s/.test(line[arg] ?? '')) arg++
+    if (line[arg++] !== '(') continue
+    while (/\s/.test(line[arg] ?? '')) arg++
+    const delimiter = line[arg]
+    if (delimiter !== '`' && delimiter !== "'" && delimiter !== '"') continue
+    for (let end = arg + 1; end < line.length; end++) {
+      if (line[end] === '\\') { end++; continue }
+      if (delimiter === '`' && line[end] === '$' && line[end + 1] === '{') return true
+      if (line[end] !== delimiter) continue
+      if (delimiter !== '`') {
+        let next = end + 1
+        while (/\s/.test(line[next] ?? '')) next++
+        if (line[next++] === '+') {
+          while (/\s/.test(line[next] ?? '')) next++
+          if (/[A-Za-z_$]/.test(line[next] ?? '')) return true
+        }
+      }
+      break
+    }
+  }
+  return false
+}
 
 // A `.length` counts only on a param-, value- or arg-named array: `req.body.length` is whatever the client sent.
 const COUNTER = /^\s*(?:\d+|[ijkn]|(?:[A-Za-z_$][\w$]*(?:Params?|Placeholders?|Values?|Args?)|params?|placeholders?|values?|args?)\.length|[A-Za-z_$]*(?:[Pp]aram|[Pp]laceholder)[\w$]*)\s*(?:[+-]\s*\d+\s*)?$/
@@ -70,7 +108,7 @@ export const CODE_PATTERNS: readonly CodePattern[] = [
   { match: re(/(?<![\w$])eval\s*\(/), type: 'Eval Usage', severity: 'medium', desc: 'eval() can execute arbitrary code' },
   { match: re(/innerHTML\s*=/), type: 'innerHTML', severity: 'medium', desc: 'XSS risk with innerHTML' },
   { match: re(/dangerouslySetInnerHTML/), type: 'React XSS', severity: 'medium', desc: 'React XSS risk' },
-  { match: re(/child_process.*exec/), type: 'Command Injection', severity: 'high', desc: 'Possible command injection' },
+  { match: line => /child_process.*exec/.test(line) || interpolatedExec(line), type: 'Command Injection', severity: 'high', desc: 'Possible command injection' },
   { match: line => sqlInterpolation(line) && sqlInterpolation(withoutPlaceholders(line)), type: 'SQL Injection', severity: 'high', desc: 'Possible SQL injection' },
 ]
 

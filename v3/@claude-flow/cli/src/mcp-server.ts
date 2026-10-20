@@ -57,6 +57,11 @@ export interface MCPServerOptions {
   daemonize?: boolean;
   timeout?: number;
   requestTimeoutMs?: number;
+  rateLimitPerIp?: number;
+  rateLimitWindowMs?: number;
+  rateLimitPerSession?: number;
+  rateLimitGlobalRps?: number;
+  rateLimitGlobalBurst?: number;
   /**
    * Bearer token every HTTP request must present (`Authorization: Bearer <token>`).
    * http transport only. Prefer RUFLO_MCP_HTTP_TOKEN / a token file over this
@@ -180,6 +185,18 @@ function processStartToken(pid: number): string | undefined {
   }
 }
 
+type RateLimitOption =
+  | 'rateLimitPerIp'
+  | 'rateLimitWindowMs'
+  | 'rateLimitPerSession'
+  | 'rateLimitGlobalRps'
+  | 'rateLimitGlobalBurst';
+
+function definedFields<T extends Record<string, number | undefined>>(fields: T): Partial<T> | undefined {
+  const entries = Object.entries(fields).filter(([, value]) => value !== undefined);
+  return entries.length === 0 ? undefined : Object.fromEntries(entries) as Partial<T>;
+}
+
 /**
  * Hosts treated as same-machine-only for MCP HTTP tool-call authorization
  * purposes (see startHttpServer's non-loopback authorization gate below).
@@ -217,6 +234,28 @@ export function shouldRefuseUnauthenticatedHttp(
   authenticated = false,
 ): boolean {
   return !isLoopbackHost(host) && !authenticated && !isUnauthenticatedHttpAllowed(env);
+}
+
+/** The limits @claude-flow/mcp applies when a rate limit option is unset. */
+const DEFAULT_RATE_LIMITS = {
+  rateLimitPerIp: 120,
+  rateLimitPerSession: 50,
+  rateLimitGlobalRps: 100,
+  rateLimitGlobalBurst: 200,
+} as const;
+const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
+
+/**
+ * Rate limit options that are looser than the @claude-flow/mcp defaults. A
+ * shorter window counts as looser.
+ */
+function raisedRateLimits(options: Pick<MCPServerOptions, RateLimitOption>): RateLimitOption[] {
+  const raised = (Object.keys(DEFAULT_RATE_LIMITS) as (keyof typeof DEFAULT_RATE_LIMITS)[])
+    .filter((name) => (options[name] ?? 0) > DEFAULT_RATE_LIMITS[name]) as RateLimitOption[];
+  if ((options.rateLimitWindowMs ?? DEFAULT_RATE_LIMIT_WINDOW_MS) < DEFAULT_RATE_LIMIT_WINDOW_MS) {
+    raised.push('rateLimitWindowMs');
+  }
+  return raised;
 }
 
 /** Printable ASCII without space (RFC 6750 token-ish), 16-512 chars. */
@@ -260,9 +299,11 @@ export function resolveMcpHttpAuthToken(
 }
 
 /**
- * Default configuration
+ * Default configuration. Rate limits are left unset so @claude-flow/mcp
+ * applies its own defaults.
  */
-type ResolvedMCPServerOptions = Required<Omit<MCPServerOptions, 'authToken'>> & { authToken?: string };
+type ResolvedMCPServerOptions = Required<Omit<MCPServerOptions, RateLimitOption | 'authToken'>> &
+  Pick<MCPServerOptions, RateLimitOption | 'authToken'>;
 
 const DEFAULT_OPTIONS: ResolvedMCPServerOptions = {
   transport: 'stdio',
@@ -1034,6 +1075,17 @@ export class MCPServerManager extends EventEmitter {
           '(e.g. when a trusted reverse proxy or network boundary already enforces auth).'
       );
     }
+    const raised = raisedRateLimits(this.options);
+    if (raised.length > 0 && !isLoopbackHost(this.options.host) && !authToken) {
+      // RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1 lets an open server start, but
+      // anyone who can reach it should not also get more than the default
+      // request budget.
+      throw new Error(
+        `Refusing to raise MCP rate limits (${raised.join(', ')}) above the defaults on non-loopback ` +
+          `host "${this.options.host}" without a bearer token. Set RUFLO_MCP_HTTP_TOKEN (or ` +
+          '--auth-token-file), or bind to a loopback host (127.0.0.1, ::1, or localhost).'
+      );
+    }
     // Dynamically import the MCP server package
     // FIX for issue #942: Use proper package import instead of broken relative path
     const { createMCPServer } = await import('@claude-flow/mcp');
@@ -1086,6 +1138,12 @@ export class MCPServerManager extends EventEmitter {
         enableMetrics: true,
         enableCaching: true,
         requestTimeout: this.options.requestTimeoutMs,
+        rateLimit: definedFields({ windowMs: this.options.rateLimitWindowMs, limit: this.options.rateLimitPerIp }),
+        sessionRateLimit: definedFields({
+          requestsPerSecond: this.options.rateLimitGlobalRps,
+          burstSize: this.options.rateLimitGlobalBurst,
+          perSessionLimit: this.options.rateLimitPerSession,
+        }),
         auth: authToken
           ? { enabled: true, method: 'token', tokens: [authToken] }
           : undefined,

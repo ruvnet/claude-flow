@@ -2,6 +2,17 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.2.11 — 2026-10-14
+- perf: the MCP launcher runs the resolved local CLI inside its own process instead of spawning a second node (one process, about half the memory, a faster first answer: measured here with a stub CLI as 2 processes to 1, 89 MB to 46 MB, 30 ms to 19 ms spawn-to-initialize); `RUFLO_MCP_SPAWN=1` restores the child process, and the npx fallback still spawns (#3989, thanks @socrates6969). The real-CLI startup numbers in the PR (149 MB to 81 MB, 1.3 s to 0.7 s) were not re-measured.
+
+## 0.2.10 — 2026-10-14
+- fix: the MCP launcher starts the server in the session project (`CLAUDE_PROJECT_DIR`, then `CLAUDE_FLOW_CWD`, then its own working directory; a drive root, the home folder or a missing folder is not a project) and looks for the local CLI from there, so on Windows the CLI and the MCP server keep one `.claude-flow` state, not two (#3987, thanks @socrates6969). It warns on stderr when there is no project. Tested with Windows-style environments only; no Windows machine was available.
+
+## 0.2.9 — 2026-10-14
+- fix: failed Bash commands and failed edits are recorded as failures: PostToolUseFailure is registered and forwarded to post-command / post-edit with `-s false` and the real exit code, so the learning layer no longer sees a 100% success rate (#4127, thanks @rudycelekli for #4170)
+- fix: the hook shim starts the CLI from CLAUDE_PROJECT_DIR, so a session that `cd`ed into a subdirectory no longer gets .claude-flow/ and proven-config files written there (#4176)
+- perf: telemetry hooks no longer block the tool: the CLI is started detached and the shim returns in about 25 ms instead of 0.2 to 4 s per call; at most 4 run at once per project (RUFLO_HOOK_MAX_PARALLEL), Stop is never dropped, RUFLO_HOOK_SYNC=1 restores the synchronous path (#4128)
+
 ## 0.2.8 — 2026-10-11
 - fix: the PostToolUse Bash shim stands down when command recording is switched off (`CLAUDE_FLOW_HOOKS_RECORD_COMMANDS=0` or `CLAUDE_FLOW_HOOKS_ENABLED=false`), so no CLI process is started per Bash call (#4056)
 

@@ -50,7 +50,13 @@ export const ruvllmWasmTools: MCPTool[] = [
           nativeBackend = {
             available: iStats._ruvllmBackend === 'active',
             coordinator: iStats._ruvllmBackend || 'unavailable',
+            // `trajectories` is the in-process SonaCoordinator buffer — it is
+            // 0 in any process that did not itself record (e.g. this MCP
+            // server while the daemon / hook processes do the recording).
             trajectories: iStats._ruvllmTrajectories || 0,
+            // Project-persisted total across all processes
+            // (.claude-flow/neural/stats.json).
+            trajectoriesRecorded: iStats.trajectoriesRecorded || 0,
             contrastiveTrainer: sStats._contrastiveTrainer !== 'unavailable' ? 'active' : 'unavailable',
             trainingBackend: iStats._trainingBackend || 'unknown',
           };

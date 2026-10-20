@@ -1,7 +1,7 @@
 {
   "name": "ruflo-knowledge-graph",
   "description": "Knowledge graph construction — entity extraction, relation mapping, and pathfinder graph traversal. As a mod (ADR-445): keeps secrets out of the graph, confirms graph deletes, /kg-mod, and a status file the console shows",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
