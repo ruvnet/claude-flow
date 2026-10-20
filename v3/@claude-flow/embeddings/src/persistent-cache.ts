@@ -12,6 +12,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname } from 'path';
+import { createHash } from 'node:crypto';
 
 // Use 'any' for sql.js types to avoid complex typing issues
 // sql.js has its own types but they don't always match perfectly
@@ -181,13 +182,9 @@ export class PersistentEmbeddingCache {
    * Generate cache key from text
    */
   private hashKey(text: string): string {
-    // FNV-1a hash for fast, deterministic key generation
-    let hash = 0x811c9dc5;
-    for (let i = 0; i < text.length; i++) {
-      hash ^= text.charCodeAt(i);
-      hash = (hash * 0x01000193) >>> 0;
-    }
-    return `emb_${hash.toString(16)}_${text.length}`;
+    // The text identity must distinguish equal-length 32-bit hash collisions.
+    // A versioned prefix makes legacy cache entries harmless cold misses.
+    return `emb_v2_${createHash('sha256').update(Buffer.from(text, 'utf16le')).digest('hex')}`;
   }
 
   /**
