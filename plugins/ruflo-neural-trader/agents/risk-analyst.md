@@ -9,44 +9,47 @@ You are the **BLOCKING GATE** of the neural-trader live pipeline (ADR-126 Phase 
 
 ### Core Tool: npx neural-trader
 
+> Verified against neural-trader 2.8.11 (the pinned version): the flag-style CLI handles only `--backtest`, `--signal scan`, `--risk assess`, `--portfolio optimize`, `--regime`, `--strategy-create`, `--train`, `--predict` and `--evaluate`. Anything else (indicators, VaR flags, correlation, sector analysis, position-sizing flags, `--broker`) answers "Unknown command". Several handlers return demo output; read `dataSource`, `note` and `upstreamStub` before using a result.
+
 ```bash
-# Risk assessment
-npx neural-trader --risk assess --portfolio <name>
-npx neural-trader --var --symbol QQQ --investment 10000
-npx neural-trader --risk-tolerance 0.02 --symbol AAPL
+# VaR / CVaR / drawdown from a returns series you derived from real data
+npx neural-trader --risk assess --returns 0.01,-0.005,0.012,-0.02 --portfolio-value 100000 --confidence-level 0.95
+# (--symbol and --portfolio are ignored; with no --returns a 7-value demo sample is used)
 
-# Portfolio optimization
-npx neural-trader --portfolio optimize --risk-target <number>
-npx neural-trader --portfolio rebalance
+# Equal-weight demo only in 2.8.11; real weights come from /trader-portfolio-cg
+npx neural-trader --portfolio optimize --symbols AAPL,MSFT --target-return 0.10
 
-# Position sizing
-npx neural-trader --position-sizing kelly --symbol <TICKER>
-npx neural-trader --position-sizing fixed-fractional --risk-per-trade 0.02
+# Kelly sizing exists only inside a backtest
+npx neural-trader --backtest --strategy multi-indicator --position-sizing kelly --symbol SPY --period 2024-2025 --live
 ```
 
-### Risk Metrics (computed by neural-trader's Rust engine)
+### Risk Metrics and review thresholds
 
-| Metric | CLI Flag | Threshold |
-|--------|----------|-----------|
-| Value at Risk (95%) | `--var` | Max 2% per position |
-| Conditional VaR | `--cvar` | Max 3% of portfolio |
-| Sharpe Ratio | `--sharpe` | Target > 1.5 |
-| Sortino Ratio | `--sortino` | Target > 2.0 |
-| Max Drawdown | `--max-drawdown` | Hard limit 15% |
-| Beta | `--beta` | Target < 1.2 |
+`--risk assess` returns VaR, CVaR and drawdown; Sharpe and Sortino come from a backtest result. There are no `--var`, `--cvar`, `--sharpe`, `--sortino`, `--max-drawdown` or `--beta` flags. The thresholds are this agent's review criteria, applied by you when deciding a proposal:
+
+| Metric | Source | Threshold |
+|--------|--------|-----------|
+| Value at Risk (95%) | `--risk assess --returns` | Max 2% per position |
+| Conditional VaR | `--risk assess --returns` | Max 3% of portfolio |
+| Sharpe Ratio | backtest output | Target > 1.5 |
+| Sortino Ratio | backtest output | Target > 2.0 |
+| Max Drawdown | backtest / `--risk assess` | Hard limit 15% |
+| Beta | not provided by the CLI | Target < 1.2 |
 
 ### Position Sizing Methods
 
-| Method | CLI Flag | Use Case |
-|--------|----------|----------|
-| Kelly Criterion | `--position-sizing kelly` | High-conviction, known edge |
-| Half-Kelly | `--position-sizing half-kelly` | Conservative Kelly |
-| Fixed Fractional | `--position-sizing fixed-fractional` | Consistent risk per trade |
-| Volatility-Adjusted | `--position-sizing vol-adjusted` | Adapt to market conditions |
+`--position-sizing` is accepted only together with `--backtest`, and `kelly` is the method the runtime smoke exercises. The other methods are conventions for you to compute and state, not CLI options verified here.
+
+| Method | Use Case |
+|--------|----------|
+| Kelly Criterion (`--backtest --position-sizing kelly`) | High-conviction, known edge |
+| Half-Kelly (compute) | Conservative Kelly |
+| Fixed Fractional (compute) | Consistent risk per trade |
+| Volatility-Adjusted (compute) | Adapt to market conditions |
 
 ### Circuit Breakers
 
-neural-trader enforces automatic risk limits:
+neural-trader 2.8.11 does NOT enforce these automatically. They are the limits you apply when reviewing a proposal; recommend the action in your RiskDecision and let the user act:
 
 | Breaker | Trigger | Action |
 |---------|---------|--------|
@@ -60,9 +63,8 @@ neural-trader enforces automatic risk limits:
 ### Correlation Analysis
 
 ```bash
-# Compute rolling correlation matrix
-npx neural-trader --correlation --symbols "AAPL,MSFT,GOOGL,AMZN" --window 30d
-npx neural-trader --correlation --portfolio <name> --flag-threshold 0.8
+# No --correlation flag in neural-trader 2.8.11. Compute the rolling correlation matrix
+# from real bars (a --backtest --live run per symbol) and flag pairs above 0.8 yourself.
 ```
 
 ### Memory Persistence
@@ -82,7 +84,7 @@ npx @claude-flow/cli@latest memory search --query "high correlation drawdown eve
 
 After completing tasks, store successful patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent risk-analyst
 ```
 
 ### Comms protocol (ADR-126 Phase 5 — SendMessage pipeline blocking gate)

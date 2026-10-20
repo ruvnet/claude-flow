@@ -10,7 +10,7 @@ Market data commands:
 2. Normalize: open/high/low/close as relative percentages, volume as Z-score
 3. Vectorize each candle to a 64-dimension padded vector
 4. Store normalized data via `mcp__plugin_ruflo-core_ruflo__memory_store --namespace market-data` (the `memory_*` family is namespace-routed; `agentdb_hierarchical-*` routes by tier and ignores namespace strings — see skills/market-ingest/SKILL.md)
-5. Add vectors to HNSW index via `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add`
+5. Do not add candles to the `ruvllm_hnsw_*` router (it holds about 11 patterns); candles are retrieved by key from the `market-data` namespace
 6. Report: candles ingested, date range, min/max/avg price, volume profile
 
 **`market patterns <symbol>`** -- Detect candlestick patterns in recent data.
@@ -21,8 +21,8 @@ Market data commands:
 5. Display: pattern name, date, direction (bullish/bearish), reliability, candle range
 
 **`market search <pattern-name>`** -- Search for historical occurrences of a pattern.
-1. Search HNSW index via `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route` for vectors matching the pattern
-2. Recall matching entries from `market-patterns` namespace
+1. Search the `market-patterns` namespace with `mcp__plugin_ruflo-core_ruflo__memory_search` for stored detections of the pattern (optionally classify a candle window against the few pattern prototypes with `ruvllm_hnsw_route`)
+2. Recall the matching entries and their symbols and dates
 3. Rank by similarity score and recency
 4. Display: symbol, date, pattern match score, subsequent price action (if available)
 
@@ -36,4 +36,4 @@ Market data commands:
 1. Recall pattern data for both symbols from `market-patterns` namespace
 2. Compute correlation: shared pattern types, timing overlap, direction agreement
 3. Display side-by-side comparison with pattern frequency and reliability differences
-4. Highlight divergences that may indicate trading opportunities
+4. Highlight divergences between the two profiles. This is descriptive analysis of stored history, not a trading recommendation, and this plugin does not place orders

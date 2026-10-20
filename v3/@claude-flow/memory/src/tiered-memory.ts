@@ -145,6 +145,46 @@ const MAX_PER_TIER = 5000;
 const MAX_ARCHIVED = 5000;
 const MAX_VALUE_LENGTH = 100_000;
 const MAX_QUERY_LENGTH = 10_000;
+/** Upper bound on entries scanned by one recall (the store itself is bounded far below this). */
+const MAX_RECALL_SCAN = 50_000;
+
+/** Words that carry no retrieval signal in a natural-language question (#4152). */
+const RECALL_STOP_WORDS = new Set([
+  'the', 'and', 'for', 'are', 'was', 'were', 'what', 'why', 'how', 'did', 'does', 'from', 'with', 'that', 'this',
+  'have', 'has', 'about', 'know', 'into', 'your', 'when', 'where', 'which', 'will', 'can', 'you', 'our', 'not', 'but',
+  'than', 'then', 'there', 'their', 'them', 'who', 'whom', 'would', 'should', 'could', 'any', 'all', 'its', 'also',
+  'of', 'is', 'in', 'to', 'it', 'on', 'at', 'as', 'be', 'by', 'or', 'an', 'if', 'so', 'do', 'we', 'us', 'my', 'me', 'am',
+]);
+
+/** Distinct lowercase query terms of length >= 2 with stop words removed. */
+export function recallTerms(query: string): string[] {
+  const terms = query.toLowerCase().split(/[^a-z0-9_]+/).filter(t => t.length >= 2 && !RECALL_STOP_WORDS.has(t));
+  return [...new Set(terms)];
+}
+
+/** Light stem so "decode" finds "decoding" and "failing" finds "failed" (kept at >= 4 characters). */
+function recallStem(term: string): string {
+  for (const suffix of ['ing', 'ed', 'es', 'e', 's']) {
+    if (term.length - suffix.length >= 4 && term.endsWith(suffix)) return term.slice(0, -suffix.length);
+  }
+  return term;
+}
+
+/**
+ * Relevance of `text` (already lowercased) for a query: 1 when the whole query
+ * is a contiguous substring (the old behaviour, so existing exact recalls rank
+ * first), otherwise the fraction of query terms present, provided at least two
+ * terms (or the only term) match and the fraction is >= 0.4. Zero means no match.
+ */
+export function recallScore(text: string, q: string, terms: string[]): number {
+  if (q.length > 0 && text.includes(q)) return 1;
+  if (terms.length === 0) return 0;
+  let matched = 0;
+  for (const t of terms) if (text.includes(t) || text.includes(recallStem(t))) matched++;
+  const needed = Math.min(2, terms.length);
+  const coverage = matched / terms.length;
+  return matched >= needed && coverage >= 0.4 ? coverage * 0.95 : 0;
+}
 
 let idCounter = 0;
 function nextId(): string {
@@ -369,7 +409,10 @@ export class TieredMemoryStore {
   }
 
   /**
-   * Substring recall across tiers, newest first. By default only
+   * Recall across tiers, best match first then newest. A query matches an entry
+   * when the whole query is a substring of its key or value (as before) OR when
+   * enough of its terms are present (#4152: a multi-word question used to return
+   * [] because only the entire string was tested). By default only
    * temporally-valid entries are returned; pass `{ includeExpired: true }`
    * to audit superseded / expired / future-dated facts too.
    */
@@ -378,32 +421,38 @@ export class TieredMemoryStore {
     const q = query.toLowerCase().substring(0, MAX_QUERY_LENGTH);
     const includeExpired = options?.includeExpired === true;
     const now = Date.now();
-    const results: TieredMemoryEntry[] = [];
+    const terms = recallTerms(q);
+    const scored: Array<{ entry: TieredMemoryEntry; score: number }> = [];
+    let scanned = 0;
 
-    const consider = (entry: TieredMemoryEntry): boolean => {
-      if (!entry.key.toLowerCase().includes(q) && !entry.value.toLowerCase().includes(q)) {
-        return false;
-      }
-      if (!includeExpired && !isTemporallyValid(entry, now)) return false;
-      results.push(entry);
-      return true;
+    const consider = (entry: TieredMemoryEntry): void => {
+      const score = Math.max(
+        recallScore(entry.key.toLowerCase(), q, terms),
+        recallScore(`${entry.key} ${entry.value}`.toLowerCase(), q, terms),
+      );
+      if (score <= 0) return;
+      if (!includeExpired && !isTemporallyValid(entry, now)) return;
+      scored.push({ entry, score });
     };
 
     outer: for (const map of Object.values(this.tiers)) {
       for (const entry of map.values()) {
         consider(entry);
-        if (results.length >= safeTopK * 3) break outer; // early exit for large stores
+        if (++scanned >= MAX_RECALL_SCAN) break outer; // bound the work on very large stores
       }
     }
 
-    if (includeExpired && results.length < safeTopK * 3) {
+    if (includeExpired && scanned < MAX_RECALL_SCAN) {
       for (const entry of this.archived) {
         consider(entry);
-        if (results.length >= safeTopK * 3) break;
+        if (++scanned >= MAX_RECALL_SCAN) break;
       }
     }
 
-    return results.sort((a, b) => b.ts - a.ts).slice(0, safeTopK);
+    return scored
+      .sort((a, b) => b.score - a.score || b.entry.ts - a.entry.ts)
+      .slice(0, safeTopK)
+      .map(r => r.entry);
   }
 
   /** Hard-delete an active entry by key (used by hierarchical-delete). */

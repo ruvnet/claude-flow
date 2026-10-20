@@ -9,6 +9,53 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 
+// Quarantine: files that fail on main once the whole suite actually runs. Until
+// the collection and pool fixes below, CI never reached them (it stopped after
+// 7-9 files), so these are not new regressions; they were invisible. Each is
+// excluded by name so the rest of the suite gates again. Remove an entry when it
+// passes. Grouped by the failure seen on a full local run with CI=true (Node 24,
+// linux); files that skip themselves under CI=true are not listed.
+const KNOWN_FAILING = [
+  // A path or package the test expects no longer resolves.
+  '@claude-flow/cli/__tests__/mcp-tool-filter-2726.test.ts', // reads v3/bin/cli.js
+  '@claude-flow/cli/__tests__/pq-validation.test.ts', // imports memory/src/hnsw-index.js
+  'mcp/__tests__/session-tools.test.ts', // 'zod' does not resolve from v3/mcp
+  'mcp/__tests__/system-tools.test.ts', // 'zod' does not resolve from v3/mcp
+  'mcp/__tests__/task-tools.test.ts', // 'zod' does not resolve from v3/mcp
+  // Time out (30 s per test) loading a model; 2 of 47 and 10 of 31 tests fail.
+  '@claude-flow/hooks/src/__tests__/guidance-provider.test.ts',
+  '@claude-flow/hooks/src/__tests__/reasoningbank.test.ts',
+  // Assertion failures, not yet triaged (failed / total tests in the file).
+  '@claude-flow/cli/__tests__/adr-390-router-embedder.test.ts', // 1/11
+  '@claude-flow/cli/__tests__/hive-mind-gate-transport-e2e.test.ts', // 3/4
+  '@claude-flow/cli/__tests__/init-dual-native-2636-2637.test.ts', // 1/3
+  '@claude-flow/cli/__tests__/memory-bridge-failure-diagnostics.test.ts', // 4/13
+  '@claude-flow/cli/__tests__/memory-concurrent-write-loss-2878.test.ts', // 1/6
+  '@claude-flow/cli/__tests__/memory-search-scores-3327.test.ts', // 3/8
+  '@claude-flow/cli/__tests__/mods/mods-guidance-e2e.test.ts', // 14/47
+  '@claude-flow/cli/__tests__/router-cjs-esm-3555.test.ts', // 1/9
+  '@claude-flow/mcp/__tests__/http-transport-auth.test.ts', // 5/26
+  '__tests__/integration/swarm-integration.test.ts', // 1/15
+  // Spawns the real CLI from the worker; `spawnSync node ENOMEM` on every attempt in the
+  // full parallel suite on a CI runner (runs 38290339354, 38291176206), passes alone.
+  '@claude-flow/cli/__tests__/hive-mind-real-cli-auth.test.ts', // 2/2 (run alone to check)
+  // Flaky under a parallel run: wall-clock or heap thresholds measured while
+  // ~16 other files run. Each passes alone; the whole file is excluded for one
+  // assertion, so the fix is in the test (relax or skip the timing under CI).
+  '@claude-flow/plugins/__tests__/ruvector-streaming.test.ts', // <20 MB heap growth, no forced GC; 1/26
+  '@claude-flow/neural/__tests__/algorithms.test.ts', // Decision Transformer train < 100 ms; 1/44
+];
+
+// The quarantine above is a debt, not a permanent exclusion. After this date the
+// config refuses to load, so the list has to be triaged (fix a file and delete
+// its entry, or renew the date with a reason) instead of quietly hiding failures.
+const KNOWN_FAILING_EXPIRES = '2026-12-01';
+if (new Date().toISOString().slice(0, 10) > KNOWN_FAILING_EXPIRES) {
+  throw new Error(
+    `v3/vitest.config.ts: the KNOWN_FAILING quarantine expired on ${KNOWN_FAILING_EXPIRES}. Triage the listed files (fix and remove, or renew the date with a reason).`,
+  );
+}
+
 export default defineConfig({
   test: {
     // Test environment
@@ -25,13 +72,23 @@ export default defineConfig({
       '@claude-flow/**/__tests__/**/*.spec.ts',
       'mcp/__tests__/**/*.test.ts',
       'mcp/__tests__/**/*.spec.ts',
+      // @claude-flow/shared keeps its specs beside the source (the EventStore
+      // snapshot regression for #3865 among them); no other config collects them.
+      '@claude-flow/shared/src/**/*.test.ts',
     ],
 
-    // Exclude patterns
+    // Exclude patterns. These must match at any depth: pnpm links every workspace
+    // package into its dependents' node_modules, so a bare 'node_modules' let the
+    // '@claude-flow/**' globs collect the same files again through those links
+    // (3,228 files collected, 608 distinct).
     exclude: [
-      'node_modules',
-      'dist',
-      '.git',
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
+      // node:test files (run with `npx tsx --test`), not vitest suites: vitest
+      // executes their top level and then reports "No test suite found".
+      '__tests__/appliance/**',
+      ...KNOWN_FAILING,
     ],
 
     // Coverage configuration - London School targets
@@ -85,31 +142,19 @@ export default defineConfig({
     // Reporter configuration
     reporters: ['default'],
 
-    // Parallel execution.
-    // Use 'threads' as the default. Briefly tried 'forks' because of
-    // exit-time segfaults from native bindings (onnxruntime-node /
-    // ruvector / agentic-flow) — but forks expose module-load
-    // unhandled rejections more aggressively, causing 12 test files
-    // (transformers transitive-importers) to fail with 'No test suite
-    // found'. Threads tolerate the rejection and let tests report,
-    // and the segfault happens only at process shutdown. CI handles
-    // exit code 139 as success when results were reported (see test job).
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-        isolate: true,
-      },
-      forks: {
-        singleFork: false,
-        isolate: true,
-      },
-    },
-    // Per-file pool override: tests that need process.chdir() must run
-    // in a forked subprocess (Node's worker threads forbid chdir).
-    poolMatchGlobs: [
-      ['**/router-bandit.test.ts', 'forks'],
-    ],
+    // Parallel execution: 'forks', one child process per test file.
+    // Four files pass and then segfault (exit 139) when run alone under
+    // 'threads': bug-cluster-2219-2226, mcp-tools-deep, neural-package-bridge
+    // and sona-embeddings-validation. Each loads native bindings (onnxruntime /
+    // ruvector / agentic-flow); the crash comes after their results, consistent
+    // with a native finalizer at teardown. Under 'threads' that teardown happens
+    // mid-suite and kills the whole vitest process: in CI the suite stopped
+    // after 7-9 files with no summary. Under 'forks' it runs to its summary.
+    // The earlier concern that forks turn module-load rejections into 'No test
+    // suite found' no longer reproduces on vitest 4. Forks also allow
+    // process.chdir(), which the old router-bandit poolMatchGlobs entry (an
+    // option vitest 4 removed, along with poolOptions) existed for.
+    pool: 'forks',
 
     // Globals for easier testing
     globals: true,

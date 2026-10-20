@@ -17,6 +17,7 @@
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
+import type { DiffClassification, DiffFile, FileRisk, OverallRisk } from '../ruvector/diff-classifier.js';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { writeFile } from 'fs/promises';
@@ -103,47 +104,31 @@ const diffCommand: Command = {
 
     try {
       // Call MCP tool for diff analysis
+      // Shape returned by the analyze_diff MCP tool (ruvector/diff-classifier.ts).
+      // Typed from the classifier itself so the renderer cannot drift from it again.
       const result = await callMCPTool<{
-        ref: string;
-        timestamp: string;
-        files: Array<{
-          path: string;
-          status: string;
-          additions: number;
-          deletions: number;
-          binary: boolean;
-        }>;
-        risk: {
-          overall: string;
-          score: number;
-          breakdown: {
-            fileCount: number;
-            totalChanges: number;
-            highRiskFiles: string[];
-            securityConcerns: string[];
-            breakingChanges: string[];
-            testCoverage: string;
-          };
-        };
-        classification: {
-          category: string;
-          subcategory?: string;
-          confidence: number;
-          reasoning: string;
-        };
-        fileRisks: Array<{
-          path: string;
-          risk: string;
-          score: number;
-          reasons: string[];
-        }>;
-        recommendedReviewers: string[];
-        summary: string;
+        ref?: string;
+        timestamp?: number;
+        files?: DiffFile[];
+        risk?: OverallRisk;
+        classification?: DiffClassification;
+        fileRisks?: FileRisk[];
+        recommendedReviewers?: string[];
+        summary?: string;
+        error?: boolean;
+        message?: string;
       }>('analyze_diff', {
         ref,
-        includeFileRisks: verbose,
+        // Always request file risks: the handler computes them anyway, and the
+        // high-risk file list below is derived from them.
+        includeFileRisks: true,
         includeReviewers: showReviewers || showAll,
       });
+
+      if (result.error) {
+        output.printError(`Diff analysis failed: ${result.message ?? 'unknown error'}`);
+        return { success: false, exitCode: 1 };
+      }
 
       // JSON output
       if (formatType === 'json') {
@@ -155,15 +140,20 @@ const diffCommand: Command = {
 
       // Summary box
       const files = result.files || [];
-      const risk = result.risk || { overall: 'unknown', score: 0, breakdown: { fileCount: 0, totalChanges: 0, highRiskFiles: [], securityConcerns: [], breakingChanges: [], testCoverage: 'unknown' } };
-      const classification = result.classification || { category: 'unknown', confidence: 0, reasoning: '' };
+      const fileRisks = result.fileRisks || [];
+      const risk = result.risk || { overall: 'low', score: 0, breakdown: { low: 0, medium: 0, high: 0, critical: 0 } };
+      const classification = result.classification;
+      const category = classification?.primary ?? 'unknown';
+      const secondary = classification?.secondary?.length ? classification.secondary.join(', ') : '';
+      const totalChanges = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+      const highRiskFiles = fileRisks.filter((r) => r.risk === 'high' || r.risk === 'critical').map((r) => r.file);
 
       output.printBox(
         [
           `Ref: ${result.ref || 'HEAD'}`,
           `Files: ${files.length}`,
           `Risk: ${getRiskDisplay(risk.overall)} (${risk.score}/100)`,
-          `Type: ${classification.category}${classification.subcategory ? ` (${classification.subcategory})` : ''}`,
+          `Type: ${category}${secondary ? ` (${secondary})` : ''}`,
           ``,
           result.summary || 'No summary available',
         ].join('\n'),
@@ -179,36 +169,30 @@ const diffCommand: Command = {
         output.printTable({
           columns: [
             { key: 'metric', header: 'Metric', width: 25 },
-            { key: 'value', header: 'Value', width: 30 },
+            { key: 'value', header: 'Value', width: 42 },
           ],
           data: [
             { metric: 'Overall Risk', value: getRiskDisplay(risk.overall) },
             { metric: 'Risk Score', value: `${risk.score}/100` },
-            { metric: 'Files Changed', value: risk.breakdown.fileCount },
-            { metric: 'Total Lines Changed', value: risk.breakdown.totalChanges },
-            { metric: 'Test Coverage', value: risk.breakdown.testCoverage },
+            { metric: 'Files Changed', value: files.length },
+            { metric: 'Total Lines Changed', value: totalChanges },
+            { metric: 'Files by Risk', value: `low ${risk.breakdown.low} / medium ${risk.breakdown.medium} / high ${risk.breakdown.high} / critical ${risk.breakdown.critical}` },
           ],
         });
 
-        // Security concerns
-        if (risk.breakdown.securityConcerns.length > 0) {
+        // Risk factors reported by the classifier
+        const riskFactors = classification?.riskFactors ?? [];
+        if (riskFactors.length > 0) {
           output.writeln();
-          output.writeln(output.bold(output.warning('Security Concerns')));
-          output.printList(risk.breakdown.securityConcerns.map(c => output.warning(c)));
-        }
-
-        // Breaking changes
-        if (risk.breakdown.breakingChanges.length > 0) {
-          output.writeln();
-          output.writeln(output.bold(output.error('Potential Breaking Changes')));
-          output.printList(risk.breakdown.breakingChanges.map(c => output.error(c)));
+          output.writeln(output.bold(output.warning('Risk Factors')));
+          output.printList(riskFactors.map(c => output.warning(c)));
         }
 
         // High risk files
-        if (risk.breakdown.highRiskFiles.length > 0) {
+        if (highRiskFiles.length > 0) {
           output.writeln();
           output.writeln(output.bold('High Risk Files'));
-          output.printList(risk.breakdown.highRiskFiles.map(f => output.warning(f)));
+          output.printList(highRiskFiles.map(f => output.warning(f)));
         }
       }
 
@@ -224,14 +208,17 @@ const diffCommand: Command = {
             { key: 'value', header: 'Value', width: 40 },
           ],
           data: [
-            { field: 'Category', value: classification.category },
-            { field: 'Subcategory', value: classification.subcategory || '-' },
-            { field: 'Confidence', value: `${(classification.confidence * 100).toFixed(0)}%` },
+            { field: 'Category', value: category },
+            { field: 'Secondary', value: secondary || '-' },
+            { field: 'Confidence', value: `${((classification?.confidence ?? 0) * 100).toFixed(0)}%` },
+            { field: 'Impact', value: classification?.impactLevel ?? '-' },
           ],
         });
 
-        output.writeln();
-        output.writeln(output.dim(`Reasoning: ${classification.reasoning}`));
+        if (classification?.testingStrategy?.length) {
+          output.writeln();
+          output.writeln(output.dim(`Testing strategy: ${classification.testingStrategy.join(', ')}`));
+        }
       }
 
       // Reviewers
@@ -249,14 +236,14 @@ const diffCommand: Command = {
       }
 
       // Verbose file-level details
-      if (verbose && result.fileRisks) {
+      if (verbose && fileRisks.length > 0) {
         output.writeln();
         output.writeln(output.bold('File-Level Analysis'));
         output.writeln(output.dim('-'.repeat(50)));
 
         output.printTable({
           columns: [
-            { key: 'path', header: 'File', width: 40 },
+            { key: 'file', header: 'File', width: 40 },
             { key: 'risk', header: 'Risk', width: 12, format: (v) => getRiskDisplay(String(v)) },
             { key: 'score', header: 'Score', width: 8, align: 'right' },
             { key: 'reasons', header: 'Reasons', width: 30, format: (v) => {
@@ -264,7 +251,7 @@ const diffCommand: Command = {
               return reasons.slice(0, 2).join('; ');
             }},
           ],
-          data: result.fileRisks,
+          data: fileRisks.map((r) => ({ ...r })),
         });
       }
 
@@ -281,7 +268,7 @@ const diffCommand: Command = {
             { key: 'additions', header: '+', width: 8, align: 'right', format: (v) => output.success(`+${v}`) },
             { key: 'deletions', header: '-', width: 8, align: 'right', format: (v) => output.error(`-${v}`) },
           ],
-          data: files.slice(0, 20),
+          data: files.slice(0, 20).map((f) => ({ ...f })),
         });
 
         if (files.length > 20) {
@@ -318,16 +305,18 @@ const codeCommand: Command = {
     const analysisType = ctx.flags.type as string || 'quality';
     const formatJson = (ctx.flags.format as string) === 'json';
 
-    output.writeln();
-    output.writeln(output.bold('Code Analysis'));
-    output.writeln(output.dim('-'.repeat(50)));
+    if (!formatJson) {
+      output.writeln();
+      output.writeln(output.bold('Code Analysis'));
+      output.writeln(output.dim('-'.repeat(50)));
+    }
 
     const spinner = output.createSpinner({ text: `Analyzing ${targetPath}...`, spinner: 'dots' });
     spinner.start();
 
     try {
       const files = await scanSourceFiles(targetPath);
-      if (files.length === 0) {
+      if (files.length === 0 && !formatJson) {
         spinner.stop();
         output.printWarning('No source files found');
         return { success: true };
@@ -376,17 +365,18 @@ const codeCommand: Command = {
       const totalTodos = fileStats.reduce((s, f) => s + f.todos, 0);
       const totalFunctions = fileStats.reduce((s, f) => s + f.functions, 0);
       const totalImports = fileStats.reduce((s, f) => s + f.imports, 0);
-      const avgFileSize = Math.round(totalLoc / files.length);
-      const longestFile = fileStats.reduce((a, b) => a.loc > b.loc ? a : b);
-      const avgFnPerFile = (totalFunctions / files.length).toFixed(1);
-      const deepestNesting = fileStats.reduce((a, b) => a.maxNesting > b.maxNesting ? a : b);
-      const allSecurityIssues = fileStats.filter(f => f.securityIssues.length > 0);
+      const avgFileSize = files.length > 0 ? Math.round(totalLoc / files.length) : 0;
 
       if (formatJson) {
         const jsonData = { type: analysisType, path: targetPath, files: files.length, totalLoc, totalTodos, totalFunctions, totalImports, avgFileSize, fileStats: fileStats.map(f => ({ relativePath: path.relative(targetPath, f.file), loc: f.loc, todos: f.todos, functions: f.functions, imports: f.imports, maxNesting: f.maxNesting, securityIssues: f.securityIssues })) };
         output.printJson(jsonData);
         return { success: true, data: jsonData };
       }
+
+      const longestFile = fileStats.reduce((a, b) => a.loc > b.loc ? a : b);
+      const avgFnPerFile = (totalFunctions / files.length).toFixed(1);
+      const deepestNesting = fileStats.reduce((a, b) => a.maxNesting > b.maxNesting ? a : b);
+      const allSecurityIssues = fileStats.filter(f => f.securityIssues.length > 0);
 
       if (analysisType === 'quality') {
         output.printBox(
@@ -635,7 +625,7 @@ const astCommand: Command = {
 
       spinner.stop();
 
-      if (results.length === 0) {
+      if (results.length === 0 && formatType !== 'json') {
         output.printWarning('No files analyzed');
         return { success: true };
       }
@@ -646,7 +636,7 @@ const astCommand: Command = {
         functions: results.reduce((sum, r) => sum + r.functions.length, 0),
         classes: results.reduce((sum, r) => sum + r.classes.length, 0),
         imports: results.reduce((sum, r) => sum + r.imports.length, 0),
-        avgComplexity: results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length,
+        avgComplexity: results.length > 0 ? results.reduce((sum, r) => sum + r.complexity.cyclomatic, 0) / results.length : 0,
         totalLoc: results.reduce((sum, r) => sum + r.complexity.loc, 0),
       };
 
@@ -1421,9 +1411,11 @@ const depsCommand: Command = {
     const checkSecurity = ctx.flags.security as boolean;
     const formatJson = (ctx.flags.format as string) === 'json';
 
-    output.writeln();
-    output.writeln(output.bold('Dependency Analysis'));
-    output.writeln(output.dim('-'.repeat(50)));
+    if (!formatJson || showOutdated || checkSecurity) {
+      output.writeln();
+      output.writeln(output.bold('Dependency Analysis'));
+      output.writeln(output.dim('-'.repeat(50)));
+    }
 
     try {
       const pkgPath = resolve('package.json');

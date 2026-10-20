@@ -330,6 +330,15 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
     // Error handler
     this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+      // body-parser marks a malformed JSON body: that is the client's JSON-RPC parse error, not ours.
+      if ((err as { type?: string }).type === 'entity.parse.failed') {
+        res.status(400).json({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error' },
+        });
+        return;
+      }
       this.logger.error('Express error', { error: err });
       this.errors++;
       res.status(500).json({
@@ -402,7 +411,8 @@ export class HttpTransport extends EventEmitter implements ITransport {
       this.logger.warn('No authentication configured - running in development mode');
     }
 
-    const message = req.body;
+    // Express 5 leaves req.body undefined when no JSON body was parsed (Express 4 gave {}).
+    const message = req.body ?? {};
 
     // Validate JSON-RPC format
     if (message.jsonrpc !== '2.0') {

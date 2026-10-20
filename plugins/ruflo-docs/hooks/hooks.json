@@ -1,0 +1,4 @@
+{
+  "description": "Docs as a mod: a guard that keeps secrets out of docs memory writes and the document worker, /docs-mod, and a status file.",
+  "modules": ["./register.ts"]
+}

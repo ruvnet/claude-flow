@@ -77,6 +77,11 @@
       "description": "AI safety scanning, PII detection, prompt injection defense, and adaptive threat learning"
     },
     {
+      "name": "ruflo-protector",
+      "source": "./plugins/ruflo-protector",
+      "description": "Project Anatole: an optional, learning watchdog for unattended agents (OWASP-mapped rules, a per-project baseline, learn / notify / enforce modes). Default off."
+    },
+    {
       "name": "ruflo-browser",
       "source": "./plugins/ruflo-browser",
       "description": "Agentic browser automation with Playwright for testing, scraping, and UI interaction"
@@ -215,6 +220,21 @@
       "name": "ruflo-music",
       "source": "./plugins/ruflo-music",
       "description": "AI music generation via Cognitum Music (cogmusic MCP) \u2014 compose lyrics/prompts, generate tracks, separate stems, extract MIDI, and master through your own music.cognitum.one account"
+    },
+    {
+      "name": "ruflo-mods",
+      "source": "./plugins/ruflo-mods",
+      "description": "Early access (ADR-404): ruflo as a Claude Code mod (function hooks) \u2014 in-process routing, edit learning signals, tighten-only tool checks from ruflo policy, and the cost budget ladder. Opt-in via `ruflo mods install`; classic hooks stay the fallback"
+    },
+    {
+      "name": "ruflo-ruos",
+      "source": "./plugins/ruflo-ruos",
+      "description": "Run ruflo swarm agents on your own ruOS cloud desktops via the tenant-authenticated fleet MCP or per-tenant SSH; optional, removable"
+    },
+    {
+      "name": "ruflo-console",
+      "source": "./plugins/ruflo-console",
+      "description": "Early access: ruflo's cockpit as a Claude Code mod (function hooks) and the one /ruflo command for every ruflo mod \u2014 overview with health alerts, swarm topology, claims flow, federation map, plugin health, learning pipeline, MetaHarness radar, memory, cost gauge, agent timeline, approvals and events; a command palette for confirm-gated actions through the ruflo CLI; auto-opens where it docks; no network by default"
     }
   ]
 }

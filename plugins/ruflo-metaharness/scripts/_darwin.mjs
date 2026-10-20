@@ -2,7 +2,7 @@
 //
 // Mirrors `_harness.mjs` for the umbrella `metaharness` / `harness` binaries,
 // but targets the separate darwin binary (`metaharness-darwin`) which is
-// published as its own npm package (`@metaharness/darwin@~0.10.2`).
+// published as its own npm package (`@metaharness/darwin@~0.12.0`).
 //
 // Shared plumbing (degraded classification, --json injection, trailing-JSON
 // parse, degraded emitter) lives in `_invoke.mjs`. What stays here is the
@@ -61,14 +61,14 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 
 // Pinned semver range. The `~` allows patch upgrades without re-pinning.
 // Must cover the `@metaharness/darwin` optionalDependency range in
-// v3/@claude-flow/cli/package.json (`~0.10.2`). It sat at ~0.8.0 while that
-// range moved to ~0.9.0 (#2958) and ~0.10.2 (#3262), because the pin-drift
+// v3/@claude-flow/cli/package.json (`~0.12.0`). It sat at ~0.8.0 while that
+// range moved to ~0.9.0 (#2958), ~0.10.2 (#3262) and ~0.12.0 (#3219), because the pin-drift
 // guard only compared MH_DARWIN_PIN (distill-oracle.ts). This range picks
 // the darwin version the evolve / bench / security-bench tools run and the
 // gepa cache fallback installs; scripts/check-metaharness-pins.mjs now fails
 // when it no longer covers the declared range.
 const DARWIN_PKG = '@metaharness/darwin';
-const DARWIN_PIN_VERSION = '~0.10.2';
+const DARWIN_PIN_VERSION = '~0.12.0';
 const DARWIN_PIN = `${DARWIN_PKG}@${DARWIN_PIN_VERSION}`;
 
 const REASON_PREFIX = 'metaharness-darwin';

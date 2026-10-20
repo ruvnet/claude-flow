@@ -50,6 +50,7 @@ claude $(ls -d plugins/ruflo-*/ | sed 's|^|--plugin-dir |' | tr '\n' ' ')
 |--------|-------------|
 | [ruflo-security-audit](ruflo-security-audit/) | CVE scanning, dependency vulnerability checks |
 | [ruflo-aidefence](ruflo-aidefence/) | Prompt injection detection, PII scanning |
+| [ruflo-protector](ruflo-protector/) | Project Anatole: optional learning watchdog for unattended agents (default off) |
 | [ruflo-testgen](ruflo-testgen/) | Test gap detection, TDD London School workflow |
 | [ruflo-browser](ruflo-browser/) | Playwright browser automation and testing |
 

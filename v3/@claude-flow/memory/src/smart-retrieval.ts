@@ -303,25 +303,44 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
 
   const selected: Scored[] = [];
   const remaining = [...scored];
-  const selectedEmbeddings: Array<number[] | undefined> = [];
+
+  // Running per-remaining-candidate "max similarity to any already-selected
+  // item" cache. #3169/#3266 made the Jaccard-fallback *tokenization* lazy
+  // but left this half of the redundant-recompute problem untouched: every
+  // outer pass still re-walked the full `selected` list for every remaining
+  // candidate (O(candidates x selected) `pairSimilarity` calls per pass,
+  // growing every round). Since `max(0, s_1, ..., s_k)` can be folded in
+  // incrementally, each round only needs one new comparison per remaining
+  // candidate (to the just-added item) instead of re-comparing against the
+  // whole selected set — turning the total `pairSimilarity` call count from
+  // O(candidates x selected^2) into O(candidates x selected) (Dream Cycle
+  // 2026-09-28, flagged A-grade by 2026-09-27's memory scan). The zero floor
+  // matches the original loop's `let maxOverlap = 0` seed exactly, so the
+  // fold-in is mathematically identical to recomputing the max from
+  // scratch — output is byte-identical, not merely "close enough".
+  const maxSimCache = new Map<Scored, number>();
 
   // Seed with the top-scored candidate.
   const first = remaining.shift()!;
   selected.push(first);
-  selectedEmbeddings.push(first.candidate.embedding);
 
   while (selected.length < limit && remaining.length > 0) {
     let bestIdx = -1;
     let bestMmr = -Infinity;
+    const newest = selected[selected.length - 1];
 
     for (let i = 0; i < remaining.length; i++) {
       const cand = remaining[i];
-      const candEmbedding = cand.candidate.embedding;
-      let maxOverlap = 0;
-      for (let j = 0; j < selected.length; j++) {
-        const sim = pairSimilarity(candEmbedding, selectedEmbeddings[j], cand, selected[j], getTokens);
-        if (sim > maxOverlap) maxOverlap = sim;
-      }
+      const simToNewest = pairSimilarity(
+        cand.candidate.embedding,
+        newest.candidate.embedding,
+        cand,
+        newest,
+        getTokens
+      );
+      const maxOverlap = Math.max(maxSimCache.get(cand) ?? 0, simToNewest);
+      maxSimCache.set(cand, maxOverlap);
+
       const mmr = lambda * cand.score - (1 - lambda) * maxOverlap;
       if (mmr > bestMmr) {
         bestMmr = mmr;
@@ -331,8 +350,8 @@ function mmrRerank(scored: Scored[], lambda: number, limit: number): Scored[] {
 
     if (bestIdx < 0) break;
     const [chosen] = remaining.splice(bestIdx, 1);
+    maxSimCache.delete(chosen);
     selected.push(chosen);
-    selectedEmbeddings.push(chosen.candidate.embedding);
   }
 
   return selected;

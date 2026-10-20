@@ -1,0 +1,4 @@
+{
+  "description": "Loop workers as a mod (ADR-445): a tighten-only guard on worker dispatch (no secrets in worker context, a per-session dispatch cap), a status file the console reads, and /loop-mod.",
+  "modules": ["./register.ts"]
+}

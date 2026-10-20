@@ -1,5 +1,7 @@
 # Security Audit Report: agentic-qe and prime-radiant Plugins
 
+> **Note (2026-10-09):** the agentic-qe part of this audit (Part 1) is historical. `v3/plugins/agentic-qe` (`@claude-flow/plugin-agentic-qe`) was removed from this repository; it never wrapped the real `agentic-qe` package. The prime-radiant findings are unaffected.
+
 **Initial Audit Date:** 2026-01-23
 **Post-Implementation Review:** 2026-01-23
 **Auditor:** V3 Security Architect

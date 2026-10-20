@@ -13,7 +13,10 @@
  *    (numbers, nested objects) are returned as-is — we only walk one level.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 // Stub the tool registry with a single tool whose handler returns whatever
 // payload we hand it. Every other tool import is mocked to an empty array so
@@ -72,6 +75,26 @@ vi.mock('../src/mcp-tools/agent-tools.js', () => ({
 import { callMCPTool } from '../src/mcp-client.js';
 
 describe('callMCPTool — ADR-146 P2 content-boundary guardrail', () => {
+  // #3919: callMCPTool is policy-gated, which writes a ledger under the cwd and
+  // an anchor mirror under $HOME. Run in a scratch project with a scratch HOME so
+  // the test never touches the package folder or the developer's real home, and
+  // a reused path can never find a stale mirror.
+  const scratch = mkdtempSync(join(tmpdir(), 'ruflo-guardrail-'));
+  const origCwd = process.cwd();
+  const origHome = process.env.HOME;
+  const origXdg = process.env.XDG_CONFIG_HOME;
+  beforeAll(() => {
+    process.env.HOME = join(scratch, 'home');
+    delete process.env.XDG_CONFIG_HOME;
+    process.chdir(scratch);
+  });
+  afterAll(() => {
+    process.chdir(origCwd);
+    if (origHome === undefined) delete process.env.HOME; else process.env.HOME = origHome;
+    if (origXdg !== undefined) process.env.XDG_CONFIG_HOME = origXdg;
+    rmSync(scratch, { recursive: true, force: true });
+  });
+
   const ORIG_STRICT = process.env.CLAUDE_FLOW_STRICT_GUARDRAIL;
 
   beforeEach(() => {

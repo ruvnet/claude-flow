@@ -25,7 +25,7 @@
 import { createHash } from 'crypto';
 import { resolve } from 'path';
 import * as fs from 'fs';
-import { safeGitTextSync } from '@claude-flow/security/safe-git';
+import { safeGitBufferSync, safeGitTextSync } from '@claude-flow/security/safe-git';
 
 export interface GitWorkspaceIdentity {
   /** Absolute root of this worktree (or the input dir when not a git repo). */
@@ -53,6 +53,23 @@ function git(cwd: string, ...args: string[]): string | null {
   }
 }
 
+/**
+ * Path-valued git output: git terminates the record with a single LF, so strip
+ * only that. A full trim() would corrupt valid paths ending in whitespace.
+ */
+function gitPath(cwd: string, ...args: string[]): string | null {
+  try {
+    const out = safeGitBufferSync(cwd, args, {
+      timeoutMs: GIT_TIMEOUT_MS,
+      stderr: 'ignore',
+    }).toString('utf8');
+    const rec = out.endsWith('\n') ? out.slice(0, -1) : out;
+    return rec.length > 0 ? rec : null;
+  } catch {
+    return null;
+  }
+}
+
 function sha256(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
@@ -69,7 +86,7 @@ export function resolveGitWorkspaceIdentity(dir: string): GitWorkspaceIdentity {
 
   let stable = identityCache.get(resolved);
   if (!stable) {
-    const worktreeRoot = git(resolved, 'rev-parse', '--show-toplevel');
+    const worktreeRoot = gitPath(resolved, 'rev-parse', '--show-toplevel');
     if (!worktreeRoot) {
       stable = {
         worktreeRoot: resolved,
@@ -81,7 +98,7 @@ export function resolveGitWorkspaceIdentity(dir: string): GitWorkspaceIdentity {
     } else {
       // --git-common-dir may be relative to the worktree root (git < 2.31
       // and some invocation contexts) — resolve against it.
-      const rawCommon = git(worktreeRoot, 'rev-parse', '--git-common-dir') ?? '.git';
+      const rawCommon = gitPath(worktreeRoot, 'rev-parse', '--git-common-dir') ?? '.git';
       const commonGitDir = resolve(worktreeRoot, rawCommon);
       stable = {
         worktreeRoot,

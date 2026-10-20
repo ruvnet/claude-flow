@@ -12,6 +12,18 @@ function normalizeTestPath(name, repoRoot) {
   return normalized.split(sep).join('/').replace(/^\.\//, '');
 }
 
+/**
+ * The files vitest is told to skip (scripts/ci-test-excluded.txt): tests with their own runner. Throws when an entry no longer exists, so a
+ * stale list fails the ratchet instead of quietly skipping nothing.
+ */
+export function readExcludes(path, repoRoot = REPO_ROOT) {
+  if (!existsSync(path)) throw new Error(`excluded-tests list is missing: ${path}`);
+  const entries = readFileSync(path, 'utf8').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+  const stale = entries.filter((entry) => !existsSync(resolve(repoRoot, entry)));
+  if (stale.length > 0) throw new Error(`excluded-tests list names files that do not exist: ${stale.join(', ')}`);
+  return entries;
+}
+
 export function evaluateTestReport(report, baselineEntries, repoRoot = REPO_ROOT) {
   if (!report || !Array.isArray(report.testResults)) {
     return { ok: false, error: 'Vitest JSON report is missing testResults[]' };
@@ -103,12 +115,26 @@ function main() {
   const vitestBin = resolve(REPO_ROOT, 'node_modules/vitest/vitest.mjs');
 
   if (args.run) {
+    let excluded;
+    try {
+      excluded = readExcludes(resolve(REPO_ROOT, 'scripts/ci-test-excluded.txt'));
+    } catch (error) {
+      console.error(`CI test ratchet: ${error.message}`);
+      process.exit(1);
+    }
     mkdirSync(dirname(reportPath), { recursive: true });
     // A killed runner must not accidentally reuse a prior green-enough report.
     rmSync(reportPath, { force: true });
     const run = spawnSync(process.execPath, [
       vitestBin,
       'run',
+      // The new guidance file uses Claude Code's native test kit, not
+      // Vitest. Do not enlarge the historical known-failure baseline.
+      '--exclude=plugins/ruflo-mods/tests/guidance.test.ts',
+      // ADR-447 needs the CLI workspace compiler/source aliases. The
+      // mod-guidance workflow requires this suite with that configuration.
+      '--exclude=v3/@claude-flow/cli/__tests__/mods/mods-guidance-e2e.test.ts',
+      ...excluded.map((file) => `--exclude=${file}`),
       '--reporter=json',
       `--outputFile=${reportPath}`,
     ], {

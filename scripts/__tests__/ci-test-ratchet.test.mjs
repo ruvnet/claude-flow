@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateTestReport, formatUnexpectedFailures } from '../ci-test-ratchet.mjs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { evaluateTestReport, formatUnexpectedFailures, readExcludes } from '../ci-test-ratchet.mjs';
 
 const root = '/repo';
 
@@ -90,5 +93,39 @@ describe('unexpected-failure output (#3208)', () => {
     };
     expect(formatUnexpectedFailures(titleOnly, ['a.test.ts'], root))
       .toEqual(['  + a.test.ts', '      ✗ bare title']);
+  });
+});
+
+describe('files vitest does not run (scripts/ci-test-excluded.txt)', () => {
+  const make = (lines, files) => {
+    const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+    for (const file of files) {
+      mkdirSync(join(dir, file, '..'), { recursive: true });
+      writeFileSync(join(dir, file), '');
+    }
+    writeFileSync(join(dir, 'excluded.txt'), lines.join('\n'));
+    return dir;
+  };
+
+  it('reads entries and skips comments and blank lines', () => {
+    const dir = make(['# why', '', 'a/one.test.ts', '  b/two.test.mjs  '], ['a/one.test.ts', 'b/two.test.mjs']);
+
+    expect(readExcludes(join(dir, 'excluded.txt'), dir)).toEqual(['a/one.test.ts', 'b/two.test.mjs']);
+  });
+
+  it('throws when a listed file no longer exists, so the list cannot go stale', () => {
+    const dir = make(['a/gone.test.ts'], []);
+
+    expect(() => readExcludes(join(dir, 'excluded.txt'), dir)).toThrow(/do not exist: a\/gone\.test\.ts/);
+  });
+
+  it('the committed list is current and names no baseline file', () => {
+    const root = join(import.meta.dirname, '..', '..');
+    const excluded = readExcludes(join(root, 'scripts/ci-test-excluded.txt'), root);
+
+    const baseline = new Set(readFileSync(join(root, 'scripts/ci-test-baseline.txt'), 'utf8').split(/\r?\n/).filter((line) => line && !line.startsWith('#')));
+
+    expect(excluded.length).toBeGreaterThan(0);
+    expect(excluded.filter((file) => baseline.has(file))).toEqual([]);
   });
 });

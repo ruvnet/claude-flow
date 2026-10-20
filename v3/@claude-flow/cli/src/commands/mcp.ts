@@ -18,6 +18,8 @@ import {
   stopMCPServer,
   getMCPServerStatus,
   type MCPServerOptions,
+  resolveMcpHttpAuthToken,
+  isLoopbackHost,
   type MCPServerStatus,
   filterAdvertisedMcpTools,
   parseMcpToolSelection,
@@ -88,6 +90,16 @@ const startCommand: Command = {
       type: 'number'
     },
     {
+      name: 'auth-token-file',
+      description: 'Read the HTTP bearer token from this file (http transport). Preferred over --auth-token; env RUFLO_MCP_HTTP_TOKEN also works',
+      type: 'string'
+    },
+    {
+      name: 'auth-token',
+      description: 'HTTP bearer token (16+ printable ASCII chars). Visible in argv/ps - prefer RUFLO_MCP_HTTP_TOKEN or --auth-token-file',
+      type: 'string'
+    },
+    {
       name: 'daemon',
       short: 'd',
       description: 'Run as background daemon',
@@ -106,6 +118,8 @@ const startCommand: Command = {
     { command: 'claude-flow mcp start', description: 'Start with defaults (stdio)' },
     { command: 'claude-flow mcp start -p 8080 -t http', description: 'Start HTTP server' },
     { command: 'claude-flow mcp start -t http --request-timeout-ms 120000', description: 'Allow slower cold-start HTTP tools' },
+    { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http', description: 'HTTP server requiring "Authorization: Bearer <token>" on every request (except GET /health)' },
+    { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http --host 0.0.0.0', description: 'Non-loopback bind: allowed only with a token (or RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1)' },
     { command: 'claude-flow mcp start -d', description: 'Start as daemon' },
     { command: 'claude-flow mcp start -f', description: 'Force restart (kill existing)' }
   ],
@@ -123,6 +137,16 @@ const startCommand: Command = {
     if (requestTimeoutMs !== undefined &&
         (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs > 3_600_000)) {
       output.printError('Request timeout must be an integer from 1 to 3600000 milliseconds');
+      return { success: false, exitCode: 1 };
+    }
+    let authToken: string | undefined;
+    try {
+      authToken = resolveMcpHttpAuthToken({
+        token: (ctx.flags.authToken ?? ctx.flags['auth-token']) as string | undefined,
+        tokenFile: (ctx.flags.authTokenFile ?? ctx.flags['auth-token-file']) as string | undefined,
+      });
+    } catch (error) {
+      output.printError((error as Error).message);
       return { success: false, exitCode: 1 };
     }
     const daemon = (ctx.flags.daemon as boolean) ?? false;
@@ -186,6 +210,7 @@ const startCommand: Command = {
       port,
       tools: !tools || tools === 'all' ? 'all' : tools.split(','),
       ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+      ...(authToken ? { authToken } : {}),
       daemonize: daemon,
     };
 
@@ -245,6 +270,13 @@ const startCommand: Command = {
       if (transport === 'http') {
         output.writeln(output.dim(`  Health: http://${host}:${port}/health`));
         output.writeln(output.dim(`  RPC: http://${host}:${port}/rpc`));
+        if (authToken) {
+          output.writeln(output.dim('  Auth: bearer token required (Authorization: Bearer <token>); /health is public'));
+        } else if (isLoopbackHost(host)) {
+          output.printWarning('No auth token set: any local process (and DNS-rebinding web pages) can call tools. Set RUFLO_MCP_HTTP_TOKEN to require a bearer token.');
+        } else {
+          output.printWarning('Running UNAUTHENTICATED on a non-loopback host (RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP is set).');
+        }
       } else if (transport === 'websocket') {
         output.writeln(output.dim(`  WebSocket: ws://${host}:${port}/ws`));
       }
@@ -670,6 +702,7 @@ const execCommand: Command = {
       const startTime = performance.now();
       const result = await callMCPTool(tool, params, {
         sessionId: `cli-${Date.now().toString(36)}`,
+        transport: 'cli',
         requestId: `exec-${Date.now()}`,
       });
       const duration = performance.now() - startTime;

@@ -1,4 +1,6 @@
-export const POLICY_STATE_VERSION = 1;
+// Version 2 is a writer fence for the archived/retained ledger protocol.
+// Version-1 binaries reject it instead of silently rewriting a pruned ledger.
+export const POLICY_STATE_VERSION = 2;
 
 export type PolicyMode = 'legacy' | 'observe' | 'enforce';
 export type PolicyEffect = 'allow' | 'deny' | 'require_approval';
@@ -178,17 +180,32 @@ export interface PolicyState {
    * written in the same state write as every receipt append. A prefix of a
    * valid hash chain is itself a valid chain, so without this anchor a
    * truncated or fully erased ledger verified as `valid: true`. Absent on
-   * states written before the anchor existed; established on first use.
+   * states written before the anchor existed (or with the fields deleted): such a
+   * ledger verifies as `anchor-missing` until an explicit, logged establish
+   * action (#3602).
    */
   ledgerHead?: string | null;
   ledgerLength?: number;
+  /**
+   * Sequence number of the oldest receipt still physically present in
+   * `receipts[0]` (#3164). 0 or absent means nothing has ever been pruned.
+   * Together with `receipts.length`, `(retainedFrom ?? 0) + receipts.length
+   * === ledgerLength` must always hold whenever `ledgerLength` is defined.
+   */
+  retainedFrom?: number;
+  /**
+   * Hash of the last receipt pruned out of `receipts` (#3164) — the value
+   * `receipts[0].previousReceiptHash` must equal when `retainedFrom > 0`.
+   * null when `retainedFrom` is 0/absent (chain starts at genesis).
+   */
+  prunedHead?: string | null;
 }
 
 export interface LedgerVerification {
   valid: boolean;
   length: number;
   error?: string;
-  /** Receipts existed but no anchor did: the anchor was created from the current chain. */
+  /** An explicit establish action anchored receipts that had no anchor (#3602). */
   anchor?: 'established-now';
   /** No receipts and no anchor claiming any: distinct from "receipts intact". */
   state?: 'empty';

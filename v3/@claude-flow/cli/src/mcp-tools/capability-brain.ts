@@ -124,7 +124,7 @@ export const RUFLO_CLI_COMMANDS = [
   'ruvector', 'benchmark', 'guidance', 'appliance', 'appliance-advanced',
   'transfer-store', 'cleanup', 'autopilot', 'gaia-bench', 'metaharness',
   'eject', 'funnel', 'settings', 'auth', 'proxy', 'advisor', 'spinner',
-  'announcements',
+  'announcements', 'tui',
 ] as const;
 
 export interface ImplementationLoopStep {
@@ -433,7 +433,7 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'tasks-workflows-sessions',
     name: 'Tasks, Workflows, Sessions & Progress',
-    prefixes: ['task_', 'workflow_', 'session_', 'progress_'],
+    prefixes: ['task_', 'workflow_', 'session_', 'progress_', 'mission_'],
     description: 'Task orchestration, reusable workflows, session state, progress, and handoff.',
     taskSignals: ['task', 'workflow', 'session', 'handoff', 'progress'],
     commands: ['task create', 'task status', 'workflow run'],

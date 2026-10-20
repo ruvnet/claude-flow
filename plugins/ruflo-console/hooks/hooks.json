@@ -1,0 +1,4 @@
+{
+  "description": "The ruflo console: a live cockpit pane (overview, swarms, claims, federation, plugins, self-learning, MetaHarness, memory and cost) and a one-line band above the prompt. Without function hooks nothing here loads.",
+  "modules": ["./register.ts"]
+}

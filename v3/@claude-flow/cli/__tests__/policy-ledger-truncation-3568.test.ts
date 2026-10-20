@@ -1,7 +1,9 @@
+import './helpers/isolated-policy-trust.js';
+import { policyTrustRoot } from '../src/services/policy-ledger-anchor.js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir, userInfo } from 'node:os';
+import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import {
   autoMigratePolicyStateIfNeeded,
@@ -18,7 +20,7 @@ function project(): string {
   const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-3568-'));
   mkdirSync(join(root, '.claude-flow'), { recursive: true });
   const projectId = createHash('sha256').update(realpathSync(root)).digest('hex');
-  roots.push({ root, trust: join(userInfo().homedir, '.config', 'ruflo', 'policy-trust', projectId) });
+  roots.push({ root, trust: join(policyTrustRoot(), projectId) });
   return root;
 }
 
@@ -92,14 +94,14 @@ describe('policy verify detects a truncated decision ledger (#3568)', () => {
     expect((await verifyPolicyLedger(root)).error).toBe('policy-ledger-truncated');
   });
 
-  it('anchors a ledger written before the anchor existed and reports it once', async () => {
+  it('restores a deleted primary anchor from the intact second anchor, and still catches truncation (#3602)', async () => {
     const root = await ledgerWith(5);
     const state = readState(root);
     delete state.ledgerHead;
     delete state.ledgerLength;
     writeState(root, state);
 
-    expect(await verifyPolicyLedger(root)).toEqual({ valid: true, length: 5, anchor: 'established-now' });
+    expect(await verifyPolicyLedger(root)).toEqual({ valid: true, length: 5, secondaryAnchor: 'restored-primary' });
     expect(readState(root).ledgerLength).toBe(5);
     expect(await verifyPolicyLedger(root)).toEqual({ valid: true, length: 5 });
 

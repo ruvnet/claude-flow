@@ -193,6 +193,28 @@ npm install -g ruflo@latest
 claude mcp add claude-flow -- npx ruflo@latest mcp start
 ```
 
+#### HTTP transport security
+
+`ruflo mcp start -t http` exposes every registered tool over HTTP (`/rpc`, `/mcp`, `/ws`). The default `stdio` transport is not affected.
+
+| Setting | Effect |
+|---|---|
+| `RUFLO_MCP_HTTP_TOKEN=<token>` | Require `Authorization: Bearer <token>` on every request. Failure is a bare `401`. The token is compared in constant time and is never logged. Prefer this over `--auth-token`, which is visible in `ps`. |
+| `--auth-token-file <path>` | Read the token from a file (one line). Takes precedence over the env var. |
+| `--auth-token <token>` | Same, on the command line (visible in argv; highest precedence). |
+| `RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1` | Allow an unauthenticated bind to a non-loopback `--host`. Only for a trusted network boundary or an authenticating reverse proxy. |
+
+A token must be 16-512 printable ASCII characters (no spaces). `GET /health` stays public and returns only `{"status":"ok"}` when a token is set. Tokens are supported for `-t http` only; `-t websocket` rejects one.
+
+| `--host` | no token | token set |
+|---|---|---|
+| `localhost`, `127.0.0.1`, `::1` | starts, **unauthenticated** | starts, token required |
+| anything else (`0.0.0.0`, `::`, a LAN IP, `127.0.0.2`, `[::1]`, `LOCALHOST`) | **refuses to start** unless `RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1` | starts, token required |
+
+Without a token, a loopback server is still unauthenticated: any process on the machine, and any web page that can reach it via DNS rebinding, can call tools. Set `RUFLO_MCP_HTTP_TOKEN` whenever the HTTP transport is used.
+
+**Upgrading:** binding off loopback (for example `--host 0.0.0.0` in Docker) now needs a token or the opt-out above; otherwise the server exits with an error.
+
 ---
 
 ## What You Get

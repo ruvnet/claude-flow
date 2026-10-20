@@ -68,3 +68,5 @@ export { xFederationChannelTools } from './x-federation-channels.js';
 export { businessPodTools } from './business-pod-tools.js';
 // ADR-164 Phase 4 §5.1.8 — http_fetch (secure-by-default HTTP probe)
 export { httpFetchTools } from './http-fetch-tools.js';
+// ADR-406 — mission semantic operations
+export { missionTools, createMissionTools } from './mission-tools.js';

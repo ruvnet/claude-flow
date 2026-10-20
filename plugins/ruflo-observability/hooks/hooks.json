@@ -1,0 +1,6 @@
+{
+  "description": "ruflo-observability as a mod (ADR-445 pattern): a tighten-only guard on this plugin's own tools, /observe-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

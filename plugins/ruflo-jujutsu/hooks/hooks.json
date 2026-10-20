@@ -1,0 +1,4 @@
+{
+  "description": "Jujutsu as a mod (ADR-445): a tighten-only guard on the diff and PR tools (no secrets in public PR text, merge and close need an explicit confirm), a status file the console reads, and /jujutsu-mod.",
+  "modules": ["./register.ts"]
+}

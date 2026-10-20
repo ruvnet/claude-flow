@@ -82,6 +82,10 @@ jobs:
             console.log('✓ No metaharness/* in non-optional dependencies anywhere.');
           "
 
+      - name: esbuild for the guard probe (scripts/probe-mod-guards.mjs bundles each plugin guard)
+        run: |
+          npm install --prefix "$RUNNER_TEMP/esbuild" --no-audit --no-fund --no-package-lock esbuild@0.25.0
+          echo "ESBUILD=$RUNNER_TEMP/esbuild/node_modules/.bin/esbuild" >> "$GITHUB_ENV"
       - name: Run meta-smoke (should pass with current optional deps in place)
         # iter 119 — 300s timeout to give ruflo-metaharness (118 steps,
         # many npx invocations) enough wall time. Same change as

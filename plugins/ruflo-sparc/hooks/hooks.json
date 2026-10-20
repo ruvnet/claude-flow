@@ -1,0 +1,6 @@
+{
+  "description": "SPARC as a mod (ADR-445 pattern): a guard that keeps secrets out of specs and phase artifacts stored in sparc memory namespaces, `/sparc-mod`, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

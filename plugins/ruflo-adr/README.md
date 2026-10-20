@@ -25,7 +25,7 @@ claude --plugin-dir plugins/ruflo-adr
 | `adr-create` | `/adr-create <title>` | Create a new ADR with sequential numbering and AgentDB registration |
 | `adr-index` | `/adr-index` | Build or rebuild the ADR index and dependency graph in AgentDB (add/update only — never removes) |
 | `adr-review` | `/adr-review [--branch BRANCH]` | Review code changes against accepted ADRs for compliance violations |
-| `adr-verify` | `/adr-verify` | Read back adr-patterns + adr-edges namespaces, surface dangling refs / supersede cycles / status mismatches; exits 1 on cycles |
+| `adr-verify` | `/adr-verify` | Read back adr-patterns + adr-edges namespaces, surface dangling refs / supersede cycles / Unknown statuses; exits 1 on cycles |
 | `adr-reindex` | `/adr-reindex` | Reconcile a **deleted** ADR file: drop-and-rebuild adr-patterns + adr-edges from what's on disk right now |
 
 ## Commands (7 subcommands)
@@ -93,3 +93,51 @@ bash plugins/ruflo-adr/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+ADR also ships as a function-hook mod (ADR-445 pattern; hooks in `hooks/`, loaded with the plugin). No network, no process, no model call.
+
+- **Guard (default on)**: refuses an ADR write (`agentdb_hierarchical-store`, `agentdb_causal-edge` or `memory_store` into an `adr*` namespace) that holds a key, token or password. It only tightens: it never allows anything the session would deny, and the refusal never repeats the secret. Turn it off with the `guard` option.
+- **`/adr-mod`**: answered locally. `/adr-mod status`, `/adr-mod scan <text>`, `/adr-mod format`.
+- **Status file**: `.claude-flow/adr-mod/status.json` (`version`, `updatedMs`, counters), written at session start and whenever a call is refused; the console reads it.
+- **Options** (`userConfig`): `guard` (`on` by default).
+
+Test: `claude plugin validate plugins/ruflo-adr`, `claude plugin test plugins/ruflo-adr`, and `bash plugins/ruflo-adr/scripts/smoke.sh`.
+
+## Native Codex hooks
+
+The separate `.codex-plugin/plugin.json` selects `hooks/codex-hooks.json`, replacing
+the Claude-only module entry for Codex. Claude's manifest and `register.ts` remain
+unchanged. The synchronous native `PreToolUse` adapter bundles the existing pure
+guard and shared secret screen; it preserves their tool/namespace scope and emits
+the native permission-denial envelope before a guarded write. `SessionStart` and
+guarded calls maintain private per-session counters in `PLUGIN_DATA`; the existing
+version-1 project status file remains a best-effort courtesy view. Status failure
+does not permit a denied write. Guarding is enabled for the native adapter.
+
+Existing skills and command files remain available. Claude's dynamic
+`$.command.register` / `command.run` mod interception has no native command-hook
+equivalent: Codex does **not** get that interception. The same deterministic local
+command helpers are available explicitly via
+`node <plugin-root>/hooks/codex-hook.cjs --command status` (and the helper's existing
+subcommands). This is guard/status compatibility, not full SDK-mod parity.
+
+Maintainers rebuild the committed standalone bundles with
+`ESBUILD=<esbuild executable> node scripts/build-codex-mod-hooks.mjs`, then run
+`node --test tests/plugins/codex-mod-hooks.test.mjs`. Set `ESBUILD` in that test run
+to check byte reproducibility using the same installed builder. Run
+`scripts/sync-mod-screen.mjs --check` before bundling when the shared screen changes.
+The adapters need Node.js and contain no runtime SDK dependency.
+
+This source change requires a released upstream package or an explicitly owned
+source projection to reach installations. It does not patch foreign cache entries,
+pin upstream updates, disable plugins, or claim an already published repair.
+
+Release both host manifests with the same patch version. Codex 0.160's published
+remote-bundle sync skips downloading a release whose version equals the installed
+version; merging same-version source does not establish automatic cache refresh.
+Its explicit native plugin install replaces the cached root atomically even at the
+same version. An owned projection must therefore refresh its upstream source
+generation and explicitly reinstall it; refreshing a marketplace catalog alone
+is not installation proof. No foreign cache entry should be edited in place.

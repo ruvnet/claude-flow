@@ -281,7 +281,7 @@ export class FederationCoordinator {
 
     const policyResult = this.policyEngine.evaluateMessage(
       messageType,
-      session.trustLevel,
+      peer?.trustLevel ?? TrustLevel.UNTRUSTED,
       JSON.stringify(payload).length,
       this.config.nodeId,
     );

@@ -11,7 +11,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import type {
   ITransport,
   TransportType,
@@ -218,10 +218,6 @@ export class HttpTransport extends EventEmitter implements ITransport {
       }));
     }
 
-    this.app.use(express.json({
-      limit: this.config.maxRequestSize || '10mb',
-    }));
-
     // Bound authenticated and unauthenticated RPC traffic before route-level
     // authorization or request dispatch can consume significant resources.
     this.app.use(['/rpc', '/mcp'], rateLimit({
@@ -234,6 +230,24 @@ export class HttpTransport extends EventEmitter implements ITransport {
         id: null,
         error: { code: -32000, message: 'Rate limit exceeded' },
       },
+    }));
+
+    // Bearer-token gate for every route (health excepted, see isPublicHealthRequest).
+    // Runs after CORS (so preflights are unchanged) and the rate limiter (so
+    // failed attempts are bounded), and before the body parser so an
+    // unauthenticated client cannot make the server read or parse a body.
+    if (this.config.auth?.enabled) {
+      this.app.use((req: Request, res: Response, next: NextFunction) => {
+        if (this.isPublicHealthRequest(req) || this.validateAuth(req).valid) {
+          next();
+          return;
+        }
+        this.rejectUnauthorized(req, res);
+      });
+    }
+
+    this.app.use(express.json({
+      limit: this.config.maxRequestSize || '10mb',
     }));
 
     if (this.config.requestTimeout) {
@@ -268,6 +282,12 @@ export class HttpTransport extends EventEmitter implements ITransport {
 
   private setupRoutes(): void {
     this.app.get('/health', (req, res) => {
+      // With auth enabled this route is reachable without credentials, so it
+      // reveals only liveness: no timestamp, no connection count.
+      if (this.config.auth?.enabled) {
+        res.json({ status: 'ok' });
+        return;
+      }
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -283,12 +303,9 @@ export class HttpTransport extends EventEmitter implements ITransport {
     // Streamable HTTP negotiation fails. Advertise this same POST endpoint
     // and route its responses back over the established event stream.
     this.app.get('/mcp', (req, res) => {
-      if (this.config.auth?.enabled) {
-        const authResult = this.validateAuth(req);
-        if (!authResult.valid) {
-          res.status(401).json({ error: authResult.error || 'Unauthorized' });
-          return;
-        }
+      if (this.config.auth?.enabled && !this.validateAuth(req).valid) {
+        this.rejectUnauthorized(req, res);
+        return;
       }
 
       const sessionId = randomUUID();
@@ -410,16 +427,7 @@ export class HttpTransport extends EventEmitter implements ITransport {
     if (requiresAuth && this.config.auth) {
       const authResult = this.validateAuth(req);
       if (!authResult.valid) {
-        this.logger.warn('Authentication failed', {
-          ip: req.ip,
-          path: req.path,
-          error: authResult.error,
-        });
-        res.status(401).json({
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32001, message: 'Unauthorized' },
-        });
+        this.rejectUnauthorized(req, res);
         return;
       }
     } else if (requiresAuth && !this.config.auth) {
@@ -548,54 +556,55 @@ export class HttpTransport extends EventEmitter implements ITransport {
   }
 
   /**
-   * SECURITY: Timing-safe token comparison to prevent timing attacks
+   * SECURITY: constant-time token comparison. Both sides are hashed first so
+   * the comparison is over equal-length digests and leaks neither content nor
+   * length.
    */
   private timingSafeCompare(a: string, b: string): boolean {
-    const crypto = require('crypto');
-
-    // Ensure both strings are the same length for timing-safe comparison
-    const bufA = Buffer.from(a, 'utf-8');
-    const bufB = Buffer.from(b, 'utf-8');
-
-    // If lengths differ, still do a comparison to prevent length-based timing
-    if (bufA.length !== bufB.length) {
-      // Compare against itself to maintain constant time
-      crypto.timingSafeEqual(bufA, bufA);
-      return false;
-    }
-
-    return crypto.timingSafeEqual(bufA, bufB);
+    const digestA = createHash('sha256').update(a, 'utf8').digest();
+    const digestB = createHash('sha256').update(b, 'utf8').digest();
+    return timingSafeEqual(digestA, digestB);
   }
 
-  private validateAuth(req: Request): { valid: boolean; error?: string } {
-    const auth = req.headers.authorization;
+  /** Only GET/HEAD of exactly /health (any case, optional trailing slash) is public. */
+  private isPublicHealthRequest(req: Request): boolean {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+    return req.path.toLowerCase().replace(/\/$/, '') === '/health';
+  }
 
-    if (!auth) {
-      return { valid: false, error: 'Authorization header required' };
+  /** One generic 401 for every failure mode: no hint about what was wrong. */
+  private rejectUnauthorized(req: Request, res: Response): void {
+    // Never log the Authorization header or any token material.
+    this.logger.warn('Authentication failed', { ip: req.ip, path: req.path });
+    res.setHeader('WWW-Authenticate', 'Bearer');
+    res.status(401).json({
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32001, message: 'Unauthorized' },
+    });
+  }
+
+  private validateAuth(req: Request): { valid: boolean } {
+    const auth = req.headers.authorization;
+    if (typeof auth !== 'string') {
+      return { valid: false };
     }
 
     const tokenMatch = auth.match(/^Bearer\s+(.+)$/i);
     if (!tokenMatch) {
-      return { valid: false, error: 'Invalid authorization format' };
+      return { valid: false };
     }
 
-    const token = tokenMatch[1];
-
-    if (this.config.auth?.tokens?.length) {
-      // SECURITY: Use timing-safe comparison to prevent timing attacks
-      let valid = false;
-      for (const validToken of this.config.auth.tokens) {
-        if (this.timingSafeCompare(token, validToken)) {
-          valid = true;
-          break;
-        }
-      }
-      if (!valid) {
-        return { valid: false, error: 'Invalid token' };
+    // Fail closed: auth enabled with no configured token accepts nothing.
+    const tokens = this.config.auth?.tokens ?? [];
+    let valid = false;
+    for (const validToken of tokens) {
+      // No early exit, so timing does not depend on which token matched.
+      if (this.timingSafeCompare(tokenMatch[1], validToken)) {
+        valid = true;
       }
     }
-
-    return { valid: true };
+    return { valid };
   }
 }
 

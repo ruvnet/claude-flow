@@ -1,0 +1,4 @@
+{
+  "description": "DDD as a mod: a guard that keeps secrets out of DDD model memory writes, /ddd-mod (bounded-context listing), and a status file.",
+  "modules": ["./register.ts"]
+}
