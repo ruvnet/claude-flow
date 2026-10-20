@@ -1026,6 +1026,17 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   It must use `semver.satisfies`, not a string compare: a pin may be a range,
   and a literal match would then report a false DRIFT. It also fails loudly
   at zero leaves checked — a guard that inspects nothing must not report clean.
+- **The drift check above only proves the CLI's pin and the workspace version agree with
+  EACH OTHER — it says nothing about whether that version is actually on npm.** #4303
+  (2026-10-20) shipped `@claude-flow/cli@3.57.2` depending on `@claude-flow/memory@3.0.6`,
+  which had never been published — #4279 bumped the workspace version and the CLI's pin
+  together, so the drift check above was clean, but nobody ran the standalone `npm
+  publish` for `memory`. Every fresh install of that line failed with `ETARGET`. Run
+  `node scripts/audit-leaf-versions-published.mjs` before tagging — it queries the live
+  npm registry for every non-bundled leaf pin and fails if the version it resolves to was
+  never published. This is now also a required CI check (`plugin-package-audit` job in
+  `v3-ci.yml`), so a PR that bumps a pin ahead of its own leaf's publish fails on the PR,
+  not on a consumer's install.
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
