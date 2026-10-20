@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.6 — 2026-10-20
+- feat: the compact nav's menu, groups, search and page tabs are now separated by a dim `│` bar instead of just a gap, so a row of chips and tabs reads as distinct items rather than running together (#3664).
+
 ## 0.44.5 — 2026-10-20
 - fix: the standalone terminal console (`npx ruflo tui`) now shows a one-line notice on the first frame when mouse support is off (it's opt-in by design) and how to turn it on with `--mouse`, instead of clicking silently doing nothing (#4305).
 - fix: the footer's `0 menu` key hint no longer disappears below 80 columns (a common tmux/editor-pane width) — a new footer tier keeps it visible down to 62 columns (#4305).
