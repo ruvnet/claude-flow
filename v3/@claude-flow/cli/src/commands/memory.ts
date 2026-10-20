@@ -18,6 +18,7 @@ import { existsSync } from 'node:fs';
 import { siblingAgentDbPath } from '../memory/memory-bridge.js';
 import { validateIdentifier } from '../mcp-tools/validate-input.js';
 import { memoryKeyError } from '../mcp-tools/memory-tools.js';
+import { memoryPeek } from '../memory/memory-peek.js';
 
 /**
  * #3228: a miss in one store is not a miss in the memory.
@@ -1310,6 +1311,57 @@ const statsCommand: Command = {
   }
 };
 
+// #3508: read-only route/peek — which store files this cwd resolves to,
+// their row counts and last write, without creating or initializing
+// anything. Unlike `stats`, this never calls into the MCP tool layer (no
+// `authorizeMcpTool` receipt, no `ensureInitialized()`): it reads both
+// files directly, in-process, read-only.
+const peekCommand: Command = {
+  name: 'peek',
+  description: 'Report which memory store files this cwd resolves to, their row counts and last write — read-only, creates nothing',
+  options: [DB_PATH_OPTION],
+  action: async (ctx: CommandContext): Promise<CommandResult> => {
+    try {
+      const result = await memoryPeek({ path: ctx.flags.path as string | undefined });
+
+      if (ctx.flags.format === 'json') {
+        output.printJson(result);
+        return { success: true, data: result };
+      }
+
+      output.writeln();
+      output.writeln(output.bold('Memory Peek'));
+      output.writeln();
+      output.writeln(`cwd: ${result.cwd}`);
+      output.writeln(`root: ${result.root.path} (source: ${result.root.source})`);
+      output.writeln();
+      output.printTable({
+        columns: [
+          { key: 'role', header: 'Role', width: 6 },
+          { key: 'path', header: 'Path', width: 40 },
+          { key: 'exists', header: 'Exists', width: 8 },
+          { key: 'rows', header: 'Rows', width: 8, align: 'right' },
+          { key: 'lastWrite', header: 'Last Write', width: 24 },
+        ],
+        data: result.stores.map((store) => ({
+          role: store.role,
+          path: store.path,
+          exists: store.exists ? 'yes' : 'no',
+          rows: store.encrypted ? 'encrypted' : (store.rows === null ? 'unknown' : String(store.rows)),
+          lastWrite: store.lastWrite ?? 'N/A',
+        })),
+      });
+      output.writeln();
+      output.writeln(`Shared keys (same namespace+key in both stores): ${result.sharedKeys === null ? 'unknown' : result.sharedKeys}`);
+
+      return { success: true, data: result };
+    } catch (error) {
+      output.printError(`Failed to peek: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return { success: false, exitCode: 1 };
+    }
+  }
+};
+
 // Configure command
 const configureCommand: Command = {
   name: 'configure',
@@ -2286,12 +2338,13 @@ const classifyCommand: Command = {
 export const memoryCommand: Command = {
   name: 'memory',
   description: 'Memory management commands',
-  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand, selectOperatorCommand],
+  subcommands: [initMemoryCommand, storeCommand, retrieveCommand, searchCommand, listCommand, deleteCommand, purgeCommand, statsCommand, peekCommand, configureCommand, cleanupCommand, compressCommand, exportCommand, importCommand, distillCommand, backupCommand, classifyCommand, selectOperatorCommand],
   options: [],
   examples: [
     { command: 'claude-flow memory store -k "key" -v "value"', description: 'Store data' },
     { command: 'claude-flow memory search -q "auth patterns"', description: 'Search memory' },
-    { command: 'claude-flow memory stats', description: 'Show statistics' }
+    { command: 'claude-flow memory stats', description: 'Show statistics' },
+    { command: 'claude-flow memory peek', description: 'Read-only: which store files this cwd resolves to, rows, last write' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     output.writeln();
@@ -2308,6 +2361,7 @@ export const memoryCommand: Command = {
       `${output.highlight('list')}       - List memory entries`,
       `${output.highlight('delete')}     - Delete memory entry`,
       `${output.highlight('stats')}      - Show statistics`,
+      `${output.highlight('peek')}       - Read-only: resolved store files, rows, last write (creates nothing)`,
       `${output.highlight('configure')}  - Configure backend`,
       `${output.highlight('cleanup')}    - Clean expired entries`,
       `${output.highlight('compress')}   - Compress database`,
