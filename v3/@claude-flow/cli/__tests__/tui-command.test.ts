@@ -150,19 +150,24 @@ describe('tui command', () => {
 });
 
 describe('the look and motion flags', () => {
-  it('pass a valid look, an fps from 0 to 30 (a number or digits), --no-anim, --no-pictures and --boot, and nothing else', () => {
-    expect(lookFlags({})).toEqual({});
+  it('pass a valid look, an fps from 0 to 30 (a number or digits), --no-anim, --no-pictures, --boot, and mouse (on unless --no-mouse)', () => {
+    expect(lookFlags({})).toEqual({ mouse: true });
     expect(lookFlags({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true, mouse: true })).toEqual({ look: 'orbital', fps: 12, anim: false, pictures: false, boot: true, mouse: true });
-    expect(lookFlags({ look: 'bbs', fps: '30' })).toEqual({ look: 'bbs', fps: 30 });
-    expect(lookFlags({ fps: 0 })).toEqual({ fps: 0 });
+    expect(lookFlags({ look: 'bbs', fps: '30' })).toEqual({ look: 'bbs', fps: 30, mouse: true });
+    expect(lookFlags({ fps: 0 })).toEqual({ fps: 0, mouse: true });
+  });
+
+  it('mouse defaults on; only an explicit --no-mouse turns it off', () => {
+    expect(lookFlags({ mouse: false })).toEqual({ mouse: false });
+    expect(lookFlags({ mouse: true })).toEqual({ mouse: true });
   });
 
   it('ignore a bad value instead of passing it on', () => {
-    expect(lookFlags({ look: 'neon; rm -rf /', fps: 31 })).toEqual({});
-    expect(lookFlags({ look: 7, fps: -1 })).toEqual({});
-    expect(lookFlags({ fps: '1e9' })).toEqual({});
-    expect(lookFlags({ fps: 'NaN', anim: true, pictures: true, boot: false })).toEqual({});
-    expect(lookFlags(undefined)).toEqual({});
+    expect(lookFlags({ look: 'neon; rm -rf /', fps: 31 })).toEqual({ mouse: true });
+    expect(lookFlags({ look: 7, fps: -1 })).toEqual({ mouse: true });
+    expect(lookFlags({ fps: '1e9' })).toEqual({ mouse: true });
+    expect(lookFlags({ fps: 'NaN', anim: true, pictures: true, boot: false })).toEqual({ mouse: true });
+    expect(lookFlags(undefined)).toEqual({ mouse: true });
   });
 
   it('are listed in the command\'s options', () => {
