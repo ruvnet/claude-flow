@@ -23,6 +23,7 @@
 
 import {
   projectToVec, cosine, categoricalAgreement, jaccard, similarity,
+  normalizeCost, COST_BAND_USD, verdictFor, VERDICT_THRESHOLDS,
 } from './_similarity.mjs';
 // iter 64 — also test the iter-63 shared severity primitives
 import { SEVERITY_RANK, rankSeverity, parseMcpScanText } from './_harness.mjs';
@@ -173,6 +174,68 @@ assert(hf.a === 80 && hf.b === 60, 'perDimension preserves raw a/b values');
 assert(typeof hf.contribution === 'number', 'perDimension has numeric contribution');
 const sNoPD = similarity(A, B);
 assert(!('perDimension' in sNoPD), 'perDimension omitted by default');
+
+console.log('\nPhase 7b — normalizeCost (vector index 8, ADR-152 Table 1)');
+// The pre-fix transform was `log10(usd + 0.001) / log10(10)` clamped to
+// [0,1]. `Math.log10(10)` is 1, so the division was a no-op and the raw
+// log — negative for every cost below $0.999 — clamped to a flat 0. That
+// dead zone covered the whole realistic per-run range, including ruflo's
+// own $0.048 Phase-0 baseline.
+assert(normalizeCost(COST_BAND_USD.min) === 0, 'band floor → 0');
+assert(normalizeCost(COST_BAND_USD.max) === 1, 'band ceiling → 1');
+assert(normalizeCost(50) === 1, 'above band ceiling clamps to 1');
+assert(normalizeCost(0) === 0, 'zero cost clamps to 0');
+assert(normalizeCost(-5) === 0, 'negative cost clamps to 0');
+// The regression that motivated the fix: realistic costs must not collide.
+assert(normalizeCost(0.048) !== normalizeCost(0.11),
+  'ruflo baseline $0.048 and $0.11 must not collapse to the same value (dead-zone regression)');
+assert(normalizeCost(0.048) > 0,
+  '$0.048 (ruflo Phase-0 baseline) must be strictly inside the band');
+// Monotonic non-decreasing across the band, sampled log-evenly.
+const costSamples = [0.001, 0.005, 0.02, 0.048, 0.11, 0.5, 1, 5, 10];
+const costVec = costSamples.map(normalizeCost);
+assert(costVec.every((v, i) => i === 0 || v >= costVec[i - 1]),
+  'normalizeCost is monotonic non-decreasing across the band');
+assert(costVec.every((v) => v >= 0 && v <= 1), 'normalizeCost bounded to [0, 1]');
+// End-to-end: the dimension must now reach the composite. Two harnesses
+// identical except for cost previously scored cosine === 1 because both
+// collapsed to 0; they must now differ.
+const costTwin = (usd) => ({
+  score: { ...A.score, estCostPerRunUsd: usd }, genome: A.genome,
+});
+const cheapTwin = similarity(costTwin(0.048), A);
+const priceyTwin = similarity(costTwin(1), A);
+assert(cheapTwin.components.cosine !== priceyTwin.components.cosine,
+  'cost now influences cosine (was a dead dimension below $0.999)');
+assert(priceyTwin.components.cosine < cheapTwin.components.cosine,
+  'a same-shaped harness with a higher cost is less similar to a cheap one');
+
+console.log('\nPhase 7c — verdictFor + VERDICT_THRESHOLDS (single source of truth)');
+assert(VERDICT_THRESHOLDS.length === 4, 'four verdict bands');
+assert(VERDICT_THRESHOLDS.every((b, i) => i === 0 || b.min < VERDICT_THRESHOLDS[i - 1].min),
+  'bands are ordered highest-first');
+const LAST_BAND = VERDICT_THRESHOLDS[VERDICT_THRESHOLDS.length - 1];
+assert(LAST_BAND.min === Number.NEGATIVE_INFINITY,
+  'final band is unbounded so verdictFor always returns a verdict');
+assert(verdictFor(1) === 'near-identical', 'overall 1 → near-identical');
+assert(verdictFor(0.95) === 'near-identical', 'boundary 0.95 → near-identical (inclusive)');
+assert(verdictFor(0.9499) === 'minor-drift', 'just below 0.95 → minor-drift');
+assert(verdictFor(0.85) === 'minor-drift', 'boundary 0.85 → minor-drift (inclusive, the documented floor)');
+assert(verdictFor(0.8499) === 'moderate-drift', 'just below 0.85 → moderate-drift');
+assert(verdictFor(0.5) === 'moderate-drift', 'boundary 0.5 → moderate-drift (inclusive)');
+assert(verdictFor(0.4999) === 'major-drift', 'just below 0.5 → major-drift');
+assert(verdictFor(0) === 'major-drift', 'overall 0 → major-drift');
+// Regression: audit-trend.mjs used to inline a 0.80 minor-drift floor while
+// docs/metaharness-user-guide.md documented 0.85. 0.80 must resolve to
+// moderate-drift now that the bands live in one place.
+assert(verdictFor(0.80) === 'moderate-drift',
+  '0.80 resolves via the shared bands (was a divergent inline 0.80 floor in audit-trend.mjs)');
+
+console.log('\nPhase 7d — verdict on the similarity() return shape');
+assert(typeof sAA.verdict === 'string', 'similarity() includes a verdict string');
+assert(sAA.verdict === 'near-identical', 'self-match verdict is near-identical');
+assert(sPD.verdict === verdictFor(sPD.overall),
+  'similarity().verdict agrees with verdictFor(overall)');
 
 console.log('\nPhase 8 — round-trip with the iter-35 spike fixtures (regression anchor)');
 // Hard-coded spike numbers from `_spike-similarity.mjs` — ANY change

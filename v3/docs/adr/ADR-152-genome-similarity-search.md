@@ -52,7 +52,7 @@ Project the structured genome + scorecard into a fixed-length numerical vector:
 | 5 | genome | `risk_score` | already 0..1 |
 | 6 | genome | `test_confidence` | already 0..1 |
 | 7 | genome | `publish_readiness` | already 0..1 |
-| 8 | score | `estCostPerRunUsd` | log-transformed: `log10(usd + 0.001) / log10(10)` clamped to 0..1 |
+| 8 | score | `estCostPerRunUsd` | log band: `$0.001` → `0`, `$10` → `1`, log-interpolated between (revised 2026-09-28 — see [Revision](#revision--2026-09-28)) |
 
 Cosine similarity over these 9 dims gives a `[0, 1]` score where 1 = identical and 0 = orthogonal. Cheap, deterministic, byte-identical for identical inputs.
 
@@ -87,6 +87,7 @@ Return shape:
 ```typescript
 interface SimilarityResult {
   overall: number;                                // [0,1]
+  verdict: 'near-identical' | 'minor-drift' | 'moderate-drift' | 'major-drift';  // added 2026-09-28
   components: {
     cosine: number;                               // [0,1]
     categorical: number;                          // [0,1]
@@ -168,6 +169,41 @@ The spike script: `plugins/ruflo-metaharness/scripts/_spike-similarity.mjs`. Liv
 - Should weights be a configurable field in `mcp-policy.json`? Lean no — the 0.6/0.25/0.15 split should be a single global default. Per-org tuning is out of scope for §3.1.
 - Should the function ALSO emit a Mermaid diagram visualizing the breakdown? Probably yes via an optional `--format mermaid`. Cheap to add post-spike.
 - How does similarity interact with the iter-15 `audit-trend` script? `audit-trend` already diffs two timestamps of the SAME harness; this ADR adds a separate primitive for diffing two DIFFERENT harnesses. Both should live as siblings, not subtypes.
+
+## Revision — 2026-09-28
+
+Two defects in this ADR's §Decision were found while reconciling the shipped code against [the MetaHarness user guide](../../docs/metaharness-user-guide.md). Both are corrected in `plugins/ruflo-metaharness/scripts/_similarity.mjs`; nothing else consumes the affected semantics.
+
+### 1. The cost normalization (index 8) was inert below $0.999
+
+The original transform was `log10(usd + 0.001) / log10(10)` clamped to `[0, 1]`. `Math.log10(10)` is `1`, so the division was a no-op and the expression reduced to `clamp(log10(usd + 0.001), 0, 1)`. Since `log10` is negative for every `usd < 0.999`, the outer clamp flattened that entire range to a constant `0`:
+
+| `estCostPerRunUsd` | original index 8 | revised index 8 |
+|---:|---:|---:|
+| 0.005 | 0 | 0.1747 |
+| 0.048 | 0 | 0.4203 |
+| 0.11 | 0 | 0.5103 |
+| 0.5 | 0 | 0.6747 |
+| 1 | 0.0004 | 0.75 |
+| 5 | 0.6991 | 0.9247 |
+
+Every realistic per-run cost — including the $0.048 Phase-0 baseline recorded in the plugin README — landed in the dead zone, so the "9-dim" vector was effectively 8-dim and a 2× cost regression was invisible to `cosine`. Two harnesses differing *only* in cost scored `cosine === 1`.
+
+The replacement is an explicit log band: `$0.001 → 0`, `$10 → 1`, log-interpolated in between, monotonic and non-finite-safe (missing/`NaN`/negative input degrades to the band floor, never `NaN`). Exported as `normalizeCost()` with the band in `COST_BAND_USD`.
+
+### 2. The verdict bands had two encodings, and they disagreed
+
+This ADR's return shape never specified a verdict, but `audit-trend.mjs` inlined one using a **0.80** `minor-drift` floor while the user guide documented **0.85**. `drift-from-history` prints that verdict to users, so the two diverged in the 0.80–0.85 band.
+
+The bands now live once, in `_similarity.mjs` as `VERDICT_THRESHOLDS`, with `verdictFor()` as the only classifier; `audit-trend.mjs` imports it and `similarity()` returns `verdict` alongside `overall`. The documented `0.85` floor is canonical — it is the published contract, and the guide's own `audit-trend` example already gates on `--alert-on-distance-below 0.85`.
+
+**This is a deliberate user-visible behaviour change:** a structural similarity in `[0.80, 0.85)` now reports `moderate-drift` instead of `minor-drift`. `drift-from-history --threshold` semantics are unchanged (the threshold is compared against `overall`, not the verdict), but downstream consumers that branch on the verdict string should be re-checked.
+
+### Effect on the frozen spike numbers
+
+The §Spike-result figures are unchanged (`0.8296` for LEGAL×SUPPORT, `0.9987` cosine): the LEGAL/`$0.04` and SUPPORT/`$0.05` fixtures are near-identical on the cost axis, so the revived dimension perturbs their cosine by less than the 4-decimal reporting precision. The regression anchor in `test-similarity.mjs` Phase 8 therefore still pins the original values, and new Phase 7b/7c/7d coverage pins the corrected cost and verdict semantics directly.
+
+The defect this ADR's §Consequences already anticipated — "numerical cosine alone is too coarse" (§Spike result) — is **not** addressed here. Cosine over mostly-high normalized dimensions stays insensitive to uniform degradation; drift gates that must catch absolute quality loss should pair structural similarity with the absolute gates (`score --alert-on-fit-below`, `mcp-scan --fail-on`) rather than relying on `--threshold` alone.
 
 ## References
 
