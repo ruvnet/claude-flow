@@ -617,6 +617,7 @@ export const agentTools: MCPTool[] = [
       properties: {
         status: { type: 'string', description: 'Filter by status' },
         domain: { type: 'string', description: 'Filter by domain' },
+        agentType: { type: 'string', description: 'Filter by agent type' },
         includeTerminated: { type: 'boolean', description: 'Include terminated agents' },
       },
     },
@@ -627,6 +628,10 @@ export const agentTools: MCPTool[] = [
       }
       if (input.domain) {
         const v = validateIdentifier(input.domain, 'domain');
+        if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
+      }
+      if (input.agentType) {
+        const v = validateIdentifier(input.agentType, 'agentType');
         if (!v.valid) return { agents: [], total: 0, error: `Input validation failed: ${v.error}` };
       }
 
@@ -644,6 +649,11 @@ export const agentTools: MCPTool[] = [
         agents = agents.filter(a => a.domain === input.domain);
       }
 
+      // Filter by agent type
+      if (input.agentType) {
+        agents = agents.filter(a => a.agentType === input.agentType);
+      }
+
       return {
         agents: agents.map(a => ({
           agentId: a.agentId,
@@ -658,6 +668,7 @@ export const agentTools: MCPTool[] = [
         filters: {
           status: input.status,
           domain: input.domain,
+          agentType: input.agentType,
           includeTerminated: input.includeTerminated,
         },
       };
