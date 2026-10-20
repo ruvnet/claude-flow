@@ -21,12 +21,14 @@ test('node:test regression is registered with its explicit CI runner', () => {
   assert.equal(job.steps.filter(step => step.run?.includes('node --test tests/check-guard-tool-names.test.mjs tests/all-plugins-smoke-workflow.test.mjs')).length, 1);
 });
 
-test('smoke workflow runs one suite within the unchanged deadline and always uploads its result', () => {
+test('smoke workflow runs one suite within the current deadline and always uploads its result', () => {
   const provision = job.steps.find(step => step.run?.includes('npm install --prefix'));
   assert.match(provision.run, /yaml@2\.8\.0\b/);
   const regression = job.steps.find(step => step.run?.includes('node --test tests/check-guard-tool-names.test.mjs'));
   assert.equal(regression.env.NODE_PATH, '${{ runner.temp }}/esbuild/node_modules');
-  assert.equal(job['timeout-minutes'], 10);
+  // 10 -> 15 in #3950: the job also checks out and smokes the first external (git-subdir) marketplace entry,
+  // agentic-qe-fleet, which doesn't fit the original budget alongside every local plugin's smoke.sh.
+  assert.equal(job['timeout-minutes'], 15);
   assert.equal(producers.length, 1);
   assert.equal(producers[0].shell, 'bash');
   assert.match(producers[0].run, /--timeout 300\b/);
