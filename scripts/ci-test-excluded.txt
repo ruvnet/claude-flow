@@ -103,3 +103,4 @@ plugins/ruflo-core/scripts/background-hooks.test.cjs
 plugins/ruflo-core/scripts/command-recording-switch.test.cjs
 tests/regression/oct12-coverage.test.cjs
 plugins/ruflo-adr/scripts/__tests__/adr-status-forms-4126.test.mjs
+scripts/__tests__/probe-mod-guards.test.mjs
