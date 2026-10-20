@@ -1,6 +1,6 @@
 ---
 id: ADR-0001
-title: Pin ruflo-ruvector plugin to ruvector@0.2.25 with optional add-on packages
+title: Pin ruflo-ruvector plugin to ruvector@0.3.3 with optional add-on packages
 status: Accepted
 date: 2026-05-04
 authors:
@@ -25,18 +25,18 @@ Concretely, this caused:
 - `npx ruvector midstream status` → command does not exist
 - `npx ruvector index create N` → command does not exist (use `create <path>`)
 
-A live audit against `ruvector@0.2.25` confirmed which subcommands work, which require optional add-on packages, and which are upstream bugs.
+A live audit against `ruvector@0.3.3` confirmed which subcommands work, which require optional add-on packages, and which are upstream bugs.
 
 ## Decision
 
-The plugin pins to `ruvector@0.2.25` and documents the optional add-on packages required for full functionality.
+The plugin pins to `ruvector@0.3.3` and documents the optional add-on packages required for full functionality.
 
 ### 1. Pin every CLI invocation
 
 All `npx` calls in the plugin (README, agent, skills, commands, scripts) MUST be of the form:
 
 ```bash
-npx -y ruvector@0.2.25 <subcommand> [args]
+npx -y ruvector@0.3.3 <subcommand> [args]
 ```
 
 Rationale: the `-y` flag suppresses the npm interactive prompt; the version pin prevents a future ruvector release from breaking the plugin's contract without our knowledge.
@@ -56,7 +56,7 @@ Rationale: these are heavy dependencies (ONNX runtime alone is large). Forcing t
 ### 3. Register MCP server with the same pin
 
 ```bash
-claude mcp add ruvector -- npx -y ruvector@0.2.25 mcp start
+claude mcp add ruvector -- npx -y ruvector@0.3.3 mcp start
 ```
 
 Rationale: the MCP transport layer changes between minor versions of ruvector. Pinning the MCP command keeps the 103 exposed tools stable for downstream agents.
@@ -75,9 +75,9 @@ A future ADR may relax this if upstream introduces a stable equivalent and we up
 
 ### 5. Smoke test as the contract
 
-`scripts/smoke.sh` verifies the contracted surface against any installed `ruvector@0.2.25`. It must remain green on every plugin change. Tests cover:
+`scripts/smoke.sh` verifies the contracted surface against any installed `ruvector@0.3.3`. It must remain green on every plugin change. Tests cover:
 
-- Version pin (`--version` returns `0.2.25`)
+- Version pin (`--version` returns `0.3.3`)
 - Top-level subcommand visibility (`hooks`, `embed`, `rvf`, `attention`, `gnn`, `brain`, `sona`, `create`, `stats`, `search`, `insert`)
 - `hooks route` accepts a positional task argument
 - `hooks ast-analyze` accepts a positional file argument
@@ -120,3 +120,16 @@ bash plugins/ruflo-ruvector/scripts/smoke.sh
 - `skills/vector-setup/SKILL.md` — first-run installer
 - `agents/vector-engineer.md` — agent contract with replacement table
 - Upstream issue 401 (`optimize` not yet shipped)
+
+## Addendum (2026-10-14) — pin moved to ruvector 0.3.3 (#4158)
+
+The 0.2.25 pin shipped without `dist/core/onnx/pkg`, so `embed text` failed
+with `ONNX WASM files not bundled` and the documented remedy
+(`ruvector-onnx-embeddings-wasm`) did not fix it. 0.3.3 bundles the wasm; in a
+throwaway prefix `embed text` returned a 384-dim vector with no add-on. The pin
+is now `ruvector@0.3.3` and the ONNX add-on is no longer installed or
+documented. Also re-verified on 0.3.3: `optimize` and `hooks force-learn` run,
+`midstream` exists, `embed text` takes `--stdin`/`--input-file`, `hooks
+graph-mincut` still fails, `compare` still does not exist, `mcp tools` lists 97.
+`@ruvector/pi-brain` is still needed for `brain`; `sona` falls back to JS. The
+filename keeps the original number so links stay valid.

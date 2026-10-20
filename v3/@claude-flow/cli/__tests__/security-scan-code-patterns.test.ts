@@ -72,6 +72,16 @@ describe('security scan code patterns: false positives seen on a real tree', () 
   it('does not report a URL or a pattern inside a string as a comment boundary', async () => {
     expect(await findings({ 'u.ts': "const u = 'http://x/*'; const v = 1;\n" })).toEqual([]);
   });
+
+  it('does not report shell-call examples inside strings or static command arguments', async () => {
+    expect(await findings({
+      'docs.js': [
+        'const example = "execSync(`git log ${branch}`)";',
+        "execSync('git ' + 'status');",
+        'execSync(`echo \\${literal}`);',
+      ].join('\n'),
+    })).toEqual([]);
+  });
 });
 
 describe('security scan code patterns: real findings still reported', () => {
@@ -83,6 +93,19 @@ describe('security scan code patterns: real findings still reported', () => {
     expect(types(await findings({
       'b.ts': "require('child_process').exec(`ls ${dir}`);\nchild_process.execSync(cmd);\n",
     }))).toEqual(['Command Injection b.ts:1', 'Command Injection b.ts:2']);
+  });
+
+  it('reports interpolated exec calls even when child_process was imported on another line', async () => {
+    expect(types(await findings({
+      'shell.js': [
+        "const { execSync, execFileSync } = require('child_process');",
+        'function run(req) { return execSync(`git log ${req.query.branch}`); }',
+        'function run2(req) { return execSync("git log " + req.query.branch); }',
+        'function run3(req) { return childProcess.exec(`git show ${req.query.ref}`); }',
+        "execFileSync('git', ['log', branch]);",
+        "execSync('git status');",
+      ].join('\n'),
+    }))).toEqual(['Command Injection shell.js:2', 'Command Injection shell.js:3', 'Command Injection shell.js:4']);
   });
 
   it('reports an interpolated value in SQL, also next to a placeholder', async () => {
@@ -272,4 +295,3 @@ describe('security scan code patterns: shapes the narrowing must not hide', () =
     expect(Date.now() - started).toBeLessThan(1_000);
   });
 });
-

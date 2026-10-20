@@ -70,7 +70,7 @@ describe('keys', () => {
     expect([keyOf('o'), keyOf('c'), keyOf('s'), keyOf('e'), keyOf('m'), keyOf('a')]).toEqual([{ page: 'overview' }, { page: 'cost' }, { page: 'swarm' }, { page: 'events' }, { page: 'missions' }, { page: 'ai' }])
     expect([keyOf('\t'), keyOf(`${ESC}[C`), keyOf('l')]).toEqual(['next', 'next', 'next'])
     expect([keyOf(`${ESC}[Z`), keyOf(`${ESC}[D`), keyOf('h')]).toEqual(['prev', 'prev', 'prev'])
-    expect([keyOf('0'), keyOf('7'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
+    expect([keyOf('7'), keyOf('8'), keyOf('9'), keyOf('x'), keyOf(`${ESC}]0;t\u0007`)]).toEqual([null, null, null, null, null])
   })
 
   it('has no key for Room: its content is a message box and Claude sessions this host does not have', () => {
@@ -87,12 +87,22 @@ describe('page bar and key line', () => {
     expect(widthOf(navLine('missions', 60, '256'))).toBeLessThanOrEqual(60)
   })
 
-  it('has a short key line for a narrow terminal and says read-only on a wide one', () => {
-    expect(keyLine(100)).toContain('read-only')
+  it('has a short key line for a narrow terminal and says ask first on a wide one', () => {
+    expect(keyLine(100)).toContain('ask first')
     expect(keyLine(100)).toContain('q quit')
     expect(keyLine(50)).toBe('1-6 page · j/k scroll · q quit')
     expect(keyLine(25)).toBe('1-6 page · q quit')
     for (const columns of [40, 50, 59, 60, 70, 80, 99, 120]) for (const place of ['', ' · 1-18/42']) expect(widthOf(keyLine(columns, place)), `${columns}${place}`).toBeLessThanOrEqual(columns)
+  })
+
+  it('keeps "0 menu" in the footer down to 62 columns, not only at 80+ (the main menu must stay reachable, not just visible at full width)', () => {
+    // Below 80, the previous tiers dropped every mention of the menu key: a terminal at 62-79 columns (a common
+    // tmux/editor-pane width) showed no way to discover that "0" opens the main menu at all.
+    for (const columns of [62, 65, 70, 75, 79]) expect(keyLine(columns), `${columns}`).toContain('0 menu')
+    for (const columns of [62, 65, 70, 75, 79]) expect(widthOf(keyLine(columns)), `${columns}`).toBeLessThanOrEqual(columns)
+    // A scroll position suffix (place) pushes the 80-column tier over budget too: the menu must not silently vanish there either.
+    expect(keyLine(80, ' · 1-28/42')).toContain('0 menu')
+    expect(widthOf(keyLine(80, ' · 1-28/42'))).toBeLessThanOrEqual(80)
   })
 })
 
@@ -100,7 +110,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   for (const columns of [80, 120]) {
     it(`draws all six pages at ${columns} columns, no wider than the terminal, with none of Claude Code's chrome`, async () => {
       for (const view of TUI_VIEWS) {
-        const session = openSession({ cwd: project, home: join(root, 'home'), aiPage: {} })
+        const session = openSession({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), aiPage: {} })
 
         try {
           session.show(view)
@@ -123,7 +133,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   }
 
   it('the Missions page reads the mission record only: no goal field, no plan, no research launch', async () => {
-    const session = openSession({ cwd: project, home: join(root, 'home') })
+    const session = openSession({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') })
 
     try {
       session.show('missions')
@@ -139,7 +149,7 @@ describe('every page, on a host with no Claude session and no mouse', () => {
   })
 
   it('hostile mission text: words only reach the screen (no escape, no token)', async () => {
-    const session = openSession({ cwd: hostile, home: join(root, 'home') })
+    const session = openSession({ look: 'plain', fps: 0, cwd: hostile, home: join(root, 'home') })
 
     try {
       session.show('missions')
@@ -158,9 +168,23 @@ describe('every page, on a host with no Claude session and no mouse', () => {
 })
 
 describe('the terminal loop', () => {
+  it('a terminal that reports 0 columns draws the page at the default width, not a repeated "T" (#4115)', async () => {
+    const t = terminal(0, 0)
+    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+
+    await settle()
+    t.press('q')
+    await expect(running).resolves.toBe(0)
+
+    const text = plain(t.out.join(''))
+
+    expect(text).toMatch(/1 Overview {1,3}2 Cost/)
+    expect(text).not.toContain('Too narrow')
+  })
+
   it('jumps to a page on a digit, cycles with tab and shift-tab, and the page bar follows', async () => {
     const t = terminal()
-    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
     await settle()
     t.press('3')
@@ -181,14 +205,14 @@ describe('the terminal loop', () => {
 
   it('highlights 6 AI in the page bar on the AI page, started there or reached by key (not the page before it)', async () => {
     const started = terminal()
-    const first = runTui({ cwd: project, home: join(root, 'home'), view: 'ai', aiPage: { codexBin: '/nonexistent/codex' } }, started.io)
+    const first = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), view: 'ai', aiPage: { codexBin: '/nonexistent/codex' } }, started.io)
 
     await settle()
     started.press('\u0003')
     await first
 
     const reached = terminal()
-    const second = runTui({ cwd: project, home: join(root, 'home'), aiPage: { codexBin: '/nonexistent/codex' } }, reached.io)
+    const second = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home'), aiPage: { codexBin: '/nonexistent/codex' } }, reached.io)
 
     await settle()
     reached.press('5')
@@ -210,7 +234,7 @@ describe('the terminal loop', () => {
   it('fills the terminal exactly: the page bar on the first row, the key line on the last', async () => {
     for (const rows of [24, 40]) {
       const t = terminal(100, rows)
-      const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+      const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
       await settle()
       t.press('4')
@@ -228,7 +252,7 @@ describe('the terminal loop', () => {
 
   it('redraws at the new width on a resize, clearing the screen first', async () => {
     const t = terminal(120, 30)
-    const running = runTui({ cwd: project, home: join(root, 'home') }, t.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, t.io)
 
     await settle()
 
@@ -247,8 +271,12 @@ describe('the terminal loop', () => {
 
   it('under 60 columns it draws the position bar and the short key line; under 40 it says how wide it needs to be', async () => {
     const narrow = terminal(52, 24)
-    const running = runTui({ cwd: project, home: join(root, 'home') }, narrow.io)
+    const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, narrow.io)
 
+    await settle()
+    // The very first frame carries the mouse-off notice in the footer row instead of the key line (it clears on any key);
+    // a no-op key settles that before checking the short key-line format this test is actually about.
+    narrow.press('r')
     await settle()
     expect(plain(narrow.out.join(''))).toContain('‹ 1/6 Overview ›')
     expect(plain(narrow.out.join(''))).toContain('1-6 page · j/k scroll · q quit')

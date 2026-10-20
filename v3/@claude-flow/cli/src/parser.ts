@@ -216,8 +216,9 @@ export class CommandParser {
     while (i < args.length) {
       const arg = args[i];
 
-      // Check for end of flags marker
-      if (arg === '--') {
+      // Check for end of flags marker. Only the first "--" changes parser
+      // state; a later literal "--" is an ordinary positional (#4310).
+      if (parsingFlags && arg === '--') {
         parsingFlags = false;
         i++;
         continue;

@@ -128,6 +128,14 @@ function main() {
     const run = spawnSync(process.execPath, [
       vitestBin,
       'run',
+      // #4307: the default fork pool (one fork per CPU, ~4 on a standard
+      // GitHub-hosted runner) intermittently crashes with tinypool's
+      // ERR_IPC_CHANNEL_CLOSED partway through this ~9500-test suite — observed
+      // at three different, unrelated points across repeated runs, consistent
+      // with cumulative memory pressure rather than one bad file. Capping forks
+      // trades wall-clock time for headroom; raise this back (or drop it) if a
+      // future profiling pass finds the real cause and fixes it properly.
+      '--maxWorkers=2',
       // The new guidance file uses Claude Code's native test kit, not
       // Vitest. Do not enlarge the historical known-failure baseline.
       '--exclude=plugins/ruflo-mods/tests/guidance.test.ts',

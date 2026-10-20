@@ -22,11 +22,15 @@ const require = createRequire(import.meta.url);
  * Locate the local sql-wasm.wasm so vitest doesn't try to fetch it over HTTP.
  * Returns null if sql.js isn't installed in this env (treated as a skip
  * signal by the suite).
+ *
+ * Resolve the dist subpath directly (exposed via sql.js's "./dist/*" export),
+ * not "sql.js/package.json": sql.js 1.14 tightened its exports map to "." and
+ * "./dist/*" only, so a package.json subpath resolve throws
+ * ERR_PACKAGE_PATH_NOT_EXPORTED there even though the wasm file is present.
  */
 function locateSqlWasm(): string | null {
   try {
-    const sqljsPkg = require.resolve('sql.js/package.json');
-    const wasmPath = sqljsPkg.replace(/package\.json$/, 'dist/sql-wasm.wasm');
+    const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
     return existsSync(wasmPath) ? wasmPath : null;
   } catch {
     return null;

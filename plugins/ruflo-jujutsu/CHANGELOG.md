@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; this is the whole history.
 
+## 0.3.6 — 2026-10-14
+- fix: the README, command, git-specialist agent and diff-analyze skill now say `analyze_diff-reviewers` suggests reviewer roles from file paths and risk, not people from history, and does not read CODEOWNERS (#4163, thanks @rudycelekli)
+
 ## 0.3.5 — 2026-10-12
 - fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
 

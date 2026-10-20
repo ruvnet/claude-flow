@@ -142,10 +142,11 @@ export class MCPServer extends EventEmitter implements IMCPServer {
       taskTimeout: 300000,
     });
     this.transportManager = createTransportManager(logger);
+    const sessionRateLimit = this.config.sessionRateLimit;
     this.rateLimiter = createRateLimiter(logger, {
-      requestsPerSecond: 100,
-      burstSize: 200,
-      perSessionLimit: 50,
+      requestsPerSecond: sessionRateLimit?.requestsPerSecond ?? 100,
+      burstSize: sessionRateLimit?.burstSize ?? 200,
+      perSessionLimit: sessionRateLimit?.perSessionLimit ?? 50,
     });
     this.samplingManager = createSamplingManager(logger);
 
@@ -229,6 +230,7 @@ export class MCPServer extends EventEmitter implements IMCPServer {
         auth: this.config.auth,
         maxRequestSize: String(this.config.maxRequestSize),
         requestTimeout: this.config.requestTimeout,
+        rateLimit: this.config.rateLimit,
       } as any));
 
       for (const transport of transports) {

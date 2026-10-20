@@ -10,10 +10,11 @@
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/claude-flow?style=for-the-badge&logo=github&color=gold)](https://github.com/ruvnet/claude-flow)
 
 <p align="center">
-<a href="data/npm-downloads.latest.json"><img src="docs/assets/readme/badges/downloads.svg?v=mobile-readable-3" width="300" alt="Ecosystem npm downloads: 12.52M over 12 months through October 4, 2026"></a>
+<a href="docs/harness-origins.md"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/e69e4b95aa08d65ea0f7715489bbf8e62a83a0d2/docs/assets/readme/badges/first-commit.svg" width="300" height="76" alt="Claude Flow lineage: first commit June 2, 2025 by rUv; inspect the evidence"></a>
+<a href="data/npm-downloads.latest.json"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/275aff65a198af758923669acff36f03d1f41623/docs/assets/readme/badges/downloads.svg" width="300" height="76" alt="Illustrative download counter starts at 98,000,000 and adds varied amounts each second in a 30 second loop. Verified dataset: 97,022,120 download events."></a>
 <br>
-<a href="https://github.com/ruvnet/claude-flow"><img src="docs/assets/readme/badges/claude.svg?v=mobile-readable-3" width="300" alt="Claude Code"></a>
-<a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="docs/assets/readme/badges/codex.svg?v=mobile-readable-3" width="300" alt="Codex Plugin"></a>
+<a href="https://github.com/ruvnet/claude-flow"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/claude.svg" width="300" height="76" alt="Claude Code plugin"></a>
+<a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/codex.svg" width="300" height="76" alt="Codex plugin"></a>
 </p>
 
 </div>
@@ -51,7 +52,7 @@ MCP exposes Ruflo tools to your client. The console and mods above are Claude Co
 
 <img src="docs/assets/readme/icons/terminal.svg" width="28" height="28" alt=""> **Prefer a plain terminal? Optional.** The console also runs on its own, with no Claude Code: `npx ruflo tui` (add `--plain` to print one frame for scripts). It shows Overview, Cost, Swarm, Events and Missions, plus an optional AI page. [Terminal UI guide](docs/USERGUIDE.md#terminal-ui-optional)
 
-<p align="center"><img src="docs/assets/ruflo-tui-compact.svg" width="640" alt="Looping recording of the optional ruflo terminal UI cycling through Overview, Cost, Swarm, Events and Missions in a sample project"></p>
+<p align="center"><img src="docs/assets/ruflo-tui-compact.svg" width="640" alt="Looping recording of the optional ruflo terminal UI with its pictures: Overview in the Classic BBS look, the Orbital look with its moving globe, and the Swarm graph, in a sample project"></p>
 
 [Compare install paths](#quick-start) · [Open the console](#console-walkthrough) · [User guide](docs/USERGUIDE.md)
 
@@ -108,6 +109,14 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 </details>
 
 > **New to Ruflo?** You don't need to learn 314 MCP tools or 26 CLI commands. After `init`, just use Claude Code normally — the hooks system automatically routes tasks, learns from successful patterns, and coordinates agents in the background.
+
+### An origin you can inspect
+
+[![Claude Flow to Ruflo: founding idea on June 2, 2025, orchestration source on June 10, and the continuing Ruflo lineage.](docs/assets/readme/harness-origins.svg)](docs/harness-origins.md)
+
+**Built by [Reuven Cohen (rUv)](https://github.com/ruvnet), originally as Claude Flow.** The [first commit, June 2, 2025](https://github.com/ruvnet/ruflo/commit/7c1f9402d70e7af56c01a879073cbac92564dc4e), describes a code orchestration layer for recursive agent cycles: Claude writes, edits, tests and improves. The [June 10 source snapshot](https://github.com/ruvnet/ruflo/tree/dba545f012ea92a2375a26332bbf3797495e93c9) adds orchestration, task scheduling, memory and terminal modules.
+
+A harness is the workbench around the model: it organizes tasks, carries context between steps and helps check results. **This establishes Ruflo's lineage, not a universal first across every Claude Code tool.** [See the illustrated explainer, exact commits and earlier ecosystem context](docs/harness-origins.md).
 
 <details>
 <summary><strong>📖 Background — where the name comes from</strong></summary>
@@ -231,6 +240,7 @@ This adds slash commands and agent definitions. `ruflo-core` (installed above) d
 | [**ruflo-browser**](plugins/ruflo-browser/README.md) | Automate browser testing with Playwright |
 | [**ruflo-jujutsu**](plugins/ruflo-jujutsu/README.md) | Analyze git diffs, score risk, suggest reviewers |
 | [**ruflo-docs**](plugins/ruflo-docs/README.md) | Generate and maintain documentation automatically |
+| [**agentic-qe-fleet**](https://github.com/proffesor-for-testing/agentic-qe/tree/v3.15.10/plugins/agentic-qe-fleet) | External, maintained by [Agentic QE](https://github.com/proffesor-for-testing/agentic-qe): 11 QE agents, test generation, coverage, chaos and TDD skills, the `agentic-qe` MCP server, and a guard for AQE learning data (`/plugin install agentic-qe-fleet@ruflo`). Install it from one marketplace only, `agentic-qe` or `ruflo`: enabled from both, its mod and commands load twice |
 
 #### Security & Compliance
 

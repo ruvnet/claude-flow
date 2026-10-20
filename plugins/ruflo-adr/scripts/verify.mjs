@@ -12,7 +12,7 @@
 //   VERIFY_STRICT=1 node scripts/verify.mjs     # exit 1 on ANY issue (default: only on cycles)
 //   ADR_ROOT=/path/to/repo node scripts/verify.mjs   # same root import.mjs was run with
 
-import { CLI_PKG, parseEdgeKey } from './lib/index-records.mjs';
+import { CLI_PKG, parseEdgeKey, unknownStatusIds } from './lib/index-records.mjs';
 import { spawnCliSync } from './lib/ruflo-cli.mjs';
 
 // Import/reindex always use the default CLI's SQLite store (#2781). Reading
@@ -136,6 +136,10 @@ function findCycle(node, visited, stack) {
 }
 for (const n of supersedesGraph.keys()) findCycle(n, new Set(), new Set());
 
+// #4126: an ADR the importer could not classify is skipped by adr-review (it only enforces
+// accepted ADRs), so it must not hide behind a healthy-looking graph.
+const unknownStatus = [...new Set(unknownStatusIds(patternEntries))];
+
 const result = {
   adrCount: adrIds.size,
   edgeCount: edges.length,
@@ -143,6 +147,7 @@ const result = {
   danglingRefs,
   danglingFroms,
   cycles: [...new Set(cycles)],
+  unknownStatus,
 };
 
 if (process.env.VERIFY_FORMAT === 'json') {
@@ -160,9 +165,14 @@ if (process.env.VERIFY_FORMAT === 'json') {
   console.log(`| Dangling 'to' refs | ${result.danglingRefs.length} |`);
   console.log(`| Dangling 'from' refs | ${result.danglingFroms.length} |`);
   console.log(`| Supersede cycles | ${result.cycles.length} |`);
+  console.log(`| ADRs with Unknown status | ${result.unknownStatus.length} |`);
   if (result.danglingRefs.length) {
     console.log('\n### Sample dangling refs');
     for (const d of result.danglingRefs.slice(0, 8)) console.log(`- ${d.relation} ${d.from} → ${d.to} (missing)`);
+  }
+  if (result.unknownStatus.length) {
+    console.log('\n### Unknown status (adr-review skips these: fix the Status line)');
+    for (const id of result.unknownStatus.slice(0, 20)) console.log(`- ${id}`);
   }
   if (result.cycles.length) {
     console.log('\n### Cycles (DATA CORRUPTION — fix immediately)');
@@ -171,6 +181,6 @@ if (process.env.VERIFY_FORMAT === 'json') {
 }
 
 const strict = process.env.VERIFY_STRICT === '1';
-if (result.cycles.length || (strict && (result.danglingRefs.length || result.danglingFroms.length))) {
+if (result.cycles.length || (strict && (result.danglingRefs.length || result.danglingFroms.length || result.unknownStatus.length))) {
   process.exit(1);
 }

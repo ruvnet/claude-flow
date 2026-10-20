@@ -1,8 +1,8 @@
 /**
  * Which console section owns each ruflo plugin: the section that launches its slash commands (the Launch row) and answers
- * "ask Claude" about it. Every plugin directory under `plugins/` appears here, and a test fails when one is added without a
- * line, so no plugin is ever unreachable from the console. A plugin with no section of its own says why (`catalogOnly`) and is
- * reached from the Plugin Catalog. Pure data.
+ * "ask Claude" about it. Every plugin directory under `plugins/`, and every external plugin the marketplace lists by a git
+ * source, appears here, and a test fails when one is added without a line, so no plugin is ever unreachable from the console.
+ * A plugin with no section of its own says why (`catalogOnly`) and is reached from the Plugin Catalog. Pure data.
  */
 import type { ViewId } from './state'
 
@@ -12,6 +12,7 @@ const home = (view: ViewId): PluginHome => ({ view })
 const catalog = (why: string): PluginHome => ({ view: 'market', catalogOnly: why })
 
 export const PLUGIN_MAP: Readonly<Record<string, PluginHome>> = {
+  'agentic-qe-fleet': home('devtools'),
   'ruflo-adr': home('devtools'),
   'ruflo-agent': home('swarm'),
   'ruflo-agentdb': home('memory'),

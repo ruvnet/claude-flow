@@ -1,6 +1,6 @@
 ---
 name: vector-cluster
-description: Cluster code by graph community detection via npx ruvector@0.2.25 hooks graph-cluster (spectral / Louvain)
+description: Cluster code by graph community detection via npx ruvector@0.3.3 hooks graph-cluster (spectral / Louvain)
 argument-hint: "<namespace> [--k N]"
 allowed-tools: Bash Read mcp__plugin_ruflo-core_ruflo__memory_search mcp__plugin_ruflo-core_ruflo__memory_store mcp__plugin_ruflo-core_ruflo__memory_list
 ---
@@ -15,14 +15,14 @@ Use this skill when you have a collection of embeddings and want to discover nat
 
 ## Steps
 
-1. **Ensure ruvector@0.2.25 is available**:
+1. **Ensure ruvector@0.3.3 is available**:
    ```bash
-   npm ls ruvector 2>/dev/null | grep '0.2.25' || npm install ruvector@0.2.25
+   npm ls ruvector 2>/dev/null | grep '0.3.3' || npm install ruvector@0.3.3
    ```
-2. **Run clustering** — in ruvector@0.2.25 the only working clustering is via `hooks graph-cluster` (spectral/Louvain over a code graph). The top-level `cluster` command is reserved for distributed cluster ops and is currently "Coming Soon" upstream.
+2. **Run clustering** — in ruvector@0.3.3 the only working clustering is via `hooks graph-cluster` (spectral/Louvain over a code graph). The top-level `cluster` command is reserved for distributed cluster ops and is currently "Coming Soon" upstream.
    ```bash
-   npx -y ruvector@0.2.25 hooks graph-cluster <files...>
-   npx -y ruvector@0.2.25 hooks graph-mincut <files...>
+   npx -y ruvector@0.3.3 hooks graph-cluster <files...>
+   npx -y ruvector@0.3.3 hooks graph-mincut <files...>
    ```
 3. **Review output** — JSON with cluster assignments, community labels, and edges. If you see `"graph.nodes is not iterable"`, run `hooks init` first to seed the graph state.
 4. **Store results**:
@@ -37,5 +37,5 @@ Use this skill when you have a collection of embeddings and want to discover nat
 
 ## Caveats
 
-- `cluster --namespace ... --k N` and `cluster --density` are **not** valid in ruvector@0.2.25 — those flags fall through to the distributed-cluster command, which only accepts `--status`, `--join`, `--leave`, `--nodes`, `--leader`, `--info`.
+- `cluster --namespace ... --k N` and `cluster --density` are **not** valid in ruvector@0.3.3 — those flags fall through to the distributed-cluster command, which only accepts `--status`, `--join`, `--leave`, `--nodes`, `--leader`, `--info`.
 - For namespaced k-means over arbitrary embeddings, run k-means in your own code against vectors stored in AgentDB.

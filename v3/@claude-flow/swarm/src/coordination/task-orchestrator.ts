@@ -193,10 +193,23 @@ export class TaskOrchestrator implements ITaskOrchestrator {
       throw new Error(`Task ${taskId} is blocked by dependencies`);
     }
 
+    const previous = {
+      assignedAgent: task.assignedAgent,
+      status: task.status,
+      updatedAt: task.updatedAt,
+      blockedBy: task.blockedBy,
+    };
     task.assignedAgent = agentId;
     this.updateTaskStatus(taskId, 'assigned');
 
-    this.agentRegistry.assignTask(agentId, taskId);
+    try {
+      // Status-change observers must see both sides of the assignment.
+      this.agentRegistry.assignTask(agentId, taskId);
+    } catch (error) {
+      // A busy or missing worker must not strand this task as assigned.
+      Object.assign(task, previous);
+      throw error;
+    }
 
     this.eventBus.emitSync(taskAssignedEvent(taskId, agentId));
   }
@@ -238,6 +251,7 @@ export class TaskOrchestrator implements ITaskOrchestrator {
 
   failTask(taskId: TaskId, error: Error): void {
     const task = this.getTaskOrThrow(taskId);
+    const assignedAgent = task.assignedAgent;
 
     task.metadata.retryCount++;
 
@@ -255,6 +269,7 @@ export class TaskOrchestrator implements ITaskOrchestrator {
       }
     }
 
+    this.releaseWorker(task, assignedAgent);
     this.eventBus.emitSync(taskFailedEvent(taskId, error));
   }
 
@@ -265,10 +280,7 @@ export class TaskOrchestrator implements ITaskOrchestrator {
       throw new Error(`Cannot cancel ${task.status} task ${taskId}`);
     }
 
-    if (task.assignedAgent) {
-      this.agentRegistry.updateStatus(task.assignedAgent, 'idle');
-    }
-
+    this.releaseWorker(task);
     this.updateTaskStatus(taskId, 'cancelled');
   }
 
@@ -476,6 +488,16 @@ export class TaskOrchestrator implements ITaskOrchestrator {
   // Private Helpers
   // ==========================================================================
 
+  private releaseWorker(task: TaskDefinition, agentId = task.assignedAgent): void {
+    if (!agentId) return;
+    const state = this.agentRegistry.getState(agentId);
+    // Only release a worker that still owns this task, never a later assignment.
+    if (state?.currentTask === task.id) {
+      state.currentTask = null;
+      this.agentRegistry.updateStatus(agentId, 'idle');
+    }
+  }
+
   private getTaskOrThrow(taskId: TaskId): TaskDefinition {
     const task = this.tasks.get(taskId);
     if (!task) {
@@ -576,12 +598,11 @@ export class TaskOrchestrator implements ITaskOrchestrator {
   }
 
   private getQueuePosition(taskId: TaskId): number {
-    const priorityOrder: Record<string, number> = {
-      critical: 5,
-      high: 4,
-      normal: 3,
-      low: 2,
-      background: 1,
+    const priorityOrder: Record<TaskPriority, number> = {
+      critical: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
     };
 
     const queuedTasks = Array.from(this.tasks.values())

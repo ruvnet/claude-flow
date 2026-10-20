@@ -49,6 +49,7 @@ import { join, resolve } from 'path';
 
 const CLAIMS_DIR = '.claude-flow/claims';
 const CLAIMS_FILE = 'claims.json';
+const DEFAULT_MAX_CLAIMS = 5;
 
 function getClaimsPath(): string {
   return resolve(join(CLAIMS_DIR, CLAIMS_FILE));
@@ -89,7 +90,7 @@ function parseClaimant(str: string): Claimant | null {
 export const claimsTools: MCPTool[] = [
   {
     name: 'claims_claim',
-    description: 'Claim an issue for work (human or agent) Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Claim an issue for work (human or agent). Use when multiple agents might pick up the same issue — claiming makes ownership visible via claims_list before work starts.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -106,6 +107,10 @@ export const claimsTools: MCPTool[] = [
           type: 'string',
           description: 'Optional context about the work approach',
         },
+        ttlMs: {
+          type: 'number',
+          description: 'Optional time-to-live in milliseconds; when set, the claim records an expiresAt timestamp. Informational only today — no handler currently enforces it (e.g. claims_steal still requires claims_mark-stealable rather than checking expiry).',
+        },
       },
       required: ['issueId', 'claimant'],
     },
@@ -113,10 +118,14 @@ export const claimsTools: MCPTool[] = [
       const issueId = input.issueId as string;
       const claimantStr = input.claimant as string;
       const context = input.context as string | undefined;
+      const ttlMs = input.ttlMs as number | undefined;
 
       { const v = validateIdentifier(issueId, 'issueId'); if (!v.valid) return { success: false, error: v.error }; }
       { const v = validateText(claimantStr, 'claimant'); if (!v.valid) return { success: false, error: v.error }; }
       if (context) { const v = validateText(context, 'context'); if (!v.valid) return { success: false, error: v.error }; }
+      if (ttlMs !== undefined && (typeof ttlMs !== 'number' || !Number.isFinite(ttlMs) || ttlMs <= 0)) {
+        return { success: false, error: 'ttlMs must be a positive number' };
+      }
 
       const claimant = parseClaimant(claimantStr);
       if (!claimant) {
@@ -144,6 +153,7 @@ export const claimsTools: MCPTool[] = [
         statusChangedAt: now,
         progress: 0,
         context,
+        expiresAt: ttlMs !== undefined ? new Date(Date.now() + ttlMs).toISOString() : undefined,
       };
 
       store.claims[issueId] = claim;
@@ -159,7 +169,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_release',
-    description: 'Release a claim on an issue Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Release a claim on an issue. Use when the claimant stops working on it, freeing it for another claims_claim instead of leaving it claimed indefinitely.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -220,7 +230,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_handoff',
-    description: 'Request handoff of an issue to another claimant Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Request handoff of an issue to another claimant. Use when transferring in-progress work to a different agent, instead of releasing and having them claim it fresh.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -298,7 +308,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_accept-handoff',
-    description: 'Accept a pending handoff Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Accept a pending handoff. Use when the receiving claimant confirms a claims_handoff request, completing the ownership transfer.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -364,7 +374,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_status',
-    description: 'Update claim status Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Update claim status. Use when progress changes (active, blocked, review-requested, etc.) so claims_list and claims_load reflect current state.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -428,7 +438,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_list',
-    description: 'List all claims or filter by criteria Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'List all claims or filter by criteria. Use when checking what is already claimed before starting new work, instead of guessing from issue comments.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -484,7 +494,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_mark-stealable',
-    description: 'Mark an issue as stealable by other agents Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Mark an issue as stealable by other agents. Use when a claimant is overloaded or stalled and wants another agent to pick it up via claims_steal.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -552,7 +562,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_steal',
-    description: 'Steal a stealable issue Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Steal a stealable issue. Use when picking up work already marked stealable via claims_mark-stealable, rather than claiming an issue someone else still owns.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -626,7 +636,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_stealable',
-    description: 'List all stealable issues Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'List all stealable issues. Use when looking for available work that has been freed up via claims_mark-stealable.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -665,7 +675,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_load',
-    description: 'Get agent load information Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Get agent load information. Use when deciding which agent should take new work by comparing claim counts against claims_rebalance targets.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -732,8 +742,8 @@ export const claimsTools: MCPTool[] = [
         agentId: l.agentId,
         agentType: l.agentType,
         claimCount: l.claims.length,
-        maxClaims: 5, // Default max
-        utilization: l.claims.length / 5,
+        maxClaims: DEFAULT_MAX_CLAIMS,
+        utilization: l.claims.length / DEFAULT_MAX_CLAIMS,
         blockedCount: l.blockedCount,
         claims: l.claims.map(c => ({
           issueId: c.issueId,
@@ -756,7 +766,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_board',
-    description: 'Get a visual board view of all claims Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Get a visual board view of all claims. Use when scanning overall claim status across issues and agents instead of composing the view from claims_list yourself.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -810,7 +820,7 @@ export const claimsTools: MCPTool[] = [
 
   {
     name: 'claims_rebalance',
-    description: 'Suggest or apply load rebalancing across agents Use when nothing native covers per-agent capability gating — Claude Code agents have file-system access by default. Pair claims_grant + claims_check before letting an agent run privileged ops. For trusted in-session work, no claims call is needed.',
+    description: 'Suggest or apply load rebalancing across agents. Use when some agents are overloaded and others idle, instead of manually reassigning claims one at a time.',
     category: 'claims',
     inputSchema: {
       type: 'object',
@@ -848,7 +858,7 @@ export const claimsTools: MCPTool[] = [
       }
 
       const loads = Array.from(agentLoads.values());
-      const maxClaims = 5;
+      const maxClaims = DEFAULT_MAX_CLAIMS;
       const avgLoad = loads.length > 0
         ? loads.reduce((sum, l) => sum + l.claims.length, 0) / loads.length
         : 0;

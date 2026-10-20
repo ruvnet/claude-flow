@@ -33,6 +33,9 @@ describe('the compact nav', () => {
     expect(keys(first)).toEqual(expect.arrayContaining(['nav-group-MIND', 'nav-group-SAFETY', 'nav-group-NETWORK', 'nav-group-TOOLS', 'tab-menu']))
     // The open group's pages are in the card; another group's pages are there too but hidden, so their hotkeys still work.
     expect(textOf(first)).toContain('[SWARM ▾]')
+    // A bar sits between the menu and each group, and between pages on a row: the groups read as separate, not run together.
+    expect(keys(first)).toEqual(expect.arrayContaining(['nav-bar-0', 'nav-bar-1']))
+    expect(textOf(first)).toContain('│')
     expect(keys(first)).toEqual(expect.arrayContaining(['tab-missions', 'tab-hive', 'tab-learning', 'tab-memory']))
 
     await pane.press({ key: 'nav-group-MIND' })
