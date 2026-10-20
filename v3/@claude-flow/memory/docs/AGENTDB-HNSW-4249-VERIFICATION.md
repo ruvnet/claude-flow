@@ -2,6 +2,8 @@
 
 Date: 2026-10-20. Scope: issue [#4249](https://github.com/ruvnet/ruflo/issues/4249).
 Baseline: `19fb5c6e7cbf0ce37c0269ca2c2fca3dda760851`.
+Rebased onto `ab40a99f3a0ff03442759fe082037d6a7630ad53` before publication;
+its intervening changes were confined to swarm, not memory or its lockfile.
 The existing cleanup-only draft [#4250](https://github.com/ruvnet/ruflo/pull/4250)
 was inspected at `88b90fdfd6ad66c266777503fb7c957028829c87` and left unchanged.
 
@@ -21,6 +23,9 @@ was inspected at `88b90fdfd6ad66c266777503fb7c957028829c87` and left unchanged.
 - Preserve exact cosine fallback for optional dependency/export/addon absence,
   unsupported configuration, dimensions, filtered searches and native errors.
   Do not report HNSW stats/health unless the current index really is built.
+- Detach entry/vector inputs and outputs and snapshot query vectors before any
+  await, preventing caller mutations from bypassing index invalidation. Keep
+  TTL-bearing semantic queries exact so expiry eligibility cannot diverge.
 - Remove unsupported performance claims from this backend's integration guide.
 
 The use of fresh snapshots is deliberate. In alpha.20, construction/initialize
@@ -52,19 +57,24 @@ instance. `RUFLO_REQUIRE_NATIVE_HNSW=1` makes native absence fail, not skip.
 | Check | Baseline | Candidate |
 | --- | ---: | ---: |
 | Existing full memory suite | 626/626 pass | 626/626 pass |
-| New targeted regressions | 4 pass, 12 fail | 16/16 pass |
-| Candidate full memory suite | n/a | 642/642 pass, 37 files |
-| Focused backend + new native/optional + hybrid + provider | n/a | 78/78 pass |
+| New targeted regressions | 4 pass, 15 fail | 19/19 pass |
+| Candidate full memory suite | n/a | 645/645 pass, 37 files |
+| Focused backend + new native/optional + hybrid + provider | n/a | 81/81 pass |
 | TypeScript `tsc --noEmit` | not separately run | pass |
 | TypeScript package build | pass | pass |
 | `git diff --check` | n/a | pass |
+
+A full-suite run during final review had one unrelated existing timing guard
+miss: `AgentMemoryScope: resolve 10k paths` took 200.63 ms against a 200 ms
+ceiling. No test or threshold was changed; the unchanged full rerun passed
+645/645. This transient result is disclosed rather than omitted.
 
 Coverage includes actual nearest-neighbor IDs/scores, repeated reads, appends,
 replacement, regenerated-embedding updates, deletion, namespace clearing, empty
 indexes, same-instance shutdown/reinitialize, exact filtered top-k, zero
 thresholds/vectors, oversized `k`, dimension mismatch, extreme finite vectors,
 unsafe native configuration, concurrent `ef`, mutation during asynchronous
-build, and degraded stats/health on missing or failed native capability.
+build, expiry parity, mutable input/result/query vectors, and degraded stats/health on missing or failed native capability.
 
 ## Bounded benchmark
 
@@ -76,9 +86,9 @@ with a separately computed exact cosine top-10 for every query.
 | Measurement | Baseline dead-controller + exact fallback | Candidate real native HNSW |
 | --- | ---: | ---: |
 | Native index built | no | yes |
-| First search, including index build | 3.671 ms | 88.691 ms |
-| Warm search p50 | 0.433 ms | 0.080 ms |
-| Warm search p95 | 0.722 ms | 0.147 ms |
+| First search, including index build | 3.671 ms | 97.916 ms |
+| Warm search p50 | 0.433 ms | 0.104 ms |
+| Warm search p95 | 0.722 ms | 0.267 ms |
 | Recall@10 | 1.000 | 1.000 |
 
 This is one bounded run, not a production or universal speedup claim.
@@ -91,15 +101,15 @@ Native allocation size is not exposed, so `hnswStats.memoryUsage` is unknown
 Source/build SHA256 for the reported candidate:
 
 - `src/agentdb-backend.ts`:
-  `20f8e8413df1552c6f7cb96aca5bdd71048954fa5328aada08dcf8b914e3d8fe`
+  `c64ac41f2a2e5fcc7a3c62206c52a9692f5a067a132a6d923ac565276c187100`
 - `src/agentdb-hnsw-adapter.ts`:
-  `110d12f744c83d41215dbd65ad633e8b4b04dac4b90545d6c17edf6c95351c65`
+  `f41524d5c4b63c0c9023faae4f5feb0e5692117b6e8a1aaebe48dd97f62e1670`
 - `benchmarks/agentdb-hnsw.mjs`:
   `011d43ac9492c36e53c7379a36afda6f6f4f67426166c06778d33aa7736177d8`
 - `dist/agentdb-backend.js`:
-  `b0f195f8fa5a39b8fbc1c9ba3e32b55eac47ddb07f70e881482d825d2f4dac4e`
+  `6b4889f95ade01a6de29bb91d2c0b71448dcf15b55cb97ca952c2ac57882f60d`
 - `dist/agentdb-hnsw-adapter.js`:
-  `52863934c70945ec1b7c7d22100187e7fbcdae4f4807ac2bc14b1534abafb115`
+  `8233518c024999675a8651fe393e09a5323cc749fad8233cebd37308a00d7122`
 
 The benchmark prints these hashes, environment, parameters and metrics itself.
 

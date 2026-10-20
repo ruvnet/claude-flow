@@ -36,11 +36,15 @@ The `AgentDBBackend` class provides:
 - Native HNSW is used in `auto`/`hnswlib` mode when the export and addon are available.
 - `forceWasm: true` and explicit `vectorBackend: 'ruvector'` disable this adapter;
   the AgentDB controllers' vector backend is separate from these memory entries.
-- Filtered searches are exact to avoid top-k underfill. Filter keys are never
+- Filtered searches, including semantic queries with TTL-bearing entries, are
+  exact to avoid top-k underfill or expiry differences between backends. Filter keys are never
   interpolated into the dependency's SQL filter builder.
 - Missing exports/addons, unsafe tuning, dimension mismatch and native failures
   fall back to exact cosine search. A failed native instance is retried only on
   reinitialization, not on every query.
+- Entry objects and embedding/tag/reference arrays are detached on input and
+  output. Use `store`/`update` to change indexed data; arbitrary nested metadata
+  values are not deep-cloned. Query vectors are copied before asynchronous work.
 - HNSW is approximate; equal-score ordering is not guaranteed. Scores and
   thresholds use this backend's cosine implementation.
 

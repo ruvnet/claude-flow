@@ -124,9 +124,11 @@ export class AgentDBHnswAdapter {
     k: number,
     ef?: number,
   ): Promise<string[] | undefined> {
+    embedding = new Float32Array(embedding);
     if (!Number.isInteger(k) || k <= 0 || k > 0xffffffff ||
         embedding.length !== this.config.dimension ||
         !embedding.every(Number.isFinite)) return undefined;
+    const query = this.normalize(embedding);
     if (!await this.build(getEntries)) return undefined;
     const index = this.index;
     const ids = this.ids;
@@ -142,7 +144,7 @@ export class AgentDBHnswAdapter {
             expansion !== index.getStats().efSearch) {
           index.setEfSearch(expansion);
         }
-        const results = await index.search(this.normalize(embedding), Math.min(k, ids.size));
+        const results = await index.search(query, Math.min(k, ids.size));
         if (revision !== this.revision) return undefined;
         return results.map((result) => ids.get(result.id)).filter(
           (id): id is string => id !== undefined,

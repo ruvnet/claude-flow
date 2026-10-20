@@ -117,6 +117,46 @@ describe.skipIf(!nativeAvailable && !required)('AgentDBBackend real native HNSW'
     expect(search).toHaveBeenCalledOnce();
   });
 
+  it('keeps default expiry eligibility consistent with exact semantic search', async () => {
+    const search = vi.spyOn(HNSWIndex.prototype, 'search');
+    await backend.store({ ...entry('expired', vector(1, 0, 0)), expiresAt: Date.now() - 1 });
+    await backend.store(entry('live', vector(0.9, 0.1, 0)));
+    const query = { type: 'semantic' as const, embedding: vector(1, 0, 0), limit: 1 };
+    expect((await backend.query(query)).map((r) => r.id)).toEqual(['live']);
+    expect(search).not.toHaveBeenCalled();
+    expect((await backend.query({ ...query, includeExpired: true })).map((r) => r.id)).toEqual(['expired']);
+    await backend.delete('expired');
+    expect((await backend.query(query)).map((r) => r.id)).toEqual(['live']);
+    expect(search).toHaveBeenCalledOnce();
+    await backend.update('live', { expiresAt: Date.now() - 1 });
+    expect(await backend.query(query)).toEqual([]);
+    // Replacing a TTL entry with an entry without expiry restores native use.
+    await backend.store(entry('live', vector(0.9, 0.1, 0)));
+    expect((await backend.query(query)).map((r) => r.id)).toEqual(['live']);
+    expect(search).toHaveBeenCalledTimes(2);
+  });
+
+  it('owns indexed vectors instead of exposing mutable input or result aliases', async () => {
+    const a = entry('a', vector(1, 0, 0));
+    const b = entry('b', vector(0, 1, 0));
+    await backend.bulkInsert([a, b]);
+    const east = () => backend.search(vector(1, 0, 0), { k: 1 });
+    expect((await east())[0].entry.id).toBe('a');
+    a.embedding.set([-1, 0, 0]);
+    b.embedding.set([1, 0, 0]);
+    a.expiresAt = 0;
+    (await backend.get('a'))!.embedding!.set([-1, 0, 0]);
+    (await east())[0].entry.embedding!.set([-1, 0, 0]);
+    (await backend.query({ type: 'exact', key: 'a', limit: 1 }))[0].embedding!.set([-1, 0, 0]);
+    const result = await east();
+    expect(result[0]).toMatchObject({ entry: { id: 'a' }, score: 1 });
+    expect((await backend.query({ type: 'semantic', embedding: vector(1, 0, 0), limit: 1 }))[0].id).toBe('a');
+    await backend.delete('b');
+    const updated = await backend.update('a', { content: 'changed' });
+    updated!.embedding!.set([0, -1, 0]);
+    expect((await backend.search(vector(0, 1, 0), { k: 1 }))[0].score).toBe(1);
+  });
+
   it('normalizes extreme finite values before native cosine search', async () => {
     await backend.bulkInsert([
       entry('huge', vector(3e38, 1e38, 0)),
@@ -207,6 +247,24 @@ describe.skipIf(!nativeAvailable && !required)('AgentDBBackend real native HNSW'
     release();
     expect((await pending).map((r) => r.entry.id)).toEqual(['new']);
     expect((await backend.search(vector(1, 0, 0), { k: 1 }))[0].entry.id).toBe('new');
+  });
+
+  it('snapshots query vectors before asynchronous native construction', async () => {
+    const original = HNSWIndex.prototype.buildIndex;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const build = vi.spyOn(HNSWIndex.prototype, 'buildIndex').mockImplementationOnce(async function (this: HNSWIndex, ...args) {
+      await gate;
+      return original.apply(this, args);
+    });
+    await backend.store(entry('a', vector(1, 0, 0)));
+    await backend.store(entry('b', vector(0, 1, 0)));
+    const query = vector(1, 0, 0);
+    const pending = backend.search(query, { k: 1 });
+    await vi.waitFor(() => expect(build).toHaveBeenCalledOnce());
+    query.fill(Number.NaN);
+    release();
+    expect((await pending)[0]).toMatchObject({ entry: { id: 'a' }, score: 1, distance: 0 });
   });
 });
 

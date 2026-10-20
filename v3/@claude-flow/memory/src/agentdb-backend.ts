@@ -160,6 +160,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   private entries: Map<string, MemoryEntry> = new Map();
   private namespaceIndex: Map<string, Set<string>> = new Map();
   private keyIndex: Map<string, string> = new Map();
+  private expiringEntryIds: Set<string> = new Set();
 
   // Performance tracking
   private stats = {
@@ -287,9 +288,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * Store a memory entry
    */
   async store(entry: MemoryEntry): Promise<void> {
+    // Own vectors and index-relevant fields. Callers must not be able to mutate
+    // an indexed snapshot through the original entry or a returned result.
+    entry = this.copyEntry(entry);
     // Generate embedding if needed
     if (entry.content && !entry.embedding && this.config.embeddingGenerator) {
-      entry.embedding = await this.config.embeddingGenerator(entry.content);
+      entry.embedding = new Float32Array(await this.config.embeddingGenerator(entry.content));
     }
 
     // Replacements must not leave old namespace/key or native vector entries.
@@ -299,6 +303,8 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       this.keyIndex.delete(`${previous.namespace}:${previous.key}`);
     }
     this.entries.set(entry.id, entry);
+    if (entry.expiresAt === undefined) this.expiringEntryIds.delete(entry.id);
+    else this.expiringEntryIds.add(entry.id);
     this.hnsw?.invalidate();
 
     // Update indexes
@@ -318,11 +324,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   async get(id: string): Promise<MemoryEntry | null> {
     // Check in-memory first
     const cached = this.entries.get(id);
-    if (cached) return cached;
+    if (cached) return this.copyEntry(cached);
 
     // Query AgentDB if available
     if (this.agentdb) {
-      return this.getFromAgentDB(id);
+      const entry = await this.getFromAgentDB(id);
+      return entry ? this.copyEntry(entry) : null;
     }
 
     return null;
@@ -352,12 +359,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       entry.content = update.content;
       // Regenerate embedding if needed
       if (this.config.embeddingGenerator) {
-        entry.embedding = await this.config.embeddingGenerator(entry.content);
+        entry.embedding = new Float32Array(await this.config.embeddingGenerator(entry.content));
       }
     }
 
     if (update.tags !== undefined) {
-      entry.tags = update.tags;
+      entry.tags = [...update.tags];
     }
 
     if (update.metadata !== undefined) {
@@ -370,10 +377,11 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     if (update.expiresAt !== undefined) {
       entry.expiresAt = update.expiresAt;
+      this.expiringEntryIds.add(id);
     }
 
     if (update.references !== undefined) {
-      entry.references = update.references;
+      entry.references = [...update.references];
     }
 
     entry.updatedAt = Date.now();
@@ -386,7 +394,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     }
 
     this.emit('entry:updated', { id });
-    return entry;
+    return this.copyEntry(entry);
   }
 
   /**
@@ -398,6 +406,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     // Remove from indexes
     this.entries.delete(id);
+    this.expiringEntryIds.delete(id);
     this.hnsw?.invalidate();
     this.namespaceIndex.get(entry.namespace)?.delete(id);
     const keyIndexKey = `${entry.namespace}:${entry.key}`;
@@ -432,7 +441,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     this.stats.queryCount++;
     this.stats.totalQueryTime += duration;
 
-    return results;
+    return results.map((entry) => this.copyEntry(entry));
   }
 
   /**
@@ -442,6 +451,9 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     embedding: Float32Array,
     options: SearchOptions
   ): Promise<SearchResult[]> {
+    // Keep native validation, search and JS score recomputation on the same
+    // vector even if the caller changes its Float32Array during an await.
+    embedding = new Float32Array(embedding);
     const startTime = performance.now();
 
     if (!this.agentdb) {
@@ -474,6 +486,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * `CLAUDE_FLOW_RETRIEVAL_GUARD_STRICT`).
    */
   private applyRetrievalGuard(results: SearchResult[]): SearchResult[] {
+    results = results.map((result) => ({ ...result, entry: this.copyEntry(result.entry) }));
     if (!this.retrievalGuard || !isRetrievalGuardEnabled() || results.length === 0) {
       return results;
     }
@@ -631,6 +644,16 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   // ===== Private Methods =====
+
+  private copyEntry(entry: MemoryEntry): MemoryEntry {
+    return {
+      ...entry,
+      embedding: entry.embedding ? new Float32Array(entry.embedding) : undefined,
+      tags: [...entry.tags],
+      metadata: { ...entry.metadata },
+      references: [...entry.references],
+    };
+  }
 
   /**
    * Create database schema
@@ -972,6 +995,10 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
   private hasSearchFilters(filters?: MemoryQuery): boolean {
     if (!filters) return false;
+    // MemoryQuery excludes expired entries by default. Time can change
+    // eligibility without a write, so keep TTL-bearing semantic queries exact.
+    // Track presence on writes rather than scanning every native read.
+    if (!filters.includeExpired && this.expiringEntryIds.size > 0) return true;
     // Semantic queries carry type/content/embedding/limit/threshold even when
     // there are no filtering constraints. Do not disable native search for them.
     return [
