@@ -260,6 +260,9 @@ export const taskTools: MCPTool[] = [
       // Sort by creation date (newest first)
       tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+      // Count matches before applying the limit so callers can tell when the list was truncated
+      const total = tasks.length;
+
       // Apply limit
       const limit = (input.limit as number) || 50;
       tasks = tasks.slice(0, limit);
@@ -275,7 +278,7 @@ export const taskTools: MCPTool[] = [
           assignedTo: t.assignedTo,
           createdAt: t.createdAt,
         })),
-        total: tasks.length,
+        total,
         filters: {
           status: input.status,
           type: input.type,
