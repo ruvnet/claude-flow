@@ -5434,6 +5434,11 @@ export const hooksCodemod: MCPTool = {
         // path like `${cwd}-staging/x.ts` pass as "inside" `cwd`. Matches
         // the pattern already used correctly elsewhere in this codebase
         // (@claude-flow/security's `isWithinPrefix`, hooks/workers, plugins/security).
+        // KNOWN LIMITATION (disclosed 2026-10-20, not fixed here): this
+        // compares the resolved-but-not-realpath'd path, so a symlink
+        // inside cwd pointing outside it still escapes containment
+        // (CWE-59, a distinct/broader gap than the CWE-22 prefix bug this
+        // anchors). Needs fs.realpathSync-based containment as a follow-up.
         if (abs !== cwd && !abs.startsWith(cwd + sep)) return `path escapes project root: ${p}`;
         out.add(abs);
         return undefined;
