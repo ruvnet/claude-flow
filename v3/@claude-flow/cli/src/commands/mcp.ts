@@ -52,6 +52,16 @@ function formatUptime(seconds: number): string {
   return `${hours}h ${mins}m`;
 }
 
+function readIntegerOption(flags: CommandContext['flags'], name: string, envName: string): number | undefined {
+  const camelName = name.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+  const input = flags[camelName] ?? flags[name] ?? process.env[envName];
+  return input === undefined ? undefined : Number(input);
+}
+
+function isOutOfRange(value: number | undefined, min: number, max: number): boolean {
+  return value !== undefined && (!Number.isSafeInteger(value) || value < min || value > max);
+}
+
 // Start MCP server
 const startCommand: Command = {
   name: 'start',
@@ -90,6 +100,31 @@ const startCommand: Command = {
       type: 'number'
     },
     {
+      name: 'rate-limit-per-ip',
+      description: 'HTTP requests allowed per client IP per window (env RUFLO_MCP_RATE_LIMIT_PER_IP)',
+      type: 'number'
+    },
+    {
+      name: 'rate-limit-window-ms',
+      description: 'HTTP rate limit window in milliseconds (env RUFLO_MCP_RATE_LIMIT_WINDOW_MS)',
+      type: 'number'
+    },
+    {
+      name: 'rate-limit-per-session',
+      description: 'Request burst allowed per MCP session, refilled over 10s; also bounded by the server-wide bucket (env RUFLO_MCP_RATE_LIMIT_PER_SESSION)',
+      type: 'number'
+    },
+    {
+      name: 'rate-limit-global-rps',
+      description: 'Server-wide requests per second across all sessions (env RUFLO_MCP_RATE_LIMIT_GLOBAL_RPS)',
+      type: 'number'
+    },
+    {
+      name: 'rate-limit-global-burst',
+      description: 'Server-wide request burst across all sessions (env RUFLO_MCP_RATE_LIMIT_GLOBAL_BURST)',
+      type: 'number'
+    },
+    {
       name: 'auth-token-file',
       description: 'Read the HTTP bearer token from this file (http transport). Preferred over --auth-token; env RUFLO_MCP_HTTP_TOKEN also works',
       type: 'string'
@@ -118,6 +153,7 @@ const startCommand: Command = {
     { command: 'claude-flow mcp start', description: 'Start with defaults (stdio)' },
     { command: 'claude-flow mcp start -p 8080 -t http', description: 'Start HTTP server' },
     { command: 'claude-flow mcp start -t http --request-timeout-ms 120000', description: 'Allow slower cold-start HTTP tools' },
+    { command: 'claude-flow mcp start -t http --rate-limit-per-ip 600 --rate-limit-per-session 500 --rate-limit-global-burst 1000', description: 'Raise rate limits for a shared control plane' },
     { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http', description: 'HTTP server requiring "Authorization: Bearer <token>" on every request (except GET /health)' },
     { command: 'RUFLO_MCP_HTTP_TOKEN=<16+ chars> claude-flow mcp start -t http --host 0.0.0.0', description: 'Non-loopback bind: allowed only with a token (or RUFLO_MCP_ALLOW_UNAUTHENTICATED_HTTP=1)' },
     { command: 'claude-flow mcp start -d', description: 'Start as daemon' },
@@ -130,13 +166,34 @@ const startCommand: Command = {
     const tools = (ctx.flags.tools as string | undefined)
       || process.env.CLAUDE_FLOW_MCP_TOOLS
       || 'all';
-    const timeoutInput = ctx.flags.requestTimeoutMs
-      ?? ctx.flags['request-timeout-ms']
-      ?? process.env.RUFLO_MCP_REQUEST_TIMEOUT_MS;
-    const requestTimeoutMs = timeoutInput === undefined ? undefined : Number(timeoutInput);
-    if (requestTimeoutMs !== undefined &&
-        (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs > 3_600_000)) {
+    const requestTimeoutMs = readIntegerOption(ctx.flags, 'request-timeout-ms', 'RUFLO_MCP_REQUEST_TIMEOUT_MS');
+    if (isOutOfRange(requestTimeoutMs, 1, 3_600_000)) {
       output.printError('Request timeout must be an integer from 1 to 3600000 milliseconds');
+      return { success: false, exitCode: 1 };
+    }
+    const rateLimitPerIp = readIntegerOption(ctx.flags, 'rate-limit-per-ip', 'RUFLO_MCP_RATE_LIMIT_PER_IP');
+    if (isOutOfRange(rateLimitPerIp, 1, 100_000)) {
+      output.printError('HTTP rate limit must be an integer from 1 to 100000 requests per window');
+      return { success: false, exitCode: 1 };
+    }
+    const rateLimitWindowMs = readIntegerOption(ctx.flags, 'rate-limit-window-ms', 'RUFLO_MCP_RATE_LIMIT_WINDOW_MS');
+    if (isOutOfRange(rateLimitWindowMs, 1000, 3_600_000)) {
+      output.printError('Rate limit window must be an integer from 1000 to 3600000 milliseconds');
+      return { success: false, exitCode: 1 };
+    }
+    const rateLimitPerSession = readIntegerOption(ctx.flags, 'rate-limit-per-session', 'RUFLO_MCP_RATE_LIMIT_PER_SESSION');
+    if (isOutOfRange(rateLimitPerSession, 1, 10_000)) {
+      output.printError('Session rate limit must be an integer from 1 to 10000 requests');
+      return { success: false, exitCode: 1 };
+    }
+    const rateLimitGlobalRps = readIntegerOption(ctx.flags, 'rate-limit-global-rps', 'RUFLO_MCP_RATE_LIMIT_GLOBAL_RPS');
+    if (isOutOfRange(rateLimitGlobalRps, 1, 10_000)) {
+      output.printError('Global rate limit must be an integer from 1 to 10000 requests per second');
+      return { success: false, exitCode: 1 };
+    }
+    const rateLimitGlobalBurst = readIntegerOption(ctx.flags, 'rate-limit-global-burst', 'RUFLO_MCP_RATE_LIMIT_GLOBAL_BURST');
+    if (isOutOfRange(rateLimitGlobalBurst, 1, 20_000)) {
+      output.printError('Global rate limit burst must be an integer from 1 to 20000 requests');
       return { success: false, exitCode: 1 };
     }
     let authToken: string | undefined;
@@ -210,6 +267,11 @@ const startCommand: Command = {
       port,
       tools: !tools || tools === 'all' ? 'all' : tools.split(','),
       ...(requestTimeoutMs === undefined ? {} : { requestTimeoutMs }),
+      ...(rateLimitPerIp === undefined ? {} : { rateLimitPerIp }),
+      ...(rateLimitWindowMs === undefined ? {} : { rateLimitWindowMs }),
+      ...(rateLimitPerSession === undefined ? {} : { rateLimitPerSession }),
+      ...(rateLimitGlobalRps === undefined ? {} : { rateLimitGlobalRps }),
+      ...(rateLimitGlobalBurst === undefined ? {} : { rateLimitGlobalBurst }),
       ...(authToken ? { authToken } : {}),
       daemonize: daemon,
     };
