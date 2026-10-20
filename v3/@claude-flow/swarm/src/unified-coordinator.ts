@@ -1036,9 +1036,18 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const timeout = this.config.heartbeatIntervalMs * 3;
 
     for (const [agentId, agent] of this.state.agents) {
+      // An idle agent has no heartbeat producer and no in-flight work to
+      // prove liveness with. Treating silence as failure made every idle
+      // agent flip to 'error' after 3 intervals (and oscillate back through
+      // auto-recovery), so `getAvailableAgents()` stopped offering healthy
+      // workers. Only agents that are actually working need a heartbeat.
+      if (agent.status === 'terminated' || (agent.status === 'idle' && !agent.currentTask)) {
+        continue;
+      }
+
       const timeSinceHeartbeat = now - agent.lastHeartbeat.getTime();
 
-      if (timeSinceHeartbeat > timeout && agent.status !== 'terminated') {
+      if (timeSinceHeartbeat > timeout) {
         agent.status = 'error';
         agent.health = Math.max(0, agent.health - 0.2);
 
