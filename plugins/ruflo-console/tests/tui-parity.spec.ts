@@ -217,4 +217,43 @@ describe('the mouse', () => {
     await running
     expect(t.out.join('').endsWith(`${ESC}[?1006l${ESC}[?1000l${ESC}[?1004l${ESC}[?25h${ESC}[?1049l`)).toBe(true)
   })
+
+  it('handles a press and release coalesced into one chunk, as tmux can deliver them, instead of dropping the click', async () => {
+    const t = terminal(110, 12)
+    const running = runTui({ cwd: project, home: join(root, 'home'), mouse: true, ...options }, t.io)
+
+    await settle()
+    // Real raw-mode terminals (tmux especially) can deliver a press and its release in a single `data` event: the
+    // whole chunk is never exactly one SGR report, so an implementation anchored to match the entire chunk misses both.
+    // "Cost" always appears in the page bar regardless of the current page, so the reverse-video marker (as the other
+    // nav tests check) is what actually proves the click opened it, not merely that the word is on screen somewhere.
+    t.press(`${ESC}[<0;14;1M${ESC}[<0;14;1m`)
+    await settle()
+    expect(t.out.join('')).toContain(`${ESC}[7m 2 Cost ${ESC}[0m`)
+    t.press('q')
+    await running
+  })
+
+  it('tells you on the first frame that the mouse is off and how to turn it on, then clears on any key', async () => {
+    const t = terminal()
+    const running = runTui({ cwd: project, home: join(root, 'home'), ...options }, t.io)
+
+    await settle()
+    expect(t.screen()).toMatch(/mouse.*--mouse/i)
+    t.press('r')
+    await settle()
+    expect(t.screen()).not.toMatch(/mouse is off/i)
+    t.press('q')
+    await running
+  })
+
+  it('with --mouse: no "mouse is off" notice on the first frame', async () => {
+    const t = terminal()
+    const running = runTui({ cwd: project, home: join(root, 'home'), mouse: true, ...options }, t.io)
+
+    await settle()
+    expect(t.screen()).not.toMatch(/mouse is off/i)
+    t.press('q')
+    await running
+  })
 })
