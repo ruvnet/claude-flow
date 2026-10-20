@@ -94,6 +94,16 @@ describe('page bar and key line', () => {
     expect(keyLine(25)).toBe('1-6 page · q quit')
     for (const columns of [40, 50, 59, 60, 70, 80, 99, 120]) for (const place of ['', ' · 1-18/42']) expect(widthOf(keyLine(columns, place)), `${columns}${place}`).toBeLessThanOrEqual(columns)
   })
+
+  it('keeps "0 menu" in the footer down to 62 columns, not only at 80+ (the main menu must stay reachable, not just visible at full width)', () => {
+    // Below 80, the previous tiers dropped every mention of the menu key: a terminal at 62-79 columns (a common
+    // tmux/editor-pane width) showed no way to discover that "0" opens the main menu at all.
+    for (const columns of [62, 65, 70, 75, 79]) expect(keyLine(columns), `${columns}`).toContain('0 menu')
+    for (const columns of [62, 65, 70, 75, 79]) expect(widthOf(keyLine(columns)), `${columns}`).toBeLessThanOrEqual(columns)
+    // A scroll position suffix (place) pushes the 80-column tier over budget too: the menu must not silently vanish there either.
+    expect(keyLine(80, ' · 1-28/42')).toContain('0 menu')
+    expect(widthOf(keyLine(80, ' · 1-28/42'))).toBeLessThanOrEqual(80)
+  })
 })
 
 describe('every page, on a host with no Claude session and no mouse', () => {
@@ -263,6 +273,10 @@ describe('the terminal loop', () => {
     const narrow = terminal(52, 24)
     const running = runTui({ look: 'plain', fps: 0, cwd: project, home: join(root, 'home') }, narrow.io)
 
+    await settle()
+    // The very first frame carries the mouse-off notice in the footer row instead of the key line (it clears on any key);
+    // a no-op key settles that before checking the short key-line format this test is actually about.
+    narrow.press('r')
     await settle()
     expect(plain(narrow.out.join(''))).toContain('‹ 1/6 Overview ›')
     expect(plain(narrow.out.join(''))).toContain('1-6 page · j/k scroll · q quit')
