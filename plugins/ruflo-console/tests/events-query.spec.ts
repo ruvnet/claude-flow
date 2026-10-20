@@ -60,7 +60,7 @@ describe('parseQuery', () => {
   it('caps the query length and the number of terms', () => {
     const q = parseQuery('word '.repeat(500))
 
-    expect(q.source.length).toBeLessThanOrEqual(200)
+    expect(q.source.length).toBe(2499)
     expect(q.terms.length).toBeLessThanOrEqual(12)
   })
 })

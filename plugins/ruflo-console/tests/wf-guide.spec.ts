@@ -181,7 +181,7 @@ describe('what may be sent', () => {
 
     expect(JSON.stringify(spec?.args)).not.toContain('\\u001b')
     expect(spec?.args.length).toBe(6)
-    expect(JSON.parse(spec?.args[5] ?? '{}').message.length).toBeLessThanOrEqual(160)
+    expect(JSON.parse(spec?.args[5] ?? '{}').message.length).toBeGreaterThan(400)
   })
 })
 

@@ -4,6 +4,7 @@
  * says so, and always carries a stop condition when one is set. What the person types is data: a task that begins with a slash must
  * be a plugin command the session lists, a typed task is screened by AIDefence, and everything is cut to a short single line.
  */
+import { checkLimit, LONG_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import { plain } from './data/parse'
 import type { Host } from './host'
@@ -82,8 +83,12 @@ export function loopsOf(state: State): LoopCfg {
 
 const SLASH = /^\/([a-z0-9-]+:[A-Za-z0-9._-]+)(?: [A-Za-z0-9 ._:,=-]{0,120})?$/
 /** A task longer than this is cut, so every preset must fit: the spec fails on one that does not. */
-export const MAX_TASK = 400
-const MAX_LOOP = 600
+/**
+ * A loop's task is sent on EVERY tick, billed each time, so it has a real bound (ADR-481): MAX_TASK characters for the task and MAX_LOOP for the
+ * whole `/loop` line. Over it the start is refused with the exact count and the typed task is kept; it is never cut.
+ */
+export const MAX_TASK = 4_000
+const MAX_LOOP = MAX_TASK + 200
 
 /** The stop condition as a clause for the loop's prompt, or why it is not understood. Empty is "no stop condition". */
 export function stopClause(raw: string): { ok: true; clause: string } | { ok: false; why: string } {
@@ -105,7 +110,10 @@ export function stopClause(raw: string): { ok: true; clause: string } | { ok: fa
 
 /** The exact `/loop` input for a configuration, or why it cannot run. `listed` are the slash commands the session offers. */
 export function loopInput(cfg: LoopCfg, listed: readonly string[]): { ok: true; text: string } | { ok: false; why: string } {
-  const task = plain(cfg.task, MAX_TASK).trim()
+  const task = plain(cfg.task, LONG_TEXT_MAX).trim()
+  const fit = checkLimit(task, MAX_TASK, 'the task', 'the loop sends it again on every tick')
+
+  if (!fit.ok) return { ok: false, why: fit.message }
 
   if (task === '') return { ok: false, why: 'pick a preset or type what the loop should do' }
   if (!(INTERVALS as readonly string[]).includes(cfg.interval)) return { ok: false, why: 'pick an interval' }
@@ -123,7 +131,9 @@ export function loopInput(cfg: LoopCfg, listed: readonly string[]): { ok: true; 
 
   const text = `/loop ${cfg.interval === 'self-paced' ? '' : `${cfg.interval} `}${task}${stop.clause === '' ? '' : ` ${stop.clause}`}`
 
-  return text.length > MAX_LOOP ? { ok: false, why: 'that is too long: shorten the task' } : { ok: true, text }
+  const whole = checkLimit(text, MAX_LOOP, 'the /loop line', 'the loop sends it again on every tick')
+
+  return whole.ok ? { ok: true, text } : { ok: false, why: whole.message }
 }
 
 export type LoopActions = {
@@ -210,7 +220,7 @@ export function loopActions(state: State, host: Host, runner: Runner): LoopActio
       host.invalidate()
     },
     task: text => {
-      cfg.task = plain(text, MAX_TASK)
+      cfg.task = plain(text, LONG_TEXT_MAX)
       // A hand-written task is no longer the preset it started from.
       if (PRESETS.find(candidate => candidate.id === cfg.preset)?.task !== cfg.task) cfg.preset = null
       host.invalidate()

@@ -8,16 +8,18 @@
  * after that the session is live for this Claude Code session and Enter sends. A ruflo command is asked every time.
  * The person's text reaches an agent on stdin, never as an argument, so it cannot be read as a flag.
  */
+import { ARGV_TEXT_MAX, checkLimit, LONG_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import { ESCAPES, HIDDEN, INVISIBLE } from './data/parse'
 import type { Host } from './host'
 import { CLI_PREFIXES, PANE_ID, push, termStoreKeyOf, type AgentId, type HarnessId, type State, type TermLine } from './state'
 import { claudeParser, codexEvent, eventOf, type Sink } from './stream'
+import { maskInvites } from './xruv'
 
 export const TERM_MAX_LINES = 600
 /** The engine ends a spawned child only when its loop ends: the console ends a run at ten minutes. */
 export const RUN_CAP_MS = 10 * 60_000
-const MAX_PROMPT = 8_000
+// A question goes to the agent on its stdin (a ruflo command as one argv): the most a prompt takes is LONG_TEXT_MAX, refused over it (whyNotRun).
 
 export type Harness = { id: HarnessId; key: string; label: string; about: string; agents: readonly AgentId[] }
 
@@ -62,12 +64,14 @@ export function argvOf(state: State, agent: AgentId, text: string): readonly str
 }
 
 /**
- * One line of an agent's output as the scrollback keeps it: ANSI sequences, control and bidirectional characters
- * gone, tabs as two spaces, indentation kept. `trim` false keeps a trailing space (a token typed mid-sentence).
+ * One line of an agent's output as the scrollback keeps it: escape sequences, control, bidirectional and other invisible
+ * characters gone (the set plain() strips), tabs as two spaces, indentation kept, and any x.ruv.io invite code masked:
+ * it is a bearer secret, so neither the terminal page nor console_state ever carries one. `trim` false keeps a trailing
+ * space (a token typed mid-sentence).
  */
 export function termText(line: string, max = 400, trim = true): string {
   // The same strip set as plain() (data/parse.ts), so a character one drops cannot get through the other (#3816).
-  const cleaned = line.replace(/\t/g, '  ').replace(ESCAPES, '').replace(INVISIBLE, '').replace(HIDDEN, '')
+  const cleaned = maskInvites(line.replace(/\t/g, '  ').replace(ESCAPES, '').replace(INVISIBLE, '').replace(HIDDEN, ''))
   const out = trim ? cleaned.trimEnd() : cleaned
 
   return out.length <= max ? out : `${out.slice(0, max - 1)}…`
@@ -80,7 +84,8 @@ function add(state: State, line: TermLine): void {
 }
 
 function note(state: State, kind: TermLine['kind'], text: string, from?: AgentId): void {
-  for (const line of text.split('\n')) add(state, { kind, text: termText(line), ...(from !== undefined && { from }) })
+  // What the person asked is kept whole (the row can ask it again); an agent's own long lines are the scrollback's to bound.
+  for (const line of text.split('\n')) add(state, { kind, text: termText(line, kind === 'in' ? Number.MAX_SAFE_INTEGER : 400), ...(from !== undefined && { from }) })
 }
 
 const persist = (state: State, host: Host) => void host.storeSet(termStoreKeyOf(state.cwd), state.terminal.sessions).catch(() => undefined)
@@ -102,8 +107,12 @@ export function whyNotRun(state: State, text: string): string | null {
   const busy = harness.agents.find(agent => state.terminal.runs.has(agent))
 
   if (text.trim() === '') return 'type something first'
+
+  const fit = checkLimit(text.trim(), harness.id === 'ruflo' ? ARGV_TEXT_MAX : LONG_TEXT_MAX, 'the question', harness.id === 'ruflo' ? 'a ruflo command is one argument list' : 'sent to the agent as one prompt')
+
+  if (!fit.ok) return fit.message
   if (busy !== undefined) return `${busy} is still answering: wait, or stop it (s)`
-  if (harness.id === 'ruflo' && argvOf(state, 'ruflo', text.trim()) === null) return 'that is not one ruflo command (1 to 40 words)'
+  if (harness.id === 'ruflo' && argvOf(state, 'ruflo', text.trim()) === null) return `that is not one ruflo command (1 to 40 words; this is ${text.trim().split(/\s+/).length})`
 
   return null
 }
@@ -123,7 +132,7 @@ export function harnessSpec(state: State, host: Host, text: string): ActionSpec 
   if (whyNotRun(state, text) !== null) return null
 
   const harness = harnessOf(state.terminal.harness)
-  const prompt = text.trim().slice(0, MAX_PROMPT)
+  const prompt = text.trim()
   const plans = harness.agents.map(agent => ({ agent, argv: argvOf(state, agent, prompt) ?? [] }))
   const verb = harness.agents.every(agent => agent !== 'ruflo' && state.terminal.sessions[agent] !== undefined) ? 'resume' : 'start'
 
@@ -143,7 +152,7 @@ export function harnessSpec(state: State, host: Host, text: string): ActionSpec 
 /** Sends the text to every agent of the picked harness at once; each streams into the shared scrollback. */
 export function send(state: State, host: Host, text: string): void {
   const harness = harnessOf(state.terminal.harness)
-  const prompt = text.trim().slice(0, MAX_PROMPT)
+  const prompt = text.trim()
 
   // A new question brings the window back to the tail, so its answer is seen streaming in.
   state.terminal.scroll = 0

@@ -299,7 +299,7 @@ describe('threads, answers side by side, relay and the transcript', () => {
 
     expect(thread?.msgs).toHaveLength(MAX_MSGS)
     expect(thread?.dropped).toBeGreaterThan(0)
-    expect(thread?.msgs[0]?.text.length).toBe(4000)
+    expect(thread?.msgs[0]?.text.length).toBe(5000)
   })
 
   it('a thread count cap refuses the 25th target rather than growing', () => {

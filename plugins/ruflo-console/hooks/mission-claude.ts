@@ -9,9 +9,13 @@ import type { Host } from './host'
 import { activeMission, derive, mcOf, nextTask, record, saveLedger } from './mission-control'
 import { CONTEXT_SECTION_ID, contextEnabled, missionContextKey, missionContextText, turnNote, type TurnReason } from './mission-context'
 import { armed, isTick, parseLoop, rearmCommand, startCommand, stop, stopRequest, tick, tickPlan, type LoopState } from './mission-loop'
+import { adrBlockFor, attachedOf, scopeCheck } from './adr-mission'
 import { evidenceEvent, parseGates } from './mission-verify'
 import { costOf, capOf } from './mission-guard'
+import { checkpoint, checkpointDone, offerConsult, wireAdvisor } from './mission-advisor-live'
 import { plain } from './data/parse'
+import { nudgeFor } from './grounding'
+import { modelLine } from './model-tools'
 import type { LedgerTask, MissionActions, MissionRecord } from './mission-types'
 import type { Runner } from './runner'
 import { settingsOf } from './settings'
@@ -49,9 +53,11 @@ export function contextSection(state: State): { id: string; text: string; scope:
   const { task, status } = currentTask(state, mission)
   const loop = loopOf(mission)
   const info = loop === null || loop.status === 'idle' ? null : { interval: loop.interval, status: loop.status }
-  const key = missionContextKey(mission, task, info, status)
+  const adrBlock = adrBlockFor(state, mission)
+  const nudge = nudgeFor(state, [mission.objective, task?.title ?? '', task?.requirement ?? '', adrBlock], modelLine) ?? ''
+  const key = missionContextKey(mission, task, info, status, adrBlock, nudge)
 
-  if (held?.key !== key) held = { key, text: missionContextText(mission, task, info, status) }
+  if (held?.key !== key) held = { key, text: missionContextText(mission, task, info, status, adrBlock, nudge) }
 
   return { id: CONTEXT_SECTION_ID, text: held.text, scope: 'session' }
 }
@@ -62,13 +68,22 @@ export function onTurnComplete(state: State, host: Host, reason: TurnReason): vo
 
   if (mission === null) return
 
+  // ADR-483: with every task done, the pre-done consult is offered once. A no-op with the setting off.
+  const offer = (): void => {
+    try {
+      checkpointDone(state, host)
+    } catch {
+      // An offer that could not be made never changes the turn.
+    }
+  }
   const running = mission.tasks.find(task => derive(mission, state.snapshot?.tasks ?? []).get(task.id) === 'running') ?? null
   const note = turnNote(reason, running)
 
-  if (note === null) return
+  if (note === null) return offer()
 
   record(mission, note)
   saveLedger(state, host)
+  offer()
 }
 
 /** A prompt was submitted: when it carries a mission's loop marker it is that loop's tick (or its first run). */
@@ -82,17 +97,21 @@ export function onPromptSubmit(state: State, host: Host, text: string): void {
     const before = loopOf(mission)
     const loop = before !== null && before.status === 'armed' ? before : armed(before, mission, before?.interval ?? prefs.loopInterval, now)
     const cost = costOf(state, mission)
-    const plan = tickPlan({ mission, loop, prefs, gatesConfigured: parseGates(prefs.loopGates).gates.length > 0, spendUsd: cost?.usd ?? null, capUsd: capOf(state), nowMs: now, taskStatus: derive(mission, state.snapshot?.tasks ?? []) })
+    const plan = tickPlan({ mission, loop, prefs, gatesConfigured: parseGates(prefs.loopGates).gates.length > 0, spendUsd: cost?.usd ?? null, capUsd: capOf(state), nowMs: now, taskStatus: derive(mission, state.snapshot?.tasks ?? []), advisor: prefs.advisor })
 
     setLoop(mission, tick(loop, now))
     record(mission, { type: 'loop.tick', note: plain(`${plan.action}: ${plan.reason}`, 200) })
     saveLedger(state, host)
+    // ADR-483: a tick that finds a repeated failure stops the line or offers the consult (once); never starts a billed turn by itself.
+    if (prefs.advisor) checkpoint(state, host, mission)
     host.invalidate()
   }
 }
 
 /** The actions the Loop tab calls: verify with the person's gates, and the loop manager's start, stop and re-arm. */
-export function claudeActions(state: State, host: Host, runner: Runner): Pick<MissionActions, 'verify' | 'loop'> {
+export function claudeActions(state: State, host: Host, runner: Runner): Pick<MissionActions, 'verify' | 'loop' | 'advisor'> {
+  wireAdvisor(state, runner)
+
   const say = (label: string, ok: boolean, detail: string) => {
     mcOf(state).last = { label, ok, detail }
     host.invalidate()
@@ -130,7 +149,7 @@ export function claudeActions(state: State, host: Host, runner: Runner): Pick<Mi
           args: [],
           shows: gates.map(gate => gate.argv.join(' ')).join('  ·  '),
           expect: 'each gate’s exit code and a short output summary recorded as evidence on the mission',
-          note: 'Runs the commands you configured, one after another, without a shell, in this project. Their output is evidence; nothing is changed by the console.',
+          note: 'Runs the commands you configured, one after another, without a shell, in this project. Their output is evidence; nothing is changed by the console. With ADRs attached to the mission it then compares the changed files (git status and git log, read-only) with the paths those ADRs name, as a warning in the record.',
           run: async () => {
             let failed = 0
 
@@ -141,12 +160,28 @@ export function claudeActions(state: State, host: Host, runner: Runner): Pick<Mi
               if (result === null || result.exitCode !== 0) failed += 1
             }
 
+            // ADR-480: with ADRs attached, the changed files are compared with their scope. A warning in the record; it never changes the gates' result.
+            const adrLines = attachedOf(mission).length > 0 ? await scopeCheck(state, host).catch(() => []) : []
+            const adrWarnings = adrLines.filter(line => line.startsWith('warning')).length
+
             saveLedger(state, host)
-            say('gates', failed === 0, failed === 0 ? `all ${gates.length} passed` : `${failed} of ${gates.length} did not pass: see Evidence`)
+
+            const advisorNote = failed === 0 ? null : checkpoint(state, host, mission)
+
+            say('gates', failed === 0, `${failed === 0 ? `all ${gates.length} passed` : `${failed} of ${gates.length} did not pass: see Evidence`}${advisorNote === null ? '' : `; advisor: ${advisorNote}`}${adrLines.length > 0 ? `; ADR scope: ${adrWarnings === 0 ? 'no warning' : `${adrWarnings} warning${adrWarnings === 1 ? '' : 's'} in the record`}` : ''}`)
           },
         },
         'nothing to run',
       )
+    },
+    advisor: kind => {
+      const mission = activeMission(state)
+
+      if (mission === null) return say('advisor', false, 'no active mission')
+
+      const why = offerConsult(state, host, runner, mission, kind, kind === 'stuck' ? 'manual' : '', true)
+
+      if (why !== null) say('advisor', false, why)
     },
     loop: {
       start: () => {

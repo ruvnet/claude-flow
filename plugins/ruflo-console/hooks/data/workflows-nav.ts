@@ -2,7 +2,8 @@
  * Where the cursor is in the workflows view, and how a key moves it (ADR-458). Pure, so the keys are tested without a
  * screen: j/k move within the focused column, h/l switch column, Enter inspects the row, [ and ] switch run.
  */
-import { currentPhase, swarmRun, type WfAgent, type WfPhase, type WfRun } from './workflows'
+import { isLiveRun, rufloRuns } from './wf-swarm'
+import { currentPhase, type WfAgent, type WfPhase, type WfRun } from './workflows'
 import type { AgentRecord, SwarmInfo } from './parse'
 
 export type WfColumn = 'phases' | 'agents'
@@ -13,11 +14,10 @@ export const newWfUi = (): WfUi => ({ run: 0, phase: 0, agent: 0, column: 'phase
 
 /** Workflow runs and the ruflo swarm in one list: whatever is running first, the rest as they come (newest first). */
 export function allRuns(workflows: readonly WfRun[], swarm: SwarmInfo | null, agents: readonly AgentRecord[], nowMs: number): WfRun[] {
-  const own = swarmRun(swarm, agents, nowMs)
-  const runs = own === null ? [...workflows] : [...workflows, own]
-  const isLive = (run: WfRun) => run.running > 0
+  const runs = [...workflows, ...rufloRuns(swarm, agents, nowMs)]
 
-  return [...runs.filter(isLive), ...runs.filter(run => !isLive(run))]
+  // A swarm is live by its record's state (data/swarm-status.ts): a stale "running" record ranks with the finished runs.
+  return [...runs.filter(isLiveRun), ...runs.filter(run => !isLiveRun(run))]
 }
 
 const clamp = (value: number, size: number): number => (size <= 0 ? 0 : Math.max(0, Math.min(size - 1, value)))

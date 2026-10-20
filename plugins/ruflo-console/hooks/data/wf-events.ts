@@ -32,7 +32,8 @@ export function eventsBetween(prev: readonly WfRun[] | null, next: readonly WfRu
   for (const run of next) {
     const name = cleanText(run.name)
 
-    if (run.state === 'stalled' && before.has(run.id) && before.get(run.id) !== 'stalled') out.notices.push({ level: 'warn', text: `workflow ${name} looks stuck: nothing written for ${minutes} min`, key: `r-${tail(run.id)}-stuck`, go: 'workflows' })
+    // A ruflo swarm's stall is its record's day-old write, not STALE_MS without a transcript line: no "N min" notice for it.
+    if (run.kind === 'workflow' && run.state === 'stalled' && before.has(run.id) && before.get(run.id) !== 'stalled') out.notices.push({ level: 'warn', text: `workflow ${name} looks stuck: nothing written for ${minutes} min`, key: `r-${tail(run.id)}-stuck`, go: 'workflows' })
 
     for (const phase of run.phases) {
       for (const agent of phase.agents) {

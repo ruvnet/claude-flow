@@ -5,6 +5,7 @@
  * looks like it holds a credential is refused before either; a key is read from the NAMED environment variable at send time, rides one
  * header, and is masked out of anything drawn, logged or saved (including the provider's own reply).
  */
+import { ARGV_TEXT_MAX } from '../full-text'
 import { exec } from '../actions'
 import { OPERATOR, hivePropose } from '../hive'
 import type { Host } from '../host'
@@ -41,7 +42,7 @@ const err = (state: SendState, text: string): SendResult => ({ ok: false, state,
 export const tidy = (value: string, max = REPLY_CAP): string => cleanText(value).slice(0, max)
 
 /** The body checked: plain, bounded, no leading dash, nothing that looks like a credential. */
-export const bodyOf = (value: string, max = 1500): { ok: true; text: string } | { ok: false; why: string } => guardText(value, max)
+export const bodyOf = (value: string, max = ARGV_TEXT_MAX): { ok: true; text: string } | { ok: false; why: string } => guardText(value, max)
 
 const endpointOf = (target: Target, config: Config): Endpoint | undefined => endpointsOf(config).find(held => held.name === target.ref)
 
@@ -82,12 +83,12 @@ export function payloadOf(target: Target, raw: string, deps: Pick<SendDeps, 'con
         return spec === null ? { ok: false, why: 'a proposal is not possible now (raft allows one open proposal per term) or the text cannot be passed' } : done(`ruflo ${spec.args.join(' ')}`, 'Opens a proposal the workers vote on. A pass binds no agent to do anything.')
       }
 
-      return done(`ruflo mcp exec -t hive-mind_broadcast ${JSON.stringify({ message: body.slice(0, 160), priority: 'normal', fromId: OPERATOR })}`, 'Appended to the hive shared memory (the last 100). No worker is interrupted.')
+      return done(`ruflo mcp exec -t hive-mind_broadcast ${JSON.stringify({ message: body, priority: 'normal', fromId: OPERATOR })}`, 'Appended to the hive shared memory (the last 100). No worker is interrupted.')
     }
     case 'task': {
       const note = taskNote(body)
 
-      return note === null ? { ok: false, why: 'start with the task id, then the note: @task task-12 what the agent should know' } : done(`ruflo mcp exec -t task_update ${JSON.stringify({ taskId: note.id, result: { guidance: note.note.slice(0, 300) } })}`, 'Writes the task record\'s result; an agent sees it only when it reads the task.')
+      return note === null ? { ok: false, why: 'start with the task id, then the note: @task task-12 what the agent should know' } : done(`ruflo mcp exec -t task_update ${JSON.stringify({ taskId: note.id, result: { guidance: note.note } })}`, 'Writes the task record\'s result; an agent sees it only when it reads the task.')
     }
     case 'bbs':
       return done(`ruflo mcp exec -t federation_bbs_publish ${JSON.stringify({ roomId: target.ref, msgType: 'human-message', payload: { text: body, from: 'ruflo-console' } })}`, 'Appended to the room log; peers get it where the room syncs.')
@@ -165,12 +166,12 @@ export async function sendTo(deps: SendDeps, target: Target, raw: string): Promi
         return proposed !== undefined && proposed.exitCode === 0 ? { ok: true, state: 'sent', text: 'the proposal was opened; the workers vote on it' } : err('error', proposed?.stderr ?? 'refused')
       }
 
-      return viaCli(deps, 'hive-mind_broadcast', { message: body.slice(0, 160), priority: 'normal', fromId: OPERATOR })
+      return viaCli(deps, 'hive-mind_broadcast', { message: body, priority: 'normal', fromId: OPERATOR })
     }
     case 'task': {
       const note = taskNote(body)
 
-      return note === null ? err('refused', 'no task id') : viaCli(deps, 'task_update', { taskId: note.id, result: { guidance: note.note.slice(0, 300) } })
+      return note === null ? err('refused', 'no task id') : viaCli(deps, 'task_update', { taskId: note.id, result: { guidance: note.note } })
     }
     case 'bbs':
       return viaCli(deps, 'federation_bbs_publish', { roomId: target.ref, msgType: 'human-message', payload: { text: body, from: 'ruflo-console' } })

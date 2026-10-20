@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-intelligence v0.4.2.
+# Structural smoke test for ruflo-intelligence v0.4.5.
 # Per ADR-0001 §6 Verification: 13 contract checks + 3 doc invariants.
 # Offline-safe; no live MCP calls.
 set -u
@@ -27,10 +27,10 @@ grep -qE "IPFS.+pattern|pattern.+IPFS|Pinata" "$ROOT/README.md" \
   && ok || bad "README missing IPFS / Pinata transfer docs"
 
 # 1. plugin.json bump + new keywords
-step "1. plugin.json declares 0.4.2 with new keywords"
+step "1. plugin.json declares 0.4.5 with new keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.4.2" ]]; then
-  bad "expected 0.4.2, got '$v'"
+if [[ "$v" != "0.4.5" ]]; then
+  bad "expected 0.4.5, got '$v'"
 else
   miss=""
   for k in microlora ewc attention moe pattern-transfer model-routing; do
@@ -140,12 +140,12 @@ else
   bad "ADR missing or status != Proposed"
 fi
 
-# 13. Compatibility section pins to v3.6
-step "13. Compatibility section pins @claude-flow/cli to v3.6"
-if grep -qE "@claude-flow/cli.*v3\.6|v3\.6.*claude-flow/cli" "$ROOT/README.md"; then
+# 13. Compatibility section pins the CLI line the docs were checked against
+step "13. Compatibility section pins @claude-flow/cli to 3.56"
+if grep -qE "@claude-flow/cli.*3\.56|3\.56.*claude-flow/cli" "$ROOT/README.md"; then
   ok
 else
-  bad "Compatibility pin to v3.6 missing"
+  bad "Compatibility pin to 3.56 missing"
 fi
 
 

@@ -106,8 +106,16 @@ afterAll(async () => {
 
 const rowOf = (name: string): WtRow => storeFor(state).read?.rows.find(entry => entry.path === wtPath(name)) as WtRow
 
-describe('the removal guard against a real repository', () => {
-  it('offers exactly the merged, clean, idle, old, not-current worktrees, and keeps everything else with the right reason', async () => {
+// The first three are Linux only: the in-use probe reads /proc with GNU find -printf (data/wf-worktrees.ts PROCS_ARGV), which macOS has
+// neither of, so on another kernel they measure the test machine, not the guard. CI runs them on Linux.
+const onLinux = process.platform === 'linux'
+
+// One repository, in steps: the first case reads it, the second removes from it and the third adds to it. The order is the test, so it is fixed
+// (a shuffled run reorders them), and each real-git case gets the minute the header asks for rather than vitest's 5 s.
+const GIT_MS = 60_000
+
+describe('the removal guard against a real repository', { shuffle: false }, () => {
+  it.skipIf(!onLinux)('offers exactly the merged, clean, idle, old, not-current worktrees, and keeps everything else with the right reason', async () => {
     await refreshWorktrees(state, host, true)
 
     const { read, check } = storeFor(state)
@@ -131,9 +139,9 @@ describe('the removal guard against a real repository', () => {
     expect(why[join(base, 'outside-wt')]).toMatch(/outside/)
     expect(why[main]).toBe('the main worktree')
     expect(rowOf('old').createdMs).toBeLessThan(Date.now() - MIN_AGE_MS)
-  })
+  }, GIT_MS)
 
-  it('removes only those, one at a time, never a branch, and a path that reads like a command line is one argv element', async () => {
+  it.skipIf(!onLinux)('removes only those, one at a time, never a branch, and a path that reads like a command line is one argv element', async () => {
     const spec = removalSpec(envOf())
 
     expect(spec?.declared).toBe('delete')
@@ -150,9 +158,9 @@ describe('the removal guard against a real repository', () => {
     expect(await git(main, 'branch', '--list', 'b-old', 'b-old2', 'b-rfforcexy')).toMatch(/b-old/)
     expect(state.outcome?.detail).toBe('3 removed, 0 kept')
     expect(state.outcome?.verified).toBe('yes')
-  })
+  }, GIT_MS)
 
-  it('re-checks each worktree at the moment of removal: one made dirty, in use or unmerged after the confirm is kept', async () => {
+  it.skipIf(!onLinux)('re-checks each worktree at the moment of removal: one made dirty, in use or unmerged after the confirm is kept', async () => {
     for (const name of ['race-dirty', 'race-busy', 'race-ahead', 'race-ok']) {
       await git(main, 'worktree', 'add', '-b', `b-${name}`, wtPath(name))
       await utimes(join(wtPath(name), '.git'), new Date(Date.now() - 5 * 86_400_000), new Date(Date.now() - 5 * 86_400_000))
@@ -178,7 +186,7 @@ describe('the removal guard against a real repository', () => {
     expect(await exists(wtPath('race-ok'))).toBe(false)
     expect(state.outcome?.lines?.join('\n')).toMatch(/kept \S*race-dirty: 1 changed/)
     expect(await exists(join(wtPath('race-dirty'), 'a.txt'))).toBe(true)
-  })
+  }, GIT_MS)
 
   it('every probe that can consult the repository config switches fsmonitor off and takes no optional lock', () => {
     const argv = STATUS_ARGV('/x').join(' ')
@@ -196,5 +204,5 @@ describe('the removal guard against a real repository', () => {
     await refreshWorktrees(state, host, false)
     await git(main, 'config', '--unset', 'core.fsmonitor')
     expect(await exists(marker)).toBe(false)
-  })
+  }, GIT_MS)
 })

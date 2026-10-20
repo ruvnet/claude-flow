@@ -164,7 +164,6 @@ export class CommandParser {
     // command, because that's what caused `daemon start` to resolve as `start`
     // with `daemon` left as a positional.
     let resolvedCmd: Command | undefined;
-    let resolvedSub: Command | undefined;
     const resolvedCommands: Command[] = [];
     let sawFirstPositional = false;
     for (let index = 0; index < args.length; index++) {
@@ -201,7 +200,6 @@ export class CommandParser {
         const child = parent.subcommands.find(sc => sc.name === arg || sc.aliases?.includes(arg));
         if (child) {
           resolvedCommands.push(child);
-          resolvedSub ??= child;
           continue;
         }
       }
@@ -209,10 +207,11 @@ export class CommandParser {
       break;
     }
 
-    const { aliases, booleanFlags, stringFlags } = this.getFlagScope(resolvedCommands);
+    const { aliases, booleanFlags, stringFlags, arrayFlags } = this.getFlagScope(resolvedCommands);
 
     let i = 0;
     let parsingFlags = true;
+    let commandSlotAvailable = true;
 
     while (i < args.length) {
       const arg = args[i];
@@ -228,8 +227,17 @@ export class CommandParser {
       if (parsingFlags && arg.startsWith('-')) {
         const parseResult = this.parseFlag(args, i, aliases, booleanFlags, stringFlags);
 
+        // Array declarations retain text and accumulate repeated occurrences.
+        for (const key of arrayFlags) {
+          const value = parseResult.flags[key];
+          if (value !== undefined && value !== true && value !== false) {
+            const previous = result.flags[key];
+            parseResult.flags[key] = [...(Array.isArray(previous) ? previous : []), String(value)];
+          }
+        }
         // Apply to result flags
-        Object.assign(result.flags, parseResult.flags);
+        const { _: ignoredPositionals, ...parsedFlags } = parseResult.flags;
+        Object.assign(result.flags, parsedFlags);
         i = parseResult.nextIndex;
         continue;
       }
@@ -238,7 +246,9 @@ export class CommandParser {
       // Fix for #1596: treat lazy command names as commands here too so that
       // downstream dispatch sees `commandPath = ['daemon', 'start']` instead of
       // `commandPath = ['start'], positional = ['daemon']`.
-      if (result.command.length === 0 && this.isKnownCommandName(arg)) {
+      const isCommandSlot = commandSlotAvailable && parsingFlags;
+      commandSlotAvailable = false;
+      if (isCommandSlot && this.isKnownCommandName(arg)) {
         // This is a command
         result.command.push(arg);
 
@@ -287,7 +297,7 @@ export class CommandParser {
     // `default: true` silently dropped and reached the action handler as
     // `undefined`. That trapped `memory store --upsert` and every other
     // subcommand that leaned on a per-flag default.
-    this.applyDefaults(result.flags, resolvedCmd, resolvedSub);
+    this.applyDefaults(result.flags, resolvedCommands);
 
     return result;
   }
@@ -521,6 +531,7 @@ export class CommandParser {
     aliases: Record<string, string>;
     booleanFlags: Set<string>;
     stringFlags: Set<string>;
+    arrayFlags: Set<string>;
   } {
     const aliases = this.buildScopedAliases(commands[commands.length - 1]);
     const booleanFlags = this.getScopedBooleanFlags(commands[commands.length - 1]);
@@ -530,18 +541,22 @@ export class CommandParser {
         if (option.short) aliases[option.short] = option.name;
       }
     }
+    const arrayFlags = new Set((this.options.arrayFlags ?? []).map(flag => this.normalizeKey(flag)));
+    for (const flag of arrayFlags) stringFlags.add(flag);
     const layers = [this.globalOptions, ...commands.map(command => command.options ?? [])];
     for (const options of layers) {
       for (const option of options) {
         const key = this.normalizeKey(option.name);
-        if (option.type === 'string') stringFlags.add(key);
+        if (option.type === 'array') arrayFlags.add(key);
+        else if (option.type) arrayFlags.delete(key);
+        if (option.type === 'string' || option.type === 'array') stringFlags.add(key);
         else if (option.type) stringFlags.delete(key);
         if (option.type === 'boolean') booleanFlags.add(key);
         else if (option.type) booleanFlags.delete(key);
       }
     }
     for (const flag of stringFlags) booleanFlags.delete(flag);
-    return { aliases, booleanFlags, stringFlags };
+    return { aliases, booleanFlags, stringFlags, arrayFlags };
   }
 
   private getBooleanFlags(): Set<string> {
@@ -585,22 +600,17 @@ export class CommandParser {
     return flags;
   }
 
-  private applyDefaults(flags: ParsedFlags, command?: Command, subcommand?: Command): void {
-    // #2775: apply defaults from globals AND the resolved command/subcommand.
-    // Subcommand > command > global (later writes lose to earlier — because
-    // we only set when `undefined`, so the FIRST option definition that
-    // supplies a default wins; walk narrow-to-broad so subcommand options
-    // apply before broader ones do).
-    const layers: CommandOption[][] = [];
-    if (subcommand?.options) layers.push(subcommand.options);
-    if (command?.options) layers.push(command.options);
+  private applyDefaults(flags: ParsedFlags, commands: Command[]): void {
+    // Walk every resolved command from narrow to broad so nested defaults
+    // have the same precedence as their declared flag types.
+    const layers = [...commands].reverse().map(command => command.options ?? []);
     layers.push(this.globalOptions);
 
     for (const layer of layers) {
       for (const opt of layer) {
         const key = this.normalizeKey(opt.name);
         if (flags[key] === undefined && opt.default !== undefined) {
-          flags[key] = opt.default as string | boolean | number | string[];
+          flags[key] = (Array.isArray(opt.default) ? [...opt.default] : opt.default) as string | boolean | number | string[];
         }
       }
     }
@@ -610,7 +620,7 @@ export class CommandParser {
       for (const [key, value] of Object.entries(this.options.defaults)) {
         const normalizedKey = this.normalizeKey(key);
         if (flags[normalizedKey] === undefined) {
-          flags[normalizedKey] = value as string | boolean | number | string[];
+          flags[normalizedKey] = (Array.isArray(value) ? [...value] : value) as string | boolean | number | string[];
         }
       }
     }
@@ -630,6 +640,14 @@ export class CommandParser {
 
       if (opt.required && (flags[key] === undefined || flags[key] === '')) {
         errors.push(`Required option missing: --${opt.name}`);
+      }
+
+      // A value-taking option given with nothing after it (`--task`, `--key` at the end, or
+      // followed by another flag) is parsed as boolean `true`. Commands then treat `true` as
+      // the value: `hooks route --task` crashed with "task.trim is not a function" and
+      // `memory retrieve --key` looked up the key "true". Report it instead.
+      if ((opt.type === 'string' || opt.type === 'number' || opt.type === 'array') && flags[key] === true) {
+        errors.push(`Option --${opt.name} needs a value`);
       }
 
       // Check choices

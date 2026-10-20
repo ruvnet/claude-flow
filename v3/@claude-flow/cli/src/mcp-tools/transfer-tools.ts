@@ -302,7 +302,7 @@ export const transferTools: MCPTool[] = [
       if ((input as Record<string, unknown>).category) { const v = validateIdentifier((input as Record<string, unknown>).category, 'category'); if (!v.valid) return createResult({ error: v.error }, true); }
       if ((input as Record<string, unknown>).type) { const v = validateIdentifier((input as Record<string, unknown>).type, 'type'); if (!v.valid) return createResult({ error: v.error }, true); }
       try {
-        const { createPluginDiscoveryService, searchPlugins } = await import(
+        const { createPluginDiscoveryService, searchPlugins, registryStatus } = await import(
           '../plugins/store/index.js'
         );
         const discovery = createPluginDiscoveryService();
@@ -312,7 +312,7 @@ export const transferTools: MCPTool[] = [
         }
         const opts = input as Parameters<typeof searchPlugins>[1];
         const searchResult = searchPlugins(result.registry, opts);
-        return createResult(searchResult);
+        return createResult({ ...searchResult, registry: registryStatus(result) });
       } catch (error) {
         return createResult({ error: (error as Error).message }, true);
       }
@@ -337,7 +337,7 @@ export const transferTools: MCPTool[] = [
     handler: async (input): Promise<MCPToolResult> => {
       { const v = validatePackageName((input as { name: string }).name, 'name'); if (!v.valid) return createResult({ error: v.error }, true); }
       try {
-        const { createPluginDiscoveryService } = await import('../plugins/store/index.js');
+        const { createPluginDiscoveryService, registryStatus } = await import('../plugins/store/index.js');
         const discovery = createPluginDiscoveryService();
         const result = await discovery.discoverRegistry();
         if (!result.success || !result.registry) {
@@ -348,7 +348,7 @@ export const transferTools: MCPTool[] = [
         if (!plugin) {
           return createResult({ error: 'Plugin not found' }, true);
         }
-        return createResult(plugin);
+        return createResult({ ...plugin, registry: registryStatus(result) });
       } catch (error) {
         return createResult({ error: (error as Error).message }, true);
       }
@@ -371,7 +371,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (input): Promise<MCPToolResult> => {
       try {
-        const { createPluginDiscoveryService, getFeaturedPlugins } = await import(
+        const { createPluginDiscoveryService, getFeaturedPlugins, registryStatus } = await import(
           '../plugins/store/index.js'
         );
         const discovery = createPluginDiscoveryService();
@@ -381,7 +381,7 @@ export const transferTools: MCPTool[] = [
         }
         const featured = getFeaturedPlugins(result.registry);
         const limit = (input as { limit?: number }).limit || 10;
-        return createResult(featured.slice(0, limit));
+        return createResult({ plugins: featured.slice(0, limit), registry: registryStatus(result) });
       } catch (error) {
         return createResult({ error: (error as Error).message }, true);
       }
@@ -399,7 +399,7 @@ export const transferTools: MCPTool[] = [
     },
     handler: async (): Promise<MCPToolResult> => {
       try {
-        const { createPluginDiscoveryService, getOfficialPlugins } = await import(
+        const { createPluginDiscoveryService, getOfficialPlugins, registryStatus } = await import(
           '../plugins/store/index.js'
         );
         const discovery = createPluginDiscoveryService();
@@ -407,8 +407,9 @@ export const transferTools: MCPTool[] = [
         if (!result.success || !result.registry) {
           return createResult({ error: result.error || 'Failed to discover registry' }, true);
         }
+        // Empty when the registry is unverified: an unsigned "official" list proves nothing.
         const official = getOfficialPlugins(result.registry);
-        return createResult(official);
+        return createResult({ plugins: official, registry: registryStatus(result) });
       } catch (error) {
         return createResult({ error: (error as Error).message }, true);
       }

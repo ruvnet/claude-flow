@@ -5,12 +5,13 @@ import { guidanceStatus } from '../mission-guidance'
 import { activeMission, derive, mcOf, nextTask, progressOf, rufloTaskOf, type Derived, type LedgerTask, type McTab, type MissionRecord } from '../mission-control'
 import { ACCENT, chip as inverseChip, TONE } from '../menu-colors'
 import { barCells, percentOf, stripStatus } from '../mission-strip'
-import { ago, button, clip, col, confirmHere, isBbs, row, rule, section, text, THEME, wrap, type Ctx } from './common'
+import { ago, button, clip, col, confirmHere, isBbs, paragraph, row, rule, section, text, THEME, wrap, type Ctx } from './common'
 import { GOALS_PLUGIN, isAvailable, MISSION_SKILLS, slashOf } from '../mission-skills'
 import { observationRows } from './missions'
 import { loopTabRows } from './mission-claude'
 import { capabilityRows, launchRows } from './mission-launch'
 import { researchStartRows } from './research-start'
+import { fullRows } from './full-rows'
 
 const GLYPH: Record<Derived, string> = { done: '●', running: '◐', ready: '○', waiting: '·', failed: '✖', cancelled: '⊘' }
 const COLOR = (status: Derived): string => (status === 'done' ? THEME.ok : status === 'running' ? THEME.warn : status === 'failed' ? THEME.bad : status === 'ready' ? THEME.head : THEME.info)
@@ -55,7 +56,7 @@ function skillRows(ctx: Ctx): RenderElement[] {
   })
   const missing = MISSION_SKILLS.filter(skill => !isAvailable(ctx.state, skill)).length
 
-  return section(ctx, 'skills', 'Mission options', `${GOALS_PLUGIN} skills, run in the main Claude UI · ★ suits ${mc.profile}`, [...rows, text(ctx, missing > 0 ? ` ${missing} not offered by this session: install ${GOALS_PLUGIN} (Plugin Catalog), then /reload-plugins` : ` each runs /${GOALS_PLUGIN}:<skill> on the goal now, or prepares it in the prompt box while a turn runs`, { dimColor: true })])
+  return section(ctx, 'skills', 'Mission options', `${GOALS_PLUGIN} skills, run in the main Claude UI · ★ suits ${mc.profile}`, [...rows, ...paragraph(ctx, missing > 0 ? ` ${missing} not offered by this session: install ${GOALS_PLUGIN} (Plugin Catalog), then /reload-plugins` : ` each runs /${GOALS_PLUGIN}:<skill> on the goal now, or prepares it in the prompt box while a turn runs`, { dimColor: true }, ' ')])
 }
 
 function planRows(ctx: Ctx): RenderElement[] {
@@ -74,12 +75,13 @@ function planRows(ctx: Ctx): RenderElement[] {
   )
   const rows: RenderElement[] = [
     ...options,
-    text(ctx, ` ${PROFILES.find(profile => profile.id === mc.profile)?.about ?? ''}`, { dimColor: true }),
+    // #3899: prose a person reads wraps on word breaks (paragraph) instead of ending in "…" at 80 columns.
+    ...paragraph(ctx, ` ${PROFILES.find(profile => profile.id === mc.profile)?.about ?? ''}`, { dimColor: true }, '  '),
   ]
   const planned = mc.planned
 
   if (planned === null) {
-    rows.push(text(ctx, ' type a goal above: the planner finds the cheapest SPARC action sequence that reaches it', { color: THEME.warn }))
+    rows.push(...paragraph(ctx, ' type a goal above: the planner finds the cheapest SPARC action sequence that reaches it', { color: THEME.warn }, '  '))
 
     return rows
   }
@@ -87,7 +89,7 @@ function planRows(ctx: Ctx): RenderElement[] {
   rows.push(...guidanceRows(ctx))
   rows.push(rule(ctx, 'SPARC plan', `${planned.steps.length} tasks · cost ${planned.totalCost} · critical path ${planned.criticalCost} · ${planned.waves.length} waves`))
 
-  rows.push(text(ctx, ` ${lifecycleOf(planned).map(entry => `${entry.stage}${entry.steps > 1 ? ` ×${entry.steps}` : ''}`).join(' → ')}`, { color: THEME.ok, bold: true }))
+  rows.push(...paragraph(ctx, ` ${lifecycleOf(planned).map(entry => `${entry.stage}${entry.steps > 1 ? ` ×${entry.steps}` : ''}`).join(' → ')}`, { color: THEME.ok, bold: true }, '  '))
 
   for (const [i, wave] of planned.waves.entries()) {
     rows.push(text(ctx, ` wave ${i + 1}${wave.length > 1 ? ` · ${wave.length} in parallel` : ''}`, { bold: true, color: THEME.head }))
@@ -95,7 +97,7 @@ function planRows(ctx: Ctx): RenderElement[] {
     for (const id of wave) {
       const step = planned.steps.find(candidate => candidate.id === id)
 
-      if (step !== undefined) rows.push(text(ctx, `   ${step.id} [${stageOf(step.action)}] ${step.action.title}${step.dependsOn.length > 0 ? `  · after ${step.dependsOn.join(', ')}` : ''}  · ${step.action.agent}`))
+      if (step !== undefined) rows.push(...paragraph(ctx, `   ${step.id} [${stageOf(step.action)}] ${step.action.title}${step.dependsOn.length > 0 ? `  · after ${step.dependsOn.join(', ')}` : ''}  · ${step.action.agent}`, {}, '     '))
     }
   }
 
@@ -189,7 +191,9 @@ function controlRows(ctx: Ctx, mission: MissionRecord): RenderElement[] {
   const { done, total } = progressOf(mission, tasks)
   const state = mission.cancelled ? 'cancelled' : mission.paused ? 'paused' : done === total ? 'complete' : 'running'
   const rows: RenderElement[] = [
-    text(ctx, ` ${mission.id} · ${clip(mission.objective, 60)} · ${state} · ${bar(done, total)} ${done}/${total}`, { bold: true, color: state === 'complete' ? THEME.ok : state === 'paused' ? THEME.info : state === 'cancelled' ? THEME.bad : THEME.head }),
+    // The status on one line; the objective under it in full (the ruflo record holds it whole).
+    text(ctx, ` ${mission.id} · ${state} · ${bar(done, total)} ${done}/${total}`, { bold: true, color: state === 'complete' ? THEME.ok : state === 'paused' ? THEME.info : state === 'cancelled' ? THEME.bad : THEME.head }),
+    ...fullRows(ctx, ' objective: ', mission.objective, { key: 'mc-objective', dimColor: true, maxLines: 12, hint: 'the ruflo mission record holds all of it' }),
     row(
       ctx,
       [
@@ -202,7 +206,7 @@ function controlRows(ctx: Ctx, mission: MissionRecord): RenderElement[] {
     ),
     ...box(ctx, 'mc-aside', '? ask aside', 'a question about the current work: /btw answers beside the task, outside the conversation (Enter)', 'ask', value => m.aside(value)),
     ...box(ctx, 'mc-guide', '✎ guide Claude', 'a visible instruction to the Claude session: it asks first (Enter)', 'send', value => m.guide(value)),
-    ...(mcOf(ctx.state).lastGuide === '' ? [] : [row(ctx, [text(ctx, ` last: ${clip(mcOf(ctx.state).lastGuide, Math.max(20, ctx.columns - 24))} `, { dimColor: true }), button(ctx, 'mc-edit-guide', '✎ edit', () => ctx.act.editField('mc-guide', mcOf(ctx.state).lastGuide))], 'mc-guide-line')]),
+    ...(mcOf(ctx.state).lastGuide === '' ? [] : fullRows(ctx, ' last: ', mcOf(ctx.state).lastGuide, { key: 'mc-guide-line', dimColor: true, after: button(ctx, 'mc-edit-guide', '✎ edit', () => ctx.act.editField('mc-guide', mcOf(ctx.state).lastGuide)) })),
     ...confirmHere(ctx, 'guide'),
   ]
 
@@ -214,26 +218,53 @@ const FLOW = 'research → create (ADRs, SOP) → build → test → validate �
 const flowRows = (ctx: Ctx): RenderElement[] => wrap(FLOW, Math.max(20, ctx.columns - 4)).map((line, i) => text(ctx, `${i === 0 ? ' ' : '   '}${line}`, { dimColor: true }))
 
 /**
+ * Missions saved before the ledger was kept per project that name no project (#4254). They are listed as an offer and are not this
+ * project's (not picked, not handed to Claude, not in the prompt) until the person adopts them here or says they belong elsewhere.
+ */
+function legacyRows(ctx: Ctx, legacy: readonly MissionRecord[]): RenderElement[] {
+  const n = legacy.length
+  // The offer can mix missions from several projects, so each one is adopted or turned away on its own row.
+  const offerRow = (m: MissionRecord) => row(ctx, [
+    text(ctx, `   ${m.id.slice(4, 10)}  ${clip(m.objective, Math.max(16, ctx.columns - 36))} `, { dimColor: true }),
+    button(ctx, `mc-legacy-adopt-${m.id}`, ' adopt ', () => ctx.act.mission.adoptLegacy(m.id)),
+    text(ctx, ' '),
+    button(ctx, `mc-legacy-dismiss-${m.id}`, ' not here ', () => ctx.act.mission.dismissLegacy(m.id)),
+  ], `mc-legacy-${m.id}`)
+
+  return [
+    ...paragraph(ctx, ` ${n} mission${n === 1 ? '' : 's'} from before per-project storage, with no project recorded. Adopt one only if it was made in this project:`, { color: THEME.warn }),
+    ...legacy.slice(0, 5).map(offerRow),
+    ...(n > 5 ? [text(ctx, `   … and ${n - 5} more`, { dimColor: true })] : []),
+    ...(n > 1 ? [row(ctx, [text(ctx, '   '), button(ctx, 'mc-legacy-dismiss', ' none of these are this project\'s ', () => ctx.act.mission.dismissLegacy())], 'mc-legacy')] : []),
+  ]
+}
+
+/**
  * Mission Control: a goal becomes a SPARC plan found by a goal-oriented planner, the plan a governed mission and a ruflo
  * task per node, and the Claude session does the work one task at a time with its result recorded in the task store
  * (the one authority for status). Tabs: Plan, Tasks, Agents, Evidence, Record. Asks first before anything that writes a
  * mission or starts a Claude turn; ▶ auto-run is the person's opt-in to skip that confirm for the next ready task.
  */
 export function missionControlView(ctx: Ctx): RenderElement {
+  // The standalone terminal reads the mission record (ADR-406) and nothing else: planning, launching and research start a Claude turn.
+  if (ctx.state.isStandalone) return col(ctx, observationRows(ctx), 'mission-record')
+
   const mc = mcOf(ctx.state)
   const mission = activeMission(ctx.state)
   const rows: RenderElement[] = [rule(ctx, 'Mission Control', mission === null ? 'goal → SPARC plan → tasks → Claude' : `${mission.id.slice(0, 12)}…`)]
 
-  rows.push(...box(ctx, 'mc-goal', '✎ goal', mc.goal === '' ? 'what should get done? e.g. add a dark mode toggle to settings (Enter plans it)' : `planned: ${clip(mc.goal, 60)} — type another goal to re-plan`, 'plan', value => ctx.act.mission.goal(value)))
+  rows.push(...box(ctx, 'mc-goal', '✎ goal', mc.goal === '' ? 'what should get done? e.g. add a dark mode toggle to settings (Enter plans it)' : 'a planned goal is below — type another goal to re-plan', 'plan', value => ctx.act.mission.goal(value)))
 
-  if (mc.goal !== '') rows.push(row(ctx, [text(ctx, ` goal: ${clip(mc.goal, Math.max(20, ctx.columns - 24))} `, { bold: true }), button(ctx, 'mc-edit-goal', '✎ edit', () => ctx.act.editField('mc-goal', mc.goal))], 'mc-goal-line'))
+  if (mc.goal !== '') rows.push(...fullRows(ctx, ' goal: ', mc.goal, { key: 'mc-goal-line', bold: true, after: button(ctx, 'mc-edit-goal', '✎ edit', () => ctx.act.editField('mc-goal', mc.goal)) }))
   rows.push(...launchRows(ctx), ...researchStartRows(ctx))
 
   if (mc.missions.size > 1) rows.push(row(ctx, [...mc.missions.values()].slice(-6).map(candidate => chip(ctx, `mc-pick-${candidate.id}`, candidate.id.slice(4, 10), candidate.id === mc.active, () => ctx.act.mission.select(candidate.id))), 'mc-picker'))
 
+  if (mc.legacy.length > 0) rows.push(...legacyRows(ctx, mc.legacy))
+
   if (mission !== null) rows.push(...controlRows(ctx, mission))
 
-  if (mc.last !== null) rows.push(text(ctx, ` ${mc.last.ok ? '✓' : '✗'} ${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`, { color: mc.last.ok ? THEME.ok : THEME.bad }))
+  if (mc.last !== null) rows.push(...fullRows(ctx, ` ${mc.last.ok ? '✓' : '✗'} `, `${mc.last.label}${mc.last.detail === '' ? '' : ` — ${mc.last.detail}`}`, { key: 'mc-last', color: mc.last.ok ? THEME.ok : THEME.bad, maxLines: 12, hint: 'your text is still in its field' }), ...(mc.last.lines ?? []).slice(0, 8).map(line => text(ctx, `   ${line}`, { dimColor: true })))
 
   rows.push(row(ctx, TABS.filter(tab => mission !== null || tab.id === 'plan' || tab.id === 'record').map(tab => chip(ctx, `mc-tab-${tab.id}`, tab.label, mc.tab === tab.id, () => ctx.act.mission.tab(tab.id))), 'mc-tabs'))
 

@@ -20,7 +20,7 @@ export type PhaseSpec = { title: string; detail: string; agents: number | { para
 
 export type Template = { id: string; title: string; summary: string; phases: readonly PhaseSpec[]; params: readonly Param[]; rules: readonly string[] }
 
-export const TEXT_MAX = 160
+export const TEXT_MAX = 8_000 // ARGV_TEXT_MAX: the largest text one prompt parameter takes (ADR-481)
 /** Hard ceilings, so no parameter can plan a swarm nobody asked for. */
 export const AGENTS_MAX = 40
 
@@ -117,7 +117,8 @@ export function cleanValue(param: Param, raw: unknown): string | number {
 
   if (param.kind === 'choice') return param.choices.find(choice => choice === raw) ?? param.fallback
 
-  return cleanText(plain(typeof raw === 'string' ? raw : '', TEXT_MAX))
+  // Never cut (ADR-481): a value over TEXT_MAX is reported by missingOf, so the launch is refused with the count.
+  return cleanText(plain(typeof raw === 'string' ? raw : '', Number.MAX_SAFE_INTEGER))
 }
 
 /** Every parameter of the template cleaned; an unknown key in `raw` is dropped. */
@@ -125,11 +126,18 @@ export const valuesOf = (template: Template, raw: Record<string, unknown>): Valu
 
 /** What a person has to fix before launching: text parameters with no default are required. */
 export function missingOf(template: Template, values: Values): string[] {
-  return template.params.flatMap(param => (param.kind === 'text' && param.fallback === '' && String(values[param.id] ?? '').trim() === '' ? [param.label] : []))
+  return template.params.flatMap(param => {
+    if (param.kind !== 'text') return []
+
+    const value = String(values[param.id] ?? '')
+    const over = Array.from(value).length - TEXT_MAX
+
+    return over > 0 ? [`${param.label} (${over} characters over the ${TEXT_MAX.toLocaleString('en-US')} limit)`] : param.fallback === '' && value.trim() === '' ? [param.label] : []
+  })
 }
 
 /** True when a text value had something credential-shaped masked out of it. */
-export const hasMasked = (template: Template, raw: Record<string, unknown>): boolean => template.params.some(param => param.kind === 'text' && typeof raw[param.id] === 'string' && cleanText(plain(raw[param.id], TEXT_MAX)) !== plain(raw[param.id], TEXT_MAX))
+export const hasMasked = (template: Template, raw: Record<string, unknown>): boolean => template.params.some(param => param.kind === 'text' && typeof raw[param.id] === 'string' && cleanText(plain(raw[param.id], Number.MAX_SAFE_INTEGER)) !== plain(raw[param.id], Number.MAX_SAFE_INTEGER))
 
 export type Estimate = { phases: number; agents: number; widest: number; rows: { title: string; agents: number }[]; isOverCap: boolean }
 

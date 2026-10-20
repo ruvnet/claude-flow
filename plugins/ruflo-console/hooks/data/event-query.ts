@@ -9,7 +9,7 @@ import type { ConsoleEvent } from './events'
 import { refOf } from './events'
 import { levelOf, type Level } from './event-severity'
 
-export const QUERY_MAX = 200
+export const QUERY_MAX = 20_000
 export const REGEX_MAX = 48
 /** An event's text is cut to this before a regex sees it, so no pattern can run for long. */
 export const REGEX_TEXT_MAX = 200

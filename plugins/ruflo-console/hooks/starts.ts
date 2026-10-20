@@ -7,6 +7,7 @@
  */
 import type { ActionSpec } from './actions'
 import { NOSTR_KEY, under } from './data/files'
+import { MISSION_OBJECTIVE_MAX } from './full-text'
 import { spawnAgent, swarmInit, textArg } from './ops'
 
 export type StartId =
@@ -104,7 +105,7 @@ export function startSpec(id: StartId, nowMs: number, text = '', observeKey?: (p
         verify: snapshot => snapshot.plugins.missingFromClone !== undefined && snapshot.isRufloProject,
       }
     case 'task': {
-      const description = textArg(text, 200)
+      const description = textArg(text)
 
       return description === null
         ? null
@@ -116,7 +117,7 @@ export function startSpec(id: StartId, nowMs: number, text = '', observeKey?: (p
           }
     }
     case 'mission': {
-      const objective = textArg(text, 300)
+      const objective = textArg(text, MISSION_OBJECTIVE_MAX)
 
       return objective === null
         ? null

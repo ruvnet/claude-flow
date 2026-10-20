@@ -21,7 +21,7 @@ export type Capped = { text: string; /** Characters in the original. */ total: n
 
 // An escape sequence goes whole (stripping only the ESC byte would leave `[1m` in the text), then controls other than the newline, soft hyphen,
 // zero-width and bidi characters. Written as \u escapes so no invisible character sits in this source.
-const ANSI = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)|\\u009d[^\\u0007\\u009c]*[\\u0007\\u009c]|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
+const ANSI = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\|(?=\\u001b)|$)|\\u009d[^\\u0007\\u009c\\u009d]*(?:[\\u0007\\u009c]|(?=\\u009d)|$)|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
 const HIDE = new RegExp('[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u202a-\\u202e\\u2060-\\u2064\\u2066-\\u2069\\u3164\\ufe00-\\ufe0d\\ufeff\\uffa0]|[\\u{e0000}-\\u{e0fff}]', 'gu')
 
 /** Washed text for a block: escapes and controls out (the newline stays), credentials masked, cut to `cap` characters with the original length kept. */

@@ -46,7 +46,7 @@ describe('validators', () => {
     expect(payloadOf('{"task":"review #42","eta":5}')).toEqual({ task: 'review #42', eta: 5 })
     expect(payloadOf('{"broken"')).toBeNull()
     expect(payloadOf('[1,2]')).toEqual({ text: '[1,2]' })
-    expect(payloadOf(`{"text":"${'x'.repeat(2_100)}"}`)).toBeNull()
+    expect(payloadOf(`{"text":"${'x'.repeat(8_100)}"}`)).toBeNull()
     expect(payloadOf('   ')).toBeNull()
     expect(payloadOf('a\u0007b‮')).toEqual({ text: 'a b' })
   })

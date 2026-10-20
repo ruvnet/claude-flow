@@ -53,7 +53,7 @@ export function priceUsage(model, usage, provider) {
   const w1 = entry.cache_write_1h ?? w5;
   const cost = per(usage.input, entry.input) + per(usage.output, entry.output) + per(usage.cache_read, read)
     + per(usage.cache_write_5m, w5) + per(usage.cache_write_1h, w1);
-  if (entry.approx) notes.push(`family fallback (${entry.id}): approximate`);
+  if (entry.approx) notes.push(`approximate price (${entry.id}): family fallback or list price`);
 
   return { cost, unit: entry.unit, priced: true, approx: entry.approx === true, notes, entry };
 }

@@ -16,7 +16,10 @@ const SECRETS: readonly (readonly [string, RegExp])[] = [
   // The keyword ends an _ or - separated name (GITHUB_TOKEN=, "client_secret":), optionally then _key / _access_key
   // (aws_secret_access_key =). Names that only start with it (TOKEN_URL=, MAX_TOKENS=) and all-digit values do not
   // match, and nothing after the keyword can backtrack against it (linear on 'token_token_...').
-  ['key assignment', /(?<![A-Za-z0-9_-])[_-]*(?:[A-Za-z0-9]+[_-]+)*(?:api[_-]?key|secret|token|passw(?:or)?d|credential)s?(?:[_-](?:access[_-]?)?key)?["']?\s*[:=]\s*["']?(?=[A-Za-z0-9/+=_.-]*[A-Za-z])[A-Za-z0-9/+=_.-]{16,}/i],
+  // A value that only names where the secret lives is not one: process.env.X / os.environ / import.meta.env.X, a
+  // ./ ../ or ~/ path to a file with an extension, a secret-manager reference name-with-separators:latest or :3, or
+  // NAME=that-reference (--set-secrets=NAME=ref:latest). A literal value is never excluded by its shape alone.
+  ['key assignment', /(?<![A-Za-z0-9_-])[_-]*(?:[A-Za-z0-9]+[_-]+)*(?:api[_-]?key|secret|token|passw(?:or)?d|credential)s?(?:[_-](?:access[_-]?)?key)?["']?\s*[:=]\s*["']?(?!process\.env\.|os\.environ\b|import\.meta\.env\.|(?:\.{1,2}|~)\/[A-Za-z0-9_./-]*\.[A-Za-z0-9]{1,8}(?![A-Za-z0-9/+=_.-])|[A-Za-z][A-Za-z0-9]*(?:[_-][A-Za-z0-9]+)+:(?:latest|\d{1,4})\b|[A-Za-z][A-Za-z0-9]*(?:[_-][A-Za-z0-9]+)*=[A-Za-z][A-Za-z0-9]*(?:[_-][A-Za-z0-9]+)+:(?:latest|\d{1,4})\b)(?=[A-Za-z0-9/+=_.-]*[A-Za-z])[A-Za-z0-9/+=_.-]{16,}/i],
 ]
 
 const INJECTION: readonly (readonly [string, RegExp])[] = [
@@ -25,7 +28,10 @@ const INJECTION: readonly (readonly [string, RegExp])[] = [
   ['new instructions', /\b(?:new|updated|real) (?:system )?instructions?\s*:/i],
   ['fake role tags', /<\/?\s*(?:system|assistant|developer|instructions?)\s*>|^\s*(?:system|assistant)\s*:/im],
   ['concealment', /\bdo not (?:tell|inform|mention|reveal)[^.\n]{0,30}\b(?:user|human|operator)\b/i],
-  ['exfiltration', /\b(?:exfiltrate|send|post|upload)\b[^.\n]{0,50}\b(?:secrets?|credentials?|tokens?|api keys?|\.env)\b/i],
+  // `.env` has no word start before its dot, so it is matched on its own ("upload the .env file", "send ./config.env",
+  // ".envrc"); a dot inside a word does not end the phrase. A model's token counts are not credentials: --max-tokens,
+  // /oauth/token and "token usage/count/limit/budget/window" are left out (a file named token, /run/token, is not).
+  ['exfiltration', /\b(?:exfiltrate|send|post|upload|e-?mail)\b(?:[^.\n]|\.(?=\S)){0,50}(?:\b(?:secrets?|credentials?|api keys?)\b|(?:(?<!max[_-]?)\btokens\b|(?<!oauth\/)\btoken\b)(?![\s_-]*(?:usage|counts?|limits?|budgets?|window)\b)|\.env(?:rc)?\b)/i],
   ['shell pipe', /\b(?:curl|wget)\b[^|\n]{0,200}\|\s*(?:sudo\s+)?(?:ba|z)?sh\b/i],
 ]
 

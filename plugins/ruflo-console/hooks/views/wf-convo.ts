@@ -107,7 +107,7 @@ export function conversationRows(env: SlotEnv): RenderElement[] {
 
   if (live.config.errors.length > 0) rows.push(text(ctx, `convoTargets option: ${live.config.errors[0] ?? ''}${live.config.errors.length > 1 ? ` (+${live.config.errors.length - 1} more)` : ''}`, { color: THEME.warn }))
 
-  rows.push(ctx.kit.Input === undefined ? text(ctx, 'this surface has no text field: the composer needs one', { dimColor: true }) : ctx.kit.Input({ key: 'wf-convo-text', label: 'message', placeholder: '@claude @openrouter what do you think? (@all = agents, hive, rooms)', submitLabel: 'set', onSubmit: value => { live.draft = value.slice(0, 1500); redraw() } }))
+  rows.push(ctx.kit.Input === undefined ? text(ctx, 'this surface has no text field: the composer needs one', { dimColor: true }) : ctx.kit.Input({ key: 'wf-convo-text', label: 'message', placeholder: '@claude @openrouter what do you think? (@all = agents, hive, rooms)', submitLabel: 'set', onSubmit: value => { live.draft = value; redraw() } }))
   rows.push(text(ctx, live.draft === '' ? 'message: none typed yet' : `message: ${cleanText(live.draft)}`, { color: live.draft === '' ? undefined : THEME.info }))
   if (fan.why !== '') rows.push(text(ctx, fan.why, { color: THEME.warn }))
 

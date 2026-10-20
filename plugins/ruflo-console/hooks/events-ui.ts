@@ -10,7 +10,7 @@ import { MAX_PINS, MAX_RULES, MAX_SEARCHES, type Pin } from './data/activity-sto
 import { exportSpecFor, eventsText, formatOf } from './data/event-export'
 import { collapse, follow, idOf, templateOf, type Row } from './data/event-group'
 import { maskLine } from './data/event-mask'
-import { budgetOf, EMPTY_QUERY, matches, parseQuery, REGEX_BUDGET_MS, type Query } from './data/event-query'
+import { budgetOf, EMPTY_QUERY, matches, parseQuery, QUERY_MAX, REGEX_BUDGET_MS, type Query } from './data/event-query'
 import { isLevel, levelOfEvent, LEVELS, rankOf, type Level } from './data/event-severity'
 import { bars as barsOf, isWindowId, levelKey, windowStart, type Bars, type WindowId } from './data/event-stats'
 import { EVENT_KINDS, type ConsoleEvent } from './data/events'
@@ -268,7 +268,7 @@ export function eventsActions(state: State, host: Host, invalidate: () => void, 
 
   return {
     query: text => {
-      ui.query = maskLine(text, 200)
+      ui.query = maskLine(text, QUERY_MAX)
       ui.parsed = parseQuery(ui.query)
       say(ui, ui.parsed.errors[0] ?? '')
       touch()

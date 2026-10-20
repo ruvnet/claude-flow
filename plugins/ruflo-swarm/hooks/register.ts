@@ -2,6 +2,7 @@ import type { EngineInterface, On, PluginOptions } from 'claude-code'
 
 import { paneActionsOf, type Controller } from './actions/controller'
 import { AUDIT_FLUSH_MS, auditRow, noteAudit, takeFlush } from './audit'
+import { framedDigest, readAdrDigest } from './adr-digest'
 import { claimsText, COMMANDS, consensusText, isSwarmSub, spawnNote, statusText, SWARM_SUBS, topologyText, type SwarmSub } from './commands'
 import type { Host, OpenResult } from './host'
 import { isAnimating, LEAD, loopLabel, newActivity, noteCall, noteDone, noteListed, noteResult, noteSpawn, stuckCall } from './model/members'
@@ -420,10 +421,13 @@ export function register(on: On, raw: PluginOptions) {
   /** Claude Code's own subagents join the pane as members; with the option on, each is told which swarm it is in. */
   on('agent.spawn', async ($, e, next) => {
     const note = state.options.injectSpawnContext ? spawnNote(state.snapshot) : null
-    const result = await next(note !== null ? { ...e, prompt: `${e.prompt}${note}` } : e)
+    // ADR-480: the accepted decisions attached to the console's active mission, as data after the task.
+    const adr = state.options.injectAdrs && host !== null ? await readAdrDigest(host.fs, await host.now().catch(() => Date.now())) : null
+    const prompt = `${e.prompt}${note ?? ''}${adr === null ? '' : framedDigest(adr)}`
+    const result = await next(prompt === e.prompt ? e : { ...e, prompt })
 
     if (result.deny === undefined && result.agentId !== undefined) {
-      noteSpawn(state.activity, result.agentId, e.subagentType, Date.now(), e.name, plain(e.description, 120))
+      noteSpawn(state.activity, result.agentId, e.subagentType, Date.now(), e.name, plain(e.description, 120), adr?.numbers ?? [])
       host?.invalidate()
     }
 

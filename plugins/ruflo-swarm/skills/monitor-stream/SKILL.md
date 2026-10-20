@@ -6,9 +6,9 @@ allowed-tools: Bash(npx *) mcp__plugin_ruflo-core_ruflo__swarm_status mcp__plugi
 ---
 Use the Monitor tool to stream swarm events in real time instead of polling:
 
-Run via Monitor: `npx @claude-flow/cli@latest swarm watch --stream`
+Run via Monitor: `node "${CLAUDE_PLUGIN_ROOT}/scripts/swarm-watch.mjs"` (add `--interval 5` for faster updates; minimum 2 s)
 
-This streams NDJSON events for agent spawns, task completions, memory writes, and health checks. Each stdout line triggers a notification.
+There is no `swarm watch` in the ruflo CLI, so this script polls `swarm status --format json` and prints one NDJSON line when it changes (`swarm.snapshot`, `swarm.changed`, `swarm.error`). It shows status and agent-count changes, not individual task or memory events. Each stdout line triggers a notification.
 
 For one-shot status, use MCP: `mcp__plugin_ruflo-core_ruflo__swarm_status` or `mcp__plugin_ruflo-core_ruflo__swarm_health`.
 

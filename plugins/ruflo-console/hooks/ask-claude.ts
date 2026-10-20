@@ -6,6 +6,7 @@
  * share nothing (a conversation, setting values). A view may also offer the slash command of a ruflo plugin that fits it, when the
  * session lists that command.
  */
+import { checkLimit, LONG_TEXT_MAX } from './full-text'
 import { plain } from './data/parse'
 import type { Host } from './host'
 import { mcOf } from './mission-control'
@@ -49,6 +50,9 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
   devtools: { default: 'Which of these tools should I use for the change I am making?', slash: 'ruflo-jujutsu:jujutsu' },
   sandbox: { default: 'Which sandbox fits what I want to try, and is anything running here I should end?', slash: 'ruflo-rvf:rvf' },
   market: { default: 'Which of these plugins would help most for what I am doing?' },
+  adrs: { default: 'Which of my project’s ADRs matter for what I am working on, and does anything I have changed cut across an accepted decision?' },
+  whatsnew: { default: 'Which of these plugin changes matter for how I work, and does any breaking change need action from me?' },
+  themes: { default: 'Help me design a readable animated console theme with Theme Studio.' },
   settings: { default: 'Which of these settings should I change for how I work?' },
   agent: { default: 'What is this agent doing, and is anything wrong with it?' },
 }
@@ -56,7 +60,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
 /** Views that share no screen text: a conversation, or setting values. */
 const NOT_SHARED: ReadonlySet<ViewId> = new Set(['terminal', 'settings'])
 const MAX_DUMP = 4_000
-const MAX_QUESTION = 300
+const MAX_QUESTION = Number.MAX_SAFE_INTEGER
 
 const SECRETS: readonly RegExp[] = [
   /-----BEGIN [A-Z ]+-----[\s\S]*?-----END [A-Z ]+-----/g,
@@ -140,13 +144,19 @@ export function askActions(state: State, host: Host, runner: Runner, act: () => 
   /** Resolves once the ask is queued (after its screen, when a typed question is screened): a model call waits on it so the ask keeps its origin and level (#3815). */
   const deliver = (mode: 'visible' | 'aside', question: string | undefined, view: ViewId): void | Promise<void> => {
     const byModel = state.control.viaModel
+    const byCall = state.control.callTag ?? undefined
     const typed = plain(question ?? '', MAX_QUESTION).trim()
+    const fit = checkLimit(typed, LONG_TEXT_MAX, 'the question', 'sent to Claude as one prompt')
+
+    if (!fit.ok) return say('question not sent', false, fit.message)
+
     const prompt = askPrompt(state, act(), view, typed)
     const ask = () =>
       runner.ask(
         {
           label: `ask Claude about ${labelOf(view)}${mode === 'aside' ? ' (/btw aside)' : ''}`,
           byModel,
+          byCall,
           scope: 'ask',
           args: [],
           shows: `${mode === 'aside' ? '/btw ' : ''}“${plain(typed || VIEW_ASK[view].default, 120)}” with this view’s text as data (secrets removed) — ${prompt.length} characters`,

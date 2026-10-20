@@ -52,6 +52,8 @@ export const EXPECTED_IN_MARKET = ['ruflo-core', 'ruflo-mods', 'ruflo-swarm'] as
 export type PluginsFacts = {
   installed: Installed[] | null
   enabled: Set<string>
+  /** Whether the merged settings held an `enabledPlugins` record at all: without one, "not enabled" is not known (ADR-485). */
+  enabledKnown?: boolean
   markets: Marketplace[] | null
   /** The ruflo clone's plugin names, or null when the clone or its manifest is not readable. */
   rufloOffered: string[] | null
@@ -134,6 +136,7 @@ export async function readSnapshot(fs: ReaderFs, cache: ReadCache, cwd: string, 
     plugins: {
       installed: parseInstalled(textOf(disk.home.installed)),
       enabled: enabledOf(settings),
+      enabledKnown: typeof (settings as { enabledPlugins?: unknown } | null)?.enabledPlugins === 'object' && (settings as { enabledPlugins?: unknown }).enabledPlugins !== null,
       markets,
       rufloOffered: offered,
       missingFromClone: offered === null ? [] : EXPECTED_IN_MARKET.filter(name => !offered.includes(name)),

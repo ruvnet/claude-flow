@@ -74,3 +74,7 @@ Every chip is now drawn **inverse**: the accent is the text's colour and `invers
 What changes in the tests: the contrast check no longer measures dark ink on an accent (there is none); it holds each accent to a contrast of 4.5 as text on a dark terminal, the degraded case. And `tests/design.spec.ts` states the rule itself: rendering the menu, the nav card, the mission strip and the cost tags in the BBS look, no `Text` has a `backgroundColor` (checked by putting a fixed-ink chip back in the menu and watching it fail, naming the chip).
 
 On a light terminal an inverse chip is the terminal's light background over the accent, which has weak contrast; the console's pages are designed for a dark terminal and this has not been looked at on a light one.
+
+## Update 2026-10-08: the approvals badge counts only actionable rows (0.40.3)
+
+The approvals badge on the menu, the band ("n to approve") and the change notices counted every row of the Approvals page, including a refused mod and a permission deny, which carry no approve or deny action. A single deny kept "1 to approve" up with nothing to press (#3920). The badge now counts `waitingApprovalsOf(state)`: rows with at least one action. The notice rows stay on the page, and its header names them apart (`1 to approve · 2 notices`). Regression test: `tests/approvals-badge-3920.spec.ts`.

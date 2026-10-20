@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { exportName, exportSpec, MAX_EXPORT_BYTES, runMarkdown } from '../hooks/data/wf-export'
 import { checkNoLinks, newFileArgv, removeFileArgv, replaceFileArgv, resolveExportPath } from '../hooks/data/wf-file'
 import { BASE, runOf } from './fixtures/wf-runs'
+import { nativeWriteFlavor } from './fixtures/write-flavor'
 
 const KEY = 'sk-abcdefghijklmnopqrstuvwx'
 const ROOTS = { cwd: '/work/proj', scratch: '/home/u/.cache/claude-code/tmp/s1' }
@@ -92,40 +93,64 @@ describe('the write', () => {
   it('is a command with no shell: the path is one element, whatever it says', () => {
     const evil = '/work/proj/a b;$(rm -rf ~)`x`.md'
 
-    expect(newFileArgv(evil, true)).toEqual(['dd', `of=${evil}`, 'conv=excl', 'status=none'])
-    expect(newFileArgv(evil, false)).toEqual(['install', '-D', '-m', '0644', '/dev/stdin', '--', evil])
-    expect(replaceFileArgv(evil, true)).toEqual(['dd', `of=${evil}`, 'status=none'])
-    expect(replaceFileArgv(evil, false)).toEqual(newFileArgv(evil, false))
+    expect(newFileArgv(evil, true, 'gnu')).toEqual(['dd', `of=${evil}`, 'conv=excl', 'status=none'])
+    expect(newFileArgv(evil, false, 'gnu')).toEqual(['install', '-D', '-m', '0644', '/dev/stdin', '--', evil])
+    expect(replaceFileArgv(evil, true, 'gnu')).toEqual(['dd', `of=${evil}`, 'status=none'])
+    expect(replaceFileArgv(evil, false, 'gnu')).toEqual(newFileArgv(evil, false, 'gnu'))
     expect(removeFileArgv(evil)).toEqual(['rm', '-f', '--', evil])
-    for (const argv of [newFileArgv(evil, true), newFileArgv(evil, false), replaceFileArgv(evil, true), removeFileArgv(evil)]) expect(argv.some(part => part === 'sh' || part === 'bash' || part === '-c')).toBe(false)
+    for (const argv of [newFileArgv(evil, true, 'gnu'), newFileArgv(evil, false, 'gnu'), replaceFileArgv(evil, true, 'gnu'), removeFileArgv(evil)]) expect(argv.some(part => part === 'sh' || part === 'bash' || part === '-c')).toBe(false)
   })
 
-  it('a new file never replaces one: dd refuses an existing file (conv=excl) on a real disk', async () => {
-    const { mkdtempSync, readFileSync, rmSync } = await import('node:fs')
+  it('a new file never replaces one: the exclusive create refuses an existing file on a real disk, with this machine\'s tools', async () => {
+    const { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } = await import('node:fs')
     const { spawnSync } = await import('node:child_process')
     const { tmpdir } = await import('node:os')
+    const flavor = await nativeWriteFlavor()
     const dir = mkdtempSync(`${tmpdir()}/wf-export-`)
     const file = `${dir}/a b;$(x).md`
+    // stdin from a file descriptor, not Node's socket pair: GNU `install -D /dev/stdin` reopens stdin and refuses a socket.
+    const write = (input: string, path = file, hasDir = true) => {
+      writeFileSync(`${dir}.in`, input)
+
+      const fd = openSync(`${dir}.in`, 'r')
+
+      try {
+        const [cmd, ...args] = newFileArgv(path, hasDir, flavor) as string[]
+
+        return spawnSync(cmd as string, args, { stdio: [fd, 'pipe', 'pipe'] })
+      } finally {
+        closeSync(fd)
+      }
+    }
 
     try {
-      const first = spawnSync(...(args => [args[0] as string, args.slice(1) as string[], { input: 'one\n' }] as const)(newFileArgv(file, true)))
+      const first = write('one\n')
 
       expect(first.status).toBe(0)
       expect(readFileSync(file, 'utf8')).toBe('one\n')
 
-      const second = spawnSync(...(args => [args[0] as string, args.slice(1) as string[], { input: 'two\n' }] as const)(newFileArgv(file, true)))
+      const second = write('two\n')
 
       expect(second.status).not.toBe(0)
       expect(readFileSync(file, 'utf8')).toBe('one\n')
+
+      // No folder yet: it is made, then the file (GNU install -D, or mkdir -p and the exclusive create).
+      const deep = `${dir}/new dir/$(y)/b.md`
+
+      expect(write('deep\n', deep, false).status).toBe(0)
+      expect(readFileSync(deep, 'utf8')).toBe('deep\n')
+      expect(spawnSync('test', ['-e', `${dir}/x`]).status).not.toBe(0)
+      expect(spawnSync('test', ['-e', `${dir}/y`]).status).not.toBe(0)
     } finally {
       rmSync(dir, { recursive: true, force: true })
+      rmSync(`${dir}.in`, { force: true })
     }
   })
 
   it('is a confirm-gated spec: argv, text on stdin, declared write, verified on disk', async () => {
-    const spec = exportSpec('/work/proj/o.md', '# hi\n', 'demo', true)
+    const spec = exportSpec('/work/proj/o.md', '# hi\n', 'demo', true, 'gnu')
 
-    expect(spec).toMatchObject({ argv: newFileArgv('/work/proj/o.md', true), stdin: '# hi\n', declared: 'write', args: [] })
+    expect(spec).toMatchObject({ argv: newFileArgv('/work/proj/o.md', true, 'gnu'), stdin: '# hi\n', declared: 'write', args: [] })
     expect(spec.shows).toMatch(/never overwrites/)
     expect(await spec.verifyLocal?.({ fs: { stat: async () => ({ size: 1 }) } } as never)).toBe(true)
     expect(await spec.verifyLocal?.({ fs: { stat: async () => Promise.reject(new Error('x')) } } as never)).toBe(false)

@@ -16,7 +16,7 @@ const ID = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/
 
 // Whole escape sequences go first (the CLI colours its output; a hostile file may carry a hyperlink or a title): stripping only the ESC byte
 // would leave `[1m` or `]8;;https://…` in the text. Written as \u escapes so no invisible character sits in this source.
-export const ESCAPES = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)|\\u009d[^\\u0007\\u009c]*[\\u0007\\u009c]|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
+export const ESCAPES = new RegExp('\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\|(?=\\u001b)|$)|\\u009d[^\\u0007\\u009c\\u009d]*(?:[\\u0007\\u009c]|(?=\\u009d)|$)|(?:\\u001b\\[|\\u009b)[0-9;?]*[ -/]*[@-~]', 'g')
 // Controls, DEL, C1, soft hyphen, combining grapheme joiner, Arabic letter mark, zero-width and bidi characters, invisible operators,
 // variation selectors, Hangul fillers and BOM: nothing a person could read, all of them fit for hiding or reordering text.
 export const HIDDEN = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u00ad\\u034f\\u061c\\u115f\\u1160\\u17b4\\u17b5\\u180b-\\u180f\\u200b-\\u200f\\u2028\\u2029\\u202a-\\u202e\\u2060-\\u206f\\u3164\\ufe00-\\ufe0d\\ufeff\\uffa0\\ufff9-\\ufffb]|[\\u{e0000}-\\u{e0fff}]', 'gu')
@@ -179,7 +179,8 @@ export function parseSwarmStore(text: string | null): SwarmInfo | null {
 
     return [info]
   })
-  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? '')
+  // By instant, not text: "…T10:00+02:00" is older than "…T09:00Z" though it sorts after it as a string. Unparseable sorts last.
+  const byRecency = (a: SwarmInfo, b: SwarmInfo) => (msOf(b.updatedAt) ?? -Infinity) - (msOf(a.updatedAt) ?? -Infinity) || 0
 
   return [...swarms.filter(swarm => swarm.status === 'running')].sort(byRecency)[0] ?? [...swarms].sort(byRecency)[0] ?? null
 }

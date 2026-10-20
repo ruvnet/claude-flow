@@ -1,7 +1,8 @@
 /**
  * A stand-in for git and /proc for the worktree specs: a fixed list, per-path dirty and ahead counts, ages and a process listing.
  */
-import { AHEAD_ARGV, IGNORED_ARGV, LIST_ARGV, parseProcs, PROCS_ARGV, REF_ARGV, STATUS_ARGV, type WtIo, type WtRead, type WtRow } from '../../hooks/data/wf-worktrees'
+import { FILTER_KEYS_ARGV } from '../../hooks/data/git-filters'
+import { AHEAD_ARGV, IGNORED_ARGV, LIST_ARGV, parseProcs, PROCS_ARGV, REF_ARGV, REMOVE_ARGV, STATUS_ARGV, type WtIo, type WtRead, type WtRow } from '../../hooks/data/wf-worktrees'
 import type { Kit } from '../../hooks/views/common'
 
 export const NOW = Date.parse('2026-10-06T12:00:00.000Z')
@@ -63,14 +64,16 @@ export function ioOf(w: World): WtIo {
       const dir = argv[2] ?? ''
       const key = argv.join(' ')
 
+      // the filter-driver listing (git config --get-regexp): a repository with none exits 1 and prints nothing
+      if (key === FILTER_KEYS_ARGV(dir).join(' ')) return { stdout: '', stderr: '', exitCode: 1 }
       if (key === PROCS_ARGV.join(' ')) return { stdout: w.procs, stderr: 'find: Permission denied', exitCode: 1 }
       if (key === LIST_ARGV(dir).join(' ')) return { stdout: w.list, stderr: '', exitCode: 0 }
       if (key === REF_ARGV(dir).join(' ')) return w.hasRef ? { stdout: `${Math.floor((NOW - 2 * 3_600_000) / 1000)}\n`, stderr: '', exitCode: 0 } : { stdout: '', stderr: 'unknown revision', exitCode: 128 }
       if (key === STATUS_ARGV(dir).join(' ')) return { stdout: Array.from({ length: w.dirty[dir] ?? 0 }, (_, i) => ` M f${i}`).join('\n'), stderr: '', exitCode: 0 }
       if (key === IGNORED_ARGV(dir).join(' ')) return { stdout: w.ignored[dir] ?? '', stderr: '', exitCode: 0 }
       if (key === AHEAD_ARGV(dir).join(' ')) return w.ahead[dir] === null ? { stdout: '', stderr: 'bad', exitCode: 128 } : { stdout: `0\t${w.ahead[dir] ?? 0}\n`, stderr: '', exitCode: 0 }
-      if (key.startsWith(`git -C ${ROOT} worktree remove `)) {
-        const path = argv[5] ?? ''
+      if (key === REMOVE_ARGV(ROOT, argv.at(-1) ?? '').join(' ')) {
+        const path = argv.at(-1) ?? ''
 
         if (w.failRemove.has(path)) return { stdout: '', stderr: 'fatal: contains modified or untracked files', exitCode: 128 }
 

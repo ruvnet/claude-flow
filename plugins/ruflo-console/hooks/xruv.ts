@@ -6,6 +6,7 @@
  * `~/.ruflo/nostr.key` when it is missing, so a channel read asks first until that key exists. Text from an Input is
  * parsed and validated here, and the one JSON argument is `JSON.stringify`'s. Pure: entries and parsers only, no `$`.
  */
+import { ARGV_TEXT_MAX, countOf } from './full-text'
 import type { ActionSpec } from './actions'
 import { jsonAfter, registryProbe, rosterProbe, channelsProbe, type Channels, type Registry, type Roster } from './data/cli'
 import { plain, recordOf, stringOf } from './data/parse'
@@ -31,9 +32,10 @@ export function channelIdOf(word: string): string | null {
   return CHANNEL_ID_RE.test(value) ? value : CHANNEL_NAME_RE.test(value) ? `pub:${value}` : null
 }
 
-const MAX_PAYLOAD = 2_000
+// One argv element (ADR-481): the console's own bound is the most an argument carries; the relay answers for its own limit.
+const MAX_PAYLOAD = ARGV_TEXT_MAX
 
-/** A message body: a JSON object as typed, else `{ text }`; at most 2,000 characters as JSON, null when empty or not an object. */
+/** A message body: a JSON object as typed, else `{ text }`; at most ARGV_TEXT_MAX (8,000) characters as JSON, null when empty or not an object. */
 export function payloadOf(raw: string): Record<string, unknown> | null {
   const value = raw.trim()
 
@@ -53,9 +55,9 @@ export function payloadOf(raw: string): Record<string, unknown> | null {
     return record === null || Array.isArray(parsed) || JSON.stringify(record).length > MAX_PAYLOAD ? null : record
   }
 
-  const text = plain(value, 500)
+  const text = plain(value, Number.MAX_SAFE_INTEGER)
 
-  return text === '' ? null : { text }
+  return text === '' || countOf(text) > MAX_PAYLOAD ? null : { text }
 }
 
 /** `Type: text` as a message type and its body; text with no type is a Status. */
@@ -97,11 +99,14 @@ export function admitArg(raw: string): { pubkey: string; role: 'member' | 'admin
   return isPubkey(pubkey) && (role === 'member' || role === 'admin') && extra.length === 0 ? { pubkey: pubkey.toLowerCase(), role } : null
 }
 
+/** A version (v2.1.0-beta.3) has the invite's characters but not its shape: the terminal masks every line, and a version stays readable. */
+const VERSION = /^v2\.\d+\.\d+(?:\.\d+)?(?:-[0-9A-Za-z.-]+)?$/
+
 /** An invite code in any text, masked: it is a bearer secret, so no line the console writes ever carries one. */
-export const maskInvites = (line: string): string => line.replace(INVITE_ANYWHERE, 'v2.•••• (invite code, masked)')
+export const maskInvites = (line: string): string => line.replace(INVITE_ANYWHERE, code => (VERSION.test(code) ? code : 'v2.•••• (invite code, masked)'))
 
 /** True when the text holds an invite code (a bearer secret the person minted: it never goes to a model). */
-export const hasInvite = (text: string): boolean => new RegExp(INVITE_ANYWHERE.source).test(text)
+export const hasInvite = (text: string): boolean => maskInvites(text) !== text
 
 const exec = (tool: string, params: Record<string, unknown>) => ['mcp', 'exec', '-t', tool, '-p', JSON.stringify(params)] as const
 

@@ -61,7 +61,7 @@ function paramRow(ctx: Ctx, template: Template, param: Param, current: string | 
 
   return [ctx.kit.Input === undefined
     ? text(ctx, ` ${param.label}: this surface has no text field, so the default is used: ${param.fallback === '' ? 'none (required)' : param.fallback}`, { dimColor: true })
-    : ctx.kit.Input({ key, label: param.label, value: String(current), placeholder: `${param.hint}${param.fallback === '' ? ' (required)' : ''}`, onInput: value => setValue(state, host, template, param.id, value.slice(0, TEXT_MAX)), submitLabel: 'set', onSubmit: value => setValue(state, host, template, param.id, value.slice(0, TEXT_MAX)) })]
+    : ctx.kit.Input({ key, label: param.label, value: String(current), placeholder: `${param.hint}${param.fallback === '' ? ' (required)' : ''}`, onInput: value => setValue(state, host, template, param.id, value), submitLabel: 'set', onSubmit: value => setValue(state, host, template, param.id, value) })]
 }
 
 export function boardRows(env: SlotEnv): RenderElement[] {

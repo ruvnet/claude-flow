@@ -142,7 +142,7 @@ describe('loop-centric helpers (ADR-441)', () => {
   it('the loop command is one bounded line carrying the interval', () => {
     expect(loopCommand('add  a\ndark mode', DEFAULT_LOOP)).toBe('/loop 5m add a dark mode')
     expect(loopCommand('x', { ...DEFAULT_LOOP, loopInterval: '15m' })).toBe('/loop 15m x')
-    expect(loopCommand('y'.repeat(500), DEFAULT_LOOP).length).toBe('/loop 5m '.length + 200)
+    expect(loopCommand('y'.repeat(500), DEFAULT_LOOP).length).toBe('/loop 5m '.length + 500)
   })
 
   it('the gates always include the tests and follow what the plan must prove', () => {

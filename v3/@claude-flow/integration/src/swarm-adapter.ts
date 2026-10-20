@@ -845,48 +845,22 @@ export class SwarmAdapter extends EventEmitter {
   // Private Methods
   // ==========================================================================
 
+  /**
+   * agentic-flow core is not connected: no published agentic-flow exports `createAgenticFlow` (2.0.14,
+   * 2.1.4, 3.0.0-alpha.1/.2), and importing its root entry runs its CLI
+   * `main()` in 3.0.0-alpha.x — demo agents and a health server, inside our
+   * process. Use local implementations.
+   */
   private async connectToAgenticFlow(): Promise<void> {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const agenticFlowModule: any = await import('agentic-flow').catch(() => null);
-
-      if (
-        agenticFlowModule &&
-        typeof agenticFlowModule.createAgenticFlow === 'function'
-      ) {
-        this.agenticFlowCore = await agenticFlowModule.createAgenticFlow({});
-
-        // Check for AttentionCoordinator
-        if (this.agenticFlowCore.attention) {
-          this.attentionCoordinator = this.agenticFlowCore.attention;
-        }
-
-        this.emit('agentic-flow-connected', {
-          version: this.agenticFlowCore.version,
-          hasAttention: !!this.attentionCoordinator,
-          hasMoE: !!this.agenticFlowCore.moe,
-        });
-
-        this.logDebug('Connected to agentic-flow', {
-          version: this.agenticFlowCore.version,
-        });
-      } else {
-        this.agenticFlowCore = null;
-        this.emit('agentic-flow-unavailable', {
-          reason: 'package not found or incompatible',
-        });
-      }
-    } catch (error) {
-      this.agenticFlowCore = null;
-      this.emit('agentic-flow-connection-failed', {
-        error: (error as Error).message,
-      });
-    }
+    this.agenticFlowCore = null;
+    this.emit('agentic-flow-unavailable', {
+      reason: 'package not found or incompatible',
+    });
   }
 
   private generateAgentEmbedding(agent: V3AgentState): number[] {
     // Generate hash-based embedding from agent properties
-    // For ML embeddings, use: import('agentic-flow').computeEmbedding
+    // For ML embeddings, use: import('agentic-flow/reasoningbank').computeEmbedding
     const embedding = new Array(128).fill(0);
 
     // Encode agent type

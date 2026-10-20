@@ -1,0 +1,15 @@
+  Parameters: {"type":"test","description":"x"}
+
+[OK] Tool executed in 6.83ms
+
+Result:
+{
+  "taskId": "task-1791563600018-yl0nu9",
+  "type": "test",
+  "description": "x",
+  "priority": "normal",
+  "status": "pending",
+  "createdAt": "2026-10-09T16:33:20.018Z",
+  "assignedTo": [],
+  "tags": []
+}

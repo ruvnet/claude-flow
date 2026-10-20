@@ -11,9 +11,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares ruflo-console 0.37.0"
+step "1. plugin.json declares ruflo-console 0.44.4"
 grep -q '"name": "ruflo-console"' "$ROOT/.claude-plugin/plugin.json" \
-  && grep -q '"version": "0.37.0"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "name/version"
+  && grep -q '"version": "0.44.4"' "$ROOT/.claude-plugin/plugin.json" && ok || bad "name/version"
 
 step "2. hooks.json names exactly one module and no classic hook commands"
 grep -q '"modules": \["./register.ts"\]' "$HOOKS/hooks.json" && ! grep -q '"command"' "$HOOKS/hooks.json" \
@@ -51,7 +51,14 @@ grep -q "fs.stat(under(home, NOSTR_KEY))" "$HOOKS/data/files.ts" && [[ -z "$keys
 step "8. mutations only through fixed argv (claims_* via JSON.stringify), behind a confirm"
 grep -q "JSON.stringify(params)" "$HOOKS/actions.ts" \
   && [[ "$(grep -ohE "exec\('claims_[a-z-]+'" "$HOOKS/actions.ts" "$HOOKS/ops.ts" | sort -u | tr '\n' ' ')" == "exec('claims_claim' exec('claims_handoff' exec('claims_release' exec('claims_status' exec('claims_steal' " ]] \
-  && grep -q "state.pending = " "$HOOKS/runner.ts" && ! grep -qE "'(sh|bash)', '-c'" -r "$HOOKS" && ok || bad "action surface changed"
+  && grep -q "state.pending = " "$HOOKS/runner.ts" && ! grep -qE "'(sh|bash)', '-c'" -r --exclude=write-flavor.ts "$HOOKS" \
+  && [[ "$(grep -cE "'(sh|bash)', '-c'" "$HOOKS/data/write-flavor.ts")" == 1 ]] \
+  && grep -qF "['sh', '-c', POSIX_SCRIPTS[op], 'sh', path, ...(source === undefined ? [] : [source])]" "$HOOKS/data/write-flavor.ts" \
+  && [[ "$(awk '/POSIX_SCRIPTS = Object.freeze\(\{/{on=1;next} on&&/^\}/{on=0} on' "$HOOKS/data/write-flavor.ts" | sed -nE 's/^  ([A-Za-z]+): .*/\1/p' | sort | tr '\n' ' ')" == "append copyExclusive createExclusive createExclusiveWithDirs replace replaceWithDirs touch " ]] \
+  && ok || bad "action surface changed"
+# The one shell: data/write-flavor.ts, the macOS/BSD file writes (BSD dd/install lack oflag=append, conv=excl, -D). It runs only a script
+# from the frozen POSIX_SCRIPTS set (exactly these seven), by key, with the path as "$1" (a copy's source as "$2"); no exported builder takes a script.
+# tests/write-argv.spec.ts checks each script: the link/non-regular guard first, "$1" always quoted, no other parameter.
 
 step "9. plugin.register and tool.call are observed, never answered (but the console's own tools, ADR-444)"
 reg=$(awk '/on\(.plugin.register./,/^  }\)/' "$HOOKS/register.ts" | grep -cE "refuse:|deny:")
@@ -111,6 +118,20 @@ step "17. the toast policy copy is byte-identical to the canonical one (ADR-477)
 if [[ ! -f "$ROOT/../ruflo-mods/hooks/toast/policy.ts" ]]; then printf "SKIP (ruflo-mods is not beside this plugin)\n"
 elif cmp -s "$ROOT/../ruflo-mods/hooks/toast/policy.ts" "$HOOKS/toast-policy.ts"; then ok
 else bad "differs from ruflo-mods/hooks/toast/policy.ts: node scripts/sync-toast-policy.mjs"; fi
+
+step "18. CHANGELOG.md has an entry for the manifest version, and the What's new page makes no request of its own (ADR-478)"
+version=$(sed -n 's/^  "version": "\([0-9.]*\)".*/\1/p' "$ROOT/.claude-plugin/plugin.json" | head -1)
+if grep -qE "^## ${version//./\\.} [—–-] [0-9]{4}-[0-9]{2}-[0-9]{2}\s*$" "$ROOT/CHANGELOG.md" 2>/dev/null \
+  && ! grep -qE "fetchText|httpSend|\\.run\(|spawn" "$HOOKS/whatsnew.ts" "$HOOKS/views/whatsnew.ts" "$HOOKS/data/changelog.ts"; then ok; else bad "CHANGELOG.md lacks ## $version, or whatsnew code reaches the network"; fi
+
+step "19. the ADR code reads and writes only the project's files: no network, no shell, no ruflo-repo path (ADR-480)"
+if ! grep -qE "fetchText|httpSend|spawn\(|v3/docs/adr|check-adr-links|\bsh -c|bash -c" "$HOOKS/adr.ts" "$HOOKS/adr-palette.ts" "$HOOKS/views/adr.ts" "$HOOKS/data/adr.ts" "$HOOKS/data/adr-write.ts" "$HOOKS/data/adr-scope.ts"; then ok; else bad "an ADR module reaches the network, a shell or a ruflo path"; fi
+
+step "20. the optional ruvnet-brain aid is detect-only and removable: no tool call, shell, network, write or prompt from grounding.ts, no brain tool id anywhere, nothing of the brain vendored (ADR-487)"
+brain_calls=$(grep -nE "toolCall|toolCheck|\\\$\\.tool|\\.run\\(|spawn|fetchText|httpSend|storeSet|fillPrompt|submitPrompt|\\.fs\\." "$HOOKS/grounding.ts" | grep -vE '^[0-9]+:\s*(\*|//|/\*)' || true)
+brain_ids=$(grep -rnE "mcp__plugin_ruvnet|plugin_ruvnet-brain" "$HOOKS" || true)
+brain_files=$(find "$ROOT" -iname '*ruvnet-brain*' -not -path '*/node_modules/*' 2>/dev/null || true)
+[[ -z "$brain_calls" && -z "$brain_ids" && -z "$brain_files" ]] && ok || bad "calls: $brain_calls ids: $brain_ids files: $brain_files"
 
 printf "\n%d passed, %d failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]

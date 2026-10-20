@@ -19,6 +19,10 @@ out of the message content. Same subprocess-invocation shape as the sibling
 - You can tolerate the higher latency and token cost of a reasoner vs
   `deepseek-chat`.
 
+## Data handling
+
+The prompt and any `--system` text are sent over the network to `api.deepseek.com`, a third party. Do not put secrets, credentials, personal data or proprietary code you are not allowed to share into them. The API key is read from `DEEPSEEK_API_KEY` in your shell only; never paste it into a prompt, a file or a command line.
+
 ## Algorithm
 
 Implementation: [`scripts/reason.mjs`](../../scripts/reason.mjs).

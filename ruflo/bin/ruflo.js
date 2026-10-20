@@ -6,26 +6,6 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// #2256 fast path: --version / -V must NOT trigger heavy imports (the
-// downstream @claude-flow/cli dist eagerly loads ruvector + a 23 MB ONNX
-// model on cold cache, blocking 60+ s and causing SIGTERM under common
-// timeout windows: npx default, MCP stdio 30s window). Resolve version
-// from this wrapper's own package.json and exit before any heavy import.
-// (bin/cli.js has the same guard for the direct path; needed here too
-// because the wrapper imports dist/src/index.js, bypassing bin/cli.js.)
-{
-  const _argv = process.argv.slice(2);
-  if (_argv.length === 1 && (_argv[0] === '--version' || _argv[0] === '-V')) {
-    try {
-      const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
-      process.stdout.write(`ruflo v${pkg.version || '0.0.0'}\n`);
-    } catch {
-      process.stdout.write('ruflo v0.0.0\n');
-    }
-    process.exit(0);
-  }
-}
-
 // Walk up from ruflo/bin/ to find @claude-flow/cli in node_modules
 function findCliPath() {
   let dir = resolve(__dirname, '..');
@@ -48,6 +28,31 @@ const pkgDir = findCliPath();
 const cliBase = pkgDir
   ? join(pkgDir, 'node_modules', '@claude-flow', 'cli')
   : resolve(__dirname, '../../v3/@claude-flow/cli');
+
+// The exact dependency pin prevents mismatches in normal installs. Existing
+// partial upgrades can still resolve a different CLI (#3306); make that
+// visible on stderr without taking an otherwise working command offline.
+let wrapperVersion = '0.0.0';
+let cliVersion = 'unknown';
+let versionProblem;
+try {
+  wrapperVersion = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')).version;
+  cliVersion = JSON.parse(readFileSync(join(cliBase, 'package.json'), 'utf-8')).version;
+} catch (error) {
+  versionProblem = `cannot verify installed CLI version: ${error.message}`;
+}
+if (!versionProblem && wrapperVersion !== cliVersion) {
+  versionProblem = `wrapper v${wrapperVersion} expects @claude-flow/cli v${wrapperVersion}, but resolved v${cliVersion} at ${cliBase}`;
+}
+if (versionProblem) {
+  console.error(`ruflo: warning: ${versionProblem}; continuing. Reinstall ruflo to restore matching versions.`);
+}
+
+// #2256: --version / -V must not trigger heavy CLI/model imports.
+if (process.argv.length === 3 && ['--version', '-V'].includes(process.argv[2])) {
+  process.stdout.write(`ruflo v${wrapperVersion}\n`);
+  process.exit(0);
+}
 
 // MCP mode: delegate to cli.js directly (branding irrelevant for JSON-RPC)
 const cliArgs = process.argv.slice(2);

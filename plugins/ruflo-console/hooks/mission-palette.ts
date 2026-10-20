@@ -1,12 +1,22 @@
 /** Palette entries for Mission Control, so `/ruflo run mission-next` and `/ruflo plan <goal>` work headless; a write or a turn still asks. */
 import type { ActionSpec } from './actions'
 import { blocksCreate } from './mission-options'
-import { activeMission, cancelSpec, createSpec, dispatchSpec, mcOf, missionWired, nextTask, setGoal } from './mission-control'
+import { activeMission, cancelSpec, createSpec, createWhy, dispatchSpec, longRefusal, mcOf, missionWired, nextTask, setGoal } from './mission-control'
 import type { PaletteEntry } from './palette'
 import type { State } from './state'
 
 /** `mission-auto` takes on or off in any case and nothing else: a word that is not one does not quietly mean off (#3815). */
 const AUTO_WORD = /^(on|off)$/i
+
+/** `/ruflo plan <goal>`: plans the goal, or says by how much it is over the limit and keeps the text (it is never cut). */
+function planGoal(state: State, value: string, wired: ReturnType<typeof missionWired>): void {
+  const refusal = longRefusal(value, 'the goal')
+
+  if (refusal === null) return setGoal(state, value)
+
+  mcOf(state).last = { label: 'goal not planned', ok: false, detail: refusal }
+  wired?.host.invalidate()
+}
 
 export function missionPalette(state: State): PaletteEntry[] {
   const wired = missionWired(state)
@@ -20,9 +30,11 @@ export function missionPalette(state: State): PaletteEntry[] {
   const tasks = () => state.snapshot?.tasks ?? []
 
   return [
-    { id: 'mission-goal', group: 'missions', label: 'mission-goal <goal>: plan a goal as a SPARC goal-oriented plan (nothing is written)', run: text('mission-goal', value => local('plan the goal', () => setGoal(state, value), 'write')) },
+    // Declared 'write', like console_set goal: it REPLACES Mission Control's goal and plan (in memory: no file, no mission). The label says so
+    // rather than "nothing is written", which contradicted the gate asking for write control.
+    { id: 'mission-goal', group: 'missions', label: 'mission-goal <goal>: set the goal and plan it as a SPARC goal-oriented plan (replaces the current goal; no file, no mission yet)', run: text('mission-goal', value => local('plan the goal', () => planGoal(state, value, wired), 'write')) },
     { id: 'mission-status', group: 'missions', label: 'mission status: progress, each task’s status, what is next', run: spec(() => local('mission status', () => undefined)) },
-    { id: 'mission-create', group: 'missions', label: 'create the mission and its tasks from the planned goal (asks first)', run: spec(() => (wired === undefined || blocksCreate(mcOf(state).screen) ? null : createSpec(state, wired.host, () => undefined))) },
+    { id: 'mission-create', group: 'missions', label: 'create the mission and its tasks from the planned goal (asks first)', run: { kind: 'spec' as const, spec: wired === undefined || blocksCreate(mcOf(state).screen) ? null : createSpec(state, wired.host, () => undefined), why: createWhy(state) ?? why } },
     {
       id: 'mission-next',
       group: 'missions',
@@ -35,7 +47,9 @@ export function missionPalette(state: State): PaletteEntry[] {
       }),
     },
     { id: 'mission-pause', group: 'missions', label: 'pause: no more tasks are handed out', run: spec(() => local('pause the mission', () => wired?.actions.pause(), 'write')) },
-    { id: 'mission-resume', group: 'missions', label: 'resume handing out tasks', run: spec(() => local('resume the mission', () => wired?.actions.resume(), 'write')) },
+    // Who resumes is known when the entry is built: Claude's console_run builds the palette inside its call (state.control.viaModel). Claude's
+    // resume keeps the hand-out counts; only the person's gives an exhausted task more billed turns (#3823).
+    { id: 'mission-resume', group: 'missions', label: 'resume handing out tasks', run: spec(() => (state.control.viaModel ? local('resume the mission (Claude: hand-out counts kept)', () => wired?.actions.resume('model'), 'write') : local('resume the mission', () => wired?.actions.resume('person'), 'write'))) },
     { id: 'mission-cancel', group: 'missions', label: 'cancel the mission and its open tasks (asks first)', run: spec(() => { const mission = activeMission(state); return wired === undefined || mission === null ? null : cancelSpec(state, wired.host, mission, tasks()) }) },
     { id: 'mission-aside', group: 'missions', label: 'mission-aside <question>: /btw beside the running task', run: text('mission-aside', value => local('ask aside', () => wired?.actions.aside(value), 'spend')) },
     { id: 'mission-guide', group: 'missions', label: 'mission-guide <instruction>: a visible instruction to Claude (screened, asks first)', run: text('mission-guide', value => local('guide Claude', () => wired?.actions.guide(value))) },

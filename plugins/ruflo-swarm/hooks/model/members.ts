@@ -13,6 +13,8 @@ export type LoopRecord = {
   role: string
   name?: string
   description?: string
+  /** The numbers of the accepted ADRs the agent was told about when it was spawned (ruflo-console, ADR-480). */
+  adrs?: number[]
   status: string
   calls: number
   errors: number
@@ -102,7 +104,7 @@ function loopFor(activity: Activity, id: string, nowMs: number): LoopRecord {
 }
 
 /** A subagent the engine started (`agent.spawn`'s answer), with the type and name it was asked for. */
-export function noteSpawn(activity: Activity, id: string, type: string, nowMs: number, name?: string, description?: string): void {
+export function noteSpawn(activity: Activity, id: string, type: string, nowMs: number, name?: string, description?: string, adrs: readonly number[] = []): void {
   const loop = loopFor(activity, id, nowMs)
 
   loop.role = roleOf(type)
@@ -115,6 +117,11 @@ export function noteSpawn(activity: Activity, id: string, type: string, nowMs: n
 
   if (description !== undefined) {
     loop.description = description
+  }
+
+  if (adrs.length > 0) {
+    loop.adrs = adrs.slice(0, 8)
+    loop.description = `${loop.description ?? ''}${loop.description === undefined ? '' : ' '}[guided by ADR ${adrs.slice(0, 8).join(', ')}]`.slice(0, 200)
   }
 }
 

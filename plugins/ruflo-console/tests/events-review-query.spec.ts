@@ -93,7 +93,7 @@ describe('query language: bounded time on hostile patterns', () => {
       expect(() => matches(ev('text'), parseQuery(q), T)).not.toThrow()
     }
 
-    expect(parseQuery('x'.repeat(100_000)).source.length).toBeLessThanOrEqual(200)
+    expect(parseQuery('x'.repeat(100_000)).source.length).toBe(20_000)
   })
 })
 

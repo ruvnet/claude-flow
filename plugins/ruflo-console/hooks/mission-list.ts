@@ -5,6 +5,7 @@
  */
 import { money, type Mission } from './data/missions'
 import { spinAt } from './spinner'
+import { own } from './data/safe'
 
 export { SPIN, spinAt } from './spinner'
 
@@ -73,7 +74,7 @@ const GLYPH: Record<string, string> = { completed: '●', failed: '✖', blocked
 export function missionRow(mission: Mission, nowMs = 0, maxObjective = 36): string {
   const objective = mission.objective === '' ? '(no objective)' : mission.objective
   const cut = objective.length > maxObjective ? `${objective.slice(0, maxObjective - 1)}…` : objective
-  const glyph = isLive(mission.state) ? spinAt(nowMs) : (GLYPH[mission.state] ?? '○')
+  const glyph = isLive(mission.state) ? spinAt(nowMs) : (own(GLYPH, mission.state) ?? '○')
 
   return `${glyph} ${cut} · ${mission.state} · tasks ${taskProgress(mission)} · verified ${mission.evidence.verified}/${mission.evidence.count} · ${budgetShort(mission)}`
 }

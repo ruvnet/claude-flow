@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { MissionRecord } from '../hooks/mission-types'
 import { applyMissionEvents, eventsBetween } from '../hooks/data/wf-events'
-import { agentLinkLine, labelTag, linkAgents, readLabelTag, refsOf, taskLinkLine, type MissionTaskRef } from '../hooks/data/wf-links'
+import { agentLinkLine, isOpen, labelTag, linkAgents, readLabelTag, refsOf, taskLinkLine, type MissionTaskRef } from '../hooks/data/wf-links'
 import type { AgentRecord, TaskRecord } from '../hooks/data/parse'
 import { STALE_MS, type AgentState, type RunState, type WfAgent, type WfRun } from '../hooks/data/workflows'
 
@@ -22,6 +22,12 @@ const task = (id: string, assignedTo: string[], tags: string[] | undefined, stat
 const REFS: MissionTaskRef[] = [{ missionId: 'm1', taskId: 'implement', title: 'Implement it', rufloTaskId: 'task-9' }, { missionId: 'm1', taskId: 'review', title: 'Review it' }]
 
 describe('links', () => {
+  it('a task stored under an older CLI spelling is finished, not open', () => {
+    expect(['complete', 'Done ', 'canceled', 'completed', 'failed', 'cancelled'].map(isOpen)).toEqual([false, false, false, false, false, false])
+    expect([undefined, 'pending', 'running', 'in-progress', 'in_progress'].map(isOpen)).toEqual([true, true, true, true, true])
+  })
+
+
   it('links a ruflo agent through the ruflo task assigned to it, by the mission:/task: tags', () => {
     const index = linkAgents(REFS, [run('swarm', [rufloAgent('agent-1')], { kind: 'ruflo-swarm' })], [task('task-7', ['agent-1'], ['mission:m1', 'task:review', 'phase:X'])])
 

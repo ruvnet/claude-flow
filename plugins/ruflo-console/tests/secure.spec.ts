@@ -67,13 +67,14 @@ describe('the catalogs', () => {
     expect(secTextSpec(text('policy-eval')!, 'rm -rf /', state)).toBeNull()
   })
 
-  it('pasted text: 1-2000 printable characters, no leading dash; an action type has a small charset', () => {
+  it('pasted text: 1-8000 printable characters, no leading dash; an action type has a small charset', () => {
     expect(pastedOf('  ok  ')).toBe('ok')
     expect(pastedOf('')).toBeNull()
     expect(pastedOf('-x')).toBeNull()
     expect(pastedOf('a\u0007b')).toBeNull()
-    expect(pastedOf('x'.repeat(2000))).not.toBeNull()
-    expect(pastedOf('x'.repeat(2001))).toBeNull()
+    expect(pastedOf('x'.repeat(8000))).not.toBeNull()
+    expect(pastedOf('x'.repeat(8001))).toBeNull()
+    expect(pastedOf('line one\nline two')).toBe('line one\nline two')
     expect(actionTypeOf('network.fetch')).toBe('network.fetch')
     expect(actionTypeOf('-deploy')).toBeNull()
     expect(actionTypeOf('a b')).toBeNull()

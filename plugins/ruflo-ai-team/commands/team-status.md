@@ -1,6 +1,6 @@
 ---
 name: team-status
-description: Summarize a RuFlo AI Team's progress and blockers.
+description: Summarize an AI team's progress and blockers. Pass a team or run ID, or leave it empty to list your teams.
 ---
 
-Use monitor-ai-team for team or run `$ARGUMENTS` and provide a concise evidence-aware status.
+Use the monitor-ai-team skill for the team or run: $ARGUMENTS. If none was given, list the user's teams and ask which one. Give a concise, evidence-aware status.

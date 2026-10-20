@@ -5,23 +5,23 @@
  * person's Yes or confirms itself is another (`modelConfirm`: ask, auto). A person can take control back at any moment; every call is
  * logged for the dashboard (views/control.ts). This is the only file allowed to answer `tool.call`, and only for its own tool names.
  */
+import { LONG_TEXT_MAX } from './full-text'
 import type { Register } from 'claude-code'
 
 import type { Controller } from './controller'
-import { plain } from './data/parse'
+import { ESCAPES, INVISIBLE, plain } from './data/parse'
 import { askedBy } from './data/room'
-import { DEV_FIELDS } from './data/devtools'
-import { PROFILES, RIGORS } from './goap'
-import { mcOf, setResearch } from './mission-control'
-import { RESEARCH_DEPTHS } from './mission-options'
-import { filterPalette, paletteEntries } from './palette'
+import { mcOf } from './mission-control'
+import { setField as setFieldOf } from './model-fields'
+import { filterPalette, paletteEntries, WITHDRAW_ID, withdrawHint } from './palette'
+import { isStale } from './runner'
 import { hasSecret } from './screen'
 import { catalogOf } from './plugin-catalog'
-import { hasInvite } from './xruv'
 import { pluginNames, settingsOf } from './settings'
 import type { ControlEntry, Pending, State, ViewId } from './state'
 import { VIEWS } from './state'
 import { viewText } from './views/pane'
+import { hasInvite } from './xruv'
 
 export const TOOL_PREFIX = 'mcp__ruflo-console__'
 export const LEVELS = ['off', 'read', 'write', 'manage', 'full'] as const
@@ -31,7 +31,7 @@ export type ControlConfirm = 'ask' | 'auto'
 export type ActionClass = 'read' | 'write' | 'network' | 'install' | 'spend' | 'delete'
 
 export const MAX_CALLS_PER_TURN = 40
-export const MAX_TEXT = 500
+export const MAX_TEXT = LONG_TEXT_MAX
 /** How long after a tool call Claude still counts as driving the console. */
 export const DRIVING_MS = 60_000
 const SCREEN_MAX = 3500
@@ -89,6 +89,19 @@ function classFromWords(pending: Pick<Pending, 'label' | 'args' | 'note' | 'show
 /** True when `level` lets Claude run an action of class `kind`. */
 export const allows = (level: ControlLevel, kind: ActionClass): boolean => rank(level) >= rank(NEEDS[kind])
 
+/**
+ * Why an ask of Claude's that was screened first (and so landed after its tool call returned) may not be queued NOW: Stop was pressed, or the level
+ * the person set no longer allows its class. The level is read at landing, not at the call: lowering it while the screen looked wins. Null when allowed.
+ */
+export function landingRefusal(state: State, pending: Pending): string | null {
+  if (state.control.paused) return 'the person took control back'
+
+  const level = levelOf(settingsOf(state).ai.modelControl)
+  const kind = classOf(pending)
+
+  return allows(level, kind) ? null : `a ${kind} action needs "${NEEDS[kind]}" and control is now "${level}"`
+}
+
 export const levelOf = (value: unknown): ControlLevel => LEVELS.find(level => level === value) ?? 'off'
 export const confirmOf = (value: unknown): ControlConfirm => (value === 'ask' ? 'ask' : 'auto')
 
@@ -138,18 +151,20 @@ function within(work: Promise<void>, ms: number, host: Pick<Controller['host'], 
 }
 
 /** Runs `fn` as Claude's own act: asks it raises on the way are Claude's, not the person's. Only the synchronous start counts; a deferred ask carries its origin itself (`ActionSpec.byModel`). */
-function asModel<T>(state: State, fn: () => T): T {
+function asModel<T>(state: State, fn: () => T, tag: number | null = null): T {
   state.control.viaModel = true
+  state.control.callTag = tag
 
   try {
     return fn()
   } finally {
     state.control.viaModel = false
+    state.control.callTag = null
   }
 }
 
 const say = (state: State, tool: string, summary: string, outcome: ControlEntry['outcome'], detail = ''): void => {
-  state.control.log.push({ atMs: Date.now(), tool, summary: plain(summary, 80), outcome, detail: plain(detail, 160) })
+  state.control.log.push({ atMs: Date.now(), tool, summary: modelLine(summary, 80), outcome, detail: modelLine(detail, 160) })
   if (state.control.log.length > LOG_MAX) state.control.log.splice(0, state.control.log.length - LOG_MAX)
 }
 
@@ -160,31 +175,47 @@ const leaksSecret = (raw: unknown, cleaned: string): boolean => (typeof raw === 
 
 const textOf = (value: unknown): string => (typeof value === 'string' ? plain(value, MAX_TEXT).trim() : '')
 
-const WITHHELD = '[line withheld: it looks like a secret]'
+const SECRET_LINE = '(line withheld: it looks like a secret: not shown)'
 
-/** One line of the screen for the model: cleaned, and withheld whole when it looks like a secret or holds a minted invite code (#3816). */
-const lineFor = (text: unknown, max: number): string => {
-  const cleaned = plain(text, max)
+// Whitespace becomes a space (so words stay apart); every other control character goes WITHOUT a space, so a code split by one is joined
+// again before the checks run. C0, DEL and C1 (a split by \u0001 or \u0085 included) are covered here, the zero-width and format ones by INVISIBLE.
+const SPACING = /[\t\n\r\u000b\u000c\u2028\u2029]+/g
+const CONTROLS = /[\u0000-\u001f\u007f-\u009f]/g
 
-  return hasSecret(typeof text === 'string' ? text : '') || hasSecret(cleaned) || hasInvite(typeof text === 'string' ? text : '') || hasInvite(cleaned) ? WITHHELD : cleaned
+/**
+ * The ONE path a string takes to the model (#3816). Every string this file returns, or puts in console_state, is built here: escape sequences go
+ * first, then control and invisible characters (removed, not spaced, so they cannot split a credential past a check), then the line is cut to
+ * `max`, and it is withheld whole when any form of it (raw, joined, cut) holds a secret shape or a minted invite code. `raw` may be anything:
+ * non-strings are empty.
+ */
+export function modelLine(raw: unknown, max: number): string {
+  const line = typeof raw === 'string' ? raw : ''
+  const joined = line.replace(ESCAPES, '').replace(SPACING, ' ').replace(INVISIBLE, '').replace(CONTROLS, '')
+  const text = plain(joined, max)
+
+  // A line that still holds an invite code (a bearer secret) is withheld whole, like any secret shape; one the terminal already masked is not.
+  return hasSecret(line) || hasSecret(joined) || hasSecret(text) || hasInvite(joined) ? SECRET_LINE : text
 }
 
-/** The console's state for the model: bounded, with control characters stripped. */
+/** Several lines through modelLine one by one (a result's output), each cut to `max`. */
+export const modelLines = (text: string, max = 4000): string => text.split('\n').map(line => modelLine(line, max)).join('\n')
+
+/** The console's state for the model: bounded, with control characters stripped and secrets withheld. */
 function stateJson(deps: ModelToolDeps, filter: string): string {
   const { state, control } = deps
   const ai = settingsOf(state).ai
   const now = Date.now()
-  const screen = viewText({ state, nowMs: now, columns: 90, act: control.actions }, state.view).split('\n').map(line => lineFor(line, 160)).join('\n').slice(0, SCREEN_MAX)
+  const screen = viewText({ state, nowMs: now, columns: 90, act: control.actions }, state.view).split('\n').map(line => modelLine(line, 160)).join('\n').slice(0, SCREEN_MAX)
   const words = filter.toLowerCase().split(/\s+/).filter(word => word !== '')
-  const all = paletteEntries(state, now).map(entry => ({ id: entry.id, label: plain(entry.label, 90) }))
+  const all = paletteEntries(state, now).filter(entry => !hasSecret(entry.id)).map(entry => ({ id: entry.id, label: modelLine(entry.label, 90) }))
   const entries = (words.length === 0 ? all : all.filter(entry => words.every(word => `${entry.id} ${entry.label}`.toLowerCase().includes(word)))).slice(0, words.length === 0 ? 60 : 40)
 
   return JSON.stringify({
     view: state.view,
     title: VIEWS.find(view => view.id === state.view)?.label ?? state.view,
     screen,
-    waiting: state.pending === null ? null : { ...(askedBy(state.pending) !== '' && { askedBy: askedBy(state.pending).replace(/: $/, '') }), label: plain(state.pending.label, 120), expect: plain(state.pending.expect, 160), note: state.pending.note === undefined ? undefined : plain(state.pending.note, 160) },
-    lastResult: state.outcome === null ? null : { label: plain(state.outcome.label, 100), ok: state.outcome.ok, detail: lineFor(state.outcome.detail, 200), lines: (state.outcome.lines ?? []).slice(0, 12).map(line => lineFor(line, 160)) },
+    waiting: state.pending === null ? null : { ...(askedBy(state.pending) !== '' && { askedBy: askedBy(state.pending).replace(/: $/, '') }), label: modelLine(state.pending.label, 120), expect: modelLine(state.pending.expect, 160), note: state.pending.note === undefined ? undefined : modelLine(state.pending.note, 160) },
+    lastResult: state.outcome === null ? null : { label: modelLine(state.outcome.label, 100), ok: state.outcome.ok, detail: modelLine(state.outcome.detail, 200), lines: (state.outcome.lines ?? []).slice(0, 12).map(line => modelLine(line, 160)), ...(state.outcome.expired === true && { expired: true }) },
     entries,
     entryCount: all.length,
     entriesNote: entries.length < (words.length === 0 ? all.length : entries.length) || (words.length > 0 && entries.length === 40) ? 'the list is cut: pass filter (words in an id or label) to find other entries' : undefined,
@@ -198,44 +229,11 @@ function optionChips(state: State): Map<string, string> {
   return new Map(pluginNames(state, (catalogOf(state).plugins ?? []).filter(plugin => plugin.options.length > 0).map(plugin => plugin.name)).map(name => [name.replace(/^ruflo-/, ''), name]))
 }
 
-const SET_FIELDS = ['goal', 'profile', 'rigor', 'research.question', 'research.depth', 'research.cap', 'cost.budget'] as const
-
-function setField(deps: ModelToolDeps, field: string, value: string): string | null {
-  const { state, control } = deps
-  const { mission } = control.actions
-
-  if (field === 'goal') mission.goal(value)
-  else if (field === 'profile') {
-    const found = PROFILES.find(profile => profile.id === value)
-
-    if (found === undefined) return `profile must be one of ${PROFILES.map(profile => profile.id).join(', ')}`
-    mission.profile(found.id)
-  } else if (field === 'rigor') {
-    const found = RIGORS.find(rigor => rigor === value)
-
-    if (found === undefined) return `rigor must be one of ${RIGORS.join(', ')}`
-    mission.rigor(found)
-  } else if (field === 'research.question') setResearch(state, { question: value })
-  else if (field === 'research.depth') {
-    const found = RESEARCH_DEPTHS.find(depth => depth === value)
-
-    if (found === undefined) return `research.depth must be one of ${RESEARCH_DEPTHS.join(', ')}`
-    setResearch(state, { depth: found })
-  } else if (field === 'research.cap') setResearch(state, { cap: value })
-  else if (field === 'cost.budget') control.actions.costBudgetDraft(value)
-  else if (field.startsWith('dev.') && DEV_FIELDS.includes(field.slice(4) as never)) control.actions.devtools.draft(field.slice(4) as never, value)
-  else return `unknown field "${plain(field, 40)}". Fields: ${[...SET_FIELDS, 'dev.<field>'].join(', ')}`
-
-  control.host.invalidate()
-
-  return null
-}
-
 /**
  * An action the console queued (a palette entry, or the follow-up a field raised) is held to the same rules: above the level it is
  * cancelled and nothing runs; in ask mode it waits for the person; in auto mode it confirms and reports. Null when nothing is pending.
  */
-async function settlePending(deps: ModelToolDeps, tool: string, id: string, askedAt: number): Promise<{ status: 'refused' | 'waiting' | 'done'; text: string } | null> {
+async function settlePending(deps: ModelToolDeps, tool: string, id: string, askedAt: number, own?: { call: number; card: number | null }): Promise<{ status: 'refused' | 'waiting' | 'done'; text: string } | null> {
   const { state, control } = deps
   const ai = settingsOf(state).ai
   const level = levelOf(ai.modelControl)
@@ -247,8 +245,13 @@ async function settlePending(deps: ModelToolDeps, tool: string, id: string, aske
   if (pending.source === 'you') {
     say(state, tool, `${id}: the person's card is waiting`, 'denied', pending.label)
 
-    return { status: 'refused', text: `an action is waiting for the person ("${plain(pending.label, 80)}"), so yours was not queued. Do not run another until they answer. Nothing ran.` }
+    return { status: 'refused', text: `an action is waiting for the person ("${modelLine(pending.label, 80)}"), so yours was not queued. Do not run another until they answer. Nothing ran.` }
   }
+
+  // Only a card this call started is settled here: the one it raised as it started (its id, taken then), or a deferred one that carries this call's
+  // number. A card that landed meanwhile from anything else (a screened ask of another call, a write queued earlier) is neither confirmed nor
+  // cancelled under this call's settlement (#3983): it waits for its own call, the person, or its window.
+  if (own !== undefined && pending.byCall !== own.call && !(pending.byCall === undefined && (pending.id ?? null) === own.card)) return null
 
   const kind = classOf(pending)
 
@@ -260,7 +263,7 @@ async function settlePending(deps: ModelToolDeps, tool: string, id: string, aske
     control.runner.cancel()
     say(state, tool, `${id}: needs ${NEEDS[kind]}`, 'denied', pending.label)
 
-    return { status: 'refused', text: `"${plain(pending.label, 80)}" is a ${kind} action and control is set to "${level}" (it needs "${NEEDS[kind]}"). The person can raise it in Settings → Claude control. Nothing ran.` }
+    return { status: 'refused', text: `"${modelLine(pending.label, 80)}" is a ${kind} action and control is set to "${level}" (it needs "${NEEDS[kind]}"). The person can raise it in Settings → Claude control. Nothing ran.` }
   }
 
   const budget = kind === 'read' ? Infinity : SESSION_BUDGET[kind]
@@ -271,7 +274,7 @@ async function settlePending(deps: ModelToolDeps, tool: string, id: string, aske
     control.runner.cancel()
     say(state, tool, `${id}: ${kind} budget used`, 'denied', pending.label)
 
-    return { status: 'refused', text: `the session budget for ${kind} actions (${budget}) is used up, so "${plain(pending.label, 80)}" was not queued. Tell the person what you wanted to do and let them do it in the console. Nothing ran.` }
+    return { status: 'refused', text: `the session budget for ${kind} actions (${budget}) is used up, so "${modelLine(pending.label, 80)}" was not queued. Tell the person what you wanted to do and let them do it in the console. Nothing ran.` }
   }
 
   state.control.used[kind] = used + 1
@@ -279,13 +282,13 @@ async function settlePending(deps: ModelToolDeps, tool: string, id: string, aske
   if (confirmOf(ai.modelConfirm) === 'ask' || ALWAYS_ASK.includes(kind) || over) {
     say(state, tool, id, 'waiting', pending.label)
 
-    return { status: 'waiting', text: `Waiting for the person to confirm in the console: "${plain(pending.label, 100)}" (${kind}${over ? `; the session budget of ${budget} auto-confirmed ${kind} actions is used up` : ''}). Expect: ${plain(pending.expect, 160)}. Do not repeat it; call console_state later to see the result.` }
+    return { status: 'waiting', text: `Waiting for the person to confirm in the console: "${modelLine(pending.label, 100)}" (${kind}${over ? `; the session budget of ${budget} auto-confirmed ${kind} actions is used up` : ''}). Expect: ${modelLine(pending.expect, 160)}. Do not repeat it; call console_state later to see the result.` }
   }
 
   // Mission Control reports its own actions on `last`, the rest on `outcome`: whichever moved is what happened.
   const lastBefore = mcOf(state).last
 
-  await asModel(state, () => control.runner.confirm())
+  await asModel(state, () => control.runner.confirm(pending.id))
   await control.runner.settled()
 
   // An action that brings its own run (creating a mission is several CLI calls) is not waited on by confirm: wait here, with a limit.
@@ -300,14 +303,33 @@ async function settlePending(deps: ModelToolDeps, tool: string, id: string, aske
   if (!isFinished) {
     say(state, tool, id, 'waiting', 'still running')
 
-    return { status: 'waiting', text: `Started: "${plain(pending.label, 100)}". It is still running after ${FINISH_MS / 1000} s; call console_state later to see the result.` }
+    return { status: 'waiting', text: `Started: "${modelLine(pending.label, 100)}". It is still running after ${FINISH_MS / 1000} s; call console_state later to see the result.` }
   }
 
-  return { status: 'done', text: `${done === null ? 'Ran' : done.ok ? 'Done' : 'Failed'}: ${plain(pending.label, 100)}.${done === null ? '' : ` ${plain(done.detail, 200)}`}` }
+  return { status: 'done', text: `${done === null ? 'Ran' : done.ok ? 'Done' : 'Failed'}: ${modelLine(pending.label, 100)}.${done === null ? '' : ` ${modelLine(done.detail, 200)}`}` }
 }
 
-/** One tool call. Always answers with text; a refusal says why and which setting to change. */
+/**
+ * One tool call. Always answers with text; a refusal says why and which setting to change. Whatever `answer` builds, every line of the text goes
+ * through modelLine once more on its way out (console_state's JSON is built field by field from modelLine and is not re-cut), so a builder that
+ * forgets it still cannot hand the model a secret.
+ */
 export async function callTool(name: string, input: Record<string, unknown>, deps: ModelToolDeps): Promise<string> {
+  // Only a call that settles what it queued (settlePending: run and set) counts as gating a late ask; console_open and console_state settle nothing.
+  const settles = name === 'console_run' || name === 'console_set'
+
+  if (settles) deps.state.control.activeCalls += 1
+
+  try {
+    const out = await answer(name, input, deps)
+
+    return name === 'console_state' ? out : modelLines(out)
+  } finally {
+    if (settles) deps.state.control.activeCalls -= 1
+  }
+}
+
+async function answer(name: string, input: Record<string, unknown>, deps: ModelToolDeps): Promise<string> {
   const { state, control } = deps
   const spec = TOOL_SPECS.find(candidate => candidate.name === name)
   const ai = settingsOf(state).ai
@@ -316,10 +338,10 @@ export async function callTool(name: string, input: Record<string, unknown>, dep
     say(state, name, summary, 'denied', why)
     control.host.invalidate()
 
-    return `Refused: ${why}`
+    return `Refused: ${modelLine(why, 600)}`
   }
 
-  if (spec === undefined) return `Refused: no such console tool "${plain(name, 40)}"`
+  if (spec === undefined) return `Refused: no such console tool "${modelLine(name, 40)}"`
   if (level === 'off') return refuse(name, 'Claude control is off. The person turns it on in Settings → Claude control.')
   if (state.control.paused) return refuse(name, 'the person took control back. Stop and ask them before trying again.')
   if (rank(level) < rank(spec.needs)) return refuse(name, `${name} needs the "${spec.needs}" level and control is set to "${level}". The person can raise it in Settings → Claude control.`)
@@ -331,6 +353,9 @@ export async function callTool(name: string, input: Record<string, unknown>, dep
   if (state.control.turnCalls > MAX_CALLS_PER_TURN) return refuse(name, `more than ${MAX_CALLS_PER_TURN} console actions in one turn. Summarise for the person and stop.`)
 
   try {
+    // A card past its window never blocks or reads as waiting: it is cleared first, with one event and "expired: ask again" as the last result.
+    if (state.pending !== null && isStale(state.pending)) control.runner.expireStale()
+
     if (name === 'console_state') {
       say(state, name, 'read the console', 'ok')
       control.host.invalidate()
@@ -348,7 +373,7 @@ export async function callTool(name: string, input: Record<string, unknown>, dep
       const picked = chip === '' ? undefined : chips.get(chip) ?? chips.get(chip.replace(/^ruflo-/, ''))
 
       // The chip is checked against the chips that exist before anything moves, and only the settings page has them.
-      if (chip !== '' && (view.id !== 'settings' || picked === undefined)) return refuse(`open ${view.id} chip`, view.id !== 'settings' ? 'chip applies only to the settings page.' : `no such chip "${plain(chip, 40)}". Chips: ${[...chips.keys()].join(', ')}`)
+      if (chip !== '' && (view.id !== 'settings' || picked === undefined)) return refuse(`open ${view.id} chip`, view.id !== 'settings' ? 'chip applies only to the settings page.' : `no such chip "${modelLine(chip, 40)}". Chips: ${[...chips.keys()].join(', ')}`)
 
       asModel(state, () => control.setView(view.id as ViewId))
       await control.open(false)
@@ -364,17 +389,18 @@ export async function callTool(name: string, input: Record<string, unknown>, dep
 
       if (leaksSecret(input.value, value)) return refuse(`set ${field}`, SECRET_REFUSAL)
 
-      if (state.pending !== null) return refuse(`set ${field}`, `an action is already waiting for the person ("${plain(state.pending.label, 80)}"). Do not change fields until they answer.`)
+      if (state.pending !== null) return refuse(`set ${field}`, `an action is already waiting for the person ("${modelLine(state.pending.label, 80)}"). Do not change fields until they answer${withdrawHint(state)}.`)
 
       const askedAt = Date.now()
-      const problem = asModel(state, () => setField(deps, field, value))
+      const call = ++state.control.callSeq
+      const problem = asModel(state, () => setFieldOf(deps, field, value, modelLine), call)
 
       if (problem !== null) return refuse(`set ${field}`, problem)
 
       say(state, name, `set ${field}`, 'ok', value)
 
       // Some fields raise a follow-up themselves (a goal is planned, then guidance is offered): it is held to the same rules.
-      const queued = await settlePending(deps, name, `after set ${field}`, askedAt)
+      const queued = await settlePending(deps, name, `after set ${field}`, askedAt, { call, card: (state as { pending: Pending | null }).pending?.id ?? null })
 
       return `Set ${field}.${queued === null ? ' It is only filled in: run a console entry to act on it.' : ` The console then queued a follow-up. ${queued.text}`}`
     }
@@ -385,30 +411,36 @@ export async function callTool(name: string, input: Record<string, unknown>, dep
 
     if (leaksSecret(input.text, text)) return refuse(`run ${id}`, SECRET_REFUSAL)
 
-    // The person's own waiting action is theirs to answer: never replaced, never cleared.
-    if (state.pending !== null) return refuse(`run ${id}`, `an action is already waiting for the person ("${plain(state.pending.label, 80)}"). Do not run another until they answer.`)
+    // The person's own waiting action is theirs to answer: never replaced, never cleared. Claude may take back only its own direct ask (the runner decides).
+    const blocked = id === WITHDRAW_ID ? asModel(state, () => control.runner.withdrawRefusal()) : state.pending === null ? null : `an action is already waiting for the person ("${modelLine(state.pending.label, 80)}"). Do not run another until they answer${withdrawHint(state)}.`
+
+    if (blocked !== null) return refuse(`run ${id}`, id === WITHDRAW_ID ? `not withdrawn: ${modelLine(blocked, 160)}. Nothing changed.` : blocked)
 
     const askedAt = state.outcome?.atMs ?? 0
 
-    if (!asModel(state, () => control.runner.runById(id, text, { exact: true }))) return refuse(`run ${id}`, `no palette entry "${plain(id, 40)}" right now. Call console_state for the entries.`)
+    const call = ++state.control.callSeq
+
+    if (!asModel(state, () => control.runner.runById(id, text, { exact: true, direct: true }), call)) return refuse(`run ${id}`, `no palette entry "${modelLine(id, 40)}" right now. Call console_state for the entries.`)
+
+    // The card this call raised, by id, taken before anything is awaited: a read still running below may be followed by a card that landed on its own.
+    const raisedCard = state.pending?.id ?? null
 
     await control.runner.settled()
 
-    if (state.pending === null) {
-      const done = state.outcome !== null && state.outcome.atMs > askedAt ? state.outcome : null
+    // Only a card this call started is settled by it (settlePending): the one it raised, or a deferred one carrying its number.
+    const settled = state.pending === null ? null : await settlePending(deps, name, `run ${id}`, askedAt, { call, card: raisedCard })
 
-      say(state, name, `run ${id}`, done === null || done.ok ? 'ok' : 'error', done?.detail ?? '')
+    if (settled !== null) return settled.status === 'refused' ? `Refused: ${settled.text}` : settled.text
 
-      return done === null ? `Ran ${id}.` : `${done.ok ? 'Done' : 'Failed'}: ${plain(done.label, 100)}. ${plain(done.detail, 200)}${(done.lines ?? []).length > 0 ? `\n${(done.lines ?? []).slice(0, 12).map(line => plain(line, 160)).join('\n')}` : ''}`
-    }
+    const done = state.outcome !== null && state.outcome.atMs > askedAt ? state.outcome : null
 
-    const settled = await settlePending(deps, name, `run ${id}`, askedAt)
+    say(state, name, `run ${id}`, done === null || done.ok ? 'ok' : 'error', done?.detail ?? '')
 
-    return settled === null ? `Ran ${id}.` : settled.status === 'refused' ? `Refused: ${settled.text}` : settled.text
+    return done === null ? `Ran ${id}.` : `${done.ok ? 'Done' : 'Failed'}: ${modelLine(done.label, 100)}. ${modelLine(done.detail, 200)}${(done.lines ?? []).length > 0 ? `\n${(done.lines ?? []).slice(0, 12).map(line => modelLine(line, 160)).join('\n')}` : ''}`
   } catch (error) {
     say(state, name, name, 'error', error instanceof Error ? error.message : 'failed')
 
-    return `Failed: ${plain(error instanceof Error ? error.message : 'the console action failed', 160)}`
+    return `Failed: ${modelLine(error instanceof Error ? error.message : 'the console action failed', 160)}`
   } finally {
     state.control.viaModel = false
     control.host.invalidate()

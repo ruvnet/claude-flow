@@ -134,3 +134,46 @@ over 200 lanes x 24 h, append 100 events, append 100 lane samples; `--check` fai
 Revert the commit. The files under `.claude-flow/console/` are the console's own and are ignored by older consoles (a line of another schema is
 skipped, a prefs file of a newer schema is left alone), so a rollback needs no cleanup; `rm .claude-flow/console/events.jsonl lanes.jsonl events-prefs.json`
 removes the history.
+
+## Update 2026-10-07: toast digests are events (ADR-477)
+
+Section 2 lists `notices` as an event kind and `src` as the part of the console that saw it. The toast system (ADR-477) is a new source of
+such events. Checked against `plugins/ruflo-console/hooks/toasts.ts` (`eventOf`, `pullToasts`), `hooks/activity-live.ts` (`gather`, `tick`,
+`TICK_MS`), `hooks/data/event-mask.ts` (`maskLine`), `hooks/data/event-severity.ts` (`levelOf`) and `hooks/data/activity-store.ts`
+(`encodeEvent`, `EVENTS_CAP`).
+
+**What an event looks like.** Every toast the plugins decided on, drawn or not, becomes one event with `kind: "notices"` and
+`src: "toast"` (the `src` is the literal `toast`; the toast's own plugin is in the text). The text is built by `eventOf` as
+
+    toast <source> <prefix> <washed text>[ [<why>]][ ×<n>]
+
+for example `toast swarm ✗ swarm: lead failed (timeout) [rate-limited] ×2`. `<prefix>` is the level glyph (`›` `✓` `⚠` `✗`), `<why>` is
+the outcome and is left out when the toast was `shown`, and `×<n>` appears when identical neighbouring digests were folded.
+Outcomes that can appear are `deduped`, `rate-limited`, `coalesced`, `muted`, `off`, `filtered`, `away` and `refused` (ADR-477,
+matrix). The event time is the digest's time, not the time the console read it.
+
+**Masking and caps.**
+
+- Masked twice before anything is persisted. The plugin's policy washes the text to one line of at most 120 characters (credentials,
+  e-mail addresses, home paths, escapes, control, zero-width, bidi and tag characters). The console then decodes every ring line again
+  (`decodeRing` re-washes the text; a file is not trusted) and `eventOf` passes the whole line through `maskLine(…, 200)`, the page's one
+  washing function. So a toast event is at most 200 characters, tighter than the 240 of section 2's schema; `encodeEvent` masks it once more
+  on write.
+- Sources: four plugins write digests (`console` in memory, `swarm`, `protector`, `mods` in files, ADR-477), but the reader accepts any
+  file name of the right shape: it reads `.claude-flow/console/toasts/<name>.jsonl`
+  for names matching `^[a-z][a-z0-9-]{0,23}$`, at most 12 files per pass, skips its own (`console` has no file; its digests are in memory),
+  and drops any line whose own source field differs from the file's name.
+- Volume: the console's in-memory digest queue is capped at 200 (`MAX_LOG`) and emptied by each pass; a ring file holds the plugin's last 60
+  digests and is read in its last 300 000 characters, lines over 600 characters skipped. A file is re-read only when its modification
+  time moved. De-duplication of what was already taken in uses a key of source, time, outcome, count and text, bounded at 600 keys.
+- Only digests newer than the console's own start are taken in (`sinceMs`), so history from an earlier session is not replayed as new events.
+- Timing: the same 1.5 s pass as the other sources (`TICK_MS`); a toast appears on the page within about that long of its digest being
+  written.
+- Retention and the off switch are the existing ones: appended to `events.jsonl` under the 2 MiB cap with the newest half kept past it, and
+  nothing is written when the `eventsPersist` option is off (the page still shows them for the session).
+
+**One behaviour to know.** The Events page does not carry the toast's own level. The level shown, filtered on and written as `level` is
+`levelOf("notices", text)` from the words (a bad word wins over a warn word, which wins over an ok word, else info). A `✗` toast whose
+words contain none of those reads as `info`, and the outcome flag can colour the line: `[refused]` is a bad word, so a toast the host
+refused reads as `bad`, and a `warn` toast that was only `rate-limited` or `deduped` reads by its words alone. Filter or alert on the word
+(`refused`, `failed`, `blocked`) rather than on the glyph.

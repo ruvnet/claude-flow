@@ -2,7 +2,7 @@
  * The Room's own state and actions (ADR-448): a draft, what the person said, and the feed's source filter, search, pause and paging. The
  * three things it can send are existing palette entries run exactly as `/ruflo run <id> <text>` would; each keeps its own confirm.
  */
-import { DRAFT_MAX, SAID_MAX, SAY_IDS, type RoomSource, type SayId, type Said } from './data/room'
+import { SAID_MAX, SAY_IDS, type RoomSource, type SayId, type Said } from './data/room'
 import { plain } from './data/parse'
 import type { State } from './state'
 
@@ -43,7 +43,7 @@ export function roomActions(state: State, invalidate: () => void, run: (id: stri
 
   return {
     draft: text => {
-      room.draft = plain(text, DRAFT_MAX)
+      room.draft = plain(text, Number.MAX_SAFE_INTEGER)
       invalidate()
     },
     say: id => {
@@ -67,7 +67,7 @@ export function roomActions(state: State, invalidate: () => void, run: (id: stri
       invalidate()
     },
     query: text => {
-      room.query = plain(text, 80)
+      room.query = plain(text, Number.MAX_SAFE_INTEGER)
       room.page = 0
       invalidate()
     },

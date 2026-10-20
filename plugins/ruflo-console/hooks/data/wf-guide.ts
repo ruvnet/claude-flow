@@ -11,11 +11,14 @@
  */
 import { handoffClaim, type ActionSpec } from '../actions'
 import { hiveBroadcast, hivePropose } from '../hive'
-import { textArg } from '../ops'
+import { ARGV_TEXT_MAX } from '../full-text'
+import { textArg, textRefusal } from '../ops'
 import { cleanText } from './wf-clean'
 import { membersOf } from './hive'
 import type { AgentRecord, ClaimRecord, HiveAgentRecord, HiveInfo, SwarmInfo, TaskRecord } from './parse'
 import { idOf, plain } from './parse'
+import { membersText, swarmMembersOf } from './swarm-status'
+import { taskStatusOf } from './automate'
 import type { WfAgent, WfRun } from './workflows'
 
 export type NestKind = 'swarm' | 'hive' | 'queen' | 'worker' | 'claim' | 'task' | 'note'
@@ -23,14 +26,15 @@ export type NestRow = { depth: number; kind: NestKind; label: string; detail: st
 
 const MAX_ROWS = 60
 const isOpenClaim = (claim: ClaimRecord): boolean => !/released|completed|cancel/i.test(claim.status)
-const isOpenTask = (task: TaskRecord): boolean => !/completed|failed|cancelled/i.test(task.status)
+// Finished by its canonical status ("complete", "done", "canceled" from older CLIs included).
+const isOpenTask = (task: TaskRecord): boolean => !['completed', 'failed', 'cancelled'].includes(taskStatusOf(task.status))
 
 /** swarm > hive (queen) > worker > claim > task, each level only from what the stores say; a missing level is a note, never invented. */
 export function nestingOf(input: { swarm: SwarmInfo | null; hive: HiveInfo | null; agents: readonly AgentRecord[]; hiveAgents: readonly HiveAgentRecord[]; claims: readonly ClaimRecord[]; tasks: readonly TaskRecord[] }): NestRow[] {
   const { swarm, hive, agents, hiveAgents, claims, tasks } = input
   const rows: NestRow[] = []
 
-  rows.push(swarm === null ? { depth: 0, kind: 'note', label: 'no swarm', detail: 'swarm init has not run here' } : { depth: 0, kind: 'swarm', label: swarm.id, detail: `${swarm.topology}${swarm.strategy === undefined ? '' : ` · ${swarm.strategy}`} · ${swarm.status} · ${swarm.agentIds.length} agents` })
+  rows.push(swarm === null ? { depth: 0, kind: 'note', label: 'no swarm', detail: 'swarm init has not run here' } : { depth: 0, kind: 'swarm', label: swarm.id, detail: `${swarm.topology}${swarm.strategy === undefined ? '' : ` · ${swarm.strategy}`} · ${swarm.status} · ${membersText(swarmMembersOf(swarm, agents))}` })
 
   if (hive === null) {
     rows.push({ depth: 1, kind: 'note', label: 'no hive-mind', detail: 'no queen and no workers: agents are not grouped under a hive' })
@@ -103,7 +107,9 @@ export type GuideInput = {
 /** Free text for a card, a broadcast or a memory note: plain, bounded, no leading dash, and nothing a credential mask would change. */
 export function guardText(value: string, max: number): { ok: true; text: string } | { ok: false; why: string } {
   const text = textArg(value, max)
+  const over = text === null ? textRefusal(value, 'the text', max) : null
 
+  if (over !== null) return { ok: false, why: over }
   if (text === null) return { ok: false, why: value.trim() === '' ? 'type the guidance first (the field above)' : 'the text cannot start with a dash' }
   if (cleanText(text) !== text) return { ok: false, why: 'the text looks like it holds a credential: it is not sent' }
 
@@ -127,7 +133,7 @@ function picks(input: GuideInput): { agent: AgentRecord | null; claim: ClaimReco
 /** The memory note: stored in the shared `guidance` namespace, found by a memory search; nothing pushes it into a running agent. */
 function memoryNote(input: GuideInput, text: string): ActionSpec | null {
   const scope = cleanText(`${input.run.name} · ${input.agent?.label ?? 'whole run'}`)
-  const value = textArg(`guidance for ${scope}: ${text}`, 500)
+  const value = textArg(`guidance for ${scope}: ${text}`)
   const key = `guidance-${input.run.id.replace(/[^A-Za-z0-9]/g, '').slice(-8)}-${input.nowMs}`
 
   return value === null ? null : { label: `store a guidance note for ${scope.slice(0, 40)} in namespace guidance`, args: ['memory', 'store', '--key', key, '--value', value, '--namespace', 'guidance'], expect: 'one more entry in the guidance memory namespace', note: 'Writes one memory entry. It is found by a memory search; nothing is pushed into a running agent.' }
@@ -143,7 +149,7 @@ export function redirectText(run: WfRun, agent: WfAgent | null, text: string, is
 
 /** What the guide tab offers for the run and agent under the cursor, each with its exact send and whether anything acts on it. */
 export function guideActions(input: GuideInput): GuideAction[] {
-  const typed = guardText(input.text, 300)
+  const typed = guardText(input.text, ARGV_TEXT_MAX)
 
   if (!typed.ok) return [none('guide', 'guidance', 'record-only', typed.why)]
 

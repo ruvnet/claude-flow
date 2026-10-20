@@ -6,6 +6,7 @@
  * always travels as one argv element or one JSON string, never through a shell. Pure: entries, validators and specs,
  * no `$`; the actions at the bottom hand specs to the runner.
  */
+import { ARGV_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import type { MemoryEntry } from './data/cli'
 import { plain } from './data/parse'
@@ -60,13 +61,16 @@ export const keyOf = (value: string | undefined): string | null => (value !== un
 /** Free text as one argv element, refused (not clipped) when longer than `max`: a stored value is never cut short. */
 const bounded = (value: string, max: number): string | null => (value.trim().length > max ? null : textArg(value, max))
 
+/** One argv element (ADR-481): the largest text of a memory field. */
+const FIELD_MAX = ARGV_TEXT_MAX
+
 /** The text after an entry's id, read into the fields it takes; null when any part would not survive the CLI. */
 export function parseInput(takes: MemTakes, raw: string): MemInput | null {
   const words = raw.trim().split(/\s+/).filter(Boolean)
 
   switch (takes) {
     case 'text': {
-      const text = bounded(raw, 300)
+      const text = bounded(raw, FIELD_MAX)
 
       return text === null ? null : { text }
     }
@@ -77,8 +81,8 @@ export function parseInput(takes: MemTakes, raw: string): MemInput | null {
     }
     case 'pair': {
       const [a = '', b = '', ...extra] = raw.split('|')
-      const text = bounded(a, 300)
-      const other = bounded(b, 300)
+      const text = bounded(a, FIELD_MAX)
+      const other = bounded(b, FIELD_MAX)
 
       return text === null || other === null || extra.length > 0 ? null : { text, other }
     }
@@ -94,7 +98,7 @@ export function parseInput(takes: MemTakes, raw: string): MemInput | null {
       const [space, name] = words
       const namespace = namespaceOf(space)
       const key = keyOf(name)
-      const value = takes === 'kv' ? bounded(raw.trim().slice((space?.length ?? 0) + 1).trim().slice(name?.length ?? 0), 2000) : undefined
+      const value = takes === 'kv' ? bounded(raw.trim().slice((space?.length ?? 0) + 1).trim().slice(name?.length ?? 0), FIELD_MAX) : undefined
 
       if (namespace === null || key === null || (takes === 'entry' && words.length !== 2) || value === null) return null
 

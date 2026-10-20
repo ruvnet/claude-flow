@@ -22,6 +22,9 @@ import { domainForScope } from './scopes.js';
 /** Refresh before there is less than one minute left on the access token. */
 export const ACCESS_TOKEN_REFRESH_WINDOW_MS = 60_000;
 
+// A rotating refresh credential may be spent only once per process attempt.
+const pendingRefreshes = new Map<string, Promise<string>>();
+
 export interface LoginResult {
   tokens: OAuthTokenResponse;
   method: 'pkce' | 'device' | 'token-stdin';
@@ -248,30 +251,43 @@ export async function getValidAccessToken(profileName = 'default'): Promise<stri
 
   const cached = getSessionToken(profileName, ACCESS_TOKEN_REFRESH_WINDOW_MS);
   if (cached) return cached;
-  if (!profile.keychainRef) throw new SessionOnlyExpiredError(profileName);
+  const keychainRef = profile.keychainRef;
+  if (!keychainRef) throw new SessionOnlyExpiredError(profileName);
 
-  const sec = await loadSecurityOAuth();
-  const keychain = await sec.createKeychainAdapter();
-  const refreshTokenValue = await keychain.getSecret(KEYCHAIN_SERVICE, profile.keychainRef);
-  if (!refreshTokenValue) throw new SessionOnlyExpiredError(profileName);
+  const refreshKey = JSON.stringify([profileName, keychainRef]);
+  const pending = pendingRefreshes.get(refreshKey);
+  if (pending) return pending;
 
-  const refreshed = await refreshAccessToken(refreshTokenValue);
-  if (!refreshed.access_token) throw new Error('Cognitum refresh response did not contain an access token');
+  const refresh = (async () => {
+    const sec = await loadSecurityOAuth();
+    const keychain = await sec.createKeychainAdapter();
+    const refreshTokenValue = await keychain.getSecret(KEYCHAIN_SERVICE, keychainRef);
+    if (!refreshTokenValue) throw new SessionOnlyExpiredError(profileName);
 
-  // Cognitum rotates refresh tokens with reuse detection. Commit the rotated
-  // credential first; if this write fails, do not publish/cache the access
-  // token and do not retry the already-spent old refresh token here.
-  if (refreshed.refresh_token) {
-    await keychain.setSecret(KEYCHAIN_SERVICE, profile.keychainRef, refreshed.refresh_token);
+    const refreshed = await refreshAccessToken(refreshTokenValue);
+    if (!refreshed.access_token) throw new Error('Cognitum refresh response did not contain an access token');
+
+    // Cognitum rotates refresh tokens with reuse detection. Commit the rotated
+    // credential first; if this write fails, do not publish/cache the access
+    // token and do not retry the already-spent old refresh token here.
+    if (refreshed.refresh_token) {
+      await keychain.setSecret(KEYCHAIN_SERVICE, keychainRef, refreshed.refresh_token);
+    }
+
+    const expiresAtMs = Date.now() + Math.max(0, refreshed.expires_in ?? 0) * 1000;
+    setSessionToken(profileName, refreshed.access_token, expiresAtMs);
+    setProfile(profileName, {
+      ...profile,
+      accountId: refreshed.account_email ?? profile.accountId,
+      accessTokenExpiresAt: new Date(expiresAtMs).toISOString(),
+      linkedAt: new Date().toISOString(),
+    });
+    return refreshed.access_token;
+  })();
+  pendingRefreshes.set(refreshKey, refresh);
+  try {
+    return await refresh;
+  } finally {
+    pendingRefreshes.delete(refreshKey);
   }
-
-  const expiresAtMs = Date.now() + Math.max(0, refreshed.expires_in ?? 0) * 1000;
-  setSessionToken(profileName, refreshed.access_token, expiresAtMs);
-  setProfile(profileName, {
-    ...profile,
-    accountId: refreshed.account_email ?? profile.accountId,
-    accessTokenExpiresAt: new Date(expiresAtMs).toISOString(),
-    linkedAt: new Date().toISOString(),
-  });
-  return refreshed.access_token;
 }

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { boardAt, buildTimeline, describeStep, isPlaying, jumpReplay, newReplay, offsetOf, phaseSteps, SPEEDS, stepNow, stepReplay } from '../hooks/data/wf-replay'
-import { swarmRun } from '../hooks/data/workflows'
+import { swarmRun } from '../hooks/data/wf-swarm'
 import { BASE, runOf } from './fixtures/wf-runs'
 
 const run = runOf('wf_a', BASE)

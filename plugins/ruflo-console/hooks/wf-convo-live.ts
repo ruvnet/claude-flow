@@ -8,6 +8,7 @@ import type { ActionSpec } from './actions'
 import { cleanText } from './data/wf-clean'
 import { addMessage, applyFetch, FETCH_MAX, fromBbs, fromChannel, newConvo, pollParams, POLL_MAX, POLL_MS, recordSend, relayBody, lastAnswer, threadOf, transcriptMarkdown, transcriptName, type Convo } from './data/wf-convo'
 import { checkNoLinks, EXPORT_DIR, resolveExportPath } from './data/wf-file'
+import { writeFlavorReady } from './data/write-flavor'
 import { exportSpec } from './data/wf-export'
 import { payloadOf, sendTo, type SendDeps, tidy } from './data/wf-send'
 import { parseConfig, peersOf, targetsOf, type Config, type PeerRef, type Target } from './data/wf-targets'
@@ -261,7 +262,7 @@ export async function saveTranscript(state: State, target: Target, ask: (spec: A
   const made = transcriptMarkdown(thread, target, Date.now())
   const hasDir = (await host.fs.stat(clear.path.slice(0, Math.max(1, clear.path.lastIndexOf('/')))).catch(() => undefined)) !== undefined
 
-  ask({ ...exportSpec(clear.path, made.text, cleanText(target.id), hasDir), label: `save the ${target.id} conversation${made.isCut ? ' (cut at the cap)' : ''}` }, 'that transcript cannot be written')
+  ask({ ...exportSpec(clear.path, made.text, cleanText(target.id), hasDir, await writeFlavorReady()), label: `save the ${target.id} conversation${made.isCut ? ' (cut at the cap)' : ''}` }, 'that transcript cannot be written')
 }
 
 /** For tests: drops the held conversation and host of a state, and stops its timers. */

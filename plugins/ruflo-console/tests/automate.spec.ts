@@ -68,6 +68,11 @@ describe('the catalog', () => {
     expect(taskVerbs('completed')).toEqual([])
     expect(['pending', 'in_progress', 'completed', 'cancelled', 'weird'].map(laneOf)).toEqual(['pending', 'running', 'done', 'done', 'pending'])
   })
+
+  it('a task an older CLI stored as "complete" is done, not pending, and offers no assign or cancel', () => {
+    expect(['complete', 'Completed ', 'in-progress', 'canceled'].map(laneOf)).toEqual(['done', 'done', 'running', 'done'])
+    expect(taskVerbs('complete')).toEqual([])
+  })
 })
 
 describe('typed values', () => {
@@ -75,7 +80,8 @@ describe('typed values', () => {
     expect(freeText('fix the login bug')).toBe('fix the login bug')
     expect(freeText('--force')).toBeNull()
     expect(freeText('')).toBeNull()
-    expect(freeText('x'.repeat(201))).toBeNull()
+    expect(freeText('x'.repeat(8000))).not.toBeNull()
+    expect(freeText('x'.repeat(8001))).toBeNull()
     expect(freeText('a\u0000b')).toBe('a b')
     expect(freeText('fix the login — it loops “again”…')).toBe('fix the login — it loops “again”…')
   })

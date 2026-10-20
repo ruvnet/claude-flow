@@ -76,7 +76,7 @@ If a run crashes, restart with the same flags. The loader checks for a
 node $(npm root -g)/@claude-flow/cli/bin/cli.js gaia-bench run \
   --level 1 --limit 53 \
   --models claude-sonnet-4-6 \
-  --concurrency 3 --voting 1 \
+  --concurrency 3 --voting-attempts 1 \
   --output json
 ```
 
@@ -91,8 +91,8 @@ node $(npm root -g)/@claude-flow/cli/bin/cli.js gaia-bench run \
 ## Steps Claude should follow
 
 1. Check that `ANTHROPIC_API_KEY` and `HF_TOKEN` are set; if not, prompt user
-2. Run the cost estimate: `node … gaia-bench run --dry-run --level $LEVEL --limit $LIMIT --models $MODELS`
-3. If estimated cost > $5, show the estimate and ask for confirmation
+2. Estimate the cost. `gaia-bench run` has NO `--dry-run` (an unknown flag is silently ignored and the run starts for real and spends money), so estimate from measured history (`/gaia history`, `/gaia cost`) or from a 1-question smoke run (`--smoke-only --limit 1`, a real call, a few cents) multiplied by `$LIMIT`
+3. If the estimate is over $5, or you could not produce one, show what you have and ask for explicit confirmation before step 4
 4. Execute: `node … gaia-bench run --level $LEVEL --limit $LIMIT --models $MODELS --concurrency $CONCURRENCY --output json`
 5. Parse JSON output and display a summary table (model | pass-rate | cost | mean-turns)
 6. Store the run record in memory: `npx @claude-flow/cli@latest memory store --namespace gaia-runs --key "run-$(date +%Y%m%d-%H%M)" --value "$SUMMARY"`

@@ -10,6 +10,7 @@
  * @module @claude-flow/memory/controller-registry
  */
 
+import { withAgentdbLockRecovery, closeWithAgentdbLockRecovery, AgentdbLockError, isConcurrentModificationError } from './agentdb-lock-guard.js';
 import { EventEmitter } from 'node:events';
 import type {
   IMemoryBackend,
@@ -26,6 +27,7 @@ import type { MemoryGraphConfig } from './memory-graph.js';
 import { TieredCacheManager } from './cache-manager.js';
 import type { CacheConfig } from './types.js';
 import { TieredMemoryStore } from './tiered-memory.js';
+import { useHostSqliteDriver } from './agentdb-native-driver.js';
 
 // ===== Types =====
 
@@ -246,6 +248,7 @@ export const INIT_LEVELS: InitLevel[] = [
 export class ControllerRegistry extends EventEmitter {
   private controllers: Map<ControllerName, ControllerEntry> = new Map();
   private agentdb: any = null;
+  private dbPath: string | undefined;
   private backend: IMemoryBackend | null = null;
   private config: RuntimeConfig = {};
   private initialized = false;
@@ -343,14 +346,30 @@ export class ControllerRegistry extends EventEmitter {
 
     // Shutdown AgentDB
     if (this.agentdb) {
+      let persistFailure: AgentdbLockError | null = null;
       try {
         if (typeof this.agentdb.close === 'function') {
-          await this.agentdb.close();
+          const closeFn = () => this.agentdb.close();
+          await closeWithAgentdbLockRecovery(this.dbPath, closeFn);
         }
-      } catch {
-        // Best-effort cleanup
+      } catch (error) {
+        // Best-effort cleanup for ordinary close errors, but a failed
+        // PERSIST (stale/live lock or concurrent writer) must never be
+        // swallowed: the caller has to know pending changes were not saved.
+        if (error instanceof AgentdbLockError || isConcurrentModificationError(error)) {
+          persistFailure = error instanceof AgentdbLockError
+            ? error
+            : new AgentdbLockError('AgentDB failed to persist on close; pending changes were NOT saved.', 'unverifiable', { cause: error });
+          this.emit('agentdb:persist-failed', { reason: persistFailure.message });
+        }
       }
       this.agentdb = null;
+      if (persistFailure) {
+        this.controllers.clear();
+        this.initialized = false;
+        this.emit('shutdown');
+        throw persistFailure;
+      }
     }
 
     this.controllers.clear();
@@ -541,7 +560,7 @@ export class ControllerRegistry extends EventEmitter {
         return;
       }
 
-      this.agentdb = new AgentDBClass({ dbPath });
+      this.dbPath = dbPath;
 
       // Suppress agentdb's noisy info-level output during init
       // using stderr redirect instead of monkey-patching console.log
@@ -556,7 +575,15 @@ export class ControllerRegistry extends EventEmitter {
         if (!suppressFilter(args)) origLog.apply(console, args);
       };
       try {
-        await this.agentdb.initialize();
+        // agentdb >= alpha.20 refuses sql.js saves while a `<db>.agentdb.lock`
+        // exists. A lock left by a dead writer is cleared (only when provably
+        // stale) and init retried once with a fresh instance.
+        await withAgentdbLockRecovery(dbPath, async () => {
+          this.agentdb = new AgentDBClass({ dbPath });
+          // Keep agentdb's nested better-sqlite3 11.x out of the process (Node 24 abort).
+          useHostSqliteDriver(this.agentdb);
+          await this.agentdb.initialize();
+        });
       } finally {
         console.log = origLog;
       }

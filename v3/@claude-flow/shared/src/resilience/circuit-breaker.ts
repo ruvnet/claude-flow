@@ -183,9 +183,9 @@ export class CircuitBreaker extends EventEmitter {
       successes: this.requests.filter((r) => r.success).length,
       totalRequests: this.requests.length,
       rejectedRequests: this.rejectedCount,
-      lastFailure: this.lastFailure,
-      lastSuccess: this.lastSuccess,
-      openSince: this.openedAt,
+      lastFailure: this.lastFailure ? new Date(this.lastFailure.getTime()) : null,
+      lastSuccess: this.lastSuccess ? new Date(this.lastSuccess.getTime()) : null,
+      openSince: this.openedAt ? new Date(this.openedAt.getTime()) : null,
     };
   }
 
@@ -213,6 +213,7 @@ export class CircuitBreaker extends EventEmitter {
    * Handle successful request
    */
   private onSuccess(): void {
+    this.cleanOldRequests();
     this.lastSuccess = new Date();
     this.requests.push({ timestamp: Date.now(), success: true });
 
@@ -230,6 +231,7 @@ export class CircuitBreaker extends EventEmitter {
    * Handle failed request
    */
   private onFailure(error: Error): void {
+    this.cleanOldRequests();
     this.lastFailure = new Date();
     this.requests.push({ timestamp: Date.now(), success: false });
 

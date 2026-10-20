@@ -119,6 +119,9 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, options
     world.stats.push(e.path)
     const text = all.get(e.path)
 
+    // A folder that holds a file stats as a directory, as a real one does (the ADRs page asks before it lists).
+    if (!refuse && text === undefined && [...all.keys()].some(path => path.startsWith(`${e.path}/`))) return { value: { kind: 'dir' as const, size: 0, mtimeMs: 1, isLink: false } }
+
     return refuse || text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: { kind: 'file' as const, size: text.length, mtimeMs: mtimes.get(e.path) ?? 0, isLink: false } }
   })
   on('fs.list', ($, e) => {

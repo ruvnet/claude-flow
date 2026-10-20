@@ -119,3 +119,8 @@ export function approvalsOf(state: State): Approval[] {
   return out
 }
 
+
+/** The approvals a person can act on: rows with at least one action. The rest (a refused mod, a permission deny) are notices that stay on the page but are not "waiting" (#3920). */
+export function waitingApprovalsOf(state: State): Approval[] {
+  return approvalsOf(state).filter(item => item.actions.length > 0)
+}

@@ -194,11 +194,11 @@ describe('what Claude may do at each level', () => {
     expect({ goal: calls.goal, profile: calls.profile, draft: calls.draft }).toEqual({ goal: ['add a dark mode toggle'], profile: ['bugfix'], draft: [['task', 'review my PR']] })
   })
 
-  it('caps a value at 500 characters and strips control characters', async () => {
+  it('keeps a value whole up to the shared limit and strips control characters', async () => {
     const { deps, calls } = setup('write')
 
     await callTool('console_set', { field: 'goal', value: `a\u001b[31m${'b'.repeat(900)}` }, deps)
-    expect(calls.goal[0]?.length).toBeLessThanOrEqual(500)
+    expect(calls.goal[0]?.length).toBe(901)
     expect(calls.goal[0]).not.toContain('\u001b')
   })
 })

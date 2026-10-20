@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { ActionSpec } from '../hooks/actions'
-import { swarmRun } from '../hooks/data/workflows'
+import { swarmRun } from '../hooks/data/wf-swarm'
 import { newState } from '../hooks/state'
 import type { Host } from '../hooks/host'
 import { workflowsActions } from '../hooks/wf-actions'

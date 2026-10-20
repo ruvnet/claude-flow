@@ -5,7 +5,7 @@
 import { eventsActions, eventsModel, eventsUi } from './events-ui'
 import { formatOf } from './data/event-export'
 import { maskLine } from './data/event-mask'
-import { EMPTY_QUERY, parseQuery } from './data/event-query'
+import { EMPTY_QUERY, parseQuery, QUERY_MAX } from './data/event-query'
 import { isLevel } from './data/event-severity'
 import { isWindowId } from './data/event-stats'
 import { EVENT_KINDS } from './data/events'
@@ -115,7 +115,7 @@ export function applyEventsArgs(state: State, args: readonly string[]): { text: 
 
   const joined = args.join(' ')
 
-  ui.query = maskLine(joined, 200)
+  ui.query = maskLine(joined, QUERY_MAX)
   ui.parsed = parseQuery(ui.query)
   sync()
 

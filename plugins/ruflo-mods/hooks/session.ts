@@ -1,16 +1,33 @@
 import type { EngineInterface, On } from 'claude-code'
 import type { GuidanceHooks } from './guidance'
 
+import { detectBrain } from './grounding'
 import { versionText } from './probe'
 import { HANDSHAKE_MARKER, ownedEvents } from './ownership'
 import type { ModOptions } from './options'
+import { ATTENTION_MAX_BYTES, ATTENTION_STATUS, attentionLine } from './attention'
 import { MAX_BYTES, PROTECTOR_STATUS, protectorLine } from './protector'
 import { redraw, report, under, type ModState } from './state'
+import { runSelfCheck } from './selfcheck'
 import { bindToasts } from './toast'
 
 /** `/ruflo-mods` plus the protector row when `.claude-flow/protector-mod/status.json` is present and readable (bounded, regular file only). */
-async function reportWithProtector($: EngineInterface, s: ModState): Promise<string> {
-  const base = report(s)
+/** The `attention:` row when the sessionAttention option is on and the console's summary file is a small regular file; never anything else. */
+async function attentionRow($: EngineInterface, s: ModState, on: boolean): Promise<string | undefined> {
+  if (!on) return undefined
+  try {
+    const path = under(s, ATTENTION_STATUS)
+    const st = await $.fs.stat(path)
+    if (st.kind !== 'file' || st.size > ATTENTION_MAX_BYTES) return undefined
+    return attentionLine(await $.fs.read(path), await $.clock.now().catch(() => Date.now()))
+  } catch {
+    return undefined
+  }
+}
+
+async function reportWithProtector($: EngineInterface, s: ModState, withAttention = false): Promise<string> {
+  const extra = await attentionRow($, s, withAttention)
+  const base = extra === undefined ? report(s) : `${report(s)}\n${extra}`
   try {
     const path = under(s, PROTECTOR_STATUS)
     const st = await $.fs.stat(path)
@@ -52,6 +69,21 @@ async function helperHonours($: EngineInterface): Promise<boolean> {
   return true
 }
 
+/** ADR-485: the brain's status from installed_plugins.json and the merged settings; any failure is `unknown`. */
+async function detectGrounding($: EngineInterface, settings: unknown) {
+  try {
+    const dir = (await $.env.get('CLAUDE_CONFIG_DIR').catch(() => undefined)) || `${(await $.env.get('HOME').catch(() => undefined)) ?? ''}/.claude`
+    const path = `${dir}/plugins/installed_plugins.json`
+    const stat = await $.fs.stat(path)
+
+    if (stat.kind !== 'file' || stat.size > 2_000_000) return detectBrain(null, settings)
+
+    return detectBrain(await $.fs.read(path), settings)
+  } catch {
+    return detectBrain(null, settings)
+  }
+}
+
 /** Whether a ruflo statusLine is configured: then the mod draws none. */
 function hasClassicStatusLine(settings: unknown): boolean {
   const command = (settings as { statusLine?: { command?: unknown } } | null)?.statusLine?.command
@@ -79,10 +111,12 @@ export function registerSession(on: On, state: ModState, options: ModOptions, gu
     // neither own project events nor be created by the display heartbeat.
     const project = await $.fs.stat(under(state, '.claude-flow')).then(stat => stat.kind === 'dir').catch(() => false)
     const settings = await $.settings.read()
+    if (options.selfCheck) await runSelfCheck({ read: path => $.fs.read(path), exists: path => $.fs.exists(path), home: () => $.env.get('HOME'), configDirEnv: () => $.env.get('CLAUDE_CONFIG_DIR') }, state, (settings as { enabledPlugins?: unknown } | null)?.enabledPlugins)
     state.owned = new Set(project ? ownedEvents(settings, await helperHonours($)) : [])
     await $.env.set('RUFLO_MODS_OWNS', state.owned.size ? [...state.owned].join(',') : undefined)
     state.statusLine = options.statusLine && !hasClassicStatusLine(settings)
     if (state.probe.enabled) state.probe.version = versionText(await $.session.version().catch(() => undefined))
+    if (state.grounding.enabled) state.grounding.status = await detectGrounding($, settings)
     guidance?.start()
     redraw(state)
     await $.command
@@ -108,13 +142,13 @@ export function registerSession(on: On, state: ModState, options: ModOptions, gu
     return next(e)
   })
 
-  on('command.run', { command: 'ruflo-mods' }, async $ => ({ text: await reportWithProtector($, state) }))
+  on('command.run', { command: 'ruflo-mods' }, async $ => ({ text: await reportWithProtector($, state, options.sessionAttention) }))
 
   // `/ruflo` is ruflo-console's one command for every ruflo mod; its `mods` subcommand is this report. The console
   // registers `/ruflo`; this hook answers `mods` wherever it sits in the chain and passes every other word on.
   // `/ruflo-mods` above stays registered as its alias: ADR-406 removes, renames or reassigns no command.
   // `/ruflo-console` is the same command as `/ruflo` (kept by ADR-406), so its `mods` is answered too.
   for (const command of ['ruflo', 'ruflo-console'] as const) {
-    on('command.run', { command }, async ($, e, next) => (e.args.trim().split(/\s+/)[0]?.toLowerCase() === 'mods' ? { text: await reportWithProtector($, state) } : next(e)))
+    on('command.run', { command }, async ($, e, next) => (e.args.trim().split(/\s+/)[0]?.toLowerCase() === 'mods' ? { text: await reportWithProtector($, state, options.sessionAttention) } : next(e)))
   }
 }

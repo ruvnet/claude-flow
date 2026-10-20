@@ -14,7 +14,7 @@ export const HIT_ORDER: readonly HitLevel[] = ['run', 'phase', 'agent', 'tool', 
 export const HIT_NAME: Record<HitLevel, string> = { run: 'Runs', phase: 'Phases', agent: 'Agents', tool: 'Tool calls', text: 'Transcript text', mission: 'Mission tasks' }
 
 export const MIN_QUERY = 2
-export const MAX_QUERY = 80
+export const MAX_QUERY = 20_000
 export const MAX_SHOWN = 6
 /** Characters of transcript text looked through in one search, across all agents. */
 export const SCAN_CHARS = 8_000_000

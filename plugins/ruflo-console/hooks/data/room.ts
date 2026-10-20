@@ -20,7 +20,7 @@ export type Said = { atMs: number; id: SayId; text: string; label: string | null
 
 export const ROOM_MAX = 200
 export const SAID_MAX = 50
-export const DRAFT_MAX = 500
+export const DRAFT_MAX = 10_000
 
 type Outcome = { label: string; ok: boolean; detail: string; atMs: number } | null
 type Pending = { label: string } | null

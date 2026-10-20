@@ -10,7 +10,9 @@
 
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, renameSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { resolve, join, dirname } from 'node:path';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { homedir } from 'node:os';
 import { writeFileAtomic } from './fs-secure.js';
 
@@ -342,14 +344,43 @@ export function calculateReward(iterations: number, durationMs: number): number 
 
 // ── Learning Integration ──────────────────────────────────────
 
-export async function tryLoadLearning(): Promise<{ initialize: () => Promise<boolean>; [key: string]: unknown } | null> {
-  try {
-    const modPath = 'agentic-flow/dist/coordination/autopilot-learning.js';
-    const mod = await import(/* webpackIgnore: true */ modPath).catch(() => null);
-    if (mod?.AutopilotLearning) {
-      const instance = new mod.AutopilotLearning();
-      if (await instance.initialize()) return instance;
+let lastLearningLoadError: string | null = null;
+
+/** Why the last tryLoadLearning() returned null (null when it succeeded or was never called). */
+export function getLearningLoadError(): string | null {
+  return lastLearningLoadError;
+}
+
+/**
+ * agentic-flow's `exports` map does not expose dist/coordination/*, so a bare
+ * specifier import throws ERR_PACKAGE_PATH_NOT_EXPORTED (#4146). Resolve the
+ * package root through its exported entry point and import the file by URL.
+ */
+function resolveAutopilotLearningUrl(): string {
+  const req = createRequire(import.meta.url);
+  let dir = dirname(req.resolve('agentic-flow'));
+  for (let i = 0; i < 6; i++) {
+    if (existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'dist', 'coordination', 'autopilot-learning.js'))) {
+      return pathToFileURL(join(dir, 'dist', 'coordination', 'autopilot-learning.js')).href;
     }
-  } catch { /* not available */ }
+    dir = dirname(dir);
+  }
+  throw new Error('agentic-flow does not ship dist/coordination/autopilot-learning.js');
+}
+
+export async function tryLoadLearning(): Promise<{ initialize: () => Promise<boolean>; [key: string]: unknown } | null> {
+  lastLearningLoadError = null;
+  try {
+    const mod = await import(/* webpackIgnore: true */ resolveAutopilotLearningUrl());
+    if (!mod?.AutopilotLearning) {
+      lastLearningLoadError = 'agentic-flow autopilot-learning module has no AutopilotLearning export';
+      return null;
+    }
+    const instance = new mod.AutopilotLearning();
+    if (await instance.initialize()) return instance;
+    lastLearningLoadError = 'AutopilotLearning.initialize() returned false (AgentDB not initialized)';
+  } catch (e) {
+    lastLearningLoadError = `Could not load agentic-flow autopilot learning: ${e instanceof Error ? e.message : String(e)}`;
+  }
   return null;
 }

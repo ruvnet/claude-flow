@@ -46,7 +46,9 @@ describe('#3286 auto-memory project root', () => {
   for (const [name, source] of [['package', packageHook], ['repository', dogfoodHook]] as const) {
     it(`${name} helper imports and syncs into the project when invoked from HOME`, () => {
       const { project, home, hook } = fixture(source);
-      const mockMemory = join(project, 'mock-memory.mjs');
+      // The memory package resolves from the helper's install root (HOME here),
+      // never from the project; data still lands in the project.
+      const mockMemory = join(home, 'mock-memory.mjs');
       writeFileSync(mockMemory, `
 import { writeFileSync } from 'node:fs';
 export class AutoMemoryBridge {
@@ -62,14 +64,14 @@ export class AutoMemoryBridge {
   async curateIndex() {}
 }
 `);
-      mkdirSync(join(project, '.claude-flow'), { recursive: true });
-      writeFileSync(join(project, '.claude-flow', 'memory-package.json'), JSON.stringify({ distPath: mockMemory }));
+      mkdirSync(join(home, '.claude-flow'), { recursive: true });
+      writeFileSync(join(home, '.claude-flow', 'memory-package.json'), JSON.stringify({ distPath: mockMemory }));
 
       expect(run(hook, project, 'import')).toContain('Imported 1 entries');
       const store = join(project, '.claude-flow', 'data', 'auto-memory-store.json');
       expect(JSON.parse(readFileSync(store, 'utf8'))[0].content).toBe(project);
       expect(run(hook, project, 'sync')).toContain('Synced 1 entries');
-      expect(readFileSync(join(project, 'sync-root.txt'), 'utf8')).toBe(project);
+      expect(readFileSync(join(home, 'sync-root.txt'), 'utf8')).toBe(project);
       expect(existsSync(join(home, '.claude-flow', 'data', 'auto-memory-store.json'))).toBe(false);
     });
   }

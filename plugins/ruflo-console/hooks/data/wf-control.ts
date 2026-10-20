@@ -17,6 +17,7 @@
 import type { ActionSpec } from '../actions'
 import type { Host, ToolReply } from '../host'
 import { cleanText } from './wf-clean'
+import { ARGV_TEXT_MAX } from '../full-text'
 import { guardText } from './wf-guide'
 import { idOf, plain } from './parse'
 import type { WfAgent, WfRun } from './workflows'
@@ -227,7 +228,7 @@ export function controlActions(input: ControlInput): ControlAction[] {
   const taskWhy = 'why' in input.task ? input.task.why : 'the run\'s task id is not one the engine can be given'
   const agentId = agent !== null && ENGINE_ID.test(agent.id) ? agent.id : null
   const wired = bridge.toolCall !== undefined
-  const typed = guardText(input.text, 300)
+  const typed = guardText(input.text, ARGV_TEXT_MAX)
   const resume = typed.ok ? resumeText(run, agent, typed.text, input.isRunPath) : null
   const stopWhy = !wired ? 'this host does not bind tool calls: stop it in Claude Code\'s Workflows panel' : taskWhy
 

@@ -1,5 +1,7 @@
 import type { RenderElement } from 'claude-code'
 
+import { plain } from '../data/parse'
+import { fullRows } from './full-rows'
 import { compositeRank, digestOf, explainPrompt, LOGGED_SHOWN, lifecycleOrder, logWindowMs, recallOf, shown, surfacedCounts, wouldPrune, type LoggedRecall, type RecallFacts, type SessionRecall } from '../data/recall'
 import { ago, button, clip, kv, row, text, THEME, type Ctx } from './common'
 
@@ -11,7 +13,8 @@ const BAR = 10
 let picked: string | null = null
 
 export const pickPrompt = (value: string | null): void => {
-  picked = value === null || shown(value, 300) === '' ? null : shown(value, 300)
+  // The whole prompt is scored and digested as typed (control characters out); only what is drawn masks a credential-shaped word (ADR-481).
+  picked = value === null || plain(value, Number.MAX_SAFE_INTEGER) === '' ? null : plain(value, Number.MAX_SAFE_INTEGER)
 }
 
 export const pickedPrompt = (): string | null => picked
@@ -127,7 +130,7 @@ export function recallRows(ctx: Ctx): RenderElement[] {
 
   const recorded = logged ? facts.log.find(recall => recall.digest === digestOf(prompt)) : undefined
 
-  rows.push(text(ctx, ` "${clip(prompt, Math.max(20, ctx.columns - 8))}"`, { bold: true }))
+  rows.push(...fullRows(ctx, ' prompt: ', shown(prompt, Number.MAX_SAFE_INTEGER), { key: 'recall-prompt', bold: true, hint: 'press clear and paste a shorter prompt' }))
 
   if (recorded !== undefined) {
     rows.push(text(ctx, ` recorded ${ago(recorded.atMs, nowMs)} (digest ${recorded.digest.slice(0, 8)}): what the hook surfaced then, with its scores; not recomputed`, { color: THEME.ok }))
@@ -140,10 +143,10 @@ export function recallRows(ctx: Ctx): RenderElement[] {
   const scored = explainPrompt(prompt, facts.ranked.entries)
 
   if (logged) rows.push(text(ctx, ' no recorded recall has this prompt’s digest: recomputed against today’s ranked file, not what surfaced then', { dimColor: true }))
-  if (scored.length === 0) rows.push(text(ctx, ' nothing clears the hook’s 0.05 threshold: it would surface no memory for this prompt', { color: THEME.warn }))
+  if (scored.length === 0) rows.push(text(ctx, ' nothing clears the hook’s coverage threshold (0.15): it would surface no memory for this prompt', { color: THEME.warn }))
 
   scored.forEach((item, index) => {
-    rows.push(text(ctx, `   ${index + 1}. ${bar(item.score, scored[0]?.score ?? 1)} ${n3(item.score)} = 0.6·match ${n3(item.match)} + 0.4·pr ${n3(item.entry.pageRank)}  ${item.entry.summary}`))
+    rows.push(text(ctx, `   ${index + 1}. ${bar(item.score, scored[0]?.score ?? 1)} ${n3(item.score)} = 0.9·coverage ${n3(item.match)} + 0.1·pr ${n3(item.entry.pageRank)}  ${item.entry.summary}`))
   })
   rows.push(button(ctx, 'recall-clear', 'clear', () => { pickPrompt(null); ctx.act.refresh() }))
 

@@ -75,3 +75,44 @@ Hardening that applies to everyone:
 - Remote HTTP clients: refused until the operator sets `RUFLO_HIVE_BOOTSTRAP_SECRET` (or reads the file) and passes it as `bootstrapSecret`.
 - `hive-mind_join` and `hive-mind_leave` no longer list `hiveToken` as required in their schemas.
 - Semver: minor. The break is a security fix to a surface that was an unauthenticated hole.
+
+## Update 2026-10-07: checked against the merged code; #3599 has landed
+
+Read against `v3/@claude-flow/cli/src/mcp-tools/hive-mind-tools.ts` (`classifyCaller`, `readBootstrapSecret`, `ensureBootstrapSecret`,
+`authorizeHive`, `constantTimeEqual`, the eleven `authorizeHive(` call sites, the state write), `v3/@claude-flow/cli/src/mcp-server.ts`
+(the transport labels at the two `callMCPTool` calls), `v3/@claude-flow/cli/src/commands/mcp.ts` and `v3/@claude-flow/cli/src/mcp-client.ts`.
+The decision and the behaviour matrix hold. There is no drift in what is gated or who is exempt; these are details the text leaves out or
+states slightly more strongly than the code.
+
+**Confirmed, no drift**
+
+- Classification is from the server-built `context` and never a tool argument: no context is local (in-process: the CLI, library,
+  tests; `callMCPTool` passes `context` through untouched, so none means none); `transport` `stdio` and `cli` are local; `http`,
+  `websocket`, an unknown string or a context without one are remote. The labels are set at `mcp-server.ts` (`stdio` for the stdio server,
+  `http` or `websocket` for the port-bound transports) and `commands/mcp.ts` (`cli` for `mcp exec`). `RUFLO_HIVE_REQUIRE_AUTH` makes every
+  caller remote only when it is exactly `1`.
+- The eleven gated call sites are `spawn`, `init`, `join`, `leave`, `consensus` (`propose` and `vote`), `broadcast`, `shutdown`,
+  `memory` (`set` and `delete`) and `optimize-memory`. `status`, `memory` `get`/`list` and `consensus` `status` are not gated, as the Limits say.
+- `init` accepts only the operator secret (`allowToken: false`); the other ten accept the secret or the hive token. A local `init` creates
+  `.claude-flow/hive-mind/bootstrap.secret` (`wx`, 0600); a remote one never does.
+- Constant-time compare is over SHA-256 digests (`constantTimeEqual`); `state.json` is written 0600 through a temp file and rename; the
+  hive directory is 0700.
+
+**Where the text is looser than the code**
+
+1. **A short env secret is ignored; a short file secret is not.** `RUFLO_HIVE_BOOTSTRAP_SECRET` must be at least 16 characters or it is
+   skipped and the file is used. The file has no length floor: any non-empty content (after trimming) is the secret. A server with a valid
+   env secret never creates the file.
+2. **"Wrong secret/token: refused" means neither credential was valid.** `authorizeHive` tries the secret, then the hive token; a call that
+   carries a wrong `bootstrapSecret` and a valid `hiveToken` is allowed (except for `init`).
+3. **The denial text depends on what was sent.** Nothing supplied: `bootstrapSecret is required (...)` for `init`, `hiveToken is required
+   (...)` for the others; something supplied: `Invalid bootstrapSecret` if a secret was sent, else `Invalid hiveToken`. Neither names a value.
+4. **A remote server with no secret configured** (the third row of the matrix) can still be driven with a valid `hiveToken` for every
+   gated tool except `init`, which can then never succeed remotely: only a local `init` creates the secret.
+
+**Interaction with the HTTP bearer token (ADR-479, #3599).** The Related line says #3599 owns HTTP authentication, and it now does:
+the HTTP transport can require `Authorization: Bearer <token>` and refuses a non-loopback bind without one. The two are separate layers and
+neither satisfies the other. A request that passes the bearer check still arrives with `transport: 'http'` and is a remote caller here, so
+hive-mind tools still need the operator secret or the hive token, on loopback as well (this ADR still rejects "trust HTTP on loopback").
+Conversely, holding the hive credential authenticates nothing at the HTTP layer. An operator exposing the HTTP transport needs both
+(`RUFLO_MCP_HTTP_TOKEN` for the transport, `RUFLO_HIVE_BOOTSTRAP_SECRET` for the hive tools).

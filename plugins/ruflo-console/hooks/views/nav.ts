@@ -10,10 +10,10 @@ import type { RenderElement } from 'claude-code'
 
 import { chip, NAV_ACCENT } from '../menu-colors'
 import { badgesOf } from '../menu-style'
-import { accentOfView, findPages, NAV_GROUPS, shownGroup } from '../nav-state'
+import { accentOfView, findPages, groupOf, NAV_GROUPS, shownGroup } from '../nav-state'
 import { VIEWS, type ViewId } from '../state'
 import { CARD_COLUMNS } from './card'
-import { isBbs, THEME, type Ctx } from './common'
+import { isBbs, isOrbital, THEME, type Ctx } from './common'
 
 type View = (typeof VIEWS)[number]
 
@@ -36,6 +36,8 @@ export function groupedTabs(ctx: Ctx, hasHotkey: (view: View) => boolean): Rende
   const spell = (view: View, form: string) => (form === 'icons' ? view.icon : form === 'brief' ? `${view.icon} ${view.short}` : `${view.icon} ${view.label}`)
   // The same badges the menu carries (approvals waiting, findings, an update ...), so the nav says what is going on behind a page too.
   const badges = badgesOf(state, ctx.nowMs)
+  // A group whose page has something new carries a dot while its pages are not showing (the page's own entry says `new` once the group is open).
+  const newGroup = badges.whatsnew === undefined ? null : groupOf('whatsnew')
   const badgeText = (view: View): string => (badges[view.id] === undefined ? '' : ` ${badges[view.id]?.text}`)
   // The open page always spells out its whole name, whatever the form (see `tab`), so that is how wide it is.
   // (On the main menu of a narrow card the chip says MENU, so it is not cut to "MAIN M…" beside the groups.)
@@ -80,7 +82,7 @@ export function groupedTabs(ctx: Ctx, hasHotkey: (view: View) => boolean): Rende
   const chips = NAV_GROUPS.map(group =>
     group.title === shown && found === null && !isMenuIdle
       ? ctx.kit.Box({ key: `nav-group-${group.title}`, children: [ctx.kit.Text({ ...(isBbs() ? chip(NAV_ACCENT[group.title] ?? THEME.head) : { bold: true, color: THEME.head }), children: `[${icons ? `${group.icon} ` : ''}${group.title}${inner < 72 ? '' : ' ▾'}]` })] })
-      : ctx.kit.Button({ key: `nav-group-${group.title}`, label: ` ${icons ? `${group.icon} ` : ''}${group.title} `, plain: true, dimColor: true, onPress: () => ctx.act.navigator.group(group.title) }),
+      : ctx.kit.Button({ key: `nav-group-${group.title}`, label: ` ${icons ? `${group.icon} ` : ''}${group.title}${group.title === newGroup ? ' •' : ''} `, plain: true, dimColor: true, onPress: () => ctx.act.navigator.group(group.title) }),
   )
   // On the main menu a picked group's pages are open: a ✕ beside the chips closes them again.
   const closePick = open === 'menu' && !isMenuIdle ? [ctx.kit.Button({ key: 'nav-pick-close', label: ' ✕ ', plain: true, dimColor: true, onPress: () => ctx.act.navigator.group(shown) })] : []
@@ -107,5 +109,5 @@ export function groupedTabs(ctx: Ctx, hasHotkey: (view: View) => boolean): Rende
   const hidden = VIEWS.filter(view => view.id !== 'menu' && view.id !== open && !visible.has(view.id) && hasHotkey(view) && view.key !== '')
   const keys = hidden.length === 0 ? [] : [ctx.kit.Box({ key: 'tabs-keys', display: 'none', children: hidden.map(view => ctx.kit.Button({ key: `tab-${view.id}`, label: view.short, hotkey: view.key, plain: true, onPress: () => ctx.act.view(view.id) })) } as never)]
 
-  return ctx.kit.Box({ key: 'tabs', flexDirection: 'column', borderStyle: 'round', borderColor: THEME.info, paddingX: 1, children: [head, ...findRow, ...lines, ...note, ...keys] })
+  return ctx.kit.Box({ key: 'tabs', flexDirection: 'column', borderStyle: isOrbital() ? 'single' : 'round', borderColor: isOrbital() ? THEME.head : THEME.info, paddingX: 1, children: [head, ...findRow, ...lines, ...note, ...keys] })
 }

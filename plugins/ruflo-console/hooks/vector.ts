@@ -6,6 +6,7 @@
  * says so on the confirm row. Tools with no CLI verb (rvlite_*, rvf_delete, decompile_witness/search) are n/a here; the
  * rvlite queries are handed to the AI terminal, which asks before it runs anything. Pure: entries and specs only.
  */
+import { countOf, LONG_TEXT_MAX } from './full-text'
 import type { ActionSpec } from './actions'
 import { dimensionOf, domainOf, generatedLines, isKeyless, redact, relPathOf, RV, shareOf, targetOf, textOf, twoOf, vecIdOf, vectorOf, type VectorField } from './data/vector'
 import { labLines } from './mh-lab'
@@ -188,7 +189,7 @@ export function vecWhy(entry: VecEntry, state: State): string {
 export function rvlitePrompt(kind: 'sql' | 'cypher' | 'sparql', query: string): string | null {
   const text = query.trim()
 
-  if (text === '' || text.length > 500 || /[\u0000-\u001f\u007f]/.test(text)) return null
+  if (text === '' || countOf(text) > LONG_TEXT_MAX || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) return null
 
   const isWrite = kind === 'sparql' ? /\b(INSERT|DELETE|LOAD|CLEAR|DROP|CREATE)\b/i.test(text) : /\b(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|MERGE|SET|REMOVE|DETACH)\b/i.test(text)
 
@@ -216,7 +217,7 @@ export function vectorActions(state: State, runner: Runner, load: (text: string)
     ask: (kind, query) => {
       const prompt = rvlitePrompt(kind, query)
 
-      if (prompt === null) runner.ask(null, `rvlite ${kind}: type a query of 1-500 characters`)
+      if (prompt === null) runner.ask(null, `rvlite ${kind}: type a query of 1-20,000 characters`)
       else load(prompt)
     },
   }

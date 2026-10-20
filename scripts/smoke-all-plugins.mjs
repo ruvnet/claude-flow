@@ -24,7 +24,7 @@
 //   2  config error (e.g. invalid CLI args)
 //   3  no smoke scripts found (likely repo-layout drift — fail closed)
 
-import { readdirSync, existsSync, statSync } from 'node:fs';
+import { readdirSync, existsSync, statSync, readFileSync } from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -183,6 +183,28 @@ function runGuardProbe() {
   return row;
 }
 
+/**
+ * The changelog contract (ADR-478): a plugin that ships a What's new page's data keeps a CHANGELOG.md with an entry for the version in its
+ * manifest, `## <version> — <date>` then `fix:`/`feat:`/`breaking:`/`chore:` bullets. Enforced for the plugins that bump on their own cadence
+ * (console, mods, swarm, protector); every other plugin ships a CHANGELOG.md too, but is not gated until its release flow writes one.
+ */
+const CHANGELOG_CONTRACT = ['ruflo-console', 'ruflo-mods', 'ruflo-swarm', 'ruflo-protector'];
+function runChangelogContract() {
+  const t0 = Date.now();
+  const names = CHANGELOG_CONTRACT.filter((n) => (!ARGS.only || ARGS.only.has(n)) && !ARGS.skip.has(n) && existsSync(join(PLUGINS_DIR, n)));
+  const failingSteps = [];
+  for (const name of names) {
+    let version = null;
+    try { version = JSON.parse(readFileSync(join(PLUGINS_DIR, name, '.claude-plugin', 'plugin.json'), 'utf8')).version; } catch { /* reported below */ }
+    if (typeof version !== 'string') { failingSteps.push({ step: `${name}: plugin.json has no version` }); continue; }
+    let text = '';
+    try { text = readFileSync(join(PLUGINS_DIR, name, 'CHANGELOG.md'), 'utf8').slice(0, 262144); } catch { failingSteps.push({ step: `${name}: no CHANGELOG.md` }); continue; }
+    const headers = text.split('\n').filter((l) => l.startsWith('## ')).map((l) => /^## (\d{1,4}\.\d{1,4}\.\d{1,4}) [—–-] \d{4}-\d{2}-\d{2}\s*$/.exec(l.replace(/\r$/, '').slice(0, 64)));
+    if (!headers.some((m) => m && m[1] === version)) failingSteps.push({ step: `${name}: CHANGELOG.md has no "## ${version} — <date>" entry` });
+  }
+  return { name: 'changelog contract', exitCode: failingSteps.length ? 1 : 0, ok: failingSteps.length === 0, timedOut: false, aborted: false, terminationReason: null, passed: names.length - failingSteps.length, failed: failingSteps.length, durationMs: Date.now() - t0, failingSteps, stderrTail: '' };
+}
+
 async function main() {
   const plugins = discoverPlugins();
   if (plugins.length === 0) {
@@ -223,6 +245,7 @@ async function main() {
     results = await Promise.all(pending);
   }
 
+  results.push(runChangelogContract());
   if (ARGS.guardProbe && !abortController?.signal.aborted) results.push(runGuardProbe());
 
   const okCount = results.filter((r) => r.ok).length;

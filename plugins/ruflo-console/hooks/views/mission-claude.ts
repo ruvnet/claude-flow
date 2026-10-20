@@ -9,6 +9,7 @@ import { parseGates, verdictOf } from '../mission-verify'
 import { settingsOf } from '../settings'
 import type { MissionRecord } from '../mission-types'
 import { loopRows } from './mission-loop'
+import { advisorRows } from './mission-advisor'
 import { missionCostRows } from './mission-cost'
 
 function verifyRows(ctx: Ctx, mission: MissionRecord): RenderElement[] {
@@ -51,7 +52,7 @@ export function loopTabRows(ctx: Ctx, mission: MissionRecord): RenderElement[] {
     rows.push(kv(ctx, 'next tick', `${plan.action}: ${plan.reason}`.slice(0, 60)))
   }
 
-  rows.push(...missionCostRows(ctx, cost, capOf(ctx.state), live(result) === null ? sourceLine(result, ctx.nowMs, 'mission spend').text : 'ledger: cost-tracker plugin'), ...verifyRows(ctx, mission))
+  rows.push(...missionCostRows(ctx, cost, capOf(ctx.state), live(result) === null ? sourceLine(result, ctx.nowMs, 'mission spend').text : 'ledger: cost-tracker plugin'), ...verifyRows(ctx, mission), ...advisorRows(ctx, mission, cost?.usd ?? null))
 
   return rows
 }

@@ -2,12 +2,14 @@
  * The one write path for the Events and Timeline files (ADR-474), with the host's `fs` and `run` passed in so a test supplies its own.
  * Lines are queued in memory and written in batches (never one write per event): at most one write per file is in flight, each batch
  * is at most BATCH_MAX bytes, and a failure is remembered and retried later, never thrown. A write appends through the journal's fixed
- * argv (GNU `dd oflag=append`, no shell: the path is one element, and an O_APPEND write keeps a batch whole when two consoles share the file). A file past its cap is cut to its newest half through a temporary file and a rename.
+ * argv (data/append-argv.ts: GNU `dd oflag=append` with no shell on Linux, a constant `sh -c` script with the path as `$1` on macOS/BSD; the
+ * path is one element either way, and one dd block per batch into an O_APPEND file keeps two consoles' batches apart unless a write is split). A file past its cap is cut to its newest half through a temporary file and a rename.
  * The folder is created once, and nothing is written through a link.
  */
 import { checkNoLinks } from './data/wf-file'
 import { appendArgv } from './data/append-argv'
 import { dirOf, newFileArgv, replaceFileArgv } from './data/wf-file'
+import { writeFlavorReady } from './data/write-flavor'
 import { keepNewestHalf, READ_MAX } from './data/activity-store'
 import type { Host } from './host'
 
@@ -61,12 +63,12 @@ export const forgetChannel = (path: string): void => void channels.delete(path)
 
 const tmpOf = (path: string): string => `${path}.tmp`
 
-/** Writes `<dir>/.gitignore` once per folder if there is none (`conv=excl` fails, harmlessly, where one exists). Never throws. */
+/** Writes `<dir>/.gitignore` once per folder if there is none (the exclusive create fails, harmlessly, where one exists). Never throws. */
 async function ensureIgnored(host: IoHost, dir: string): Promise<void> {
   if (ignored.has(dir)) return
 
   ignored.add(dir)
-  await host.run(['dd', `of=${dir}/.gitignore`, 'conv=excl', 'status=none'], WRITE_TIMEOUT_MS, IGNORE_BODY).catch(() => undefined)
+  await host.run(newFileArgv(`${dir}/.gitignore`, true, await writeFlavorReady()), WRITE_TIMEOUT_MS, IGNORE_BODY).catch(() => undefined)
 }
 
 async function rotate(host: IoHost, channel: Channel): Promise<void> {
@@ -78,7 +80,8 @@ async function rotate(host: IoHost, channel: Channel): Promise<void> {
   const kept = size > READ_MAX ? '' : keepNewestHalf(await host.fs.read(channel.path).catch(() => ''), channel.cap)
   await host.run(['rm', '-f', '--', tmpOf(channel.path)], WRITE_TIMEOUT_MS)
 
-  const written = await host.run(newFileArgv(tmpOf(channel.path), true), WRITE_TIMEOUT_MS, kept)
+  // The flavor is awaited before the first flavored write; the rm, mv and mkdir argv are the same on GNU and BSD, so they need none.
+  const written = await host.run(newFileArgv(tmpOf(channel.path), true, await writeFlavorReady()), WRITE_TIMEOUT_MS, kept)
 
   if (written.exitCode !== 0) return
 
@@ -126,7 +129,7 @@ export async function flush(host: IoHost, cwd: string, path: string, nowMs: numb
 
     if (channel.size === null) channel.size = (await host.fs.stat(path).catch(() => undefined))?.size ?? 0
 
-    const result = await host.run(appendArgv(path), WRITE_TIMEOUT_MS, batch.join(''))
+    const result = await host.run(appendArgv(path, await writeFlavorReady()), WRITE_TIMEOUT_MS, batch.join(''))
 
     if (result.exitCode !== 0) throw new Error(`the write exited ${result.exitCode}`)
 
@@ -152,7 +155,7 @@ export async function replaceFile(host: IoHost, cwd: string, path: string, conte
     if (!clear.ok) return clear.why.slice(0, 80)
 
     const hasDir = (await host.fs.stat(dirOf(path)).catch(() => undefined)) !== undefined
-    const result = await host.run(replaceFileArgv(path, hasDir), WRITE_TIMEOUT_MS, content)
+    const result = await host.run(replaceFileArgv(path, hasDir, await writeFlavorReady()), WRITE_TIMEOUT_MS, content)
 
     if (result.exitCode === 0) await ensureIgnored(host, dirOf(path))
 
