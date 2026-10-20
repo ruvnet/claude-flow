@@ -1,0 +1,4 @@
+{
+  "description": "ChatGPT federation connector as a mod (ADR-445 pattern): a tighten-only guard on channel_publish (pub: channels only, no secrets or credential fields, bounded payload), /chatgpt-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

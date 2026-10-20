@@ -319,7 +319,7 @@ const resetCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const configPath = configManager.reset(ctx.cwd);
+      const configPath = configManager.reset(ctx.cwd, ctx.flags.section as string | undefined);
       output.writeln(`Configuration reset to defaults: ${configPath}`);
       return { success: true };
     } catch (err: unknown) {

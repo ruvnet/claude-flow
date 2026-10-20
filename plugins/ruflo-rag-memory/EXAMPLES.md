@@ -12,7 +12,7 @@ npx ruflo memory store \
   --namespace patterns
 
 # Session 2 (next day, different project)
-npx ruflo recall "concurrent queue safe processing"
+npx ruflo memory search -q "concurrent queue safe processing"
 # Returns: "Use a bounded queue with semaphore..."
 ```
 
@@ -27,7 +27,7 @@ npx ruflo memory store \
   --tags "async,cleanup,race"
 
 # Session 2: Hit similar bug
-npx ruflo recall "race condition async"
+npx ruflo memory search -q "race condition async"
 # Gets the fix immediately
 ```
 
@@ -86,16 +86,19 @@ Use the right namespace for your intent:
 Claude Code auto-saves session memories to `~/.claude/projects/*/memory/`. Import them into AgentDB:
 
 ```bash
-# Current project
-npx ruflo recall
+# Current project (MCP, from Claude Code)
+memory_import_claude({})
 
 # All projects
-npx ruflo memory bridge --all-projects
+memory_import_claude({ allProjects: true })
+
+# From a terminal, in a project that has the ruflo helpers
+node .claude/helpers/auto-memory-hook.mjs import-all
 ```
 
 Then search across them:
 
 ```bash
-npx ruflo recall "authentication patterns"
+npx ruflo memory search -q "authentication patterns"
 # Returns unified results from ALL projects + sessions
 ```

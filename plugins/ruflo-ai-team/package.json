@@ -1,6 +1,6 @@
 {
   "name": "@ruflo/ai-team-service",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "description": "Multi-tenant MCP control plane and Claude plugin for coordinated AI teams.",

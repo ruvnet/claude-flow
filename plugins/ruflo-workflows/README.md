@@ -146,3 +146,14 @@ bash plugins/ruflo-workflows/scripts/smoke.sh
 - `ruflo-agentdb` — namespace convention owner
 - `ruflo-loop-workers` — sibling automation surface (loops are recurring; workflows are stateful pipelines)
 - `ruflo-sparc` — SPARC phase transitions can be modeled as workflows
+
+## As a mod
+
+This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+- **Guard (default on, tighten-only).** It refuses a workflow definition, run or `gaia*`/`workflow*` memory record that holds a secret, and a `workflow_delete` that names no single workflow id (empty, `*`, `all`). The refusal never repeats the secret.
+- **Status file.** `.claude-flow/wf-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+- **`/wf-mod`** answers locally: `status`, `scan <text>`, `lifecycle`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+- **Option.** `guard` (`on` | `off`, default `on`) in the plugin's `userConfig`.
+
+Test it: `claude plugin validate plugins/ruflo-workflows`, `claude plugin test plugins/ruflo-workflows`, `bash plugins/ruflo-workflows/scripts/smoke.sh`.

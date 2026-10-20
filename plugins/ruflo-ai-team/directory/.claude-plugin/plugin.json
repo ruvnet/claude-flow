@@ -1,15 +1,15 @@
 {
   "name": "ruflo-ai-team",
   "description": "Give Claude a tenant-isolated AI team that divides work, coordinates progress, recalls approved context, and returns evidence-backed results.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": { "name": "ruvnet", "url": "https://github.com/ruvnet" },
   "homepage": "https://team.ruv.io",
   "privacyPolicyUrl": "https://team.ruv.io/privacy",
   "supportUrl": "https://team.ruv.io/support",
   "repository": "https://github.com/ruvnet/ruflo",
-  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/feat/ruflo-ai-team/plugins/ruflo-ai-team",
+  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/main/plugins/ruflo-ai-team",
   "termsOfServiceUrl": "https://team.ruv.io/terms",
   "icon": ".claude-plugin/icon.svg",
   "license": "MIT",
-  "keywords": ["ruflo", "ai-team", "multi-agent", "automation", "ruvector", "mcp"]
+  "keywords": ["ruflo", "ai-team", "multi-agent", "automation", "ruvector", "mcp", "task-coordination", "evidence"]
 }

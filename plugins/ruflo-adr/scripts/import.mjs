@@ -21,7 +21,6 @@
 // is hundreds of MCP round-trips. spawnSync over the CLI is materially faster
 // and avoids shell-quoting pitfalls in the ADR titles.
 
-import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
@@ -33,6 +32,7 @@ import {
   memoryStoreArgs,
   uniqueEdges,
 } from './lib/index-records.mjs';
+import { spawnCliSync } from './lib/ruflo-cli.mjs';
 
 // #2781 (Jordi-Izquierdo-DDS): CLI_CORE=1 previously routed writes through
 // `@claude-flow/cli-core@alpha`, whose JsonMemoryBackend lives in a different
@@ -91,7 +91,8 @@ function memoryStore(namespace, key, value) {
   // #2660: pass --upsert explicitly. The importer owns stable logical keys,
   // so re-running it must refresh changed ADRs and relationships in place.
   // Do not depend on a CLI parser default for this data-integrity contract.
-  const r = spawnSync('npx', memoryStoreArgs(namespace, key, value),
+  // #3558: an installed ruflo CLI is preferred over npx (lib/ruflo-cli.mjs).
+  const r = spawnCliSync(memoryStoreArgs(namespace, key, value),
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: DB_ROOT });
   if (r.status !== 0) {
     return 'error: ' + (r.error?.message || r.stderr || r.stdout || `exit status ${r.status}`).slice(0, 100);

@@ -158,8 +158,8 @@ Task("Reviewer", "Review code quality and security. Store findings in 'collabora
 
 // 🟢 Codex workers (implementation, optimization)
 // Spawn via CLI for Codex platform
-Bash("npx claude-flow-codex dual run --worker 'codex:coder:Implement the solution based on architect design' --namespace collaboration")
-Bash("npx claude-flow-codex dual run --worker 'codex:optimizer:Optimize performance based on implementation' --namespace collaboration")
+Bash("npx @claude-flow/codex dual run --worker 'codex:coder:Implement the solution based on architect design' --namespace collaboration")
+Bash("npx @claude-flow/codex dual run --worker 'codex:optimizer:Optimize performance based on implementation' --namespace collaboration")
 
 // STEP 3: Coordinate via shared memory
 Bash("npx claude-flow@v3alpha memory store --namespace collaboration --key 'task-context' --value '[task description]'")
@@ -178,12 +178,12 @@ Bash("npx claude-flow@v3alpha memory store --namespace collaboration --key 'task
 
 ```bash
 # Run a collaboration template
-npx claude-flow-codex dual run feature --task "Add user authentication with OAuth"
-npx claude-flow-codex dual run security --target "./src"
-npx claude-flow-codex dual run refactor --target "./src/legacy"
+npx @claude-flow/codex dual run feature --task "Add user authentication with OAuth"
+npx @claude-flow/codex dual run security --target "./src"
+npx @claude-flow/codex dual run refactor --target "./src/legacy"
 
 # Custom multi-platform swarm
-npx claude-flow-codex dual run \
+npx @claude-flow/codex dual run \
   --worker "claude:architect:Design the API structure" \
   --worker "codex:coder:Implement REST endpoints" \
   --worker "claude:tester:Write integration tests" \
@@ -191,10 +191,10 @@ npx claude-flow-codex dual run \
   --namespace "api-feature"
 
 # Check collaboration status
-npx claude-flow-codex dual status
+npx @claude-flow/codex dual status
 
 # List available templates
-npx claude-flow-codex dual templates
+npx @claude-flow/codex dual templates
 ```
 
 ### Shared Memory Coordination
@@ -1026,6 +1026,17 @@ memory_search_unified({ query: "authentication security", limit: 5 })
   It must use `semver.satisfies`, not a string compare: a pin may be a range,
   and a literal match would then report a false DRIFT. It also fails loudly
   at zero leaves checked — a guard that inspects nothing must not report clean.
+- **The drift check above only proves the CLI's pin and the workspace version agree with
+  EACH OTHER — it says nothing about whether that version is actually on npm.** #4303
+  (2026-10-20) shipped `@claude-flow/cli@3.57.2` depending on `@claude-flow/memory@3.0.6`,
+  which had never been published — #4279 bumped the workspace version and the CLI's pin
+  together, so the drift check above was clean, but nobody ran the standalone `npm
+  publish` for `memory`. Every fresh install of that line failed with `ETARGET`. Run
+  `node scripts/audit-leaf-versions-published.mjs` before tagging — it queries the live
+  npm registry for every non-bundled leaf pin and fails if the version it resolves to was
+  never published. This is now also a required CI check (`plugin-package-audit` job in
+  `v3-ci.yml`), so a PR that bumps a pin ahead of its own leaf's publish fails on the PR,
+  not on a consumer's install.
 - MUST update ALL dist-tags for ALL THREE packages after publishing (latest + alpha + v3alpha all point to the same version)
 - Publish order: `@claude-flow/cli` first, then `claude-flow` (umbrella), then `ruflo` (alias umbrella)
 - MUST run verification for ALL THREE before telling user publishing is complete
@@ -1465,7 +1476,6 @@ npx claude-flow@v3alpha plugins disable @claude-flow/plugin-name
 
 | Plugin | Version | Description |
 |--------|---------|-------------|
-| `@claude-flow/plugin-agentic-qe` | 3.0.0-alpha.4 | Agentic quality engineering integration |
 | `@claude-flow/plugin-prime-radiant` | 0.1.5 | Prime Radiant intelligence integration |
 | `@claude-flow/plugin-gastown-bridge` | 3.0.0-alpha.1 | Gastown bridge protocol integration |
 | `@claude-flow/teammate-plugin` | 1.0.0-alpha.1 | Multi-agent teammate coordination |

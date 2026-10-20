@@ -98,7 +98,7 @@ trader signal scan [--strategy <name>] [--symbols <TICKERS>]
 
 # Market analysis
 trader regime --symbol <TICKER>
-trader indicators --symbol <TICKER> --indicators rsi,macd,bollinger
+trader indicators --symbol <TICKER> --indicators rsi,macd,bollinger   # no CLI flag in neural-trader 2.8.11
 trader correlation --symbols <TICKERS> --window 30d
 
 # Risk & portfolio
@@ -106,7 +106,7 @@ trader risk assess [--symbol <TICKER>]
 trader portfolio optimize [--risk-target <number>]
 
 # Live trading
-trader live --broker <name> [--swarm enabled]
+trader live --broker <name> [--swarm enabled]   # not available with neural-trader 2.8.11; the plugin places no orders
 
 # History
 trader history
@@ -121,9 +121,9 @@ trader history
 | N-BEATS | Decomposition | Trend/seasonality decomposition |
 
 ```bash
-npx neural-trader --model lstm --symbol TSLA --confidence 0.95
+npx neural-trader --train --model lstm --symbol TSLA --epochs 50   # 2.8.11: placeholder result (upstreamStub)
 npx neural-trader --model transformer --symbol BTC-USD --predict
-npx neural-trader --model nbeats --symbol SPY --decompose
+npx neural-trader --predict --model nbeats --symbol SPY   # 2.8.11: placeholder result (upstreamStub)
 ```
 
 ## Strategy Types
@@ -216,7 +216,7 @@ This plugin relies on `@claude-flow/memory@3.0.0-alpha.18` for the lifecycle gua
 
 - **Warm HNSW restart** — `@claude-flow/memory@3.0.0-alpha.18` (ADR-125 Phase 3) snapshots the HNSW index to a `.hnsw` sidecar file, so neural-trader process restarts no longer rebuild the strategy / regime similarity index from scratch. No plugin-side change is required to benefit; routing is automatic through `MemoryService.search()`.
 - **Hybrid retrieval (RRF + MMR)** — `market-analyst` regime-similarity queries automatically become hybrid (dense ANN + sparse FTS5 keyword, reciprocal-rank-fused and MMR-diversified) via the same `MemoryService.search()` path (ADR-125 Phase 5). When the embedding generator is unavailable, retrieval gracefully degrades to keyword-only rather than throwing.
-- **Signal TTL (24h)** — `trader-signal` writes to `trading-signals` with `expiresAt: now + 24h`. The `MemoryConsolidator.sweepExpired()` pass (ADR-125 Phase 4) removes them from all indexes — including HNSW — when they expire. Long-running ruflo sessions no longer accumulate stale intraday signals.
+- **Signal TTL (24h)** — `trader-signal` writes to `trading-signals` with `ttl: 86400` (seconds). The `MemoryConsolidator.sweepExpired()` pass (ADR-125 Phase 4) removes them from all indexes — including HNSW — when they expire. Long-running ruflo sessions no longer accumulate stale intraday signals.
 - **Backtest dedup** — `trader-backtest` proactively deletes prior entries for the same `(strategyId, paramsHash)` before storing a fresh one. The same outcome is also produced asynchronously by the `MemoryConsolidator.dedup('keep-newest')` background pass that runs every 6 hours.
 - **Consolidator schedule** — the consolidator runs every 6 hours by default (`sweepExpired` + `dedup` + `compactHnsw`), and also on `MemoryService.close()`. No plugin-side wiring is required.
 
@@ -326,3 +326,19 @@ bash plugins/ruflo-neural-trader/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445 pattern, `hooks/register.ts`). It adds, with no network, no process spawning and no model call:
+
+- **Guard** (tighten-only, default on): refuses a trader-server call or memory write that holds a secret (broker keys), and a live order call (`execute_trade`, `place_order`, `live_*`, `close_all`) that lacks `confirm: true` (or `paper: true` / `dryRun: true`). The deny reason names the rule, never the value.
+- **`/trader-mod`**: local `status` and `scan <text>` (secret check, same rules as the guard); `status` also shows live orders refused.
+- **Status file** `.claude-flow/trader-mod/status.json` (`{version:1, updatedMs, guard, checked, blocked, ...}`), written at session start and when counters change.
+
+Per-prompt context is deliberately not added: this plugin has nothing worth attaching to every prompt.
+
+| Option | Default | Effect |
+|---|---|---|
+| `guard` | `on` | refuse the calls above | | `liveGuard` | `on` | refuse an unconfirmed live order |
+
+Test: `claude plugin validate plugins/ruflo-neural-trader`, `claude plugin test plugins/ruflo-neural-trader`, `bash plugins/ruflo-neural-trader/scripts/smoke.sh`.

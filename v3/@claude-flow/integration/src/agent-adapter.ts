@@ -437,38 +437,17 @@ export class AgentAdapter extends EventEmitter {
   // ===== Private Methods =====
 
   /**
-   * Connect to agentic-flow package dynamically
+   * agentic-flow core is not connected: no published agentic-flow exports `createAgenticFlow` (2.0.14,
+   * 2.1.4, 3.0.0-alpha.1/.2), and importing its root entry runs its CLI
+   * `main()` in 3.0.0-alpha.x — demo agents and a health server, inside our
+   * process. Use local implementations.
    */
   private async connectToAgenticFlow(): Promise<void> {
-    try {
-      // Dynamic import to handle optional dependency
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const agenticFlowModule: any = await import('agentic-flow').catch(() => null);
-
-      if (agenticFlowModule && typeof agenticFlowModule.createAgenticFlow === 'function') {
-        this.agenticFlowCore = await agenticFlowModule.createAgenticFlow({});
-
-        this.emit('agentic-flow-connected', {
-          version: this.agenticFlowCore.version,
-        });
-
-        this.logDebug('Connected to agentic-flow', {
-          version: this.agenticFlowCore.version,
-        });
-      } else {
-        this.agenticFlowCore = null;
-        this.emit('agentic-flow-unavailable', {
-          reason: 'package not found or incompatible',
-        });
-        this.logDebug('agentic-flow not available, using local implementations');
-      }
-    } catch (error) {
-      this.agenticFlowCore = null;
-      this.emit('agentic-flow-connection-failed', {
-        error: (error as Error).message,
-      });
-      this.logDebug('agentic-flow connection failed', error);
-    }
+    this.agenticFlowCore = null;
+    this.emit('agentic-flow-unavailable', {
+      reason: 'package not found or incompatible',
+    });
+    this.logDebug('agentic-flow not available, using local implementations');
   }
 
   /**

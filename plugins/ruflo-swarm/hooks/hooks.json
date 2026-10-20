@@ -1,0 +1,4 @@
+{
+  "description": "The live swarm pane: one tile per agent lit by its reads and writes, the topology, the task and claims board, cost and tokens, the router's last pick and hive-mind votes, with buttons that act through the ruflo CLI. Without function hooks nothing here loads and the plugin's commands, skills and agents behave as before.",
+  "modules": ["./register.ts"]
+}

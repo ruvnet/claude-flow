@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.1 with new keywords"
+step "1. plugin.json declares 0.3.7 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
+if [[ "$v" != "0.3.7" ]]; then bad "expected 0.3.7, got '$v'"; else
   miss=""
   for k in mcp topologies worktree-isolation monitor-stream; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -88,6 +88,11 @@ for f in "$ROOT"/skills/*/SKILL.md; do
   grep -q '^allowed-tools:[[:space:]]*\*' "$f" && bad_skills="$bad_skills $(basename $(dirname "$f"))"
 done
 [[ -z "$bad_skills" ]] && ok || bad "wildcard:$bad_skills"
+
+step "12. the toast policy copy is byte-identical to the canonical one (ADR-477)"
+if [[ ! -f "$ROOT/../ruflo-mods/hooks/toast/policy.ts" ]]; then printf "SKIP (ruflo-mods is not beside this plugin)\n"
+elif cmp -s "$ROOT/../ruflo-mods/hooks/toast/policy.ts" "$ROOT/hooks/toast-policy.ts"; then ok
+else bad "differs from ruflo-mods/hooks/toast/policy.ts: node scripts/sync-toast-policy.mjs"; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

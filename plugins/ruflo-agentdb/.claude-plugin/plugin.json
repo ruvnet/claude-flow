@@ -1,7 +1,7 @@
 {
   "name": "ruflo-agentdb",
-  "description": "Substrate plugin for Ruflo memory: AgentDB controller bridge (15 agentdb_* MCP tools), RuVector ONNX embeddings (10 embeddings_* tools incl. RaBitQ 32x quantization), and WASM HNSW pattern router (3 ruvllm_hnsw_* tools)",
-  "version": "0.3.1",
+  "description": "Substrate plugin for Ruflo memory: AgentDB controller bridge (15 agentdb_* MCP tools), RuVector ONNX embeddings (10 embeddings_* tools incl. RaBitQ 32x quantization), and WASM HNSW pattern router (3 ruvllm_hnsw_* tools). As a mod (ADR-445): opt-in safe recall into the prompt, a write guard that keeps secrets out of memory, /agentdb, and a status file the console shows",
+  "version": "0.4.10",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -19,6 +19,61 @@
     "quantization",
     "namespace-convention",
     "controller-bridge",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks",
+    "recall",
+    "guard"
+  ],
+  "userConfig": {
+    "recall": {
+      "type": "string",
+      "title": "Recall into prompts",
+      "description": "Attach the best few matching memories to each prompt as retrieved data. Off by default: it adds tokens to every prompt.",
+      "required": false,
+      "default": "off",
+      "options": [
+        "off",
+        "on"
+      ]
+    },
+    "recallLimit": {
+      "type": "number",
+      "title": "Memories per prompt",
+      "description": "How many memories to attach, 1 to 5.",
+      "required": false,
+      "default": 3
+    },
+    "recallDeadlineMs": {
+      "type": "number",
+      "title": "Recall deadline (ms)",
+      "description": "Give up and send the prompt without memory after this long, 200 to 3000.",
+      "required": false,
+      "default": 800
+    },
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse memory writes that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "title": "Memory source",
+      "description": "Which connected tool to read: auto (AgentDB, then ruvector), agentdb, ruvector, or none.",
+      "required": false,
+      "default": "auto",
+      "options": [
+        "auto",
+        "agentdb",
+        "ruvector",
+        "none"
+      ]
+    }
+  }
 }

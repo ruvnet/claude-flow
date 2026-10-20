@@ -1,0 +1,36 @@
+name: Native mod guidance source contracts
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guidance-contracts:
+    name: Guidance source, lifecycle and review contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --legacy-peer-deps
+      - name: Check adapter types and static mod security
+        run: |
+          node_modules/.bin/tsc -p v3/@claude-flow/cli/tsconfig.mod-guidance.json
+          bash plugins/ruflo-mods/scripts/smoke.sh
+      - name: Run source mod contracts with the workspace compiler
+        working-directory: v3/@claude-flow/cli
+        run: ../../../node_modules/.bin/vitest run __tests__/mods/ --exclude '**/mods-cli-bin.test.ts'
+
+# Claude Code native kit tests require the separately enabled host runtime.
+# Built CLI tests still belong to the normal provisioned build gate.

@@ -1,4 +1,4 @@
-# ADR-034: Optional MCP Backends — Claude Code, Gemini, Codex
+# ADR-034: Optional MCP Backends — Claude Code and Gemini
 
 **Status:** Accepted
 **Date:** 2026-03-05
@@ -16,7 +16,7 @@ These require their own API keys and have different resource profiles, so they s
 
 ## Decision
 
-Add three optional MCP backends that can be enabled via environment variables. Unlike ruvector/ruflo (enabled by default), these are **disabled by default** and require explicit API keys.
+Claude Code and Gemini remain optional MCP backends. Codex was originally listed here, but current Codex CLI has no MCP server mode. As of #3509, the bridge leaves that group disabled and warns when `MCP_GROUP_CODEX=true` is requested. Ruflo's separate Codex dual-mode workers use `codex exec`; a future MCP adapter needs a separate execution and security design.
 
 ### Backend Configuration
 
@@ -26,7 +26,7 @@ Add three optional MCP backends that can be enabled via environment variables. U
 | ruflo | `ENABLE_RUFLO` | None | `npx ruflo mcp start` | **enabled** |
 | Claude Code | `ENABLE_CLAUDE_CODE` | `ANTHROPIC_API_KEY` | `claude mcp serve` | disabled |
 | Gemini MCP | `ENABLE_GEMINI_MCP` | `GOOGLE_API_KEY` | `npx gemini-mcp-server` | disabled |
-| Codex | `ENABLE_CODEX` | `OPENAI_API_KEY` | `npx @openai/codex mcp serve` | disabled |
+| Codex | `MCP_GROUP_CODEX` | N/A | No supported MCP server mode | unavailable; opt-in warns |
 
 ### Architecture
 
@@ -37,7 +37,6 @@ ruvector__hooks_route      → ruvector MCP
 ruflo__agent_spawn         → ruflo MCP
 claude__Read               → Claude Code MCP
 gemini__chat               → Gemini MCP
-codex__execute             → Codex MCP
 ```
 
 ```
@@ -52,10 +51,10 @@ codex__execute             → Codex MCP
 │  └─────────────┘  └──────────────┘                   │
 │                                                       │
 │  Optional backends (API key required):                │
-│  ┌──────────────┐  ┌───────────┐  ┌───────────────┐ │
-│  │ Claude Code  │  │ Gemini    │  │ OpenAI Codex │ │
-│  │ (opt-in)     │  │ (opt-in)  │  │ (opt-in)     │ │
-│  └──────────────┘  └───────────┘  └───────────────┘ │
+│  ┌──────────────┐  ┌───────────┐                     │
+│  │ Claude Code  │  │ Gemini    │                     │
+│  │ (opt-in)     │  │ (opt-in)  │                     │
+│  └──────────────┘  └───────────┘                     │
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -69,9 +68,9 @@ ANTHROPIC_API_KEY=sk-ant-...
 ENABLE_GEMINI_MCP=true
 GOOGLE_API_KEY=AIzaSy...   # already set for Gemini models
 
-ENABLE_CODEX=true
-OPENAI_API_KEY=sk-...      # already set for OpenAI models
 ```
+
+`MCP_GROUP_CODEX=true` is not an enablement path: it produces an explicit warning and does not start a Codex child process.
 
 ### Security Considerations
 
@@ -88,14 +87,13 @@ OPENAI_API_KEY=sk-...      # already set for OpenAI models
 | ruflo | ~50MB | Low | ~5s |
 | Claude Code | ~100MB | Medium | ~5s |
 | Gemini MCP | ~40MB | Low | ~4s |
-| Codex | ~80MB | Medium | ~5s |
 
-With all 5 backends enabled, the bridge container needs ~800MB memory.
+Resource estimates for the remaining backends require current deployment measurement.
 
 ## Consequences
 
 ### Positive
-- Users can access Claude, Gemini, and Codex capabilities directly from HF Chat UI
+- Users can access Claude and Gemini capabilities directly from HF Chat UI
 - Single `/mcp` endpoint — no client-side config changes
 - Opt-in model keeps default resource usage low
 - API keys shared with the chat proxy (no additional secrets needed for Gemini/OpenAI)

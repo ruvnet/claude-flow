@@ -30,7 +30,7 @@ import { fileURLToPath } from 'url';
 vi.spyOn(console, 'log').mockImplementation(() => {});
 
 import { generateAgentRouter } from '../src/init/helpers-generator.js';
-import { suggestAgentsForTask } from '../src/mcp-tools/hooks-tools.js';
+import { NO_MATCH_CONFIDENCE, suggestAgentsForTask } from '../src/mcp-tools/hooks-tools.js';
 
 const require = createRequire(import.meta.url);
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -55,7 +55,7 @@ function loadRouterSource(source: string): Router {
 const ROUTERS: Array<[string, () => Router]> = [
   ['generated (helpers-generator.ts)', () => loadRouterSource(generateAgentRouter())],
   ['repo-root .claude/helpers/router.cjs', () => loadRouterSource(readFileSync(join(here, '../../../../.claude/helpers/router.cjs'), 'utf8'))],
-  ['cli .claude/helpers/router.js', () => loadRouterSource(readFileSync(join(here, '../.claude/helpers/router.js'), 'utf8'))],
+  ['cli .claude/helpers/router.cjs', () => loadRouterSource(readFileSync(join(here, '../.claude/helpers/router.cjs'), 'utf8'))],
   ['mcp .claude/helpers/router.js', () => loadRouterSource(readFileSync(join(here, '../../mcp/.claude/helpers/router.js'), 'utf8'))],
 ];
 
@@ -114,7 +114,9 @@ describe('hooks-tools suggestAgentsForTask word boundaries', () => {
   ])('"%s" falls through to the default instead of a substring hit', (task) => {
     const r = suggestAgentsForTask(task);
     expect(r.agents).toEqual(DEFAULT);
-    expect(r.confidence).toBe(0.7);
+    // #3567: the fall-through is an explicit no-match, not a 0.7 "match".
+    expect(r.matched).toBe(false);
+    expect(r.confidence).toBe(NO_MATCH_CONFIDENCE);
   });
 
   it.each([

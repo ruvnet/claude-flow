@@ -13,7 +13,7 @@ spec:
       timeoutSeconds: 60
       serviceAccountName: ruflo-ai-team@PROJECT_ID.iam.gserviceaccount.com
       containers:
-        - image: REGION-docker.pkg.dev/PROJECT_ID/ruflo/ruflo-ai-team:0.1.0
+        - image: REGION-docker.pkg.dev/PROJECT_ID/ruflo/ruflo-ai-team:0.1.6
           ports: [{ containerPort: 8080 }]
           resources:
             limits: { cpu: "1", memory: 1Gi }
@@ -21,4 +21,6 @@ spec:
             - { name: RUFLO_AI_TEAM_PUBLIC_URL, value: "https://team.ruv.io" }
             - { name: RUFLO_AI_TEAM_STORE, value: "firestore" }
             - { name: RUFLO_AI_TEAM_OAUTH_ISSUER, value: "https://auth.cognitum.one" }
-            - { name: RUFLO_AI_TEAM_OAUTH_CLIENT_ID, value: "REPLACE_WITH_RESOURCE_CLIENT_ID" }
+            - { name: RUFLO_AI_TEAM_OAUTH_AUDIENCE, value: "https://team.ruv.io/mcp" }
+            # Optional: ALLOWED_ORIGINS replaces the browser CORS allowlist
+            # (default: https://chatgpt.com,https://chat.openai.com,https://claude.ai).

@@ -154,6 +154,7 @@ const spawnCommand: Command = {
       }>('agent_spawn', {
         agentType,
         id: agentName,
+        name: agentName,
         config: {
           provider: ctx.flags.provider || 'anthropic',
           model: ctx.flags.model,
@@ -245,7 +246,9 @@ const listCommand: Command = {
         }>;
         total: number;
       }>('agent_list', {
-        status: ctx.flags.all ? 'all' : ctx.flags.status || undefined,
+        // agent_list has no 'all' status: --all means "don't hide terminated agents".
+        status: ctx.flags.status || undefined,
+        includeTerminated: ctx.flags.all ? true : undefined,
         agentType: ctx.flags.type || undefined,
         limit: 100,
       });
@@ -348,6 +351,18 @@ const statusCommand: Command = {
         includeMetrics: true,
         includeHistory: false,
       });
+
+      // The MCP tool answers an unknown id with status "not_found" and no other fields.
+      // Rendering that as a record printed "Agent: undefined", "Invalid Date" and
+      // "undefined%" and exited 0, so scripts and agents took it as success.
+      if (((status as { status?: string }).status) === 'not_found') {
+        if (ctx.flags.format === 'json') {
+          output.printJson(status);
+        } else {
+          output.printError(`Agent not found: ${agentId}`);
+        }
+        return { success: false, exitCode: 1 };
+      }
 
       if (ctx.flags.format === 'json') {
         output.printJson(status);
@@ -845,20 +860,24 @@ const healthCommand: Command = {
         agents: Array<{
           id: string;
           type: string;
-          health: 'healthy' | 'degraded' | 'unhealthy';
-          uptime: number;
+          health: 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
+          uptime: number | null;
+          registryAgeMs?: number;
           memory: { used: number; limit: number };
           cpu: number;
           tasks: { active: number; queued: number; completed: number; failed: number };
-          latency: { avg: number; p99: number };
+          latency: { avg: number | null; p50?: number | null; p95?: number | null; p99: number | null };
           errors: { count: number; lastError?: string };
         }>;
         overall: {
           healthy: number;
           degraded: number;
           unhealthy: number;
-          avgCpu: number;
-          avgMemory: number;
+          unknown?: number;
+          avgCpu?: number | null;
+          avgMemory?: number | null;
+          cpu?: number | null;
+          memory?: number | null;
         };
       }>('agent_health', {
         agentId,
@@ -875,16 +894,17 @@ const healthCommand: Command = {
       output.writeln();
 
       // Overall summary with null checks
-      const overall = result.overall ?? { healthy: 0, degraded: 0, unhealthy: 0, avgCpu: 0, avgMemory: 0 };
-      const avgCpu = overall.avgCpu ?? 0;
-      const avgMemory = overall.avgMemory ?? 0;
+      const overall = result.overall ?? { healthy: 0, degraded: 0, unhealthy: 0, unknown: 0 };
+      const avgCpu = overall.avgCpu ?? overall.cpu;
+      const avgMemory = overall.avgMemory ?? overall.memory;
       output.printBox(
         [
           `Healthy: ${output.success(String(overall.healthy ?? 0))}`,
           `Degraded: ${output.warning(String(overall.degraded ?? 0))}`,
           `Unhealthy: ${output.error(String(overall.unhealthy ?? 0))}`,
-          `Avg CPU: ${avgCpu.toFixed(1)}%`,
-          `Avg Memory: ${(avgMemory * 100).toFixed(1)}%`
+          `Unknown: ${String(overall.unknown ?? 0)}`,
+          `Avg CPU: ${typeof avgCpu === 'number' ? `${avgCpu.toFixed(1)}%` : 'n/a'}`,
+          `Avg Memory: ${typeof avgMemory === 'number' ? `${(avgMemory * 100).toFixed(1)}%` : 'n/a'}`
         ].join('  |  '),
         'Overall Status'
       );
@@ -896,13 +916,13 @@ const healthCommand: Command = {
           { key: 'id', header: 'Agent ID', width: 18 },
           { key: 'type', header: 'Type', width: 12 },
           { key: 'health', header: 'Health', width: 10, format: formatHealthStatus },
-          { key: 'cpu', header: 'CPU %', width: 8, align: 'right', format: (v) => `${Number(v ?? 0).toFixed(1)}%` },
+          { key: 'cpu', header: 'CPU %', width: 8, align: 'right', format: (v) => typeof v === 'number' ? `${v.toFixed(1)}%` : 'n/a' },
           { key: 'memory', header: 'Memory', width: 10, align: 'right', format: (v: unknown) => {
             const mem = v as { used: number; limit: number } | undefined;
-            if (!mem) return '0%';
+            if (!mem || !mem.limit) return 'n/a';
             return `${(mem.used / mem.limit * 100).toFixed(0)}%`;
           }},
-          { key: 'tasks', header: 'Tasks', width: 12, align: 'right', format: (v: unknown) => {
+          { key: 'tasks', header: 'Calls', width: 12, align: 'right', format: (v: unknown) => {
             const t = v as { active: number; completed: number } | undefined;
             if (!t) return '0/0';
             return `${t.active ?? 0}/${t.completed ?? 0}`;
@@ -917,15 +937,14 @@ const healthCommand: Command = {
         for (const agent of healthAgents) {
           output.writeln();
           output.writeln(output.highlight(agent.id));
-          const uptime = agent.uptime ?? 0;
-          const latency = agent.latency ?? { avg: 0, p99: 0 };
-          const tasks = agent.tasks ?? { completed: 0, failed: 0, queued: 0 };
-          const errors = agent.errors ?? { count: 0 };
+          const latency = agent.latency;
+          const tasks = agent.tasks;
+          const errors = agent.errors;
           output.printList([
-            `Uptime: ${(uptime / 1000 / 60).toFixed(1)} min`,
-            `Latency: avg ${(latency.avg ?? 0).toFixed(1)}ms, p99 ${(latency.p99 ?? 0).toFixed(1)}ms`,
-            `Tasks: ${tasks.completed ?? 0} completed, ${tasks.failed ?? 0} failed, ${tasks.queued ?? 0} queued`,
-            `Errors: ${errors.count ?? 0}${errors.lastError ? ` (${errors.lastError})` : ''}`
+            `Registry age: ${typeof agent.registryAgeMs === 'number' ? `${(agent.registryAgeMs / 1000 / 60).toFixed(1)} min` : 'n/a'}`,
+            `Latency: p50 ${typeof latency?.p50 === 'number' ? `${latency.p50.toFixed(1)}ms` : 'n/a'}, p95 ${typeof latency?.p95 === 'number' ? `${latency.p95.toFixed(1)}ms` : 'n/a'}`,
+            `Observed provider calls (last 20): ${tasks?.completed ?? 0} API-success, ${tasks?.failed ?? 0} error`,
+            `Errors: ${errors?.count ?? 0}${errors?.lastError ? ` (${errors.lastError})` : ''}`
           ]);
         }
       }

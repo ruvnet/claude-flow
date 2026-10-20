@@ -71,6 +71,7 @@ describe('adopt path parity — RVFA-packed champion adopts like raw JSON', () =
 
     const cwd = mkdtempSync(join(tmpdir(), 'pcrvfa-'));
     mkdirSync(join(cwd, '.claude'), { recursive: true });
+    writeFileSync(join(cwd, '.claude', 'settings.json'), '{}'); // ruflo init marker (#4176)
     const rvfPath = join(cwd, PROVEN_CONFIG_RVFA_FILE);
     writeFileSync(rvfPath, packProvenConfigRvfa(signed));
 

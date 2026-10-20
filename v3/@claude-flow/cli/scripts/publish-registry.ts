@@ -190,7 +190,6 @@ async function generateRegistry(): Promise<PluginRegistry> {
   console.log('📦 Fetching npm stats for plugins...');
 
   const officialPackages = [
-    '@claude-flow/plugin-agentic-qe',
     '@claude-flow/plugin-prime-radiant',
     '@claude-flow/plugin-gastown-bridge',
     '@claude-flow/security',

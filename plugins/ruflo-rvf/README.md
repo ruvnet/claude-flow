@@ -76,3 +76,15 @@ bash plugins/ruflo-rvf/scripts/smoke.sh
 - `ruflo-ruvector` — exposes the `ruvector rvf *` tooling this plugin sits on top of
 - `ruflo-browser` — uses RVF containers for session-as-skill artifacts (ADR-0001 there)
 - `ruflo-agentdb` — namespace convention owner
+
+## As a mod
+
+Function-hook mod (ADR-445, pattern of `ruflo-agentdb`). It loads from `hooks/hooks.json` → `hooks/register.ts`.
+
+A guard for portable memory: `memory_store`, `session_save`, `hooks_session-end` and `hooks_transfer` refuse secrets, so an RVF export or saved session does not carry them off-machine. Deletes (`memory_delete`, `session_delete`) are not gated: those tools have no confirm flag a mod could rely on.
+
+- **Command**: `/rvf-mod` answers locally with no model call. Verbs: `status`, `scan <text>`, `tools` (which memory and session tools are connected).
+- **Status file**: `.claude-flow/rvf-mod/status.json` (`{version, updatedMs, ...counters}`), written at session start and as counters change.
+- **Safety**: no network, no process spawning; it only uses tools already connected.
+- **Option** `guard` (`on` by default, `off` to disable): a tighten-only `tool.call` guard. A call to one of the tools above whose input holds a key, token, private key or password is denied. The reason never repeats the secret.
+- **Test**: `claude plugin validate plugins/ruflo-rvf`, `claude plugin test plugins/ruflo-rvf`, `bash plugins/ruflo-rvf/scripts/smoke.sh`.

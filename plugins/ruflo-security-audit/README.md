@@ -67,3 +67,14 @@ bash plugins/ruflo-security-audit/scripts/smoke.sh
 ## Architecture Decisions
 
 - [`ADR-0001` — ruflo-security-audit plugin contract (AIDefence integration, audit_1776853149979 pattern catalog as regression-prevention contract)](./docs/adrs/0001-security-audit-contract.md)
+
+## As a mod
+
+This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+- **Guard (default on, tighten-only).** It refuses to store an audit finding that quotes a live secret in a `security*`, `audit*`, `cve*`, `vuln*`, `findings*` or `secaudit*` memory namespace (`memory_store`, `agentdb_hierarchical-store`, `agentdb_pattern-store`). The refusal never repeats the secret.
+- **Status file.** `.claude-flow/secaudit-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+- **`/secaudit-mod`** answers locally: `status`, `scan <text>`, `namespaces`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+- **Option.** `guard` (`on` | `off`, default `on`) in the plugin's `userConfig`.
+
+Test it: `claude plugin validate plugins/ruflo-security-audit`, `claude plugin test plugins/ruflo-security-audit`, `bash plugins/ruflo-security-audit/scripts/smoke.sh`.

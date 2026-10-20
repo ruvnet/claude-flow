@@ -1,7 +1,7 @@
 {
   "name": "ruflo-swarm",
-  "description": "Agent teams, swarm coordination, Monitor streams, and worktree isolation — wraps 4 swarm_* + 8 agent_* MCP tools (12 total) plus 6 topologies (hierarchical / mesh / hierarchical-mesh / ring / star / adaptive)",
-  "version": "0.2.1",
+  "description": "Agent teams, swarm coordination, Monitor streams, and worktree isolation — wraps 4 swarm_* + 8 agent_* MCP tools (12 total) plus 6 topologies (hierarchical / mesh / hierarchical-mesh / ring / star / adaptive). With Claude Code function hooks on (early access), a live swarm pane: agent tiles lit by reads and writes, topology, task and claims board, cost, router pick and hive-mind votes, with buttons that act through the ruflo CLI",
+  "version": "0.3.7",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,58 @@
     "mcp",
     "topologies",
     "worktree-isolation",
-    "monitor-stream"
-  ]
+    "monitor-stream",
+    "mods",
+    "function-hooks",
+    "pane"
+  ],
+  "userConfig": {
+    "panel": {
+      "type": "string",
+      "title": "Swarm pane",
+      "description": "command (default) opens the pane only with /ruflo swarm pane (or its alias /ruflo-swarm-pane, or /ruflo-swarm:watch); auto also opens it when a ruflo swarm is on disk and the layout docks panes (ruflo-console's cockpit is the pane that opens by itself now); off never opens it.",
+      "default": "command",
+      "options": [
+        "auto",
+        "command",
+        "off"
+      ]
+    },
+    "cli": {
+      "type": "string",
+      "title": "ruflo CLI",
+      "description": "How the pane's buttons reach ruflo. npx-offline (default) uses the locally cached @claude-flow/cli and never touches the network; npx may download it; ruflo and claude-flow use a global install.",
+      "default": "npx-offline",
+      "options": [
+        "npx-offline",
+        "npx",
+        "ruflo",
+        "claude-flow"
+      ]
+    },
+    "routeThreshold": {
+      "type": "number",
+      "title": "Router confidence threshold",
+      "description": "A router pick under this confidence (0 to 1) is shown as below threshold, with its score, rather than as a match.",
+      "default": 0.5
+    },
+    "injectSpawnContext": {
+      "type": "boolean",
+      "title": "Swarm note in subagent prompts",
+      "description": "Append a short note naming the ruflo swarm (id, topology, strategy, read from disk) to the prompt of each subagent Claude Code spawns.",
+      "default": false
+    },
+    "injectAdrs": {
+      "type": "boolean",
+      "title": "ADRs in subagent prompts",
+      "description": "When a ruflo-console mission has ADRs attached, append the accepted decisions (a short, masked digest from .claude-flow/console/adr-digest.json) to the prompt of each subagent Claude Code spawns. Nothing is added when no ADR is attached.",
+      "default": true
+    },
+    "audit": {
+      "type": "boolean",
+      "title": "Audit trail",
+      "description": "Record a bounded trail of engine events (event and tool names, agent ids, times; never prompts, arguments or results) into ruflo memory namespace ruflo-swarm-audit every 30 seconds.",
+      "default": false
+    }
+  }
 }

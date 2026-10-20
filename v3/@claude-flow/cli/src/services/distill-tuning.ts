@@ -44,6 +44,7 @@ import * as crypto from 'crypto';
 import { runDistillation, type DistillOptions } from './memory-distillation.js';
 import { distillTrajectoryContent } from '../memory/structured-distill.js';
 import { cosineSim } from '../memory/hybrid-retrieval.js';
+import { loadBetterSqlite3 } from '../memory/shared-sqlite.js';
 
 // ── Public types ─────────────────────────────────────────────────────────
 
@@ -213,7 +214,21 @@ export async function tuneDistillation(options: TuneDistillationOptions): Promis
     throw new Error(`tuneDistillation: source db not found at ${dbPath}`);
   }
 
-  const Database = await loadBetterSqlite3();
+  // #3883 — resolve the SAME better-sqlite3 copy AgentDB resolves (shared-sqlite.ts),
+  // not a separately-imported copy. Verified: every `new Database(...)` call in this
+  // module (readCopy below, and tmpCopy inside evaluateCandidate) opens a temp file
+  // copy made via fs.copyFileSync — `dbPath`/`sourceDbPath` themselves are NEVER
+  // opened with a DB connection anywhere in this module (see module header
+  // "Isolation" section). So the #3693 identity hazard (two better-sqlite3 copies
+  // fighting over one live file's -wal/-shm sidecars) does not apply to today's
+  // call sites here — AgentDB never holds a live handle on a temp copy. This swap
+  // is for consistency with the shared loader's contract, not an active fix.
+  let Database: any;
+  try {
+    Database = await loadBetterSqlite3();
+  } catch {
+    Database = null;
+  }
   if (!Database) {
     throw new Error('tuneDistillation: better-sqlite3 unavailable — cannot run the tuning harness');
   }
@@ -682,14 +697,5 @@ function safeUnlink(p: string): void {
     } catch {
       /* already gone / never created */
     }
-  }
-}
-
-async function loadBetterSqlite3(): Promise<any | null> {
-  try {
-    const mod: string = 'better-sqlite3';
-    return (await import(mod)).default;
-  } catch {
-    return null;
   }
 }

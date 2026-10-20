@@ -58,6 +58,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
 };
 
 export class ConfigFileManager {
+  private configCwd: string | null = null;
   private configPath: string | null = null;
   private config: Record<string, unknown> | null = null;
 
@@ -79,6 +80,7 @@ export class ConfigFileManager {
 
   /** Load config from file, returns null if not found */
   load(cwd: string): Record<string, unknown> | null {
+    this.selectProject(cwd);
     this.configPath = this.findConfig(cwd);
     if (!this.configPath) {
       this.config = null;
@@ -107,10 +109,11 @@ export class ConfigFileManager {
 
   /** Get the current config, loading if needed */
   getConfig(cwd: string): Record<string, unknown> {
+    this.selectProject(cwd);
     if (this.config === null) {
       this.load(cwd);
     }
-    return this.config ?? { ...DEFAULT_CONFIG };
+    return this.config ?? structuredClone(DEFAULT_CONFIG);
   }
 
   /** Get a nested config value by dot-separated key */
@@ -125,17 +128,18 @@ export class ConfigFileManager {
     if (key.split('.').some(part => part === '__proto__' || part === 'constructor' || part === 'prototype')) {
       throw new Error(`Unsafe configuration key: ${key}`);
     }
+    this.selectProject(cwd);
     // A targeted update must not persist unrelated defaults (notably the
     // default memory path, which would relocate an existing memory store).
-    const config = this.config ?? this.load(cwd) ?? {};
+    const config = structuredClone(this.config ?? this.load(cwd) ?? {});
     if (Object.hasOwn(config, key)) {
       config[key] = value;
     } else {
       setNestedValue(config, key, value);
     }
-    this.config = config;
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, config);
+    this.config = config;
     this.configPath = targetPath;
   }
 
@@ -145,18 +149,38 @@ export class ConfigFileManager {
     if (fs.existsSync(targetPath) && !force) {
       throw new Error(`Config file already exists: ${targetPath}. Use --force to overwrite.`);
     }
-    const config = { ...DEFAULT_CONFIG, ...overrides };
+    const config = { ...structuredClone(DEFAULT_CONFIG), ...overrides };
     this.writeAtomic(targetPath, config);
+    this.selectProject(cwd);
     this.config = config;
     this.configPath = targetPath;
     return targetPath;
   }
 
-  /** Reset config to defaults */
-  reset(cwd: string): string {
-    const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
-    this.writeAtomic(targetPath, DEFAULT_CONFIG);
-    this.config = { ...DEFAULT_CONFIG };
+  /** Reset all configuration or only the selected section to defaults. */
+  reset(cwd: string, section = 'all'): string {
+    if (!['agents', 'swarm', 'memory', 'mcp', 'providers', 'all'].includes(section)) {
+      throw new Error(`Unknown configuration section: ${section}`);
+    }
+    this.selectProject(cwd);
+    const targetPath = this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
+    const config = section === 'all'
+      ? structuredClone(DEFAULT_CONFIG)
+      : structuredClone(this.load(cwd) ?? {});
+    if (section === 'providers') {
+      // Provider defaults are supplied by the provider command, so remove
+      // only the persisted override, as a whole reset already does.
+      delete config.providers;
+    } else if (section !== 'all') {
+      config[section] = structuredClone(DEFAULT_CONFIG[section]);
+    }
+    if (section !== 'all') {
+      for (const key of Object.keys(config)) {
+        if (key.startsWith(`${section}.`)) delete config[key];
+      }
+    }
+    this.writeAtomic(targetPath, config);
+    this.config = config;
     this.configPath = targetPath;
     return targetPath;
   }
@@ -184,7 +208,8 @@ export class ConfigFileManager {
     if (typeof imported !== 'object' || imported === null || Array.isArray(imported)) {
       throw new Error('Import file must contain a JSON object');
     }
-    const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
+    this.selectProject(cwd);
+    const targetPath = this.findConfig(cwd) ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, imported);
     this.config = imported;
     this.configPath = targetPath;
@@ -197,7 +222,17 @@ export class ConfigFileManager {
 
   /** Get default config */
   getDefaults(): Record<string, unknown> {
-    return { ...DEFAULT_CONFIG };
+    return structuredClone(DEFAULT_CONFIG);
+  }
+
+  /** Cached values and file paths belong to one resolved project directory. */
+  private selectProject(cwd: string): void {
+    const resolved = path.resolve(cwd);
+    if (this.configCwd !== resolved) {
+      this.configCwd = resolved;
+      this.config = null;
+      this.configPath = null;
+    }
   }
 
   /** Atomic write: write to .tmp then rename */
@@ -247,7 +282,7 @@ export function parseConfigValue(value: string): unknown {
   if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
   try {
     const parsed = JSON.parse(value);
-    if (typeof parsed === 'object') return parsed;
+    if (typeof parsed === 'object' || (typeof parsed === 'number' && Number.isFinite(parsed))) return parsed;
   } catch { /* not JSON, use as string */ }
   return value;
 }

@@ -22,14 +22,14 @@ Contract gaps relative to the established cadence:
 
 1. No plugin-level ADR.
 2. No smoke test.
-3. README's "PII Pipeline" feature claim doesn't cross-reference the canonical [3-gate pattern owned by ruflo-aidefence ADR-0001](../../ruflo-aidefence/docs/adrs/0001-aidefence-contract.md). Federation's PII pipeline is a richer 14-type detection — but it's a specialization of the same 3-gate design and should defer to the canonical contract.
+3. README's "PII Pipeline" feature claim doesn't cross-reference the canonical [3-gate pattern owned by ruflo-aidefence ADR-0001](../../../ruflo-aidefence/docs/adrs/0001-aidefence-contract.md). Federation's PII pipeline is a richer 14-type detection — but it's a specialization of the same 3-gate design and should defer to the canonical contract.
 4. No namespace coordination cross-reference (uses `federation` namespace — should be `federation-patterns` per kebab-case `<plugin-stem>-<intent>` rule, OR documented as the singular case where the plugin name itself is the intent).
 5. Compatibility section missing the v3.6 pin.
 
 ## Decision
 
 1. Add this ADR (Proposed).
-2. README augment: Compatibility (pin v3.6); Namespace coordination (claim `federation` as the namespace — this is the documented exception where the plugin owns its base name; the kebab-case rule still applies, just with an empty intent. Cross-reference [ruflo-agentdb ADR-0001](../../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)); 3-gate alignment block (federation's PII pipeline is a richer specialization of the canonical 3 gates from ruflo-aidefence ADR-0001); Verification + Architecture Decisions sections.
+2. README augment: Compatibility (pin v3.6); Namespace coordination (claim `federation` as the namespace — this is the documented exception where the plugin owns its base name; the kebab-case rule still applies, just with an empty intent. Cross-reference [ruflo-agentdb ADR-0001](../../../ruflo-agentdb/docs/adrs/0001-agentdb-optimization.md)); 3-gate alignment block (federation's PII pipeline is a richer specialization of the canonical 3 gates from ruflo-aidefence ADR-0001); Verification + Architecture Decisions sections.
 3. Plugin metadata stays at `0.2.0` (already at the cadence). Keywords add `mcp`, `pii-pipeline`, `audit-log`.
 4. `scripts/smoke.sh` — 10 structural checks: version + new keywords; all 3 skills + agent + command with valid frontmatter; ADR-097 budget block intact (`maxHops`, `maxTokens`, `maxUsd`, `BUDGET_EXCEEDED`, `HOP_LIMIT_EXCEEDED`); 5-tier trust model documented (UNTRUSTED → VERIFIED → ATTESTED → TRUSTED → PRIVILEGED); compliance modes documented (HIPAA, SOC2, GDPR); v3.6 pin; namespace coordination block; 3-gate alignment cross-reference; ADR Proposed; no wildcard tools.
 

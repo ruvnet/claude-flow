@@ -1,6 +1,8 @@
 /**
  * @claude-flow/claims - Claim Repository Implementation
- * SQLite-based persistence for claims (ADR-016)
+ * In-memory claim repository (see federated-claim-repository.ts for the
+ * cross-node implementation, ADR-101). No SQLite-backed repository exists
+ * in this package.
  *
  * @module v3/claims/infrastructure/claim-repository
  */

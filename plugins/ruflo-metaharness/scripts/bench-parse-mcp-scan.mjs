@@ -18,7 +18,8 @@
 //   node scripts/bench-parse-mcp-scan.mjs                  # default 100k iters
 //   node scripts/bench-parse-mcp-scan.mjs --iters 1000000
 //   node scripts/bench-parse-mcp-scan.mjs --format json
-//   node scripts/bench-parse-mcp-scan.mjs --max-mean-us 5  # CI gate
+//   node scripts/bench-parse-mcp-scan.mjs --max-mean-us 5  # CI gate (on the mean)
+//   node scripts/bench-parse-mcp-scan.mjs --max-mean-us 5 --gate-stat p50  # same ceiling on the median: robust to a loaded runner
 //
 // EXIT CODES
 //   0  ok (or threshold satisfied)
@@ -33,15 +34,21 @@ guardCliArgs(import.meta.url, {
   '--iters': 'value',
   '--format': 'value',
   '--max-mean-us': 'value',
+  '--gate-stat': 'value',
 });
 
 const ARGS = (() => {
-  const a = { iters: 100_000, format: 'table', maxMeanUs: null };
+  const a = { iters: 100_000, format: 'table', maxMeanUs: null, gateStat: 'mean' };
   for (let i = 2; i < process.argv.length; i++) {
     const v = process.argv[i];
     if (v === '--iters') a.iters = parseInt(process.argv[++i], 10);
     else if (v === '--format') a.format = process.argv[++i];
     else if (v === '--max-mean-us') a.maxMeanUs = parseFloat(process.argv[++i]);
+    else if (v === '--gate-stat') a.gateStat = process.argv[++i];
+  }
+  if (a.gateStat !== 'mean' && a.gateStat !== 'p50') {
+    console.error(`bench-parse-mcp-scan: --gate-stat must be mean or p50; got ${a.gateStat}`);
+    process.exit(2);
   }
   return a;
 })();
@@ -113,9 +120,11 @@ const results = [
 let gate = { triggered: false, reasons: [] };
 if (ARGS.maxMeanUs != null) {
   for (const r of results) {
-    if (r.meanUs > ARGS.maxMeanUs) {
+    // p50 is the typical-call cost: one scheduler pause on a loaded CI runner moves the mean (iter 86 gate flaked on it) but not the median.
+    const value = ARGS.gateStat === 'p50' ? r.p50Ms * 1000 : r.meanUs;
+    if (value > ARGS.maxMeanUs) {
       gate.triggered = true;
-      gate.reasons.push(`${r.label}: mean ${r.meanUs.toFixed(3)}μs > ceiling ${ARGS.maxMeanUs}μs`);
+      gate.reasons.push(`${r.label}: ${ARGS.gateStat} ${value.toFixed(3)}μs > ceiling ${ARGS.maxMeanUs}μs`);
     }
   }
 }

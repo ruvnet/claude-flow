@@ -10,8 +10,10 @@
  * @module v3/memory/agentdb-backend
  */
 
+import { withAgentdbLockRecovery, closeWithAgentdbLockRecovery } from './agentdb-lock-guard.js';
 import { EventEmitter } from 'node:events';
 import { safeJsonParse } from './json-security.js';
+import { useHostSqliteDriver } from './agentdb-native-driver.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -199,14 +201,6 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     try {
       // Initialize AgentDB with config
-      this.agentdb = new AgentDB({
-        dbPath: this.config.dbPath || ':memory:',
-        namespace: this.config.namespace,
-        forceWasm: this.config.forceWasm,
-        vectorBackend: this.config.vectorBackend,
-        vectorDimension: this.config.vectorDimension,
-      });
-
       // Suppress agentdb's noisy console.log during init
       // (EmbeddingService, AgentDB core emit info-level logs we don't need)
       const origLog = console.log;
@@ -219,7 +213,20 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         origLog.apply(console, args);
       };
       try {
-        await this.agentdb.initialize();
+        // A stale `<db>.agentdb.lock` left by a dead writer is cleared (only
+        // when provably stale) and init retried once with a fresh instance.
+        await withAgentdbLockRecovery(this.config.dbPath, async () => {
+          this.agentdb = new AgentDB({
+            dbPath: this.config.dbPath || ':memory:',
+            namespace: this.config.namespace,
+            forceWasm: this.config.forceWasm,
+            vectorBackend: this.config.vectorBackend,
+            vectorDimension: this.config.vectorDimension,
+          });
+          // Keep agentdb's nested better-sqlite3 11.x out of the process (Node 24 abort).
+          useHostSqliteDriver(this.agentdb);
+          await this.agentdb.initialize();
+        });
       } finally {
         console.log = origLog;
       }
@@ -247,7 +254,15 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     if (!this.initialized) return;
 
     if (this.agentdb) {
-      await this.agentdb.close();
+      // Clears a provably stale lock first; a persist failure is surfaced
+      // (AgentdbLockError), never swallowed.
+      try {
+        await closeWithAgentdbLockRecovery(this.config.dbPath, () => this.agentdb.close());
+      } finally {
+        this.initialized = false;
+        this.emit('shutdown');
+      }
+      return;
     }
 
     this.initialized = false;

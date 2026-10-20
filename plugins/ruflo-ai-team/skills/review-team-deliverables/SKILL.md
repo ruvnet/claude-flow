@@ -1,9 +1,11 @@
 ---
 name: review-team-deliverables
-description: Review RuFlo team results against acceptance criteria using the evidence bundle.
-allowed-tools: mcp__plugin_ruflo-ai-team_ruflo-ai-team__team_get mcp__plugin_ruflo-ai-team_ruflo-ai-team__task_list mcp__plugin_ruflo-ai-team_ruflo-ai-team__memory_search mcp__plugin_ruflo-ai-team_ruflo-ai-team__evidence_export
+description: Checks an AI team run against its acceptance criteria using the evidence bundle. Use when the user asks whether the work is done or correct, or before completing a run. Separates verified evidence from agent claims.
+allowed-tools: Read
 ---
 
 # Review Team Deliverables
 
-Retrieve the evidence bundle and compare each acceptance criterion with a concrete task result or artifact reference. Separate verified facts, agent assertions, uncertainty, and missing work. Report the recorded budget without presenting it as enforced or billed. Recommend completion only when every required criterion has evidence.
+Uses the RuFlo AI Team connector (server name ruflo-ai-team): the tools team_get, task_list, memory_search and evidence_export.
+
+Retrieve the evidence bundle and compare each acceptance criterion with a concrete task result or artifact reference. Separate verified facts, agent assertions, uncertainty, and missing work. Report the recorded budget without presenting it as enforced or billed. Recommend completion only when every required criterion has evidence; the user decides whether to complete the run.

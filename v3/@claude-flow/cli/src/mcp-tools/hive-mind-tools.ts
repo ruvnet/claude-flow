@@ -4,9 +4,9 @@
  * Tool definitions for collective intelligence and swarm coordination.
  */
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, chmodSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'node:crypto';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
 
@@ -31,13 +31,12 @@ interface HiveState {
     electedAt: string;
     term: number;
   };
-  // Capability token minted by hive-mind_init. join/leave/vote all require
-  // it (see requireHiveToken below) -- previously these mutated state.workers
-  // and proposal.votes for any caller, with nothing standing between an
-  // unauthenticated MCP caller and the hive's membership/consensus state.
-  // Undefined means no token was ever minted (state predates this field, or
-  // the hive was never initialized): fail-closed, not fail-open -- no token
-  // means no caller is authorized, not "any caller is".
+  // Capability token minted by hive-mind_init and stored in state.json
+  // (0600). It is NEVER returned by a tool response (ADR-476). Remote
+  // callers may present it (or the operator bootstrap secret) to the gated
+  // tools -- see authorizeHive(); local stdio/CLI callers need no credential.
+  // Undefined means no token was ever minted: a remote caller then has only
+  // the bootstrap secret to authenticate with, never "any caller".
   hiveToken?: string;
   workers: string[];
   consensus: {
@@ -169,32 +168,125 @@ function tryResolveProposal(
 }
 
 /**
- * Verify a caller-supplied hiveToken against the one minted by hive-mind_init,
- * using a constant-time comparison (bearer-token capability check -- callers
- * that never joined, and callers that guess/omit the token, get identical
- * rejection). Returns an error string on failure, or null on success.
+ * ADR-476: hive-mind caller authorization.
+ *
+ * The trust decision is made from the SERVER-SIDE `context` the dispatcher
+ * builds (never from a tool argument an injected agent could forge):
+ *
+ *   - `context` absent        -> in-process call (CLI subcommands, library, tests): local
+ *   - `context.transport`     -> 'stdio' | 'cli': local (same user, same machine)
+ *   - anything else           -> remote ('http', 'websocket', or a context that
+ *                                names no transport): fail closed
+ *   - RUFLO_HIVE_REQUIRE_AUTH=1 -> every caller is treated as remote
+ *
+ * Local callers need no credential. Remote callers must present the operator's
+ * secret out of band: `bootstrapSecret` (any gated tool) or the hive's
+ * `hiveToken` (every gated tool except hive-mind_init). Neither value is ever
+ * returned by a tool response or written to a log.
+ *
+ * Honest limit: a local caller (including a prompt-injected agent) can read the
+ * same files, so for local callers this is not a boundary -- it matters when the
+ * MCP surface is reachable by someone who cannot read the project directory.
  */
-function requireHiveToken(state: HiveState, suppliedToken: unknown): string | null {
-  if (!state.hiveToken) {
-    return 'Hive-mind has no capability token minted (re-run hive-mind_init)';
+type HiveCaller = 'local' | 'remote';
+
+const LOCAL_TRANSPORTS = new Set(['stdio', 'cli']);
+const MIN_ENV_SECRET_LENGTH = 16;
+const BOOTSTRAP_FILE = 'bootstrap.secret';
+
+function classifyCaller(context: Record<string, unknown> | undefined): HiveCaller {
+  if (process.env.RUFLO_HIVE_REQUIRE_AUTH === '1') return 'remote';
+  if (context === undefined || context === null) return 'local';
+  const transport = context.transport;
+  return typeof transport === 'string' && LOCAL_TRANSPORTS.has(transport) ? 'local' : 'remote';
+}
+
+/**
+ * Constant-time string equality. Both sides are hashed first so the compare is
+ * over fixed-length digests: no early exit and no length side channel.
+ */
+function constantTimeEqual(expected: string, supplied: string): boolean {
+  const a = createHash('sha256').update(expected, 'utf-8').digest();
+  const b = createHash('sha256').update(supplied, 'utf-8').digest();
+  return timingSafeEqual(a, b);
+}
+
+function getBootstrapSecretPath(): string {
+  return join(getHiveDir(), BOOTSTRAP_FILE);
+}
+
+/**
+ * Operator secret: env `RUFLO_HIVE_BOOTSTRAP_SECRET` wins (>= 16 chars), else
+ * the 0600 file. Read-only: never creates anything.
+ */
+function readBootstrapSecret(): string | undefined {
+  const fromEnv = process.env.RUFLO_HIVE_BOOTSTRAP_SECRET?.trim();
+  if (fromEnv && fromEnv.length >= MIN_ENV_SECRET_LENGTH) return fromEnv;
+  try {
+    const path = getBootstrapSecretPath();
+    if (existsSync(path)) {
+      const fromFile = readFileSync(path, 'utf-8').trim();
+      if (fromFile) return fromFile;
+    }
+  } catch {
+    // unreadable file == no secret configured
   }
-  if (typeof suppliedToken !== 'string' || !suppliedToken) {
-    return 'hiveToken is required';
+  return undefined;
+}
+
+/**
+ * Create the 0600 secret file if neither env nor file provides one. Only local
+ * callers ever reach this (hive-mind_init, local path). Returns nothing: the
+ * value is never handed to a caller.
+ */
+function ensureBootstrapSecret(): void {
+  if (readBootstrapSecret()) return;
+  ensureHiveDir();
+  try {
+    writeFileSync(getBootstrapSecretPath(), randomBytes(32).toString('hex'), {
+      encoding: 'utf-8',
+      mode: 0o600,
+      flag: 'wx', // never clobber a secret another process just created
+    });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
   }
-  const expected = Buffer.from(state.hiveToken, 'utf-8');
-  const actual = Buffer.from(suppliedToken, 'utf-8');
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
-    return 'Invalid hiveToken';
+}
+
+/**
+ * Authorize a caller for a gated hive-mind operation. Returns an error string
+ * on denial, null on success. Denial text never contains either credential.
+ */
+function authorizeHive(
+  state: HiveState | undefined,
+  input: Record<string, unknown>,
+  context: Record<string, unknown> | undefined,
+  opts: { allowToken?: boolean } = {},
+): string | null {
+  if (classifyCaller(context) === 'local') return null;
+
+  const secret = readBootstrapSecret();
+  const suppliedSecret = typeof input.bootstrapSecret === 'string' ? input.bootstrapSecret : '';
+  if (secret && suppliedSecret && constantTimeEqual(secret, suppliedSecret)) return null;
+
+  const allowToken = opts.allowToken !== false;
+  const suppliedToken = typeof input.hiveToken === 'string' ? input.hiveToken : '';
+  if (allowToken && state?.hiveToken && suppliedToken && constantTimeEqual(state.hiveToken, suppliedToken)) {
+    return null;
   }
-  return null;
+
+  if (!suppliedSecret && !suppliedToken) {
+    return allowToken
+      ? 'hiveToken is required (remote callers must present the operator credential: hiveToken or bootstrapSecret; local stdio/CLI callers are exempt; see ADR-476)'
+      : 'bootstrapSecret is required (remote callers must present the operator secret; set RUFLO_HIVE_BOOTSTRAP_SECRET on the server; see ADR-476)';
+  }
+  return suppliedSecret ? 'Invalid bootstrapSecret' : 'Invalid hiveToken';
 }
 
 /**
  * Read the current hiveToken directly off disk, for same-machine callers
- * that already have filesystem access to hive state (the CLI's own
- * `hive-mind join/leave/consensus` subcommands) -- NOT exposed over any MCP
- * tool response (in particular, not hive-mind_status), since that's a
- * remote-reachable surface a capability token must not leak through.
+ * (the CLI's own `hive-mind join/leave/consensus` subcommands) -- NOT exposed
+ * over any MCP tool response.
  */
 export function getHiveTokenForCli(): string | undefined {
   return loadHiveState().hiveToken;
@@ -211,8 +303,11 @@ function getHivePath(): string {
 function ensureHiveDir(): void {
   const dir = getHiveDir();
   if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
   }
+  // The directory holds the capability token and operator secret: owner-only.
+  // Best effort (no-op on Windows, may fail on a directory we do not own).
+  try { chmodSync(dir, 0o700); } catch { /* not ours / unsupported */ }
 }
 
 function loadHiveState(): HiveState {
@@ -239,7 +334,19 @@ function loadHiveState(): HiveState {
 function saveHiveState(state: HiveState): void {
   ensureHiveDir();
   state.updatedAt = new Date().toISOString();
-  writeFileSync(getHivePath(), JSON.stringify(state, null, 2), 'utf-8');
+  // state.json embeds hiveToken: write it owner-only (0600) and atomically
+  // (temp file in the same directory, then rename) so a reader never sees a
+  // half-written file and the token is never briefly world-readable.
+  const path = getHivePath();
+  const tmp = `${path}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify(state, null, 2), { encoding: 'utf-8', mode: 0o600, flag: 'wx' });
+    try { chmodSync(tmp, 0o600); } catch { /* unsupported */ }
+    renameSync(tmp, path);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch { /* already gone */ }
+    throw err;
+  }
 }
 
 // Import agent store helpers for spawn functionality
@@ -275,13 +382,26 @@ export const hiveMindTools: MCPTool[] = [
         role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Worker role in hive', default: 'worker' },
         agentType: { type: 'string', description: 'Agent type for spawned workers', default: 'worker' },
         prefix: { type: 'string', description: 'Prefix for worker IDs', default: 'hive-worker' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       const state = loadHiveState();
 
       if (!state.initialized) {
         return { success: false, error: 'Hive-mind not initialized. Run hive-mind/init first.' };
+      }
+
+      // Fail-closed: spawned agents are pushed straight into state.workers,
+      // which hive-mind_consensus's vote tally treats as legitimate voting
+      // roster members (`state.workers.includes(voterId)`). Without this
+      // gate, an unauthenticated caller could mint arbitrary "workers" here
+      // and then vote as them -- bypassing #3291's join/leave/vote Sybil
+      // fix entirely via this sibling tool. No token, no spawn.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
       }
 
       if (input.agentType) { const v = validateIdentifier(input.agentType as string, 'agentType'); if (!v.valid) return { success: false, error: v.error }; }
@@ -352,9 +472,22 @@ export const hiveMindTools: MCPTool[] = [
           description: 'Consensus strategy. Default: raft (anti-drift). Use byzantine for f<n/3 fault tolerance.',
         },
         queenId: { type: 'string', description: 'Initial queen agent ID' },
+        bootstrapSecret: { type: 'string', description: 'Operator secret (RUFLO_HIVE_BOOTSTRAP_SECRET or .claude-flow/hive-mind/bootstrap.secret). Only needed by remote/HTTP callers; local stdio/CLI callers omit it. See ADR-476.' },
       },
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
+      // ADR-476: init is the credential-issuance point, so it is gated too
+      // (first-time bootstrap and re-init alike). hiveToken is not accepted
+      // here: only the operator secret may (re)initialize a hive remotely.
+      const bootstrapError = authorizeHive(undefined, input, context, { allowToken: false });
+      if (bootstrapError) {
+        return { success: false, error: bootstrapError };
+      }
+      // Local first init materialises the 0600 operator secret so a later
+      // remote/HTTP deployment has something to be told out of band. The
+      // value is never returned.
+      if (classifyCaller(context) === 'local') ensureBootstrapSecret();
+
       if (input.queenId) { const v = validateIdentifier(input.queenId as string, 'queenId'); if (!v.valid) return { success: false, error: v.error }; }
 
       const state = loadHiveState();
@@ -389,7 +522,11 @@ export const hiveMindTools: MCPTool[] = [
         consensus: state.consensusStrategy,
         queenId,
         status: 'initialized',
-        hiveToken: state.hiveToken,
+        // Deliberately NOT echoing state.hiveToken here (even though this
+        // call is itself now bootstrap-secret-gated): the CLI never reads
+        // it off this response (it uses getHiveTokenForCli()'s direct
+        // same-machine state.json read instead), so there's no reason to
+        // widen the token's exposure onto an MCP tool response at all.
         config: {
           topology: state.topology,
           consensus: state.consensusStrategy,
@@ -512,11 +649,12 @@ export const hiveMindTools: MCPTool[] = [
       properties: {
         agentId: { type: 'string', description: 'Agent ID to join' },
         role: { type: 'string', enum: ['worker', 'specialist', 'scout'], description: 'Agent role in hive' },
-        hiveToken: { type: 'string', description: 'Capability token minted by hive-mind_init' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
-      required: ['agentId', 'hiveToken'],
+      required: ['agentId'],
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       const state = loadHiveState();
       const agentId = input.agentId as string;
 
@@ -529,7 +667,7 @@ export const hiveMindTools: MCPTool[] = [
       // Fail-closed: an unrecognized/missing token makes no membership
       // change at all -- state.workers is untouched, not just left
       // unsaved (the write below never happens on this path).
-      const tokenError = requireHiveToken(state, input.hiveToken);
+      const tokenError = authorizeHive(state, input, context);
       if (tokenError) {
         return { success: false, agentId, error: tokenError };
       }
@@ -556,11 +694,12 @@ export const hiveMindTools: MCPTool[] = [
       type: 'object',
       properties: {
         agentId: { type: 'string', description: 'Agent ID to remove' },
-        hiveToken: { type: 'string', description: 'Capability token minted by hive-mind_init' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
-      required: ['agentId', 'hiveToken'],
+      required: ['agentId'],
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       const state = loadHiveState();
       const agentId = input.agentId as string;
 
@@ -568,7 +707,7 @@ export const hiveMindTools: MCPTool[] = [
 
       // Fail-closed: a denied caller makes no membership change -- the
       // splice/save below is unreachable on this path.
-      const tokenError = requireHiveToken(state, input.hiveToken);
+      const tokenError = authorizeHive(state, input, context);
       if (tokenError) {
         return { success: false, agentId, error: tokenError };
       }
@@ -601,7 +740,8 @@ export const hiveMindTools: MCPTool[] = [
         value: { description: 'Proposal value (for propose)' },
         vote: { type: 'boolean', description: 'Vote (true=for, false=against)' },
         voterId: { type: 'string', description: 'Voter agent ID' },
-        hiveToken: { type: 'string', description: 'Capability token minted by hive-mind_init (required to vote)' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
         strategy: { type: 'string', enum: ['bft', 'raft', 'quorum'], description: 'Consensus strategy (default: raft)' },
         quorumPreset: { type: 'string', enum: ['unanimous', 'majority', 'supermajority'], description: 'Quorum threshold preset (for quorum strategy, default: majority)' },
         term: { type: 'number', description: 'Term number (for raft strategy)' },
@@ -609,7 +749,7 @@ export const hiveMindTools: MCPTool[] = [
       },
       required: ['action'],
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       if (input.proposalId) { const v = validateIdentifier(input.proposalId as string, 'proposalId'); if (!v.valid) return { action: input.action, error: v.error }; }
       if (input.voterId) { const v = validateIdentifier(input.voterId as string, 'voterId'); if (!v.valid) return { action: input.action, error: v.error }; }
       if (input.type) { const v = validateText(input.type as string, 'type'); if (!v.valid) return { action: input.action, error: v.error }; }
@@ -620,6 +760,16 @@ export const hiveMindTools: MCPTool[] = [
       const totalNodes = state.workers.length || 1;
 
       if (action === 'propose') {
+        // Fail-closed: an unauthenticated caller could otherwise inject
+        // arbitrary consensus proposals (type/value of their choosing) for
+        // legitimate workers to vote on, or exhaust raft's one-pending-
+        // proposal-per-term slot as a denial-of-service. No token, no
+        // proposal recorded.
+        const proposeTokenError = authorizeHive(state, input, context);
+        if (proposeTokenError) {
+          return { action, error: proposeTokenError };
+        }
+
         const proposalId = `proposal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const quorumPreset = (input.quorumPreset as QuorumPreset) || 'majority';
         const term = (input.term as number) || (state.queen?.term ?? 1);
@@ -688,7 +838,7 @@ export const hiveMindTools: MCPTool[] = [
         // Fail-closed: a denied caller records no vote at all -- the
         // votes[voterId] write below is unreachable on this path, and
         // nothing about the proposal (vote tallies, status) changes.
-        const tokenError = requireHiveToken(state, input.hiveToken);
+        const tokenError = authorizeHive(state, input, context);
         if (tokenError) {
           return { action, error: tokenError, proposalId: proposal.proposalId };
         }
@@ -941,14 +1091,24 @@ export const hiveMindTools: MCPTool[] = [
         message: { type: 'string', description: 'Message to broadcast' },
         priority: { type: 'string', enum: ['low', 'normal', 'high', 'critical'], description: 'Message priority' },
         fromId: { type: 'string', description: 'Sender agent ID' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
       required: ['message'],
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       const state = loadHiveState();
 
       if (!state.initialized) {
         return { success: false, error: 'Hive-mind not initialized' };
+      }
+
+      // Fail-closed: no token, no message stored -- otherwise any caller
+      // could inject spoofed broadcasts (arbitrary fromId) into shared
+      // memory that every real worker reads.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
       }
 
       { const v = validateText(input.message as string, 'message'); if (!v.valid) return { success: false, error: v.error }; }
@@ -988,13 +1148,23 @@ export const hiveMindTools: MCPTool[] = [
       properties: {
         graceful: { type: 'boolean', description: 'Graceful shutdown (wait for pending tasks)', default: true },
         force: { type: 'boolean', description: 'Force immediate shutdown', default: false },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       const state = loadHiveState();
 
       if (!state.initialized) {
         return { success: false, error: 'Hive-mind not initialized or already shut down' };
+      }
+
+      // Fail-closed: no token, no shutdown -- otherwise any caller could
+      // terminate a running hive (wiping workers/pending consensus/shared
+      // memory) as a denial-of-service with zero proof of membership.
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { success: false, error: tokenError };
       }
 
       const graceful = input.graceful !== false;
@@ -1054,10 +1224,12 @@ export const hiveMindTools: MCPTool[] = [
         action: { type: 'string', enum: ['get', 'set', 'delete', 'list'], description: 'Memory action' },
         key: { type: 'string', description: 'Memory key' },
         value: { description: 'Value to store (for set)' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
       required: ['action'],
     },
-    handler: async (input) => {
+    handler: async (input, context) => {
       if (input.key) { const v = validateIdentifier(input.key as string, 'key'); if (!v.valid) return { action: input.action, error: v.error }; }
 
       const state = loadHiveState();
@@ -1076,6 +1248,14 @@ export const hiveMindTools: MCPTool[] = [
 
       if (action === 'set') {
         if (!key) return { action, error: 'Key required' };
+        // Fail-closed: no token, no write -- otherwise any caller could
+        // tamper with or inject entries into shared memory every worker
+        // and the queen read, the same attack class hive-mind_broadcast
+        // was gated for.
+        const tokenError = authorizeHive(state, input, context);
+        if (tokenError) {
+          return { action, key, error: tokenError };
+        }
         state.sharedMemory[key] = input.value;
         saveHiveState(state);
 
@@ -1099,6 +1279,11 @@ export const hiveMindTools: MCPTool[] = [
 
       if (action === 'delete') {
         if (!key) return { action, error: 'Key required' };
+        // Fail-closed, same reasoning as 'set' above.
+        const tokenError = authorizeHive(state, input, context);
+        if (tokenError) {
+          return { action, key, error: tokenError };
+        }
         const existed = key in state.sharedMemory;
         delete state.sharedMemory[key];
         saveHiveState(state);
@@ -1133,12 +1318,21 @@ export const hiveMindTools: MCPTool[] = [
       type: 'object',
       properties: {
         qualityThreshold: { type: 'number', description: 'Quality threshold for pattern retention (advisory — not enforced yet)' },
+        hiveToken: { type: 'string', description: 'Remote/HTTP callers only: hive capability token (read from the server, never returned by tools). Local stdio/CLI callers omit it. See ADR-476.' },
+        bootstrapSecret: { type: 'string', description: 'Remote/HTTP callers only: operator secret (alternative to hiveToken). See ADR-476.' },
       },
     },
-    handler: async () => {
+    handler: async (input, context) => {
       const t0 = Date.now();
       const state = loadHiveState();
       if (!state.initialized) return { optimized: false, error: 'Hive-mind not initialized', before: { patterns: 0, memory: '0' }, after: { patterns: 0, memory: '0' }, removed: 0, consolidated: 0, timeMs: 0 };
+      // Fail-closed: no token, no prune -- this mutates state.sharedMemory
+      // via the same saveHiveState() path set/delete/broadcast were gated
+      // for (found in round 2 review, #3339).
+      const tokenError = authorizeHive(state, input, context);
+      if (tokenError) {
+        return { optimized: false, error: tokenError, before: { patterns: 0, memory: '0' }, after: { patterns: 0, memory: '0' }, removed: 0, consolidated: 0, timeMs: 0 };
+      }
       const beforeKeys = Object.keys(state.sharedMemory);
       const before = beforeKeys.length;
       for (const k of beforeKeys) {

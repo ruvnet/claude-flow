@@ -1,0 +1,4 @@
+{
+  "description": "Intelligence as a mod: a tighten-only guard on the plugin's own tools (default on), /intelligence-mod (local, no model call), and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

@@ -1,0 +1,4 @@
+{
+  "description": "Business pods as a mod (ADR-445 pattern): a tighten-only guard on business_pod_* (no secrets in templates, template paths must be traversal-free .json), /pods-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

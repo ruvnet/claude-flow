@@ -1,7 +1,7 @@
 {
   "name": "ruflo-rag-memory",
-  "description": "RuVector memory with HNSW search, AgentDB, and semantic retrieval",
-  "version": "0.2.1",
+  "description": "RuVector memory with HNSW search, AgentDB, and semantic retrieval. As a mod (ADR-445): a write guard that keeps secrets out of memory, /rag-mod, and a status file the console shows",
+  "version": "0.3.7",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,22 @@
     "vector-search",
     "mcp",
     "claude-memories",
-    "bridged-memory"
-  ]
+    "bridged-memory",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse calls to this plugin's write tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

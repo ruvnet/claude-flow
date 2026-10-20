@@ -54,6 +54,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   // P0 Commands
   completions: () => import('./completions.js'),
   doctor: () => import('./doctor.js'),
+  harness: () => import('./harness.js'),
   // Verification (ADR-095, signed witness manifest)
   verify: () => import('./verify.js'),
   // Analysis Commands
@@ -97,6 +98,13 @@ const commandLoaders: Record<string, CommandLoader> = {
   advisor: () => import('./advisor.js'),
   // Ruflo verbs in Claude Code's spinnerVerbs rotation (ADR-318)
   spinner: () => import('./spinner.js'),
+  // ruflo as a Claude Code mod: function hooks, early access (ADR-404)
+  mods: () => import('./mods.js'),
+  // ADR-489: the console in a terminal of its own (read-only Overview and Cost); loads a bundle from this CLI's own install.
+  tui: () => import('./tui.js'),
+  // ADR-406 command catalog and mission control (interim homes until mods.ts follow-up)
+  catalog: () => import('./catalog.js'),
+  mission: () => import('./mission.js'),
   // Ruflo entries in Claude Code's companyAnnouncements startup rotation (ADR-319)
   announcements: () => import('./announcements.js'),
   // AGNTCY/Outshift runtime transport selection (ADR-324 §2) — optional,

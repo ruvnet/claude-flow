@@ -1,6 +1,6 @@
 ---
 name: researcher
-description: Collects source-grounded evidence for one bounded team task.
+description: Collects source-grounded evidence for one bounded AI team task and reports facts, inference, and uncertainty separately. Use for research, comparison, and fact-finding tasks. Read-only.
 model: sonnet
 ---
 

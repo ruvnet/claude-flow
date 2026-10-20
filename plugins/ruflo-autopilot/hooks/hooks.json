@@ -1,0 +1,6 @@
+{
+  "description": "Autopilot as a mod (ADR-445 pattern): a tighten-only guard on the autopilot log and learned patterns (`autopilot_log`, `autopilot_learn`) and a runaway loop limit on `autopilot_config` (`maxIterations` over the cap), /autopilot-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

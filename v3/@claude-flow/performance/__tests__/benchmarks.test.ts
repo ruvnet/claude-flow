@@ -418,15 +418,34 @@ describe('quickValidation()', () => {
   });
 });
 
+const RUNS_PER_MEASUREMENT = 15;
+
 describe('Performance Validation', () => {
+  // Statistical, timing-based test. The old form compared two single runs, each
+  // of which times a Flash block and then a baseline block with no warm-up, so a
+  // cold JIT or one scheduler stall landing on one block of one run swung the
+  // ratio past 2.0 (observed 2.23 in CI). What it guards is that the speedup
+  // measurement is reproducible, so keep that exact claim ("two measurements
+  // agree within 2x") but make each measurement robust: warm up, then take two
+  // independent measurements that are each the MEDIAN of several runs, with the
+  // runs of the two measurements interleaved so slow drift in machine load hits
+  // both equally. A measurement that is genuinely irreproducible still fails.
   it('should demonstrate consistent speedup', () => {
     const runner = new AttentionBenchmarkRunner();
 
-    const result1 = runner.runComparison(256, 50, 100);
-    const result2 = runner.runComparison(256, 50, 100);
+    for (let i = 0; i < 3; i++) runner.runComparison(256, 50, 100); // warm-up, discarded
+
+    const a: number[] = [];
+    const b: number[] = [];
+    for (let i = 0; i < RUNS_PER_MEASUREMENT; i++) {
+      a.push(runner.runComparison(256, 50, 100).results.speedup);
+      b.push(runner.runComparison(256, 50, 100).results.speedup);
+    }
+    const median = (xs: number[]) => [...xs].sort((x, y) => x - y)[xs.length >> 1];
 
     // Speedup should be relatively consistent (within 50% variance)
-    const ratio = result1.results.speedup / result2.results.speedup;
+    const ratio = median(a) / median(b);
+    console.log(JSON.stringify({ medianA: median(a), medianB: median(b), medianRatio: ratio }));
     expect(ratio).toBeGreaterThan(0.5);
     expect(ratio).toBeLessThan(2.0);
   });

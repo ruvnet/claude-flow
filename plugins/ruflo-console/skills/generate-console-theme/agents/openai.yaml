@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ruflo Theme Generator"
+  short_description: "Generate animated Ruflo console theme presets"
+  default_prompt: "Use $generate-console-theme to create a readable cyberpunk Ruflo console theme with calm globe and swarm motion."

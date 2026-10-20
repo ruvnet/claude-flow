@@ -2,7 +2,7 @@
 
 User-facing surface for Ruflo's self-learning system. Wraps **29 intelligence-related MCP tools** across four families into discoverable skills, commands, and the canonical 4-step pipeline (RETRIEVE → JUDGE → DISTILL → CONSOLIDATE). Coordinates with `ruflo-agentdb` (namespace convention), `ruflo-ruvector` (trajectory recording substrate), and `ruflo-browser` (consumes trajectory hooks for session replay).
 
-> **Status:** ADR-0001 implemented. Plugin v0.3.0 targets `@claude-flow/cli` v3.6.x.
+> **Status:** ADR-0001 implemented. Tool names and parameters in this plugin are checked against `@claude-flow/cli` 3.56.x; the package manifest is version truth.
 
 ## Install
 
@@ -13,18 +13,18 @@ User-facing surface for Ruflo's self-learning system. Wraps **29 intelligence-re
 
 ## Compatibility
 
-- **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor.
+- **CLI:** checked against `@claude-flow/cli` 3.56.x (`mcp exec`, `hooks`, `neural` flags as in `--help`).
 - **Verification:** `bash plugins/ruflo-intelligence/scripts/smoke.sh` is the contract.
 
 ## Tool inventory
 
 | Family | Count | Source |
 |--------|------:|--------|
-| `neural_*` | 6 | `v3/@claude-flow/cli/src/mcp-tools/neural-tools.ts:195, 312, 413, 539, 651, 706` |
-| `hooks_intelligence_*` (incl. dispatcher + reset) | 10 | `v3/@claude-flow/cli/src/mcp-tools/hooks-tools.ts:2093, 2226, 2296, 2355, 2404, 2556, 2634, 2741, 2952, 3027` |
-| Routing & meta hooks (`hooks_route`, `hooks_explain`, `hooks_pretrain`, `hooks_build-agents`, `hooks_metrics`, `hooks_transfer`) | 6 | `hooks-tools.ts:884, 1062, 1420, 1499, 1593, 1664` |
-| `hooks_model-*` (3-tier routing) | 3 | `hooks-tools.ts:3797, 3844, 3879` |
-| `ruvllm_sona_*` + `ruvllm_microlora_*` | 4 | `v3/@claude-flow/cli/src/mcp-tools/ruvllm-tools.ts:142, 169, 192, 222` |
+| `neural_*` | 6 | `v3/@claude-flow/cli/src/mcp-tools/neural-tools.ts` |
+| `hooks_intelligence_*` (incl. dispatcher + reset) | 10 | `v3/@claude-flow/cli/src/mcp-tools/hooks-tools.ts` |
+| Routing & meta hooks (`hooks_route`, `hooks_explain`, `hooks_pretrain`, `hooks_build-agents`, `hooks_metrics`, `hooks_transfer`) | 6 | `hooks-tools.ts` |
+| `hooks_model-*` (3-tier routing) | 3 | `hooks-tools.ts` |
+| `ruvllm_sona_*` + `ruvllm_microlora_*` | 4 | `v3/@claude-flow/cli/src/mcp-tools/ruvllm-tools.ts` |
 | **Total** | **29** | — |
 
 ## The 4-step intelligence pipeline
@@ -36,7 +36,7 @@ CLAUDE.md describes the V3 intelligence loop as four discrete phases. This plugi
 | **RETRIEVE** | Pull relevant patterns + past trajectories from HNSW index | `hooks_intelligence_pattern-search`, `agentdb_pattern-search`, `agentdb_semantic-route` |
 | **JUDGE** | Score retrieved candidates with verdicts (success / failure / partial) | `hooks_intelligence_attention`, `neural_predict`, `hooks_explain` |
 | **DISTILL** | Extract the key learnings via LoRA / SONA adaptation | `ruvllm_sona_adapt`, `ruvllm_microlora_adapt`, `neural_train`, `hooks_intelligence_learn` |
-| **CONSOLIDATE** | Prevent catastrophic forgetting via EWC++ | `agentdb_consolidate`, `ruvllm_microlora_adapt --consolidate`, `neural_compress` |
+| **CONSOLIDATE** | Prevent catastrophic forgetting via EWC++ | `hooks_intelligence_learn` (EWC++ cycle), `agentdb_consolidate`, `neural_compress` |
 
 For an end-to-end run:
 
@@ -51,22 +51,20 @@ hooks_pretrain
   → neural_compress      # storage efficiency
 ```
 
-## Cross-project pattern transfer (IPFS)
+## Cross-project pattern transfer
 
-`hooks_transfer` is the substrate plugin's most underused capability. It publishes learned patterns to IPFS (via Pinata) so a different project — or a different machine — can fetch and apply them. Use the `intelligence-transfer` skill or call directly:
+Two mechanisms, chosen by where the patterns are (see the `intelligence-transfer` skill):
 
 ```bash
-# Publish patterns from this project to IPFS
-mcp tool call hooks_transfer --json -- '{"action": "store", "patterns": [...]}'
+# Copy patterns from a sibling project on disk (MCP: hooks_transfer { sourcePath, filter, minConfidence })
+npx @claude-flow/cli@latest hooks transfer from-project --source ../other-project --min-confidence 0.7
 
-# Fetch and apply patterns from a CID
-mcp tool call hooks_transfer --json -- '{"action": "load", "cid": "QmXyz..."}'
-
-# Mirror an entire project's patterns
-mcp tool call hooks_transfer --json -- '{"action": "from-project", "source": "/path/to/project"}'
+# Browse, download and publish through the IPFS pattern marketplace
+npx @claude-flow/cli@latest hooks transfer store search --query routing
+npx @claude-flow/cli@latest hooks transfer store download --name PATTERN_NAME
 ```
 
-Prerequisite: `PINATA_API_JWT` (or the equivalent endpoint env vars) must be configured. Without it, `hooks_transfer` returns a structured `success: false` with the missing-config error.
+`hooks_transfer` itself only does the project-to-project copy; it has no `store`/`load`/CID action. Publishing to the marketplace is public and needs `PINATA_API_KEY` and `PINATA_API_SECRET`; scan for PII first.
 
 ## Hook integration
 
@@ -75,7 +73,7 @@ Several Claude Code hooks fire intelligence-side writes:
 | Hook | Tool invoked | Target |
 |------|--------------|--------|
 | `pre-task` | `hooks_route` + `hooks_intelligence_pattern-search` | RETRIEVE phase |
-| `post-task --train-neural` | `agentdb_pattern-store` (ReasoningBank) → falls back to `memory_store --namespace pattern` | DISTILL phase, writes to **`pattern`** namespace |
+| `post-task` (pass `--task` and `--agent`) | records the outcome and, with both flags, the routing outcome (#2785) | feeds JUDGE/DISTILL |
 | `pretrain` (one-shot) | `hooks_pretrain` → seeds `memory_store --namespace patterns` | Bootstrap, writes to **`patterns`** namespace (plural) |
 | Trajectory hooks (ruvector substrate) | `intelligence_trajectory-*` | Recorded by `ruflo-ruvector`; consumed by this plugin's pattern-store |
 
@@ -99,13 +97,13 @@ The plugin claims EWC++ consolidation; here's how to actually invoke it:
 
 1. **At trajectory end**, call `hooks_intelligence_learn` to register the outcome.
 2. **Periodically** (or after N task completions), call `agentdb_consolidate` to fold patterns into the long-term store under EWC++ semantics.
-3. **For SONA / MicroLoRA adapters specifically**, call `ruvllm_microlora_adapt` with the `--consolidate` flag to apply Elastic Weight Consolidation on the adapter's weight deltas. This prevents catastrophic forgetting when the adapter is trained on a new domain.
+3. `hooks_intelligence_learn` already runs an EWC++ consolidation cycle by default (`consolidate` defaults to true). `ruvllm_microlora_adapt` takes `{ loraId, quality }` and has no consolidate option.
 
 Without these calls, fresh trajectories overwrite older patterns without protection — the system "forgets". The pipeline diagram above bakes consolidation into step 4 deliberately.
 
 ## MoE (Mixture of Experts) routing
 
-`hooks_intelligence` accepts a `mode` parameter that selects the active learning architecture:
+`hooks_intelligence` is a status call: it reports the SONA / MoE / HNSW state from the memory store and echoes the `mode` it was given. It does not switch architectures; use it to inspect, and `enableSona` / `enableMoe` / `forceTraining` to shape what it reports or trigger a training cycle. Conventional mode labels:
 
 | Mode | When to use |
 |------|-------------|
@@ -114,7 +112,7 @@ Without these calls, fresh trajectories overwrite older patterns without protect
 | `moe` | Multi-domain expert routing — recommended when tasks span 3+ distinct domains |
 | `hnsw` | Pure pattern retrieval, no online adaptation |
 
-Configure once via `mcp tool call hooks_intelligence -- '{"mode": "moe", "enableSona": true}'` and let the dispatcher route subsequent learning calls.
+Inspect with `npx @claude-flow/cli@latest mcp exec -t hooks_intelligence -p '{"showStatus": true}'`.
 
 ## Commands
 
@@ -126,6 +124,23 @@ Configure once via `mcp tool call hooks_intelligence -- '{"mode": "moe", "enable
 - `neural-train` — Train SONA + MicroLoRA patterns from successful tasks
 - `intelligence-route` — Route tasks using learned patterns; produces a `hooks_explain` rationale
 - `intelligence-transfer` — Publish/fetch patterns via IPFS (`hooks_transfer`)
+
+## As a mod (0.4.2)
+
+A function-hook mod ships beside the skills (ADR-445 pattern). Needs a Claude Code with mods (2.1.287+); older builds ignore it. No network, no process spawning: it only tightens calls to this plugin's own tools and reads through tools already connected.
+
+| Piece | Default | What it does |
+|---|---|---|
+| **Write guard** | on | Refuses a secret in a learned pattern, trajectory step/end, `neural_train` or `hooks_transfer` call, or a `memory_store` into a pattern namespace. A transfer also refuses an email address (IPFS is public). |
+| **Reset confirm** | on | Refuses `hooks_intelligence-reset` unless the call carries `confirm: true`. |
+| **`/intelligence-mod`** | — | `status`, `scan <text>`, `stats` (calls `hooks_intelligence_stats` through the connected tool); answered locally, no model call. |
+| **Status file** | — | `.claude-flow/intelligence-mod/status.json` (`version`, `updatedMs`, mode flags and counters); written at session start and when a counter changes. |
+
+Options (`userConfig`): `guard` on\|off, `confirmReset` on\|off. Refusals never echo the value they matched.
+
+```bash
+claude plugin test plugins/ruflo-intelligence   # 11 tests
+```
 
 ## Architecture Decisions
 
