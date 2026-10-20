@@ -303,6 +303,135 @@ describe('ReasoningBank', () => {
       expect(result).toHaveProperty('patternsPruned');
       expect(result).toHaveProperty('patternsPromoted');
     });
+
+    it('should free HNSW index capacity when pruning, not just the in-memory map', async () => {
+      // Small maxElements (maxShortTerm + maxLongTerm) so the bug surfaces
+      // without inserting thousands of patterns.
+      const bank = new ReasoningBank({
+        useMockEmbeddings: true,
+        dimensions: 384,
+        maxShortTerm: 2,
+        maxLongTerm: 3, // maxElements = 5
+      });
+      await bank.initialize();
+
+      const oldCreatedAt = Date.now() - 25 * 60 * 60 * 1000; // > 24h maxAge
+
+      // Insert-then-prune 5 patterns one at a time (fills maxElements=5
+      // worth of HNSW insertions if orphans are never removed from the
+      // index, even though the in-memory map is empty again after each
+      // consolidate() call).
+      for (let i = 0; i < 5; i++) {
+        await bank.importPatterns({
+          shortTerm: [
+            {
+              id: `old_${i}`,
+              strategy: `Old low-usage pattern ${i}`,
+              domain: 'general',
+              embedding: new Float32Array(384).fill(0.1 + i * 0.01),
+              quality: 0.3,
+              usageCount: 0,
+              successCount: 0,
+              createdAt: oldCreatedAt,
+              updatedAt: oldCreatedAt,
+              metadata: {},
+            },
+          ],
+          longTerm: [],
+        });
+
+        const result = await bank.consolidate();
+        expect(result.patternsPruned).toBe(1);
+      }
+
+      const statsAfterPruning = bank.getStats();
+      expect(statsAfterPruning.shortTermCount).toBe(0);
+
+      // The in-memory map is empty, so a fresh pattern must be storable —
+      // if pruned/deduped points are never removed from the HNSW index
+      // itself, the index's node count never drops back down and this
+      // throws "Index is full, cannot add more elements" even though
+      // zero patterns are actually live.
+      const fresh = await bank.storePattern('Fresh pattern after pruning', 'testing');
+      expect(fresh.action).toBe('created');
+
+      const finalStats = bank.getStats();
+      expect(finalStats.shortTermCount).toBe(1);
+    });
+
+    it('should free HNSW index capacity when deduplicating, not just the in-memory map', async () => {
+      const PAIR_COUNT = 6;
+      const bank = new ReasoningBank({
+        useMockEmbeddings: true,
+        dimensions: 384,
+        maxShortTerm: 2 * PAIR_COUNT,
+        maxLongTerm: 0, // maxElements = 2 * PAIR_COUNT, exactly enough to insert every pattern once
+      });
+      await bank.initialize();
+
+      // Insert PAIR_COUNT pairs of patterns, each pair sharing one embedding
+      // (guaranteed similarity 1.0 > dedupThreshold) but distinct across
+      // pairs. Inserted directly via importPatterns so storePattern()'s own
+      // insert-time dedup check never gets a chance to merge a pair first —
+      // each pair reaches consolidate()'s dedup loop as two live entries.
+      for (let i = 0; i < PAIR_COUNT; i++) {
+        // Orthogonal one-hot-style vectors: identical within a pair (cosine
+        // similarity 1.0) but ~0 similarity across pairs. A constant-fill
+        // vector would be the wrong choice here — every fill(c) for c > 0
+        // points in the same direction (parallel to the all-ones vector),
+        // so cosine similarity would be 1.0 across ALL pairs, not just
+        // within one, and consolidate() would flag every pairing.
+        const embedding = new Float32Array(384);
+        embedding[i] = 1;
+        embedding[i + PAIR_COUNT] = 1;
+        await bank.importPatterns({
+          shortTerm: [
+            {
+              id: `dup_a_${i}`,
+              strategy: `Duplicate pattern A ${i}`,
+              domain: 'general',
+              embedding,
+              quality: 0.4,
+              usageCount: 1,
+              successCount: 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              metadata: {},
+            },
+            {
+              id: `dup_b_${i}`,
+              strategy: `Duplicate pattern B ${i}`,
+              domain: 'general',
+              embedding,
+              quality: 0.9, // higher quality survives
+              usageCount: 1,
+              successCount: 0,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              metadata: {},
+            },
+          ],
+          longTerm: [],
+        });
+      }
+
+      // All 2*PAIR_COUNT patterns are now live and HNSW-indexed (exactly at
+      // maxElements). One consolidate() pass removes the lower-quality half
+      // of each pair.
+      const result = await bank.consolidate();
+      expect(result.duplicatesRemoved).toBe(PAIR_COUNT);
+
+      const statsAfterDedup = bank.getStats();
+      expect(statsAfterDedup.shortTermCount).toBe(PAIR_COUNT);
+
+      // The index was exactly at capacity before consolidate(). If the
+      // removed duplicates are never removed from the HNSW index itself
+      // (only from the in-memory map / AgentDB), the index's node count
+      // never drops and this throws "Index is full, cannot add more
+      // elements" even though half the slots are logically free.
+      const fresh = await bank.storePattern('Fresh pattern after dedup', 'testing');
+      expect(fresh.action).toBe('created');
+    });
   });
 
   describe('exportPatterns / importPatterns', () => {

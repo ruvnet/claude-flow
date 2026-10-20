@@ -5,6 +5,42 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.57.2] - 2026-10-19
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.57.2. `@claude-flow/cli-core` 3.7.5 (#4295, #4296) published standalone and pinned exactly. A large community PR batch — mostly correctness fixes to error reporting, memory/graph boundary handling, and CLI diagnostics.
+
+### Fixed
+
+- `agentdb_graph-query`/`agentdb_graph-pathfinder` resolved the memory DB path ad hoc instead of through the shared `resolveDbPath()` priority order, so an explicit `CLAUDE_FLOW_DB_PATH` binding could silently read a different store than the one selected (#4291, #4298).
+- `backupMemoryDb()` fell back to a raw file copy after *any* native online-backup failure — including ordinary `SQLITE_BUSY`/disk errors on an unencrypted source — and reported `backedUp: true` regardless; the fallback is now gated on a confirmed-encrypted source with no active WAL, and the result records which method actually completed (#4287, #4297).
+- `JsonMemoryBackend.isExpired()` used a falsy check on `ttlSeconds`, so an explicit `ttl: 0` never expired (`cli-core` 3.7.5, #4295, #4296).
+- `RvfBackend`'s native `@ruvector/rvf` branch could never succeed (wrong `open()` call) and silently fell back to the pure-TS path; the dead native branch is removed rather than half-wired (#4278, #4279, #4280).
+- `ReasoningBank.consolidate()` deleted pruned/deduplicated patterns from storage but never called `hnswIndex.removePoint(id)`, so the HNSW index filled with orphans until `storePattern()` started throwing permanently (#4270, #4271).
+- `TopologyManager`'s queen/coordinator failover never promoted a replacement after death despite `failoverEnabled: true`, silently falling through to generic mesh-style ranking (#4285, #4286).
+- `memory export`, `memory import`, and `memory_migrate` reported fabricated success text instead of the tool's real error or migrated count (#4204/#4207, #4194/#4209, and the memory-import tool failure fix).
+- `hooks worker dispatch` printed `Status: completed` even when no daemon ran anything (#4196/#4208).
+- `hooks_intelligence_attention` accepted unimplemented modes instead of rejecting them (#4193).
+- `init upgrade` now refreshes `intelligence.cjs`/session companions instead of leaving stale copies behind (#4198/#4220).
+- SmartRetrieval collapsed multi-result searches down to one (#4192); the ReasoningBank embedder used a hash fallback instead of the real embedder (#4191); `@claude-flow/cli`'s own `package.json` wasn't exported for consumers resolving it directly (#4190).
+- `ruvocal`'s MCP server merge dropped a base server's credentials when the browser echoed the server back without headers (#4281).
+- `ruflo-x-gateway` now advertises `offline_access` so OAuth clients can refresh silently instead of re-authenticating on every access-token expiry (#4256).
+- `workflow list/status/stop/run` now read the actual shape and errors the workflow tools return (#4268); stale task owners are released on terminal states (#4272); unregistering a swarm agent now removes its domain-pool membership (#4269); orphaned atomic-write temp files under the policy lock are reaped (#3164/#4273); one-shot CLI runs now flush learned patterns before `process.exit(0)` instead of losing them while `stats.json` keeps counting (#4283/#4284).
+- `ruflo-console`'s mission ledger no longer leaks a mission from one project into every other project's cockpit (#4254/#4276).
+- Command examples in the user guide that failed when copied are fixed (#4275); a stray `npx` invocation referencing a nonexistent unscoped package is corrected to `@claude-flow/codex` (#4265).
+- `scripts/build-codex-mod-hooks.mjs` now rebuilds the codex-mod bundle the same way on every OS (#4292).
+
+## [3.57.1] - 2026-10-19
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.57.1. `@claude-flow/cli-core` 3.7.4 (#4229, #4230) was published earlier and is pinned exactly.
+
+### Security
+
+- `DENYLISTED_ENV_NAMES` now blocks the credential/command-hijack and interpreter-flag-injection vars that 2026-09-21's env-sanitizer fix missed: `GIT_ASKPASS`, `GIT_PROXY_COMMAND`, `GIT_CONFIG_NOSYSTEM`, `PERL5OPT`, `RUBYOPT`, `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `PYTHONHOME`, `CLASSPATH`, `PYTHONSTARTUP`, plus git's numbered `GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)` family via a new regex (`cli-core` 3.7.4, #4229, #4230).
+
+### Fixed
+
+- `all-plugins-smoke`: the adr/ddd/sparc codex-mod native hook bundles are rebuilt, clearing the native-bundle-drift failure that had been hitting every push to `main`; `scripts/build-codex-mod-hooks.mjs` also no longer hard-fails on Windows, where `execFileSync` can't invoke a `.cmd` shim directly (#4266, #4277, @uyg7x).
+
 ## [3.57.0] - 2026-10-17
 
 Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.57.0. A batch of community and dream-cycle fixes (#4210-#4252) plus a policy-ledger integrity fix (#3892). No standalone leaf republish needed this round.

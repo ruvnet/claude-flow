@@ -699,7 +699,9 @@ const searchCommand: Command = {
           });
           return {
             results: r.results.map(e => ({
-              id: e.id,
+              // #2271: searchEntries() ids are truncated to 12 chars and collide
+              // for entries written within ~2.8h; SmartRetrieval dedupes on id.
+              id: JSON.stringify([e.namespace, e.key]),
               key: e.key,
               content: e.content,
               score: e.score,
@@ -1765,6 +1767,14 @@ const exportCommand: Command = {
         includeVectors: ctx.flags.includeVectors ?? true,
       });
 
+      // memory_export reports failure as { error } rather than throwing; without
+      // this check the command printed "Exported to undefined" and then crashed
+      // reading result.exported.entries (#4204).
+      if (!result || (result as { error?: string }).error || !result.exported) {
+        output.printError(`Export error: ${(result as { error?: string } | undefined)?.error ?? 'memory_export returned no export summary'}`);
+        return { success: false, exitCode: 1 };
+      }
+
       output.printSuccess(`Exported to ${result.outputPath}`);
       output.printList([
         `Entries: ${result.exported.entries}`,
@@ -1828,6 +1838,9 @@ const importCommand: Command = {
 
     try {
       const result = await callMCPTool<{
+        success?: boolean;
+        error?: string;
+        failed?: number;
         inputPath: string;
         imported: {
           entries: number;
@@ -1842,6 +1855,22 @@ const importCommand: Command = {
         namespace: ctx.flags.namespace,
         dbPath: resolveDbPath(ctx.flags.path as string | undefined),
       });
+
+      // memory_import reports a bad file as { error } rather than throwing, and
+      // a partial write as { success: false, error, imported }. Without this the
+      // command printed "Imported from undefined" and crashed on result.imported,
+      // or reported success for an import that dropped entries.
+      const failure = (result as { error?: string } | undefined)?.error;
+      if (!result || failure || result.success === false || !result.imported) {
+        output.printError(`Import error: ${failure ?? 'memory_import returned no import summary'}`);
+        if (result?.imported) {
+          output.printList([
+            `Entries imported: ${result.imported.entries}`,
+            `Failed: ${result.failed ?? 'unknown'}`,
+          ]);
+        }
+        return { success: false, exitCode: 1 };
+      }
 
       output.printSuccess(`Imported from ${result.inputPath}`);
       output.printList([

@@ -7,15 +7,16 @@
  * `.js` copies, which the refreshed hook-handler no longer requires, so the
  * refresh writes any missing `.cjs` companion from the CLI's own compiled
  * generators (the trust root; no external file to verify). Stale `.js` copies
- * are left in place and ignored. Existing `.cjs` files are never overwritten.
+ * are left in place and ignored. Existing `.cjs` files are preserved during
+ * startup refresh; an explicit init upgrade replaces them from the generators.
  */
 import * as fs from 'fs';
 import * as path from 'path';
 
 export const COMMONJS_COMPANION_HELPERS = ['session.cjs', 'memory.cjs'] as const;
 
-export async function ensureCommonJsCompanions(helpersDir: string): Promise<string[]> {
-  const missing = COMMONJS_COMPANION_HELPERS.filter((name) => !fs.existsSync(path.join(helpersDir, name)));
+export async function ensureCommonJsCompanions(helpersDir: string, force = false): Promise<string[]> {
+  const missing = COMMONJS_COMPANION_HELPERS.filter((name) => force || !fs.existsSync(path.join(helpersDir, name)));
   if (missing.length === 0) return [];
   const gen = await import('./helpers-generator.js');
   const content: Record<(typeof COMMONJS_COMPANION_HELPERS)[number], () => string> = {

@@ -635,7 +635,8 @@ export const workflowTools: MCPTool[] = [
       let workflows = Object.values(store.workflows);
 
       // Apply filters
-      if (input.status) {
+      // 'all' is the CLI's explicit "no filter" value (`workflow list` sends it by default).
+      if (input.status && input.status !== 'all') {
         workflows = workflows.filter(w => w.status === input.status);
       }
 
