@@ -26,6 +26,11 @@ interface HiveState {
   initialized: boolean;
   topology: 'mesh' | 'hierarchical' | 'ring' | 'star';
   consensusStrategy?: ConsensusStrategyName;
+  // #655 follow-up: the init contract advertises these options. Persist the
+  // requested values so a later status/read does not have to invent defaults.
+  maxAgents?: number;
+  memoryBackend?: 'agentdb' | 'sqlite' | 'hybrid';
+  persist?: boolean;
   queen?: {
     agentId: string;
     electedAt: string;
@@ -472,6 +477,24 @@ export const hiveMindTools: MCPTool[] = [
           description: 'Consensus strategy. Default: raft (anti-drift). Use byzantine for f<n/3 fault tolerance.',
         },
         queenId: { type: 'string', description: 'Initial queen agent ID' },
+        maxAgents: {
+          type: 'number',
+          minimum: 1,
+          maximum: 1000,
+          default: 15,
+          description: 'Maximum number of agents the hive may contain (default: 15)',
+        },
+        memoryBackend: {
+          type: 'string',
+          enum: ['agentdb', 'sqlite', 'hybrid'],
+          default: 'hybrid',
+          description: 'Memory backend requested for this hive (default: hybrid)',
+        },
+        persist: {
+          type: 'boolean',
+          default: true,
+          description: 'Persist hive state to .claude-flow/hive-mind/state.json. Set false for an ephemeral init that writes no durable state.',
+        },
         bootstrapSecret: { type: 'string', description: 'Operator secret (RUFLO_HIVE_BOOTSTRAP_SECRET or .claude-flow/hive-mind/bootstrap.secret). Only needed by remote/HTTP callers; local stdio/CLI callers omit it. See ADR-476.' },
       },
     },
@@ -483,12 +506,29 @@ export const hiveMindTools: MCPTool[] = [
       if (bootstrapError) {
         return { success: false, error: bootstrapError };
       }
+
+      // Validate the advertised init contract before creating any durable
+      // state (the operator secret is a filesystem write, so it must come
+      // after every input check).
+      if (input.persist !== undefined && typeof input.persist !== 'boolean') {
+        return { success: false, error: 'persist must be a boolean' };
+      }
+      const persist = input.persist !== false;
+      const maxAgents = input.maxAgents === undefined ? 15 : Number(input.maxAgents);
+      if (!Number.isInteger(maxAgents) || maxAgents < 1 || maxAgents > 1000) {
+        return { success: false, error: 'maxAgents must be an integer between 1 and 1000' };
+      }
+      const memoryBackend = input.memoryBackend === undefined ? 'hybrid' : String(input.memoryBackend);
+      if (memoryBackend !== 'agentdb' && memoryBackend !== 'sqlite' && memoryBackend !== 'hybrid') {
+        return { success: false, error: 'memoryBackend must be one of: agentdb, sqlite, hybrid' };
+      }
+      if (input.queenId) { const v = validateIdentifier(input.queenId as string, 'queenId'); if (!v.valid) return { success: false, error: v.error }; }
+
       // Local first init materialises the 0600 operator secret so a later
       // remote/HTTP deployment has something to be told out of band. The
-      // value is never returned.
-      if (classifyCaller(context) === 'local') ensureBootstrapSecret();
-
-      if (input.queenId) { const v = validateIdentifier(input.queenId as string, 'queenId'); if (!v.valid) return { success: false, error: v.error }; }
+      // value is never returned. An ephemeral init (persist:false) must not
+      // write it either.
+      if (persist && classifyCaller(context) === 'local') ensureBootstrapSecret();
 
       const state = loadHiveState();
       const hiveId = `hive-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -498,6 +538,9 @@ export const hiveMindTools: MCPTool[] = [
       state.initialized = true;
       state.topology = (input.topology as HiveState['topology']) || 'mesh';
       state.consensusStrategy = requestedConsensus;
+      state.maxAgents = maxAgents;
+      state.memoryBackend = memoryBackend as HiveState['memoryBackend'];
+      state.persist = persist;
       state.createdAt = new Date().toISOString();
       state.queen = {
         agentId: queenId,
@@ -513,7 +556,7 @@ export const hiveMindTools: MCPTool[] = [
         state.hiveToken = randomBytes(32).toString('hex');
       }
 
-      saveHiveState(state);
+      if (persist) saveHiveState(state);
 
       return {
         success: true,
@@ -522,6 +565,7 @@ export const hiveMindTools: MCPTool[] = [
         consensus: state.consensusStrategy,
         queenId,
         status: 'initialized',
+        persisted: persist,
         // Deliberately NOT echoing state.hiveToken here (even though this
         // call is itself now bootstrap-secret-gated): the CLI never reads
         // it off this response (it uses getHiveTokenForCli()'s direct
@@ -530,9 +574,9 @@ export const hiveMindTools: MCPTool[] = [
         config: {
           topology: state.topology,
           consensus: state.consensusStrategy,
-          maxAgents: input.maxAgents || 15,
-          persist: input.persist !== false,
-          memoryBackend: input.memoryBackend || 'hybrid',
+          maxAgents,
+          persist,
+          memoryBackend,
         },
         createdAt: state.createdAt,
       };
@@ -580,8 +624,10 @@ export const hiveMindTools: MCPTool[] = [
         hiveId: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
         status: state.initialized ? 'active' : 'offline',
         topology: state.topology,
-        // ADR-093 F3: surface the persisted strategy instead of a hardcoded "byzantine".
-        consensus: state.consensusStrategy ?? 'byzantine',
+        // ADR-093 F3: surface the persisted strategy instead of a hardcoded
+        // "byzantine". Init's documented default is raft, so legacy state
+        // without the field must not drift to a different protocol.
+        consensus: state.consensusStrategy ?? 'raft',
         queen: state.queen ? {
           id: state.queen.agentId,
           agentId: state.queen.agentId,
@@ -620,6 +666,8 @@ export const hiveMindTools: MCPTool[] = [
         // Additional fields
         id: `hive-${state.createdAt ? new Date(state.createdAt).getTime() : Date.now()}`,
         initialized: state.initialized,
+        maxAgents: state.maxAgents ?? 15,
+        memoryBackend: state.memoryBackend ?? 'hybrid',
         workerCount: state.workers.length,
         pendingConsensus: state.consensus.pending.length,
         sharedMemoryKeys: Object.keys(state.sharedMemory).length,
