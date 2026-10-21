@@ -2,8 +2,10 @@
 //   Failed to initialize @ruvector/rvagent-wasm: Error [ERR_MODULE_NOT_FOUND]: Cannot find package ...
 // a raw module-resolution trace. It is now "not installed" with the fix. The package stays OPTIONAL
 // and is deliberately NOT in the CLI's optionalDependencies (guard no-cli-optdep-bloat-2561).
-// The mapping is tested directly (no module mocking), so it does not depend on the test runner's
-// mock-factory error wrapping.
+// The `ruflo` umbrella opts into it instead, so a global `npm i -g ruflo` can resolve the
+// sibling package while a standalone `@claude-flow/cli` install stays lean and gets the clear
+// not-installed message. The mapping is tested directly (no module mocking), so it does not
+// depend on the test runner's mock-factory error wrapping.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -16,6 +18,17 @@ describe('@ruvector/rvagent-wasm stays optional (#3979 item 1, #2561)', () => {
   it('is not a dependency or optionalDependency of the CLI (bloat guard)', () => {
     expect(pkg.dependencies?.['@ruvector/rvagent-wasm']).toBeUndefined();
     expect(pkg.optionalDependencies?.['@ruvector/rvagent-wasm']).toBeUndefined();
+  });
+});
+
+describe('rvagent-wasm is installed by the supported umbrellas (#3979 item 1)', () => {
+  const umbrellas = [
+    ['claude-flow', JSON.parse(readFileSync(resolve(__dirname, '../../../../package.json'), 'utf8'))],
+    ['ruflo', JSON.parse(readFileSync(resolve(__dirname, '../../../../ruflo/package.json'), 'utf8'))],
+  ] as const;
+
+  it.each(umbrellas)('%s declares the optional package at the version the loader expects', (_name, umbrella) => {
+    expect(umbrella.optionalDependencies?.['@ruvector/rvagent-wasm']).toBe('0.1.0');
   });
 });
 

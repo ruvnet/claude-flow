@@ -101,6 +101,7 @@
     "@claude-flow/plugin-gastown-bridge": "^0.1.3",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
+    "@ruvector/rvagent-wasm": "0.1.0",
     "@ruvector/router": "^0.1.31",
     "@ruvector/router-linux-x64-gnu": "^0.1.31",
     "@ruvector/sona": "^0.1.5",

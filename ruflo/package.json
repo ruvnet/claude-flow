@@ -42,7 +42,9 @@
   "dependencies": {
     "@claude-flow/cli": "3.59.4"
   },
-  "optionalDependencies": {},
+  "optionalDependencies": {
+    "@ruvector/rvagent-wasm": "0.1.0"
+  },
   "overrides": {
     "ruvector": "^0.2.27",
     "better-sqlite3": "12.9.0",
