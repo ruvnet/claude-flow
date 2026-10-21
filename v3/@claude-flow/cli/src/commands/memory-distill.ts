@@ -30,10 +30,10 @@ import * as path from 'path';
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import {
-  runDistillation,
+  runDistillationForStores,
+  projectMemoryDbPaths,
   defaultMemoryDbPath,
   type DistillOptions,
-  type DistillReport,
 } from '../services/memory-distillation.js';
 
 // ============================================================================
@@ -169,7 +169,15 @@ const runCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    const dbPath = resolveDbPath(ctx);
+    // An explicit --db remains a single-store operation. Without it, cover
+    // both stores the CLI/MCP surfaces can write (#3446): memory.db and the
+    // native AgentDB sibling. An MCP-only project often has only the latter,
+    // which is why the worker used to skip with "target table ... missing".
+    const explicitDb = typeof ctx.flags.db === 'string' && ctx.flags.db.trim()
+      ? path.resolve(ctx.flags.db)
+      : undefined;
+    const dbPaths = explicitDb ? [explicitDb] : projectMemoryDbPaths(ctx.cwd || process.cwd());
+    const dbPath = explicitDb ?? dbPaths[0];
 
     output.writeln();
     output.writeln(output.bold('Memory Distillation (ADR-174)'));
@@ -179,8 +187,7 @@ const runCommand: Command = {
     const spinner = output.createSpinner({ text: 'Distilling memory_entries...', spinner: 'dots' });
     spinner.start();
 
-    const distillOptions: DistillOptions = {
-      dbPath,
+    const distillOptions: Omit<DistillOptions, 'dbPath'> = {
       namespaces: config.namespaces,
       batchSize: config.batchSize,
       maxEntries: config.maxEntries,
@@ -191,23 +198,33 @@ const runCommand: Command = {
       verbose: ctx.flags.verbose === true,
     };
 
-    let report: DistillReport;
+    let outcome: Awaited<ReturnType<typeof runDistillationForStores>>;
     try {
-      report = await runDistillation(distillOptions);
+      outcome = await runDistillationForStores(dbPaths, distillOptions);
     } catch (error) {
       spinner.fail('Distillation failed');
       output.printError(error instanceof Error ? error.message : String(error));
       return { success: false, exitCode: 1 };
     }
+    const report = outcome.report;
 
     if (report.skipped) {
       spinner.succeed('Distillation skipped');
       output.writeln(output.warning(`skipped: ${report.skipped}`));
-      return { success: true, data: { dbPath, config, report } };
+      return { success: true, data: { dbPath, dbPaths, stores: outcome.stores, config, report } };
     }
 
     spinner.succeed(config.dryRun ? 'Dry-run complete' : 'Distillation complete');
     output.writeln();
+
+    for (const store of outcome.stores) {
+      if (store.report.skipped) {
+        output.writeln(output.warning(`${store.dbPath}: ${store.report.skipped}`));
+      }
+    }
+    if (outcome.stores.length > 1) {
+      output.writeln(output.dim(`Stores covered: ${outcome.stores.length}`));
+    }
 
     output.printTable({
       columns: [
@@ -235,7 +252,7 @@ const runCommand: Command = {
       output.printList(provenanceEntries.map(([tier, count]) => `${output.highlight(tier)}: ${count}`));
     }
 
-    return { success: true, data: { dbPath, config, report } };
+    return { success: true, data: { dbPath, dbPaths, stores: outcome.stores, config, report } };
   },
 };
 
