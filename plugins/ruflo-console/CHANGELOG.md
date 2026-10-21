@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.7 — 2026-10-21
+- fix: the ADRs page, the Events/Timeline export and the AI terminal's "save transcript" now work on Windows (#4356, thanks @marioja). All three hardcoded a leading-`/` check as their "is the project folder known" guard; on Windows `state.cwd` is a drive path (`C:\Users\...`), so every one of them refused with "no project folder is known" regardless of settings. They now use the existing `isAbsolutePath` helper (already fixed for register.ts in #4175). Also fixed a second, independent bug on the transcript-save path: it pre-joined `state.cwd` into the string handed to `resolveExportPath`, which refuses any backslash in its input — so even after the first fix, a Windows transcript save still failed; it now passes the relative file name only, same as the Events/Timeline export already did.
+
 ## 0.44.6 — 2026-10-20
 - feat: the compact nav's menu, groups, search and page tabs are now separated by a dim `│` bar instead of just a gap, so a row of chips and tabs reads as distinct items rather than running together (#3664).
 

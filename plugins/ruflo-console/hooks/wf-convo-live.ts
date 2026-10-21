@@ -251,7 +251,10 @@ export async function saveTranscript(state: State, target: Target, ask: (spec: A
   if (host === undefined || thread === undefined || thread.msgs.length === 0) return ask(null, 'this thread has nothing to save yet')
 
   const roots = { cwd: state.cwd, scratch: null }
-  const wanted = resolveExportPath(`${state.cwd.replace(/\/+$/, '')}/${EXPORT_DIR}/${transcriptName(target.id, Date.now())}`, roots)
+  // #4356: pass the relative name and let resolveExportPath join it onto roots.cwd itself —
+  // pre-joining here produced a Windows drive cwd (`C:\...`) inside `input`, which the
+  // function's own backslash guard then refused outright.
+  const wanted = resolveExportPath(`${EXPORT_DIR}/${transcriptName(target.id, Date.now())}`, roots)
 
   if (!wanted.ok) return ask(null, wanted.why)
 

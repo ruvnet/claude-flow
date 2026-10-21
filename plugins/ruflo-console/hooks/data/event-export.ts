@@ -3,6 +3,7 @@
  * target is a name under `.claude-flow/console/exports/` or a path inside the project; `..`, a link on the way, a bad extension and an
  * existing file are all refused, and the text is washed and capped before it is built. The write itself is a confirm-gated fixed argv.
  */
+import { isAbsolutePath } from './abs-path'
 import { isoOf } from './safe'
 import type { ActionSpec } from '../actions'
 import { levelOf } from './event-severity'
@@ -35,11 +36,13 @@ export function resolveTarget(input: string, cwd: string, allowed: readonly Form
   if (/[\u0000-\u001f\u007f-\u009f\\]/.test(raw)) return { ok: false, why: 'a path with control characters or a backslash is refused' }
   if (raw.startsWith('~')) return { ok: false, why: 'write the path out: ~ is not expanded here' }
   if (raw.split('/').includes('..')) return { ok: false, why: 'a path with .. is refused: name a file inside the project' }
-  if (root === '' || !root.startsWith('/')) return { ok: false, why: 'no project folder is known, so the path cannot be placed' }
+  if (root === '' || !isAbsolutePath(root)) return { ok: false, why: 'no project folder is known, so the path cannot be placed' }
 
   const absolute = raw.startsWith('/') ? raw : raw.includes('/') ? `${root}/${raw}` : `${root}/${EXPORT_DIR}/${raw}`
   const parts = absolute.split('/').filter(part => part !== '' && part !== '.')
-  const path = `/${parts.join('/')}`
+  // A Windows drive (`C:\x`) or UNC (`\\server\share`) root keeps its own prefix as the
+  // first `parts` entry (it contains no `/`); only a POSIX root needs the leading `/` back.
+  const path = absolute.startsWith('/') ? `/${parts.join('/')}` : parts.join('/')
   const name = parts[parts.length - 1] ?? ''
   const format = formatOf(name)
 
