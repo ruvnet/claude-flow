@@ -94,7 +94,7 @@ const buildCommand: Command = {
     const outputPath = ctx.flags.output as string || 'ruflo.rvf';
     const arch = ctx.flags.arch as string || 'x86_64';
     const models = ctx.flags.models as string[] || [];
-    const apiKeysPath = ctx.flags['api-keys'] as string | undefined;
+    const apiKeysPath = ctx.flags.apiKeys as string | undefined;
 
     header('RVFA Appliance Builder');
     output.printInfo(`Profile:  ${output.highlight(profile)}`);
@@ -105,7 +105,7 @@ const buildCommand: Command = {
 
     const startTime = Date.now();
     const RvfaBuilder = await loadModule<new (o: Record<string, unknown>) => {
-      build: () => Promise<{ totalSize: number; sections: Array<{ id: string; size: number }> }>;
+      build: () => Promise<{ size: number; sections: Array<{ id: string; size: number }> }>;
     }>('../appliance/rvfa-builder.js', 'RvfaBuilder', 'builder');
     if (!RvfaBuilder) return { success: false, exitCode: 1 };
 
@@ -118,7 +118,10 @@ const buildCommand: Command = {
     if (apiKeysPath) steps.splice(steps.length - 1, 0, 'Sealing API key vault');
 
     try {
-      const builder = new RvfaBuilder({ profile, outputPath, arch, models, apiKeysPath });
+      const builder = new RvfaBuilder({
+        profile, output: outputPath, arch, apiKeys: apiKeysPath,
+        models: models.length > 0 ? models : undefined,
+      });
       await runSteps(steps);
       const result = await builder.build();
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -135,7 +138,7 @@ const buildCommand: Command = {
       }
       output.writeln();
       output.printSuccess(`Appliance written to ${output.bold(outputPath)}`);
-      output.printInfo(`Total size: ${output.bold(fmtSize(result.totalSize))}  Duration: ${duration}s`);
+      output.printInfo(`Total size: ${output.bold(fmtSize(result.size))}  Duration: ${duration}s`);
       return { success: true, data: result };
     } catch (err) {
       return fail('Build failed', errMsg(err));
