@@ -19,10 +19,21 @@ This skill provides professional pair programming capabilities with AI assistanc
 - **Code Review**: Security scanning, performance analysis, best practice enforcement
 - **Session Persistence**: Auto-save, recovery, export, and sharing
 
+## How Claude Code Uses This
+
+The CLI holds the session state; Claude Code reads it. There is no REPL to type into.
+
+1. At the start of every turn run `ruflo pair status --json`. If `active` is `false`, this skill is dormant.
+2. Follow `mode` and `aiRole`. As **driver** you write the code and the human reviews. As **navigator** you review and suggest and never edit unless asked. `tdd`, `review`, `mentor` and `debug` refine that behaviour as described below.
+3. When `switchDue` is `true`, run `ruflo pair switch`, announce the swap, and continue in the new role.
+4. Change mode mid-session with `ruflo pair mode <mode>`. The human can run the same commands from their shell.
+
+State lives in `.claude-flow/sessions/pair/current.json`. `ruflo pair end` archives it to `history.jsonl` next to it.
+
 ## Prerequisites
 
 **Required:**
-- Claude Flow CLI installed (`npm install -g claude-flow@alpha`)
+- Ruflo CLI installed (`npm install -g ruflo`), which provides the `ruflo pair` command
 - Git repository (optional but recommended)
 
 **Recommended:**
@@ -35,13 +46,13 @@ This skill provides professional pair programming capabilities with AI assistanc
 ### Basic Session
 ```bash
 # Start simple pair programming
-claude-flow pair --start
+ruflo pair start
 ```
 
 ### TDD Session
 ```bash
 # Test-driven development
-claude-flow pair --start \
+ruflo pair start \
   --mode tdd \
   --test-first \
   --coverage 90
@@ -56,23 +67,23 @@ claude-flow pair --start \
 #### Starting Sessions
 ```bash
 # Basic start
-claude-flow pair --start
+ruflo pair start
 
 # Expert refactoring session
-claude-flow pair --start \
+ruflo pair start \
   --agent senior-dev \
   --focus refactor \
   --verify \
   --threshold 0.98
 
 # Debugging session
-claude-flow pair --start \
+ruflo pair start \
   --agent debugger-expert \
   --focus debug \
   --review
 
 # Learning session
-claude-flow pair --start \
+ruflo pair start \
   --mode mentor \
   --pace slow \
   --examples
@@ -81,10 +92,10 @@ claude-flow pair --start \
 #### Session Management
 ```bash
 # Check status
-claude-flow pair --status
+ruflo pair status
 
 # View history
-claude-flow pair --history
+ruflo pair history
 
 # Pause session
 /pause [--reason <reason>]
@@ -93,7 +104,7 @@ claude-flow pair --history
 /resume
 
 # End session
-claude-flow pair --end [--save] [--report]
+ruflo pair end [--save] [--report]
 ```
 
 ### Available Modes
@@ -102,7 +113,7 @@ claude-flow pair --end [--save] [--report]
 You write code while AI provides guidance.
 
 ```bash
-claude-flow pair --start --mode driver
+ruflo pair start --mode driver
 ```
 
 **Your Responsibilities:**
@@ -137,7 +148,7 @@ claude-flow pair --start --mode driver
 AI writes code while you provide direction.
 
 ```bash
-claude-flow pair --start --mode navigator
+ruflo pair start --mode navigator
 ```
 
 **Your Responsibilities:**
@@ -173,13 +184,13 @@ Automatically alternates roles at intervals.
 
 ```bash
 # Default 10-minute intervals
-claude-flow pair --start --mode switch
+ruflo pair start --mode switch
 
 # 5-minute intervals (rapid)
-claude-flow pair --start --mode switch --interval 5m
+ruflo pair start --mode switch --interval 5m
 
 # 15-minute intervals (deep focus)
-claude-flow pair --start --mode switch --interval 15m
+ruflo pair start --mode switch --interval 15m
 ```
 
 **Handoff Process:**
@@ -199,7 +210,7 @@ claude-flow pair --start --mode switch --interval 15m
 
 **TDD Mode** - Test-Driven Development:
 ```bash
-claude-flow pair --start \
+ruflo pair start \
   --mode tdd \
   --test-first \
   --coverage 100
@@ -208,7 +219,7 @@ Workflow: Write failing test → Implement → Refactor → Repeat
 
 **Review Mode** - Continuous code review:
 ```bash
-claude-flow pair --start \
+ruflo pair start \
   --mode review \
   --strict \
   --security
@@ -217,7 +228,7 @@ Features: Real-time feedback, security scanning, performance analysis
 
 **Mentor Mode** - Learning-focused:
 ```bash
-claude-flow pair --start \
+ruflo pair start \
   --mode mentor \
   --explain-all \
   --pace slow
@@ -226,7 +237,7 @@ Features: Detailed explanations, step-by-step guidance, pattern teaching
 
 **Debug Mode** - Problem-solving:
 ```bash
-claude-flow pair --start \
+ruflo pair start \
   --mode debug \
   --verbose \
   --trace
@@ -559,19 +570,19 @@ Create `.claude-flow/pair-config.json`:
 #### CLI Configuration
 ```bash
 # Set configuration
-claude-flow pair config set defaultMode switch
-claude-flow pair config set verification.threshold 0.98
+ruflo pair config set defaultMode switch
+ruflo pair config set verification.threshold 0.98
 
 # Get configuration
-claude-flow pair config get
-claude-flow pair config get defaultMode
+ruflo pair config get
+ruflo pair config get defaultMode
 
 # Export/Import
-claude-flow pair config export > config.json
-claude-flow pair config import config.json
+ruflo pair config export > config.json
+ruflo pair config import config.json
 
 # Reset
-claude-flow pair config reset
+ruflo pair config reset
 ```
 
 #### Profile Management
@@ -580,17 +591,17 @@ Create reusable profiles:
 
 ```bash
 # Create profile
-claude-flow pair profile create refactoring \
+ruflo pair profile create refactoring \
   --mode driver \
   --verify true \
   --threshold 0.98 \
   --focus refactor
 
 # Use profile
-claude-flow pair --start --profile refactoring
+ruflo pair start --profile refactoring
 
 # List profiles
-claude-flow pair profile list
+ruflo pair profile list
 ```
 
 Profile configuration:
@@ -629,7 +640,7 @@ Implementing user authentication with JWT tokens:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode switch \
   --agent senior-dev \
   --focus implement \
@@ -676,7 +687,7 @@ Debugging a memory leak in Node.js:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode navigator \
   --agent debugger-expert \
   --focus debug \
@@ -717,7 +728,7 @@ Building shopping cart with test-driven development:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode tdd \
   --agent tdd-specialist \
   --test-first
@@ -759,7 +770,7 @@ Modernizing legacy code:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode driver \
   --focus refactor \
   --verify \
@@ -807,7 +818,7 @@ Optimizing slow React application:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode switch \
   --agent performance-expert \
   --focus optimize \
@@ -852,7 +863,7 @@ Building RESTful API with Express:
 
 ```bash
 # Session setup
-claude-flow pair --start \
+ruflo pair start \
   --mode navigator \
   --agent backend-expert \
   --focus implement \
@@ -897,28 +908,28 @@ claude-flow pair --start \
 
 ```bash
 # Refactoring template
-claude-flow pair --template refactor
+ruflo pair --template refactor
 # Focus: Code improvement
 # Verification: High (0.98)
 # Testing: After each change
 # Review: Continuous
 
 # Feature template
-claude-flow pair --template feature
+ruflo pair --template feature
 # Focus: Implementation
 # Verification: Standard (0.95)
 # Testing: On completion
 # Review: Pre-commit
 
 # Debug template
-claude-flow pair --template debug
+ruflo pair --template debug
 # Focus: Problem solving
 # Verification: Moderate (0.90)
 # Testing: Regression tests
 # Review: Root cause
 
 # Learning template
-claude-flow pair --template learn
+ruflo pair --template learn
 # Mode: Mentor
 # Pace: Slow
 # Explanations: Detailed
@@ -930,7 +941,7 @@ claude-flow pair --template learn
 #### Session Status
 
 ```bash
-claude-flow pair --status
+ruflo pair status
 ```
 
 **Output:**
@@ -962,7 +973,7 @@ Next Switch: in 3 minutes
 #### Session History
 
 ```bash
-claude-flow pair --history
+ruflo pair history
 ```
 
 **Output:**
@@ -993,32 +1004,32 @@ claude-flow pair --history
 
 ```bash
 # Save session
-claude-flow pair --save [--name <name>]
+ruflo pair --save [--name <name>]
 
 # Load session
-claude-flow pair --load <session-id>
+ruflo pair --load <session-id>
 
 # Export session
-claude-flow pair --export <session-id> [--format json|md]
+ruflo pair --export <session-id> [--format json|md]
 
 # Generate report
-claude-flow pair --report <session-id>
+ruflo pair --report <session-id>
 ```
 
 #### Background Sessions
 
 ```bash
 # Start in background
-claude-flow pair --start --background
+ruflo pair start --background
 
 # Monitor background session
-claude-flow pair --monitor
+ruflo pair --monitor
 
 # Attach to background session
-claude-flow pair --attach <session-id>
+ruflo pair --attach <session-id>
 
 # End background session
-claude-flow pair --end <session-id>
+ruflo pair end <session-id>
 ```
 
 ### Advanced Features
@@ -1054,30 +1065,30 @@ Use custom commands:
 
 ```bash
 # Start with recording
-claude-flow pair --start --record
+ruflo pair start --record
 
 # Replay session
-claude-flow pair --replay <session-id>
+ruflo pair --replay <session-id>
 
 # Session analytics
-claude-flow pair --analytics <session-id>
+ruflo pair --analytics <session-id>
 ```
 
 #### Integration Options
 
 **With Git:**
 ```bash
-claude-flow pair --start --git --auto-commit
+ruflo pair start --git --auto-commit
 ```
 
 **With CI/CD:**
 ```bash
-claude-flow pair --start --ci --non-interactive
+ruflo pair start --ci --non-interactive
 ```
 
 **With IDE:**
 ```bash
-claude-flow pair --start --ide vscode
+ruflo pair start --ide vscode
 ```
 
 ### Best Practices
@@ -1131,7 +1142,7 @@ claude-flow pair --start --ide vscode
 - Validate JSON syntax
 - Check file permissions
 - Review priority order (CLI > env > project > user > global)
-- Run `claude-flow pair config validate`
+- Run `ruflo pair config validate`
 
 ### Quality Metrics
 
@@ -1195,8 +1206,8 @@ Default shortcuts:
 
 ### Related Commands
 
-- `claude-flow pair --help` - Show help
-- `claude-flow pair config` - Manage configuration
-- `claude-flow pair profile` - Manage profiles
-- `claude-flow pair templates` - List templates
-- `claude-flow pair agents` - List available agents
+- `ruflo pair --help` - Show help
+- `ruflo pair config` - Manage configuration
+- `ruflo pair profile` - Manage profiles
+- `ruflo pair templates` - List templates
+- `ruflo pair agents` - List available agents

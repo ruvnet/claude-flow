@@ -79,6 +79,9 @@ const commandLoaders: Record<string, CommandLoader> = {
   'transfer-store': () => import('./transfer-store.js'),
   cleanup: () => import('./cleanup.js'),
   autopilot: () => import('./autopilot.js'),
+  // Pair programming session state (restores the v2 `pair` command the
+  // bundled pair-programming skill depends on)
+  pair: () => import('./pair.js'),
   // GAIA Benchmark Harness (ADR-133)
   'gaia-bench': () => import('./gaia-bench.js'),
   // MetaHarness integration (ADR-150) — dispatcher over plugins/ruflo-metaharness/
@@ -223,6 +226,7 @@ export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
+export async function getPairCommand() { return loadCommand('pair'); }
 export async function getTransportCommand() { return loadCommand('transport'); }
 
 /**
@@ -279,7 +283,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     analyzeCmd, routeCmd, progressCmd, providersCmd,
     pluginsCmd, deploymentCmd, claimsCmd, issuesCmd,
     updateCmd, processCmd, guidanceCmd, applianceCmd,
-    cleanupCmd, autopilotCmd, policyCmd,
+    cleanupCmd, autopilotCmd, policyCmd, pairCmd,
   ] = await Promise.all([
     loadCommand('daemon'), loadCommand('doctor'), loadCommand('embeddings'), loadCommand('neural'),
     loadCommand('performance'), loadCommand('security'), loadCommand('ruvector'), loadCommand('hive-mind'),
@@ -287,7 +291,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     loadCommand('analyze'), loadCommand('route'), loadCommand('progress'), loadCommand('providers'),
     loadCommand('plugins'), loadCommand('deployment'), loadCommand('claims'), loadCommand('issues'),
     loadCommand('update'), loadCommand('process'), loadCommand('guidance'), loadCommand('appliance'),
-    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'),
+    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'), loadCommand('pair'),
   ]);
 
   return {
@@ -302,7 +306,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     ].filter(Boolean) as Command[],
     utility: [
       configCmd, doctorCmd, daemonCmd, completionsCmd,
-      migrateCmd, workflowCmd,
+      migrateCmd, workflowCmd, pairCmd,
     ].filter(Boolean) as Command[],
     analysis: [
       analyzeCmd, routeCmd, progressCmd,
