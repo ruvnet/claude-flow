@@ -382,7 +382,7 @@ const statusCommand: Command = {
 
     try {
       const result = await callMCPTool<{
-        id: string;
+        taskId: string;
         type: string;
         description: string;
         priority: string;
@@ -437,7 +437,7 @@ const statusCommand: Command = {
           '',
           `Description: ${result.description}`
         ].join('\n'),
-        `Task: ${result.id}`
+        `Task: ${result.taskId}`
       );
 
       // Assignment info
