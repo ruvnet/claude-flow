@@ -549,6 +549,19 @@ export const taskTools: MCPTool[] = [
       const task = store.tasks[taskId];
 
       if (task) {
+        const previousStatus = task.status;
+        // A finished task keeps its outcome: cancelling it used to overwrite a
+        // completed task's result and completedAt with a cancel reason.
+        if (previousStatus === 'completed' || previousStatus === 'failed' || previousStatus === 'cancelled') {
+          return {
+            success: false,
+            taskId,
+            status: previousStatus,
+            previousStatus,
+            error: `Task is already ${previousStatus}`,
+          };
+        }
+
         task.status = 'cancelled';
         task.completedAt = new Date().toISOString();
         task.result = { cancelReason: input.reason || 'Cancelled by user' };
@@ -559,6 +572,7 @@ export const taskTools: MCPTool[] = [
           success: true,
           taskId: task.taskId,
           status: task.status,
+          previousStatus,
           cancelledAt: task.completedAt,
         };
       }

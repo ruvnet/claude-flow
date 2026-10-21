@@ -568,14 +568,28 @@ const cancelCommand: Command = {
 
     try {
       const result = await callMCPTool<{
+        success: boolean;
         taskId: string;
-        cancelled: boolean;
-        previousStatus: string;
-        cancelledAt: string;
+        status?: string;
+        previousStatus?: string;
+        cancelledAt?: string;
+        error?: string;
       }>('task_cancel', {
         taskId,
         reason: reason || 'Cancelled by user via CLI'
       });
+
+      // task_cancel answers an unknown or already-finished task with
+      // success: false instead of throwing; report it instead of printing
+      // "Task ... cancelled" and exiting 0.
+      if (result.success === false) {
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        } else {
+          output.printError(`Failed to cancel task ${taskId}: ${result.error || 'unknown error'}`);
+        }
+        return { success: false, exitCode: 1, data: result };
+      }
 
       output.writeln();
       output.printSuccess(`Task ${taskId} cancelled`);
