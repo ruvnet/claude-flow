@@ -1,4 +1,4 @@
-/**
+﻿/**
  * #3226: `memory list` printed the correct rows and then intermittently
  * aborted on Windows with a libuv UV_HANDLE_CLOSING assertion. The bin
  * wrapper called process.exit(0) immediately after the command resolved,
@@ -18,16 +18,11 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { MEMORY_SCHEMA_V3 } from '../src/memory/memory-initializer.js';
 
-// Overrides let a source-only worktree exercise a prebuilt install without
-// copying node_modules into the repo. CI uses the normal in-tree paths.
-const CLI_BIN = process.env.RUFLO_TEST_CLI_BIN
-  ?? fileURLToPath(new URL('../bin/cli.js', import.meta.url));
-const CLI_DIST = process.env.RUFLO_TEST_CLI_DIST
-  ?? fileURLToPath(new URL('../dist/src/index.js', import.meta.url));
-const RUflo_BIN = process.env.RUFLO_TEST_WRAPPER_BIN
-  ?? fileURLToPath(new URL('../../../../ruflo/bin/ruflo.js', import.meta.url));
+const CLI_BIN = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+const CLI_DIST = fileURLToPath(new URL('../dist/src/index.js', import.meta.url));
+const RUFLO_BIN = fileURLToPath(new URL('../../../../ruflo/bin/ruflo.js', import.meta.url));
 const CLI_BUILT = existsSync(CLI_DIST);
-const RUflo_BUILT = CLI_BUILT && existsSync(RUflo_BIN);
+const RUFLO_BUILT = CLI_BUILT && existsSync(RUFLO_BIN);
 
 async function makeStore(): Promise<{ root: string; dbPath: string; cleanup: () => void }> {
   const root = mkdtempSync(join(tmpdir(), 'ruflo-list-teardown-'));
@@ -98,10 +93,10 @@ describe.skipIf(!CLI_BUILT)('#3226 memory list teardown', () => {
     }
   }, 120_000);
 
-  it.skipIf(!RUflo_BUILT)('the ruflo wrapper exits cleanly on every run', async () => {
+  it.skipIf(!RUFLO_BUILT)('the ruflo wrapper exits cleanly on every run', async () => {
     const store = await makeStore();
     try {
-      expectStableListRuns(RUflo_BIN, store.root, store.dbPath);
+      expectStableListRuns(RUFLO_BIN, store.root, store.dbPath);
     } finally {
       store.cleanup();
     }
@@ -123,3 +118,4 @@ describe.skipIf(!CLI_BUILT)('#3226 memory list teardown', () => {
     }
   }, 30_000);
 });
+
