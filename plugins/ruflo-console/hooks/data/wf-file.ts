@@ -9,6 +9,7 @@
  * A path is accepted only if, after normalising, it sits under an allowed root (the project, or the scratchpad where one is known)
  * with no `..`, no link on the way down to it and, for a summary, no file already there to overwrite.
  */
+import { isAbsolutePath } from './abs-path'
 import type { ReaderFs } from './files'
 import { posixCopyExclusive, posixCreateExclusive, posixCreateExclusiveWithDirs, posixReplace, posixReplaceWithDirs, type WriteFlavor } from './write-flavor'
 
@@ -36,13 +37,15 @@ export function resolveExportPath(input: string, roots: Roots): PathCheck {
 
   const base = trimRoot(roots.cwd)
 
-  if (base === '' || !base.startsWith('/')) return { ok: false, why: 'no project folder is known, so a relative path cannot be placed' }
+  if (base === '' || !isAbsolutePath(base)) return { ok: false, why: 'no project folder is known, so a relative path cannot be placed' }
 
   const absolute = raw.startsWith('/') ? raw : `${base}/${raw}`
   const parts = absolute.split('/').filter(part => part !== '' && part !== '.')
-  const path = `/${parts.join('/')}`
+  // A Windows drive (`C:\x`) or UNC (`\\server\share`) root keeps its own prefix as the
+  // first `parts` entry (it contains no `/`); only a POSIX root needs the leading `/` back.
+  const path = absolute.startsWith('/') ? `/${parts.join('/')}` : parts.join('/')
   const name = parts[parts.length - 1] ?? ''
-  const inside = [roots.cwd, roots.scratch ?? ''].map(trimRoot).filter(root => root.startsWith('/') && root.length > 1).find(root => path.startsWith(`${root}/`))
+  const inside = [roots.cwd, roots.scratch ?? ''].map(trimRoot).filter(root => isAbsolutePath(root) && root.length > 1).find(root => path.startsWith(`${root}/`))
 
   if (!NAME.test(name)) return { ok: false, why: 'the file name must be letters, digits, dots, dashes, underscores or spaces, and end in .md' }
   if (inside === undefined) return { ok: false, why: `outside the project${roots.scratch === undefined || roots.scratch === null ? '' : ' and the scratchpad'}: only paths under ${trimRoot(roots.cwd)}${roots.scratch === undefined || roots.scratch === null ? '' : ` or ${trimRoot(roots.scratch)}`} are written` }
