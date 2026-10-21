@@ -368,10 +368,12 @@ export const configTools: MCPTool[] = [
         merged.set(key, { value, source: 'stored' });
       }
       // Always include keys from every scope so they're discoverable; the
-      // scope filter only narrows which set is used as the *winner*.
+      // scope filter only narrows which set is used as the *winner*. The
+      // default scope has no scope of its own, so stored values win there,
+      // as in config_get and config_export.
       for (const [scopeName, scopeValues] of Object.entries(store.scopes)) {
         for (const [key, value] of Object.entries(scopeValues)) {
-          if (scope === scopeName || scope === 'default') {
+          if (scope === scopeName) {
             merged.set(key, { value, source: `scope:${scopeName}` });
           } else if (!merged.has(key)) {
             // Surface scoped keys that aren't shadowed when listing default scope

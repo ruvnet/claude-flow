@@ -196,9 +196,13 @@ function reclaimDeadLock(lockPath: string): void {
  */
 export async function acquireLock(lockPath: string): Promise<() => void> {
   const started = Date.now();
+  // O_NOFOLLOW closes the create-through-a-symlink path on platforms that
+  // support it; lstat below still rejects non-regular existing paths.
+  const createFlags = fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL
+    | (process.platform === 'win32' ? 0 : (fsConstants.O_NOFOLLOW ?? 0));
   while (Date.now() - started < LOCK_WAIT_MS) {
     try {
-      const fd = openSync(lockPath, 'wx', 0o600);
+      const fd = openSync(lockPath, createFlags, 0o600);
       const ownership = JSON.stringify({
         pid: process.pid,
         acquiredAt: Date.now(),
@@ -212,7 +216,28 @@ export async function acquireLock(lockPath: string): Promise<() => void> {
       return () => {
         try { if (readLockFile(lockPath) === ownership) unlinkSync(lockPath); } catch { /* already released */ }
       };
-    } catch {
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      // Only EEXIST is normal lock contention. Permission/path/IO failures
+      // must not masquerade as a five-second timeout on every MCP call.
+      // ELOOP is O_NOFOLLOW rejecting a symlink at the lock path.
+      if (code === 'ELOOP') {
+        throw new Error('policy-state-lock-error: lock path is not a regular file');
+      }
+      if (code !== 'EEXIST') {
+        throw new Error(`policy-state-lock-error: ${code ?? (error instanceof Error ? error.message : String(error))}`);
+      }
+      // EEXIST can also mean a directory/FIFO/symlink was planted at the lock
+      // path. Those are never a live lock: fail immediately instead of
+      // waiting, and never follow/remove the non-regular target.
+      try {
+        if (!lstatSync(lockPath).isFile()) {
+          throw new Error('policy-state-lock-error: lock path is not a regular file');
+        }
+      } catch (statError) {
+        if (statError instanceof Error && statError.message.startsWith('policy-state-lock-error:')) throw statError;
+        // The lock vanished between open() and lstat(); retry immediately.
+      }
       reclaimDeadLock(lockPath);
       await sleep(10);
     }
