@@ -117,6 +117,24 @@ describe.skipIf(!haveNative)('WorkerDaemon consolidate worker — ADR-174 M3 wir
     expect((result as any).patternsConsolidated).toBe(metrics.patternsConsolidated);
   });
 
+  it('distills agentdb-memory.db when memory.db is absent (#3446)', async () => {
+    const agentDbPath = join(tempDir, '.swarm', 'agentdb-memory.db');
+    seedDb(agentDbPath);
+    const daemon = new WorkerDaemon(tempDir);
+    const result = await (daemon as any).runConsolidateWorker() as any;
+
+    expect(reasoningPatternCount(agentDbPath)).toBeGreaterThan(0);
+    expect(result.patternsConsolidated).toBeGreaterThan(0);
+    expect(result.stores).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dbPath: agentDbPath }),
+    ]));
+
+    const metrics = JSON.parse(readFileSync(metricsFile, 'utf-8'));
+    expect(metrics.stores).toEqual(expect.arrayContaining([
+      expect.objectContaining({ dbPath: agentDbPath }),
+    ]));
+  });
+
   it('is idempotent — a second tick processes nothing new (cursor-driven)', async () => {
     seedDb(dbPath);
     const daemon = new WorkerDaemon(tempDir);

@@ -1,6 +1,6 @@
 /**
  * Witness library — shared logic for regenerating, verifying, and
- * querying cryptographically-signed fix manifests with temporal
+ * querying tamper-evident fix manifests with temporal
  * history (ADR-103).
  *
  * Pure functions + small I/O helpers; no project-specific assumptions.
@@ -111,6 +111,27 @@ export function refreshFix(repoRoot, fix) {
   return { id: fix.id, desc: fix.desc, file: fix.file, sha256, marker: fix.marker, markerVerified };
 }
 
+/**
+ * Resolve the Ed25519 seed used to sign a manifest.
+ *
+ * The historical default is sha256(gitCommit + ':ruflo-witness/v1'). That
+ * seed is public (the commit is public), so the resulting signature is an
+ * integrity checksum, not proof of authorship. Deployments that need
+ * authenticity can provide a 32-byte seed through RUFLO_WITNESS_SEED (or
+ * opts.signingSeed); verify.mjs can then pin the matching public key.
+ */
+export function resolveSigningSeed(explicitSeed) {
+  const raw = explicitSeed ?? process.env.RUFLO_WITNESS_SEED;
+  if (raw === undefined || raw === null || raw === '') {
+    return { seed: null, source: "sha256(gitCommit + ':ruflo-witness/v1')" };
+  }
+  const seed = Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw), 'hex');
+  if (seed.length !== 32) {
+    throw new Error('RUFLO_WITNESS_SEED must be exactly 32 bytes (64 hex characters)');
+  }
+  return { seed, source: 'env:RUFLO_WITNESS_SEED' };
+}
+
 // ─── regenerate ───────────────────────────────────────────────────
 /**
  * Regenerate a signed witness manifest.
@@ -124,7 +145,7 @@ export function refreshFix(repoRoot, fix) {
  * @returns {{witness: object, summary: string}}
  */
 export function regenerate(opts) {
-  const { repoRoot, manifestPath, newFixes = [], releases = {}, ed25519Roots = [] } = opts;
+  const { repoRoot, manifestPath, newFixes = [], releases = {}, ed25519Roots = [], signingSeed } = opts;
   const ed = loadEd25519(ed25519Roots.length ? ed25519Roots : [repoRoot, join(repoRoot, 'v3')]);
 
   const existing = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null;
@@ -156,7 +177,8 @@ export function regenerate(opts) {
 
   const manifestCanonical = JSON.stringify(manifest);
   const manifestHash = createHash('sha256').update(manifestCanonical).digest('hex');
-  const seed = createHash('sha256').update(gitCommit + ':ruflo-witness/v1').digest();
+  const signing = resolveSigningSeed(signingSeed);
+  const seed = signing.seed ?? createHash('sha256').update(gitCommit + ':ruflo-witness/v1').digest();
   const publicKey = ed.getPublicKey(seed);
   const signature = ed.sign(Buffer.from(manifestHash, 'hex'), seed);
 
@@ -168,7 +190,11 @@ export function regenerate(opts) {
       signatureAlgo: 'ed25519',
       publicKey: Buffer.from(publicKey).toString('hex'),
       signature: Buffer.from(signature).toString('hex'),
-      seedDerivation: "sha256(gitCommit + ':ruflo-witness/v1')",
+      // self-attested = the public commit deterministically derives the seed,
+      // so anyone can reproduce the signature. external-key = signed with a
+      // caller-held seed; verify.mjs should pin the matching public key.
+      authenticity: signing.seed ? 'external-key' : 'self-attested',
+      seedDerivation: signing.source,
     },
   };
 
@@ -180,6 +206,7 @@ export function regenerate(opts) {
     `total fixes:  ${merged.length}  (was ${oldFixes.length})\n` +
     `verified:     ${verifiedCount}\n` +
     `missing:      ${missingCount}\n` +
+    `authenticity: ${witness.integrity.authenticity}\n` +
     `new entries:  ${newIds.join(', ') || '(none)'}\n` +
     `releases:     ${JSON.stringify(releases)}`;
 

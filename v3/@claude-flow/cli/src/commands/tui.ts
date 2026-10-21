@@ -8,7 +8,8 @@
  * No bundle is a message and exit 1, never a crash; ruflo stays operational without it. Without a terminal (a pipe, CI) the live view cannot run:
  * a one-line hint and exit 2, unless --plain asks for one frame as plain text and exit 0 (ADR-489 decision E).
  *
- *   npx ruflo tui                 # interactive, in a terminal
+ *   npx ruflo tui                 # interactive, in a terminal (mouse on: click a page in the bar, scroll with the wheel)
+ *   npx ruflo tui --no-mouse      # keyboard only, if SGR mouse reporting fights your terminal's text selection
  *   npx ruflo tui --view swarm    # start on the Swarm page (keys 1-6 or o c s e m a switch pages)
  *   npx ruflo tui --plain | head  # one plain frame, exit 0 (scripts, CI)
  *   npx ruflo tui | cat           # not a terminal and no --plain: a hint on stderr, exit 2
@@ -54,7 +55,10 @@ export function lookFlags(flags: Record<string, unknown> | undefined): { look?: 
     ...(flags?.anim === false ? { anim: false } : {}),
     ...(flags?.pictures === false ? { pictures: false } : {}),
     ...(flags?.boot === true ? { boot: true } : {}),
-    ...(flags?.mouse === true ? { mouse: true } : {}),
+    // Mouse defaults ON at the CLI layer (the runTui library itself still defaults off, unchanged for other
+    // callers/tests): only --no-mouse turns it off. The CLI must say so explicitly either way rather than
+    // omit the key, since (unlike anim/pictures) the CLI's default disagrees with the library's own default.
+    ...{ mouse: flags?.mouse !== false },
   };
 }
 
@@ -81,12 +85,13 @@ export const tuiCommand: Command = {
     { name: 'fps', description: 'Frames per second for moving pictures, 0-30 (default 8; 0 draws every picture still)', type: 'number' as const },
     { name: 'anim', description: 'Animate the pictures. --no-anim draws them still', type: 'boolean' as const, default: true },
     { name: 'pictures', description: 'Draw the pictures of the console (title art, swarm graph, gauges). --no-pictures shows their words only', type: 'boolean' as const, default: true },
-    { name: 'mouse', description: 'Read mouse reports: click a page in the bar, scroll with the wheel (every action also has a key)', type: 'boolean' as const, default: false },
+    { name: 'mouse', description: 'Read mouse reports: click a page in the bar, scroll with the wheel (every action also has a key). On by default; --no-mouse turns it off if SGR reporting fights your terminal\'s text selection', type: 'boolean' as const, default: true },
     { name: 'boot', description: 'Play the look\'s start-up screen first (as the console\'s boot setting)', type: 'boolean' as const, default: false },
     { name: 'plain', description: 'Print one frame as plain text and exit 0 (scripts and CI). Without it, a non-terminal gets a hint and exit 2', type: 'boolean' as const, default: false },
   ],
   examples: [
-    { command: 'npx ruflo tui', description: 'Open the console in this terminal' },
+    { command: 'npx ruflo tui', description: 'Open the console in this terminal (mouse on: click a page in the bar, scroll with the wheel)' },
+    { command: 'npx ruflo tui --no-mouse', description: 'Keyboard only, if SGR mouse reporting fights your terminal\'s text selection' },
     { command: 'npx ruflo tui --view swarm', description: 'Start on the Swarm page (keys 1-6 switch pages, tab cycles, q quits)' },
     { command: 'npx ruflo tui --view ai --model openai/gpt-4o-mini --max-spend-usd 0.1', description: 'The AI page on a cheap OpenRouter model, stopping at $0.10 reported (key in $OPENROUTER_API_KEY, never shown)' },
     { command: 'npx ruflo tui --plain | head -40', description: 'One plain frame, exit 0: for scripts and CI (no terminal needed)' },

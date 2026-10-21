@@ -52,8 +52,8 @@ export const signCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const file = ctx.flags.file as string;
     const keyPath = ctx.flags.key as string | undefined;
-    const genKeys = ctx.flags['generate-keys'] as boolean;
-    const keyDir = ctx.flags['key-dir'] as string || '.rvfa-keys';
+    const genKeys = ctx.flags.generateKeys as boolean;
+    const keyDir = ctx.flags.keyDir as string || '.rvfa-keys';
     const signer = ctx.flags.signer as string | undefined;
     if (!file) return fail('--file is required');
 
@@ -191,14 +191,14 @@ export const updateAppCommand: Command = {
       }
 
       let pubKey: Buffer | undefined;
-      if (ctx.flags['public-key']) {
-        const pkPath = ctx.flags['public-key'] as string;
+      if (ctx.flags.publicKey) {
+        const pkPath = ctx.flags.publicKey as string;
         if (!(await requireFile(pkPath))) return { success: false, exitCode: 1 };
         pubKey = fs.readFileSync(pkPath);
       }
 
       const result = await dist.RvfaPatcher.applyPatch(file, patchBuf, {
-        backup: !(ctx.flags['no-backup'] as boolean),
+        backup: ctx.flags.backup !== false,
         verify: true,
         publicKey: pubKey,
       });

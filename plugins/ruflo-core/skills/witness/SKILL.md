@@ -1,16 +1,18 @@
 ---
 name: witness
-description: Sign, verify, and track fix-marker regressions over time using a deterministic Ed25519 witness manifest. Works in any project — clone the toolkit, run init, register fixes, regen on each release.
+description: Sign, verify, and track fix-marker regressions over time using an Ed25519 witness manifest. The default seed is public-commit-derived (integrity only); set RUFLO_WITNESS_SEED/RUFLO_WITNESS_PUBLIC_KEY for authorship. Works in any project — clone the toolkit, run init, register fixes, regen on each release.
 argument-hint: "init|regen|verify|history [...]"
 allowed-tools: Bash(node *), Read, Write, Edit
 ---
 
-# Witness — cryptographic fix-regression tracking
+# Witness — tamper-evident fix-regression tracking
 
 The witness toolkit lets you ship every release with a *signed* manifest
 that lists every documented fix in your codebase along with a sha256 +
-marker substring. Anyone with the same git commit can re-derive the
-public key and verify the signature without a committed private key.
+marker substring. By default the signing seed is derived from the public
+git commit, so anyone can reproduce the signature: this is an integrity
+checksum, not proof of authorship. For authenticity, sign with a 32-byte
+`RUFLO_WITNESS_SEED` and verify with a pinned `RUFLO_WITNESS_PUBLIC_KEY`.
 
 A temporal history (JSONL) tracks how the fix population evolves across
 releases — so when a regression appears, you can pinpoint *the commit
@@ -54,6 +56,10 @@ node plugins/ruflo-core/scripts/witness/verify.mjs \
 # For a CI hash tripwire, also fail when a file changes but its marker remains.
 node plugins/ruflo-core/scripts/witness/verify.mjs \
   --manifest verification.md.json --source-only --strict
+
+# Authenticity: pin a release public key (the flag wins over the env var).
+node plugins/ruflo-core/scripts/witness/verify.mjs \
+  --manifest verification.md.json --public-key <64-hex-public-key>
 ```
 
 Without `--strict`, marker-preserving SHA drift is reported but exits 0.

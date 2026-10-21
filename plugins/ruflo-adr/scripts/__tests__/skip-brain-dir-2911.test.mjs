@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { SKIP_DIRS, findAdrs } from '../lib/parse-adrs.mjs';
@@ -33,7 +33,7 @@ test('findAdrs does not descend into .brain', () => {
     );
 
     const found = findAdrs(root);
-    const names = found.map((p) => p.split('/').pop());
+    const names = found.map((p) => basename(p));
 
     assert.deepEqual(names, ['ADR-001-real.md']);
   } finally {

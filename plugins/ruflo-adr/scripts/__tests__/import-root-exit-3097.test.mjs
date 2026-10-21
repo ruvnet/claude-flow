@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
@@ -18,16 +18,24 @@ function fixture(t) {
   mkdirSync(scanRoot, { recursive: true });
   mkdirSync(bin);
   writeFileSync(join(scanRoot, 'ADR-001-test.md'), '# ADR-001: Test\n\n**Status**: Accepted\n');
-  const shim = join(bin, 'npx');
-  writeFileSync(shim, `#!/usr/bin/env node
-const fs = require('node:fs');
+  const shimBody = `const fs = require('node:fs');
 fs.appendFileSync(process.env.ADR_TEST_CALLS, JSON.stringify({cwd: process.cwd(), args: process.argv.slice(2)}) + '\\n');
 if (process.env.ADR_TEST_FAIL === '1') {
   process.stderr.write('writer unavailable\\n');
   process.exit(42);
 }
-`);
+`;
+  const shim = join(bin, 'npx');
+  writeFileSync(shim, `#!/usr/bin/env node\n${shimBody}`);
   chmodSync(shim, 0o755);
+  if (process.platform === 'win32') {
+    // spawnSync cannot launch npx.cmd on Windows; mirror the npm layout the
+    // fallback resolves so the same fake CLI runs on both platforms.
+    writeFileSync(join(bin, 'npx.cmd'), '@ECHO off\r\n');
+    const npxCli = join(bin, 'node_modules', 'npm', 'bin', 'npx-cli.js');
+    mkdirSync(join(bin, 'node_modules', 'npm', 'bin'), { recursive: true });
+    writeFileSync(npxCli, shimBody);
+  }
   return { temp, project, scanRoot, bin, calls: join(temp, 'calls.jsonl') };
 }
 
@@ -41,7 +49,7 @@ function run(fixture, format, fail = false) {
       ADR_TEST_CALLS: fixture.calls,
       ADR_TEST_FAIL: fail ? '1' : '0',
       IMPORT_FORMAT: format,
-      PATH: `${fixture.bin}:${process.env.PATH}`,
+      PATH: [fixture.bin, process.env.PATH].filter(Boolean).join(delimiter),
       // #3558: pin the npx shim — a built checkout or an installed ruflo on
       // PATH would otherwise be preferred over it (lib/ruflo-cli.mjs).
       RUFLO_PLUGIN_SKIP_LOCAL_CLI: '1',

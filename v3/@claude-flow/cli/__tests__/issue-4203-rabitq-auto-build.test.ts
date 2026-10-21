@@ -287,4 +287,37 @@ describe('#4203 RaBitQ index is built on demand instead of only via the manual t
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  // Review follow-up: the throttle writes `lastAutoBuildAttempt` synchronously
+  // before its first await, so callers that arrive together must not each start
+  // a build. Exactly one owns it; the rest report "no index yet" and let their
+  // caller keep the exhaustive scan.
+  it('concurrent ensureRabitqIndex() calls start a single build', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-4203-concurrent-'));
+    try {
+      const dbPath = await seedStore(root);
+      if (!dbPath) return; // bridge unavailable in this environment
+
+      const rabitq = await import('../src/memory/rabitq-index.js');
+      expect(rabitq.getRabitqStatus().initialized).toBe(false);
+
+      const results = await Promise.all([
+        rabitq.ensureRabitqIndex({ dbPath, dimensions: DIMENSIONS }),
+        rabitq.ensureRabitqIndex({ dbPath, dimensions: DIMENSIONS }),
+        rabitq.ensureRabitqIndex({ dbPath, dimensions: DIMENSIONS }),
+        rabitq.ensureRabitqIndex({ dbPath, dimensions: DIMENSIONS }),
+      ]);
+
+      expect(results.filter(r => r === true).length).toBe(1);
+      expect(rabitq.getRabitqStatus().initialized).toBe(true);
+      expect(rabitq.getRabitqStatus().vectorCount).toBe(ROW_COUNT);
+
+      // The winner's build is the one that answers searches afterwards.
+      const hits = await rabitq.searchRabitq(vectorFor(0), { k: 2 });
+      expect(hits).not.toBeNull();
+      expect(hits![0].key).toBe('emb-0');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

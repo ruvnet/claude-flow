@@ -59,7 +59,8 @@ const startCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const quiet = ctx.flags.quiet as boolean;
     const foreground = ctx.flags.foreground as boolean;
-    const noDistill = ctx.flags['no-distill'] as boolean | undefined;
+    // The CLI parser stores `--no-distill` as `distill: false`.
+    const noDistill = ctx.flags['no-distill'] === true || ctx.flags.distill === false;
     // ADR-174 M3: honored by WorkerDaemon's consolidate worker directly via
     // process.env — set it now so the foreground path (which runs in this
     // same process) picks it up too; the background path forwards it to the
@@ -87,8 +88,8 @@ const startCommand: Command = {
     if (ctx.flags.headless === true) {
       config.aiWorkersEnabled = true;
     }
-    const rawMaxCpu = ctx.flags['max-cpu-load'] as string | undefined;
-    const rawMinMem = ctx.flags['min-free-memory'] as string | undefined;
+    const rawMaxCpu = ctx.flags.maxCpuLoad as string | undefined;
+    const rawMinMem = ctx.flags.minFreeMemory as string | undefined;
 
     // Strict numeric pattern to prevent command injection when forwarding to subprocess (S1)
     const NUMERIC_RE = /^\d+(\.\d+)?$/;

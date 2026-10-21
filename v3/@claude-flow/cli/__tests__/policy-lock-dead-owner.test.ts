@@ -25,6 +25,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -37,6 +38,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
+  acquireLock,
   authorizeMcpTool,
   autoMigratePolicyStateIfNeeded,
   classifyMcpTool,
@@ -318,13 +320,42 @@ describe('policy state.lock unsafe age-only takeover is refused', () => {
     children.push(spawn('sh', ['-c', 'sleep 2; : > "$1"', 'sh', fifo], { stdio: 'ignore' }));
 
     const started = Date.now();
-    await expect(authorizeRead(root)).rejects.toThrow('policy-state-lock-timeout');
-    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS + 1_000);
+    // A non-regular lock path is a path-type error, not lock contention: fail
+    // immediately instead of waiting the full lock budget and misreporting a
+    // timeout. O_NOFOLLOW also prevents create-through-symlink.
+    await expect(authorizeRead(root)).rejects.toThrow('policy-state-lock-error: lock path is not a regular file');
+    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS / 5);
     // No nonregular owner or target is removed.
     expect(existsSync(fifo)).toBe(true);
   }, 15_000);
 });
 
+
+describe('lock path type and creation failures', () => {
+  it('fails immediately when the lock path is a directory', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-lock-dir-'));
+    roots.push(root);
+    const lock = join(root, 'state.lock');
+    mkdirSync(lock);
+
+    const started = Date.now();
+    await expect(acquireLock(lock)).rejects.toThrow('policy-state-lock-error: lock path is not a regular file');
+    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS / 5);
+    expect(existsSync(lock)).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32')('does not create through a dangling symlink', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-lock-link-'));
+    roots.push(root);
+    const lock = join(root, 'state.lock');
+    const target = join(root, 'attacker-target');
+    symlinkSync(target, lock);
+
+    await expect(acquireLock(lock)).rejects.toThrow(/policy-state-lock-error/);
+    expect(existsSync(target)).toBe(false);
+    expect(lstatSync(lock).isSymbolicLink()).toBe(true);
+  });
+});
 
 describe('serialized dead-owner reclamation', () => {
   it('a competing reclaimer sees the guard before it can remove a new owner', async () => {

@@ -31,7 +31,12 @@ import {
 // service itself is owned/frozen elsewhere (memory-distillation.ts) — it is
 // incremental (rowid cursor), non-destructive, transactional, and
 // quick_check-gated, so it's safe to call unconditionally on every tick.
-import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
+import {
+  runDistillationForStores,
+  projectMemoryDbPaths,
+  type DistillReport,
+  type StoreDistillResult,
+} from './memory-distillation.js';
 import { backupProjectMemoryDbs } from './memory-backup.js';
 import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
 import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
@@ -1826,13 +1831,15 @@ export class WorkerDaemon extends EventEmitter {
     }
 
     let report: DistillReport;
+    let stores: StoreDistillResult[] = [];
     try {
-      report = await runDistillation({
-        dbPath: defaultMemoryDbPath(this.projectRoot),
+      const outcome = await runDistillationForStores(projectMemoryDbPaths(this.projectRoot), {
         maxEntries: CONSOLIDATE_MAX_ENTRIES_PER_TICK,
         batchSize: CONSOLIDATE_BATCH_SIZE,
         dedupDistance: CONSOLIDATE_DEDUP_DISTANCE,
       });
+      report = outcome.report;
+      stores = outcome.stores;
     } catch (error) {
       // Defensive only — runDistillation() is internally try/catch'd and
       // should never reach here. A worker must never crash the daemon.
@@ -1850,6 +1857,11 @@ export class WorkerDaemon extends EventEmitter {
       return errorResult;
     }
 
+    for (const store of stores) {
+      if (store.report.skipped) {
+        this.log('info', `Consolidate worker: ${store.dbPath} skipped (${store.report.skipped})`);
+      }
+    }
     if (report.corrupt) {
       this.log('warn', `Consolidate worker: memory DB reports corruption — ${report.skipped ?? 'skipped'}`);
     } else if (report.skipped) {
@@ -1879,6 +1891,12 @@ export class WorkerDaemon extends EventEmitter {
       dryRun: report.dryRun,
       corrupt: report.corrupt ?? false,
       skipped: report.skipped,
+      stores: stores.map(({ dbPath, report: part }) => ({
+        dbPath,
+        processed: part.processed,
+        patterns: part.patterns,
+        skipped: part.skipped,
+      })),
     };
 
     writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
