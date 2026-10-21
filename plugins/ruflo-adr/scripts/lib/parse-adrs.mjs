@@ -7,7 +7,7 @@
 // own persistence.
 
 import { readFileSync, readdirSync, statSync, realpathSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join, basename, relative, sep } from 'node:path';
 
 // #2474 bonus: `.claude/worktrees/*` mirrors the repo so every ADR was
 // indexed 2-3x. Skip the whole `.claude` tree — it's all ruflo runtime
@@ -38,6 +38,13 @@ export function normalizeAdrId(raw) {
 
 // #4126: an index table (README.md, index.md) or a template (template*.md) in docs/adr is not an ADR.
 const NON_ADR_FILE = /^(?:readme|index|template[^/]*)\.md$/i;
+// #2413: `join()` yields backslashes on Windows; match either separator so a
+// Windows scan does not silently return zero ADRs.
+const ADR_PATH = /(?:^|[\\/])docs[\\/]adrs?[\\/]/;
+
+export function isAdrPath(filePath) {
+  return ADR_PATH.test(filePath);
+}
 
 export function findAdrs(dir, out = [], visited = new Set()) {
   let canonical;
@@ -53,7 +60,7 @@ export function findAdrs(dir, out = [], visited = new Set()) {
     try { st = statSync(p); } catch { continue; }
     if (st.isDirectory()) {
       findAdrs(p, out, visited);
-    } else if (e.endsWith('.md') && !NON_ADR_FILE.test(e) && (p.includes('/docs/adr/') || p.includes('/docs/adrs/'))) {
+    } else if (e.endsWith('.md') && !NON_ADR_FILE.test(e) && isAdrPath(p)) {
       out.push(p);
     }
   }
@@ -69,7 +76,11 @@ export function parseAdr(path, root) {
   const tags = parseTags(text);
   const context = parseContextFirstParagraph(text);
   const links = parseLinks(text, id);
-  return { id, title, status, date, tags, context, links, file: path.replace(root + '/', '') };
+  return {
+    id, title, status, date, tags, context, links,
+    // #2413: keep the reported path repo-relative and POSIX-shaped on Windows.
+    file: relative(root, path).split(sep).join('/'),
+  };
 }
 
 function parseId(path, text) {

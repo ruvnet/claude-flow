@@ -34,7 +34,8 @@ import { commandExists } from '../services/harness-hosts.js';
  */
 async function offerCapabilityEnrollment(ctx: CommandContext): Promise<void> {
   try {
-    const noSignup = Boolean(ctx.flags['no-signup'] || ctx.flags.noSignup);
+    // The CLI parser turns `--no-signup` into `signup: false`.
+    const noSignup = Boolean(ctx.flags['no-signup'] || ctx.flags.noSignup || ctx.flags.signup === false);
     if (ctx.flags.format === 'json') return; // scripted output stays pure
     if (!shouldOfferEnrollment({ noSignup, cwd: ctx.cwd })) return;
     output.writeln();

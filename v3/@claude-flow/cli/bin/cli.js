@@ -369,11 +369,23 @@ if (isHarness) {
   const { CLI } = await import('../dist/src/index.js');
   const cli = new CLI();
   cli.run()
-    .then(() => {
-      // #1552: Exit cleanly after one-shot commands.
-      // Long-running commands (daemon foreground, mcp, status --watch) never resolve,
-      // so this only fires for normal CLI commands.
-      process.exit(0);
+    .then(async () => {
+      // #1552: one-shot commands can leave the memory ControllerRegistry's
+      // database handles and timers alive. Close them before relying on the
+      // event loop to drain.
+      //
+      // #3226: calling process.exit(0) here used to race that teardown and
+      // intermittently abort on Windows with a libuv UV_HANDLE_CLOSING
+      // assertion *after* the command had printed a successful result. Set
+      // the exit status and let the loop drain instead.
+      if (process.exitCode === undefined) process.exitCode = 0;
+      try {
+        const { shutdownBridge } = await import('../dist/src/memory/memory-bridge.js');
+        if (typeof shutdownBridge === 'function') await shutdownBridge();
+      } catch {
+        // Cleanup is best-effort: it must never turn a successful command into
+        // a failure. Commands that do not use memory simply have nothing to do.
+      }
     })
     .catch((error) => {
       console.error('Fatal error:', error.message);

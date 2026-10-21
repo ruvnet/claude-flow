@@ -81,6 +81,26 @@ test('win32: npm\'s ruflo.cmd shim maps to `node <package bin>`, never cmd.exe',
   }
 });
 
+test('win32: npx fallback resolves npm\'s JS entry, not the .cmd shim', async () => {
+  const { resolveNpxCli } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'ruflo-cli.mjs')).href);
+  const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'ruflo-adr-npx-win-')));
+  try {
+    const bin = join(tmp, 'bin');
+    const npmBin = join(bin, 'node_modules', 'npm', 'bin');
+    const npxCli = join(npmBin, 'npx-cli.js');
+    write(join(bin, 'npx.cmd'), '@ECHO off\r\n');
+    write(npxCli, '');
+    write(join(npmBin, 'npm-cli.js'), '');
+    const fakeExecPath = join(tmp, 'node', 'node.exe');
+    const want = realpathSync(npxCli);
+    assert.equal(resolveNpxCli({ Path: bin }, 'win32', fakeExecPath), want);
+    assert.equal(resolveNpxCli({ npm_execpath: join(npmBin, 'npm-cli.js') }, 'win32', fakeExecPath), want);
+    assert.equal(resolveNpxCli({ Path: bin }, 'linux', fakeExecPath), null);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 if (process.platform !== 'win32') {
   test('plugin-cache install: import, reindex and verify all use the installed ruflo, never npx', () => withFixture(({ run, path, rufloBin, npxBin }) => {
     const env = { PATH: path(rufloBin, npxBin) };
