@@ -13,6 +13,7 @@ import { adrDirText, detectStyle, draftFromMission, fileNameFor, initialRecord, 
 import { record as recordEvents } from './data/events'
 import { readBounded, type ReadCache } from './data/files'
 import { plain } from './data/parse'
+import { isAbsolutePath } from './data/abs-path'
 import { checkNoLinks, dirOf, newFileArgv, replaceFileArgv } from './data/wf-file'
 import { writeFlavorReady } from './data/write-flavor'
 import type { Host } from './host'
@@ -81,7 +82,7 @@ export async function discover(host: Pick<Host, 'fs'>, cwd: string, setting: str
   const tries = named !== null && named !== '' ? [named] : ADR_FOLDERS
   let refused = ''
 
-  if (base === '' || !base.startsWith('/')) return { dir: null, why: 'no project folder is known' }
+  if (base === '' || !isAbsolutePath(base)) return { dir: null, why: 'no project folder is known' }
 
   for (const candidate of tries) {
     const stat = await host.fs.stat(`${base}/${candidate}`).catch(() => undefined)
