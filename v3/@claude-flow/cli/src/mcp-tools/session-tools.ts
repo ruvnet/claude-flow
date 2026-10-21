@@ -578,6 +578,9 @@ export const sessionTools: MCPTool[] = [
         sessions.sort((a, b) => (b.stats?.totalSize ?? 0) - (a.stats?.totalSize ?? 0));
       }
 
+      // Count every session before applying the limit so callers can tell when the list was truncated
+      const total = sessions.length;
+
       // Apply limit
       const limit = (input.limit as number) || 10;
       sessions = sessions.slice(0, limit);
@@ -597,7 +600,7 @@ export const sessionTools: MCPTool[] = [
           if ((s as Record<string, unknown>).metrics) projection.metrics = (s as Record<string, unknown>).metrics;
           return projection;
         }),
-        total: sessions.length,
+        total,
         limit,
       };
     },
