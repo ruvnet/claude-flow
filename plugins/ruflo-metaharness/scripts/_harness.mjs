@@ -26,7 +26,8 @@
 //      arbitrary code on user machines on the very next skill invocation.
 //      The version is now PINNED to METAHARNESS_PIN_VERSION (tilde range —
 //      patch updates only) and only bumped deliberately, in lock-step with
-//      optionalDependencies in @claude-flow/cli + ruflo package.json.
+//      the range declared in @claude-flow/cli/package.json (enforced by
+//      scripts/check-metaharness-pins.mjs).
 //   2. PERF: @latest forced an npm-registry metadata check on EVERY call.
 //      Resolution is now (a) an already-installed local metaharness
 //      satisfying the pin (walk-up node_modules — free), then (b) a ONE-TIME
@@ -53,10 +54,15 @@ import {
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-// Pinned semver range. Bump in lock-step with optionalDependencies in
-// @claude-flow/cli/package.json + ruflo/package.json. NEVER @latest.
+// Pinned semver range. NEVER @latest. Must cover the `metaharness` range
+// declared in v3/@claude-flow/cli/package.json (optional peer `^0.4.1`):
+// this constant decides which INSTALLED copy findLocalPackageDir() accepts,
+// so a range that misses the declared one rejects the copy ruflo ships and
+// npm-installs another at tool-call time. It sat at ~0.3.0 after the CLI
+// moved to ^0.4.1 (b8ec03f34) because nothing compared the two;
+// scripts/check-metaharness-pins.mjs now fails when they diverge.
 const METAHARNESS_PKG = 'metaharness';
-const METAHARNESS_PIN_VERSION = '~0.3.0';
+const METAHARNESS_PIN_VERSION = '~0.4.1';
 
 const REASON_NOT_AVAILABLE = 'metaharness-not-available';
 

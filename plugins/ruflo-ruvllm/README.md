@@ -9,22 +9,31 @@ RuVLLM local inference with chat formatting, model configuration, MicroLoRA fine
 /plugin install ruflo-ruvllm@ruflo
 ```
 
+## Requirements
+
+The WASM-backed tools (`ruvllm_chat_format`, `ruvllm_microlora_*`, `ruvllm_sona_*`, `ruvllm_hnsw_*`) need `@ruvector/ruvllm-wasm`, which `@claude-flow/cli` does not install. `ruvllm_status` reports `wasm.available: false` plus a `wasm.hint` until it is present:
+
+```bash
+npm i -g @ruvector/ruvllm-wasm   # global ruflo / @claude-flow/cli install
+npm i @ruvector/ruvllm-wasm      # project-local install
+```
+
 ## Features
 
 - **Model configuration**: Generate optimal configs for local inference
-- **MicroLoRA**: Task-specific fine-tuning with lightweight adapters
+- **MicroLoRA**: Ultra-light in-process LoRA adapters (rank 1-4) adjusted from quality signals
 - **SONA adaptation**: Real-time neural adaptation (<0.05ms)
-- **Chat formatting**: Multi-provider prompt formatting (Claude, GPT, Gemini, Ollama, Cohere)
+- **Chat formatting**: Local-model chat templates (llama3, mistral, chatml, phi, gemma, or a model id for auto-detect)
 - **HNSW routing**: Context retrieval for RAG pipelines (≤11 hot patterns; for large-corpus search see `ruflo-agentdb` `embeddings_search`)
 
 ## Commands
 
-- `/ruvllm` -- Model status, adapters, and provider availability
+- `/ruvllm` -- ruvllm-wasm, native backend and graph backend status
 
 ## Skills
 
 - `llm-config` -- Configure models, MicroLoRA, and SONA
-- `chat-format` -- Format prompts for different LLM providers
+- `chat-format` -- Format messages in a local model's chat template
 
 ## Compatibility
 
@@ -66,3 +75,15 @@ bash plugins/ruflo-ruvllm/scripts/smoke.sh
 - `ruflo-agentdb` — owns HNSW WASM router; namespace convention owner
 - `ruflo-ruvector` — sibling substrate plugin (pinned `ruvector@0.2.25`)
 - `ruflo-rag-memory` — consumes RAG context routing
+
+## As a mod
+
+Function-hook mod (ADR-445, pattern of `ruflo-agentdb`). It loads from `hooks/hooks.json` → `hooks/register.ts`.
+
+A guard for local inference learning: `ruvllm_sona_adapt`, `ruvllm_microlora_adapt` and `ruvllm_hnsw_add` refuse secrets, so credentials are never trained into an adapter or indexed as a routing pattern.
+
+- **Command**: `/ruvllm-mod` answers locally with no model call. Verbs: `status`, `scan <text>`, `tools` (which ruvllm tools are connected).
+- **Status file**: `.claude-flow/ruvllm-mod/status.json` (`{version, updatedMs, ...counters}`), written at session start and as counters change.
+- **Safety**: no network, no process spawning; it only uses tools already connected.
+- **Option** `guard` (`on` by default, `off` to disable): a tighten-only `tool.call` guard. A call to one of the tools above whose input holds a key, token, private key or password is denied. The reason never repeats the secret.
+- **Test**: `claude plugin validate plugins/ruflo-ruvllm`, `claude plugin test plugins/ruflo-ruvllm`, `bash plugins/ruflo-ruvllm/scripts/smoke.sh`.

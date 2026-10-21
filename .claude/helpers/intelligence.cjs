@@ -16,6 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 function resolveProjectRoot(startDir) {
   if (process.env.CLAUDE_PROJECT_DIR) {
@@ -39,6 +40,10 @@ const STORE_PATH = path.join(DATA_DIR, 'auto-memory-store.json');
 const GRAPH_PATH = path.join(DATA_DIR, 'graph-state.json');
 const RANKED_PATH = path.join(DATA_DIR, 'ranked-context.json');
 const PENDING_PATH = path.join(DATA_DIR, 'pending-insights.jsonl');
+// ADR-472: bounded local log of WHICH ranked entries each recall surfaced (ids + scores; never the prompt text).
+const RECALL_LOG_PATH = path.join(DATA_DIR, 'recall-log.jsonl');
+const RECALL_LOG_MAX_BYTES = 1024 * 1024;  // under the console's 2 MB read cap, so the log is readable when fullest
+const RECALL_LOG_MAX_RECORDS = 1000;
 const LEGACY_PENDING_PATH = path.join(process.cwd(), '.claude-flow', 'data', 'pending-insights.jsonl');
 const SESSION_DIR = path.join(PROJECT_ROOT, '.claude-flow', 'sessions');
 const SESSION_FILE = path.join(SESSION_DIR, 'current.json');
@@ -103,9 +108,60 @@ function readJSON(filePath) {
   return null;
 }
 
+// Atomic (temp + rename): auto-memory-hook.mjs reads and writes the same store
+// from the session hooks, and a reader must never see a half-written file (#4058).
 function writeJSON(filePath, data) {
   ensureDataDir();
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  const tmp = filePath + '.' + process.pid + '.tmp';
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tmp, filePath);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* nothing to clean */ }
+    throw e;
+  }
+}
+
+// Short advisory directory lock shared with auto-memory-hook.mjs. It fails open
+// after ~2 s so a stuck lock can never hang a hook.
+function withStoreLock(filePath, fn) {
+  const lock = filePath + '.lock';
+  const deadline = Date.now() + 2000;
+  let held = false;
+  for (;;) {
+    try { fs.mkdirSync(lock); held = true; break; } catch (e) {
+      if (!e || e.code !== 'EEXIST') break;
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > 10000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
+      } catch { /* lock vanished: retry */ }
+      if (Date.now() > deadline) break;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  }
+  try { return fn(); } finally { if (held) { try { fs.rmdirSync(lock); } catch { /* already gone */ } } }
+}
+
+// IDs present when the store was read. Take this BEFORE deduping: those passes
+// assign IDs to entries in place, and an entry that had none must still count as
+// ours (not as something another writer added).
+function storeIds(loaded) {
+  return new Set((Array.isArray(loaded) ? loaded : []).map((e) => e && e.id));
+}
+
+// Write the store, keeping entries another writer added after we read it.
+function writeStoreMerged(filePath, next, loadedIds) {
+  withStoreLock(filePath, () => {
+    let out = next;
+    try {
+      const current = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      if (Array.isArray(current)) {
+        const have = new Set(next.map((e) => e && e.id));
+        const added = current.filter((e) => e && e.id != null && !loadedIds.has(e.id) && !have.has(e.id));
+        if (added.length) out = next.concat(added);
+      }
+    } catch { /* missing or unreadable: write ours */ }
+    writeJSON(filePath, out);
+  });
 }
 
 function tokenize(text) {
@@ -221,11 +277,9 @@ function sessionGet(key) {
 
 function sessionSet(key, value) {
   try {
-    if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
-    let session = {};
-    if (fs.existsSync(SESSION_FILE)) {
-      session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
-    }
+    // Session creation belongs to session.cjs; recall may run before SessionStart.
+    if (!fs.existsSync(SESSION_FILE)) return;
+    const session = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf-8'));
     if (!session.context) session.context = {};
     session.context[key] = value;
     session.updatedAt = new Date().toISOString();
@@ -470,13 +524,14 @@ function init() {
   // Check if graph-state.json is fresh (within 60s of store)
   const graphState = readJSON(GRAPH_PATH);
   let store = readJSON(STORE_PATH);
+  const loadedIds = storeIds(store);
 
   // Bootstrap from MEMORY.md files if store is empty
   if (!store || !Array.isArray(store) || store.length === 0) {
     const bootstrapped = bootstrapFromMemoryFiles();
     if (bootstrapped.length > 0) {
       store = bootstrapped;
-      writeJSON(STORE_PATH, store);
+      writeStoreMerged(STORE_PATH, store, loadedIds);
     } else {
       return { nodes: 0, edges: 0, message: 'No memory entries to index' };
     }
@@ -498,7 +553,7 @@ function init() {
       `[INTELLIGENCE] Deduped store: ${store.length} -> ${deduped.length} entries ` +
       `(by-id: ${store.length - beforeContentDedup} dropped, by-content: ${beforeContentDedup - deduped.length} dropped)\n`
     );
-    writeJSON(STORE_PATH, deduped);
+    writeStoreMerged(STORE_PATH, deduped, loadedIds);
   }
 
   // Skip rebuild if graph is fresh and store hasn't changed. #2920: nodeCount
@@ -595,31 +650,156 @@ function init() {
   };
 }
 
+// ── Recall log (ADR-472) ─────────────────────────────────────────────────────
+// One compact record per surfaced recall: when, which session, a one-way digest of the prompt, and the ids / scores /
+// ranks the hook surfaced (plus the router's pick). Never the prompt text, never values. Local, bounded, fail-open.
+
+/** First 16 hex characters of sha256(trimmed prompt): a join key, not a copy of the prompt. */
+function promptDigest(prompt) {
+  return crypto.createHash('sha256').update(String(prompt).trim()).digest('hex').slice(0, 16);
+}
+
+/** Ids and categories come from the user's own memory files; mask anything shaped like a credential before it is written. */
+function maskToken(value, max) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/(?:sk-|ghp_|gho_|xox[abp]-|AKIA|eyJ)[A-Za-z0-9_\-]{8,}|[A-Za-z0-9+\/=_-]{40,}/g, '[masked]')
+    .slice(0, max);
+}
+
+const OFF_RE = /^(0|false|off|no)$/i;
+
+/** Default ON (local file, ids and scores only; routing-outcomes.json already keeps task text). Off by RUFLO_RECALL_LOG=0 or claude-flow.config.json {"recallLog":{"enabled":false}}. */
+function recallLogEnabled() {
+  const env = process.env.RUFLO_RECALL_LOG;
+  if (env !== undefined && String(env).trim() !== '') return !OFF_RE.test(String(env).trim());
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'claude-flow.config.json'), 'utf-8'));
+    if (cfg && cfg.recallLog && cfg.recallLog.enabled === false) return false;
+  } catch { /* absent or malformed config = enabled */ }
+  return true;
+}
+
+/** A record is at least ~140 bytes, so a file under this size cannot hold more than RECALL_LOG_MAX_RECORDS: no need to count lines. */
+const RECALL_LOG_COUNT_FLOOR = 100 * 1024;
+
+/** Keep the newest half when the log passes its byte or record cap. Rewrite through a temp file so a reader never sees half a file. */
+function rotateRecallLog() {
+  try {
+    const stat = fs.statSync(RECALL_LOG_PATH);
+    if (stat.size < RECALL_LOG_COUNT_FLOOR) return;
+    const lines = fs.readFileSync(RECALL_LOG_PATH, 'utf-8').split('\n').filter(Boolean);
+    if (stat.size <= RECALL_LOG_MAX_BYTES && lines.length <= RECALL_LOG_MAX_RECORDS) return;
+    // Newest first until half of either cap is reached.
+    const keep = [];
+    let bytes = 0;
+    for (let i = lines.length - 1; i >= 0 && keep.length < RECALL_LOG_MAX_RECORDS / 2; i--) {
+      bytes += lines[i].length + 1;
+      if (bytes > RECALL_LOG_MAX_BYTES / 2) break;
+      keep.unshift(lines[i]);
+    }
+    const tmp = RECALL_LOG_PATH + '.' + process.pid + '.tmp';
+    fs.writeFileSync(tmp, keep.join('\n') + '\n', { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmp, RECALL_LOG_PATH);
+  } catch { /* best effort */ }
+}
+
+/**
+ * appendRecall(detailed, meta) — one JSONL record for a recall getContextDetailed returned. meta: { sessionId, agent, confidence }.
+ * Returns true when a record was written. Never throws and never blocks the hook.
+ */
+function appendRecall(detailed, meta) {
+  try {
+    if (!detailed || !Array.isArray(detailed.surfaced) || detailed.surfaced.length === 0) return false;
+    if (!recallLogEnabled()) return false;
+    const m = meta || {};
+    const record = {
+      v: 1,
+      at: Date.now(),
+      sid: m.sessionId ? maskToken(m.sessionId, 64) : null,
+      digest: detailed.digest,
+      surfaced: detailed.surfaced.slice(0, 10).map((e) => ({
+        id: maskToken(e.id, 80),
+        score: Math.round((e.score || 0) * 10000) / 10000,
+        rank: e.rank,
+        cat: maskToken(e.category, 40),
+      })),
+    };
+    if (m.agent) record.router = { agent: maskToken(m.agent, 30), confidence: typeof m.confidence === 'number' ? Math.round(m.confidence * 1000) / 1000 : null };
+    ensureDataDir();
+    rotateRecallLog();
+    fs.appendFileSync(RECALL_LOG_PATH, JSON.stringify(record) + '\n', { encoding: 'utf-8', mode: 0o600 });
+    return true;
+  } catch { return false; }
+}
+
 /**
  * getContext(prompt) — Called from route. Budget: <15ms.
  * Matches prompt to ranked entries, returns top-5 formatted context.
  */
-function getContext(prompt) {
+/**
+ * Inflection variants of a prompt term (plural, -ed, -ing, -ion and their
+ * stems), so "migrations" finds an entry that says "migration" and "deploying"
+ * finds "deploy". Exact term matching alone lost what the old trigram overlap
+ * caught (#4136). The stem keeps at least 4 characters so short words stay exact.
+ */
+function termVariants(word) {
+  const out = new Set([word]);
+  for (const suffix of ['s', 'es', 'ed', 'ing', 'ion', 'ions']) out.add(word + suffix);
+  for (const suffix of ['ions', 'ion', 'ing', 'ed', 'es', 's']) {
+    if (word.length - suffix.length >= 4 && word.endsWith(suffix)) {
+      const stem = word.slice(0, -suffix.length);
+      out.add(stem); out.add(stem + 'e'); out.add(stem + 's');
+    }
+  }
+  return [...out];
+}
+
+function getContextDetailed(prompt) {
   if (!prompt) return null;
 
   const ranked = readJSON(RANKED_PATH);
   if (!ranked || !ranked.entries || ranked.entries.length === 0) return null;
 
-  const promptWords = tokenize(prompt);
+  const promptWords = [...new Set(tokenize(prompt))];
   if (promptWords.length === 0) return null;
-  const promptTrigrams = trigrams(promptWords);
 
-  const ALPHA = 0.6; // content match weight
-  const MIN_THRESHOLD = 0.05;
+  // Query coverage is independent of entry length: a short diagnostic prompt
+  // must still find its exact terms inside a long memory section (#4136).
+  // IDF downweights generic terms shared by many entries. Terms absent from
+  // every entry still count against coverage, so two incidental words cannot
+  // hide the rest of an unrelated prompt.
+  const candidates = ranked.entries.map(entry => ({ entry, words: new Set(entry.words || []) }));
+  const variants = promptWords.map(termVariants);
+  const hasTerm = (words, i) => variants[i].some(v => words.has(v));
+  const weights = promptWords.map((word, i) => {
+    const frequency = candidates.reduce((count, candidate) => count + Number(hasTerm(candidate.words, i)), 0);
+    return Math.log1p((candidates.length - frequency + 0.5) / (frequency + 0.5));
+  });
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  if (totalWeight === 0) return null;
+
+  const MIN_COVERAGE = 0.15;
   const TOP_K = 5;
 
   // Score each entry
   const scored = [];
-  for (const entry of ranked.entries) {
-    const entryTrigrams = trigrams(entry.words || []);
-    const contentMatch = jaccardSimilarity(promptTrigrams, entryTrigrams);
-    const score = ALPHA * contentMatch + (1 - ALPHA) * (entry.pageRank || 0);
-    if (score >= MIN_THRESHOLD) {
+  for (const { entry, words } of candidates) {
+    let matchedWeight = 0;
+    let matchedTerms = 0;
+    for (let i = 0; i < promptWords.length; i++) {
+      if (weights[i] > 0 && hasTerm(words, i)) {
+        matchedWeight += weights[i];
+        matchedTerms++;
+      }
+    }
+    // A single common word in a long prompt is not evidence of relevance;
+    // PageRank can order relevant entries but cannot make one relevant.
+    if (matchedTerms < Math.min(2, promptWords.length)) continue;
+    const coverage = matchedWeight / totalWeight;
+    if (coverage >= MIN_COVERAGE) {
+      const pageRank = Math.max(0, Math.min(1, Number(entry.pageRank) || 0));
+      const score = 0.9 * coverage + 0.1 * pageRank;
       scored.push({ ...entry, score });
     }
   }
@@ -653,7 +833,17 @@ function getContext(prompt) {
     lines.push(`  * (${e.score.toFixed(2)}) ${display} [rank #${i + 1}, ${accessed}x accessed]`);
   }
 
-  return lines.join('\n');
+  return {
+    text: lines.join('\n'),
+    digest: promptDigest(prompt),
+    surfaced: topEntries.map((e, i) => ({ id: e.id, score: e.score, rank: i + 1, category: e.category || '' })),
+  };
+}
+
+/** The context text the hook prints, or null. Thin wrapper over getContextDetailed (callers that only print keep working). */
+function getContext(prompt) {
+  const detailed = getContextDetailed(prompt);
+  return detailed ? detailed.text : null;
 }
 
 /**
@@ -736,6 +926,7 @@ function consolidate() {
     return { entries: 0, edges: 0, newEntries: 0, message: 'No store to consolidate' };
   }
 
+  const loadedIds = storeIds(store);
   // Deduplicate store entries by ID before processing (fixes #1518)
   const preDedupCount = store.length;
   store = deduplicateById(store);
@@ -881,7 +1072,7 @@ function consolidate() {
   // RANKED_PATH are rewritten unconditionally just above; writing the
   // (already deduped, size-bounded per ADR-095 G6) store alongside them
   // costs nothing near the <500ms budget and removes the whole bug class.
-  writeJSON(STORE_PATH, store);
+  writeStoreMerged(STORE_PATH, store, loadedIds);
 
   // 9. Save snapshot for delta tracking
   const updatedGraph = readJSON(GRAPH_PATH);
@@ -1137,6 +1328,10 @@ function stats(outputJson) {
 module.exports = {
   init,
   getContext,
+  getContextDetailed,
+  appendRecall,
+  recallLogEnabled,
+  promptDigest,
   recordEdit,
   feedback,
   consolidate,

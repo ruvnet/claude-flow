@@ -24,7 +24,9 @@
 //   1  --alert-on-worst threshold exceeded
 //   2  config error or audit failure
 
-import { spawnSync } from 'node:child_process';
+import { guardCliArgs } from './_cli-args.mjs';
+
+import { runRufloCli } from './_invoke.mjs';
 // iter 63 — SEVERITY_RANK + rankSeverity consolidated to _harness.mjs
 // (was local in iter 62; now shared with audit-trend + mcp-scan).
 import { runHarness, runMetaharness, runHarnessAsync, runMetaharnessAsync, emitDegradedJsonAndExit, parseMcpScanText, SEVERITY_RANK, rankSeverity } from './_harness.mjs';
@@ -33,9 +35,17 @@ import { runHarness, runMetaharness, runHarnessAsync, runMetaharnessAsync, emitD
 // source of truth). The local copy from iter 62 is gone; the imports
 // at the top of this file provide the same names.
 const NS = process.env.OIA_AUDIT_NAMESPACE || 'metaharness-audit';
-const CLI_PKG = process.env.CLI_CORE === '1'
-  ? '@claude-flow/cli-core@alpha'
-  : '@claude-flow/cli@latest';
+// #3366 — memory calls go through runRufloCli() (_invoke.mjs): the ruflo CLI
+// that ships this plugin, not `npx @claude-flow/cli@latest` (npm-registry
+// resolution per call, possible version skew, fails without registry access).
+// CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha`.
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--dry-run': null,
+  '--alert-on-worst': 'value',
+  '--format': 'value',
+}, "Runs and persists an audit by default. --dry-run skips the memory write; analysis tools still run.");
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', dryRun: false, alertWorst: null };
@@ -97,12 +107,12 @@ async function runAllParallel(path) {
 
 function persist(payload) {
   const key = `audit-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  const r = spawnSync('npx', [
-    CLI_PKG, 'memory', 'store',
+  const r = runRufloCli([
+    'memory', 'store',
     '--namespace', NS,
     '--key', key,
     '--value', JSON.stringify(payload),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ]);
   return {
     ok: r.status === 0,
     namespace: NS,

@@ -1,0 +1,4 @@
+{
+  "description": "Browser automation as a mod (ADR-445 pattern): a tighten-only guard on browser_* (no cookie/storage exfiltration, no file/javascript/metadata URLs, no unsafe Chrome flags), /browser-mod, and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

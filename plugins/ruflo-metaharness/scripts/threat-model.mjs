@@ -4,9 +4,17 @@
 // USAGE
 //   node scripts/threat-model.mjs --path . --fail-on high --format json
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runHarness, emitDegradedJsonAndExit } from './_harness.mjs';
 
 const SEVERITY_RANK = { clean: 0, low: 1, medium: 2, high: 3 };
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--fail-on': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', failOn: 'high' };

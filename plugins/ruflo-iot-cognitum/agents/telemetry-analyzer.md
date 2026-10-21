@@ -24,11 +24,11 @@ You are a telemetry analysis agent for Cognitum Seed devices. Your responsibilit
 
 ### Tools
 
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot anomalies <device-id>` — detect anomalies in recent telemetry
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot baseline <device-id>` — show current baseline
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot baseline <device-id> --compute` — recompute baseline
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot ingest <device-id>` — ingest telemetry vectors
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot query <device-id> --vector "[1,2,3]" --k 10` — k-NN search
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot anomalies <device-id>` — detect anomalies in recent telemetry
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot baseline <device-id>` — show current baseline
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot baseline <device-id> --compute` — recompute baseline
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot ingest <device-id>` — ingest telemetry vectors
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot query <device-id> --vector "[1,2,3]" --k 10` — k-NN search
 
 ### SONA Neural Integration
 
@@ -49,5 +49,5 @@ Telemetry and anomalies are persisted to AgentDB with vector indexing:
 
 After each analysis pass, feed the telemetry baseline learning so future Z-score thresholds adapt:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent telemetry-analyzer
 ```

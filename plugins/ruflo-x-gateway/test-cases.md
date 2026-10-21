@@ -52,9 +52,12 @@ curl -s -X POST https://x.ruv.io/chatgpt/mcp \
 
 **Pass:** exactly **12** tools. Every one carries an `annotations` object with
 `readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint` all
-present as explicit booleans. Six are read-only. Exactly one — `claims_release` —
-is marked `destructiveHint: true`. Exactly one — `seraphina_guidance` — is marked
-`openWorldHint: true`.
+present as explicit booleans. Six are read-only. Four — `federation_join`,
+`federation_publish`, `claims_release`, and `channel_publish` — are destructive
+because their append-only external effects cannot be retracted (and claim release
+removes ownership). Ten are open-world: every tool that reads or writes the
+multi-owner federation relay, plus `seraphina_guidance`. Only
+`federation_identity` and `federation_onboarding` are closed-world.
 
 **Also verify:** the string `adminToken` appears nowhere in the response, and no
 tool declares any input property whose name suggests a secret.

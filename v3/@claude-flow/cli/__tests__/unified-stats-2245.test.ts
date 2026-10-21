@@ -44,7 +44,8 @@ describe('UnifiedLearningStats shape (ADR-075)', () => {
 
     expect(stats.consistency).toBeDefined();
     expect(Array.isArray(stats.consistency.notes)).toBe(true);
-    expect(typeof stats.consistency.sonaTracksGlobal).toBe('boolean');
+    expect(stats.consistency.sonaTracksGlobal).toBeNull();
+    expect(stats.consistency.sonaTracksGlobalDelta).toBeNull();
     expect(typeof stats.generatedAt).toBe('string');
   });
 });

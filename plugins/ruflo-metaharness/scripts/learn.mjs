@@ -26,8 +26,21 @@
 //   1  --alert-on-fail and the learn run reported failure
 //   2  config error (bad arg)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { existsSync } from 'node:fs';
 import { runMetaharnessAsync, emitDegradedJsonAndExit } from './_harness.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--host': 'value',
+  '--model': 'value',
+  '--slice': 'value',
+  '--repo': 'value',
+  '--run': null,
+  '--alert-on-fail': null,
+  '--format': 'value',
+  '--timeout-ms': 'value',
+});
 
 const ARGS = (() => {
   const a = {

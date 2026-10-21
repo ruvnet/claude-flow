@@ -33,7 +33,15 @@
 //   1  --strict requested AND at least one criterion failed (NOT promotable)
 //   2  config error or input file missing/malformed
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { readFileSync, existsSync } from 'node:fs';
+
+guardCliArgs(import.meta.url, {
+  '--input': 'value',
+  '--format': 'value',
+  '--strict': null,
+});
 
 const ARGS = (() => {
   const a = { input: '.swarm/router-parallel.jsonl', format: 'table', strict: false };

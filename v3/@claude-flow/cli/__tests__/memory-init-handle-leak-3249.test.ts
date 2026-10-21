@@ -18,9 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { encryptBuffer } from '../src/encryption/vault.js';
 
 const handle = vi.hoisted(() => ({
-  instances: [] as Array<{ closed: boolean }>,
+  instances: [] as Array<{ closed: boolean; data?: unknown }>,
 }));
 
 // Set per test: what `db.exec()` does once the handle exists.
@@ -34,7 +35,7 @@ vi.mock('sql.js', () => {
   class Database {
     closed = false;
 
-    constructor(_data?: unknown) {
+    constructor(public data?: unknown) {
       handle.instances.push(this);
     }
 
@@ -73,14 +74,15 @@ afterEach(() => {
   if (originalMemoryPath === undefined) delete process.env.CLAUDE_FLOW_MEMORY_PATH;
   else process.env.CLAUDE_FLOW_MEMORY_PATH = originalMemoryPath;
   _resetMemoryRootCache();
+  vi.unstubAllEnvs();
   rmSync(testDir, { recursive: true, force: true });
 });
 
 describe('checkMemoryInitialization handle lifecycle (#3249)', () => {
   it('closes the handle when the schema query rejects the image', async () => {
     const dbPath = join(testDir, 'memory.db');
-    // RFE1 ciphertext: bytes sql.js will accept but cannot parse as SQLite.
-    writeFileSync(dbPath, Buffer.from('RFE1\x00\x01\x02 not a sqlite image', 'utf8'));
+    // Invalid plaintext still creates a handle that the query rejects.
+    writeFileSync(dbPath, Buffer.from('not a sqlite image', 'utf8'));
 
     const result = await checkMemoryInitialization(dbPath);
 
@@ -101,6 +103,31 @@ describe('checkMemoryInitialization handle lifecycle (#3249)', () => {
     expect(result.tables).toContain('memory_entries');
     expect(handle.instances).toHaveLength(1);
     expect(handle.instances[0].closed).toBe(true);
+  });
+
+  it('decrypts an RFE1 image before passing it to sql.js', async () => {
+    const dbPath = join(testDir, 'memory.db');
+    const key = Buffer.alloc(32, 7);
+    const plaintext = Buffer.from('SQLite format 3\0 fixture');
+    vi.stubEnv('CLAUDE_FLOW_ENCRYPTION_KEY', key.toString('hex'));
+    writeFileSync(dbPath, encryptBuffer(plaintext, key));
+    behaviour.exec = () => [{ values: [['memory_entries'], ['metadata']] }];
+
+    const result = await checkMemoryInitialization(dbPath);
+
+    expect(result.initialized).toBe(true);
+    expect(handle.instances).toHaveLength(1);
+    expect(handle.instances[0].data).toEqual(plaintext);
+    expect(handle.instances[0].closed).toBe(true);
+  });
+
+  it('does not open a sql.js handle when RFE1 authentication fails', async () => {
+    const dbPath = join(testDir, 'memory.db');
+    vi.stubEnv('CLAUDE_FLOW_ENCRYPTION_KEY', Buffer.alloc(32, 8).toString('hex'));
+    writeFileSync(dbPath, encryptBuffer(Buffer.from('SQLite format 3\0'), Buffer.alloc(32, 7)));
+
+    expect(await checkMemoryInitialization(dbPath)).toEqual({ initialized: false });
+    expect(handle.instances).toHaveLength(0);
   });
 
   it('opens no handle at all when the file is absent', async () => {

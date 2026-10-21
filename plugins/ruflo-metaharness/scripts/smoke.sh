@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-metaharness v0.1.1 (ADR-150 Phase 1).
+# Structural smoke test for ruflo-metaharness v0.2.6 (ADR-150 Phase 1).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -32,10 +32,10 @@ else
   bad "extraction-regex-rot: EXPECTED_TOOLS=$EXPECTED_TOOLS EXPECTED_SUBS=$EXPECTED_SUBS"
 fi
 
-step "1. plugin.json declares 0.1.1 with adr-150 keywords"
+step "1. plugin.json declares 0.2.6 with adr-150 keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.1.1" ]]; then
-  bad "expected 0.1.1, got '$v'"
+if [[ "$v" != "0.2.6" ]]; then
+  bad "expected 0.2.6, got '$v'"
 else
   miss=""
   for k in ruflo metaharness harness scorecard genome mcp-scan threat-model router adr-150 adr-148 adr-149 optional-dependency graceful-degradation subprocess phase-1-mvp; do
@@ -253,6 +253,24 @@ grep -q "bin.harness" "$F" 2>/dev/null || miss="$miss no-harness-bin"
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17r2. no tool-time npx: darwin / redblue / memory use what is installed (#3366)"
+miss=""
+# 17r locked _harness.mjs off npx; _darwin.mjs still ran `npx -y -p
+# @metaharness/darwin@<pin>` per call, _redblue.mjs npm-installed into its
+# cache ignoring the installed copy, and 4 scripts ran
+# `npx @claude-flow/cli@latest memory …`. Static guard + hermetic runtime
+# gate (stub packages in the published layout, npm/npx trap).
+if grep -qE "spawn(Sync)?\('npx'" "$ROOT/scripts/_darwin.mjs" 2>/dev/null; then
+  miss="$miss darwin-npx-regressed"
+fi
+for s in audit-list audit-trend oia-audit similarity; do
+  grep -q "runRufloCli" "$ROOT/scripts/${s}.mjs" 2>/dev/null || miss="$miss ${s}-not-using-runRufloCli"
+done
+F="$ROOT/scripts/test-no-tool-time-npx.mjs"
+[[ -x "$F" ]] || miss="$miss not-executable"
+node "$F" >/dev/null 2>&1 || miss="$miss test-no-tool-time-npx-fails"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z80. HIGH security findings survive wrapper + composite boundaries (#2750)"
 miss=""
 SEC_FIXTURE=$(mktemp -d)
@@ -459,6 +477,19 @@ for pkg in "metaharness" "@metaharness/router" "@metaharness/kernel" "@metaharne
     miss="$miss ${pkg}-pin-drift:root=${ROOT_PIN},ruflo=${RUFLO_PIN},cli=${CLI_PIN}"
   fi
 done
+[[ -z "$miss" ]] && ok || bad "$miss"
+
+step "17z74a. plugin helper pins accept the CLI-declared ranges — no tool-time download (#3366)"
+miss=""
+# 17z74 compares package.json files with each other; the helpers' own
+# *_PIN_VERSION constants (what findLocalPackageDir accepts) were never
+# compared with them and drifted (~0.3.0 / ~0.8.0 vs declared ^0.4.1 /
+# ~0.10.2), so every metaharness_* call npm-installed an older release next
+# to the one ruflo ships. Hermetic runtime gate: stub packages at the declared
+# versions, published layout, npm/npx trap.
+F="$ROOT/scripts/test-pin-alignment.mjs"
+[[ -x "$F" ]] || miss="$miss not-executable"
+node "$F" >/dev/null 2>&1 || miss="$miss test-pin-alignment-fails"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17z73. metaharness packages tilde-pinned (anti-caret regression, iter 110)"
@@ -1035,10 +1066,13 @@ done
 grep -q "from './_harness.mjs'" "$F" 2>/dev/null || miss="$miss not-using-production-parser"
 # Gate flag exposed
 grep -q -- "--max-mean-us" "$F" 2>/dev/null || miss="$miss no-gate-flag"
-# Runtime: bench produces sub-5μs results across all categories
-node "$F" --iters 10000 --max-mean-us 5 >/dev/null 2>&1 || miss="$miss runtime-fails-or-perf-blew-5us"
+# Runtime: the parse bench stays an order of magnitude inside its regression ceiling. 30us on the MEDIAN: the CI runner measured p50 6.05us for the 5-finding payload (local 1us), so the old 5us ceiling failed there on speed alone; 30us is 5x the CI median and still trips on a 10x regression.
+# The median, not the mean: a scheduler pause on a loaded CI runner moves the mean and flaked this step in the fleet smoke.
+grep -q -- "--gate-stat" "$F" 2>/dev/null || miss="$miss no-gate-stat-flag"
+# On failure keep the bench's own output on stderr (the fleet JSON report captures stderrTail): the reason was invisible in CI before.
+bench_out=$(node "$F" --iters 10000 --max-mean-us 30 --gate-stat p50 2>&1) || { miss="$miss runtime-fails-or-perf-blew-30us"; printf '%s\n' "$bench_out" | tail -15 >&2; }
 # Runtime: gate trips on absurd ceiling
-if node "$F" --iters 10000 --max-mean-us 0.0001 >/dev/null 2>&1; then
+if node "$F" --iters 10000 --max-mean-us 0.0001 --gate-stat p50 >/dev/null 2>&1; then
   miss="$miss gate-failed-to-trip"
 fi
 [[ -z "$miss" ]] && ok || bad "$miss"
@@ -2417,6 +2451,25 @@ grep -q "metaharness-not-available\|degraded:" "$F" 2>/dev/null || miss="$miss n
 LOADER="$ROOT/../../v3/@claude-flow/cli/src/commands/index.ts"
 grep -q "eject: () => import" "$LOADER" 2>/dev/null || miss="$miss not-registered-in-loader"
 [[ -z "$miss" ]] && ok || bad "$miss"
+
+# M1-M3. The mod (ADR-445): hooks module registered, files within the 500-line rule, no network or process access in the hooks
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$ROOT/hooks/hooks.json" || mod_ok=0
+for f in options screen guard register; do
+  [[ -f "$ROOT/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$ROOT/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: guard defaults on (userConfig), the command name is metaharness-mod"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+process.exit(c.guard && c.guard.default === "on" ? 0 : 1)
+' "$ROOT/.claude-plugin/plugin.json" && grep -q "'metaharness-mod'" "$ROOT/hooks/register.ts" && ok || bad "userConfig defaults or command name wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

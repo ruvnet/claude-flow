@@ -2,7 +2,23 @@
 
 ## Overview
 
-The V3 memory module now integrates with **agentdb@2.0.0-alpha.3.4** to provide high-performance vector search capabilities with HNSW indexing (150x-12,500x faster than brute-force approaches).
+`AgentDBBackend` integrates with **agentdb@3.0.0-alpha.20**. Its optional native
+search path uses the separately exported `HNSWIndex`, not
+`AgentDB.getController('hnsw')` (which does not exist in that version).
+
+The index is built lazily from this backend's in-memory entries. Store, update,
+replacement and deletion invalidate it; the next unfiltered search rebuilds a
+fresh index. This avoids the dependency's duplicate-ID and deletion-tombstone
+semantics. Repeated read-only searches reuse the index. Write-heavy workloads
+pay rebuild cost; no universal speedup is promised.
+
+**Persistence boundary:** this adapter does not add disk persistence or hydrate
+`AgentDBBackend` after a process restart. The pre-existing storage adapter uses
+`database.run/get` rather than the dependency's `prepare(...).run/get/all`, and
+startup does not load entries. A same-instance shutdown/reinitialize retains
+its in-memory entries, but reopening the same database in a new instance does
+not restore them. Do not use this change as evidence of durable memory.
+See the [verification receipt](./AGENTDB-HNSW-4249-VERIFICATION.md).
 
 ## Features
 
@@ -10,27 +26,36 @@ The V3 memory module now integrates with **agentdb@2.0.0-alpha.3.4** to provide 
 
 The `AgentDBBackend` class provides:
 
-- **HNSW Vector Search**: Approximate nearest neighbor search with sub-millisecond query times
+- **HNSW Vector Search**: Optional approximate cosine nearest-neighbor search
 - **Graceful Fallback**: Works without native dependencies (hnswlib-node)
-- **Optional Dependency Handling**: Automatically falls back to pure JavaScript/WASM if native bindings unavailable
+- **Optional Dependency Handling**: Exact in-memory cosine search when native search is unavailable
 - **Hybrid Integration**: Seamlessly works with `HybridBackend` for combined SQLite + AgentDB queries
 
-### Performance Targets
+### Search behavior
 
-Based on ADR-006 and ADR-009:
-
-- **150x-12,500x** faster vector search compared to brute-force
-- **Sub-millisecond** query latency for k-NN search
-- **Automatic backend selection**: Native hnswlib → ruvector → WASM fallback
+- Native HNSW is used in `auto`/`hnswlib` mode when the export and addon are available.
+- `forceWasm: true` and explicit `vectorBackend: 'ruvector'` disable this adapter;
+  the AgentDB controllers' vector backend is separate from these memory entries.
+- Filtered searches, including semantic queries with TTL-bearing entries, are
+  exact to avoid top-k underfill or expiry differences between backends. Filter keys are never
+  interpolated into the dependency's SQL filter builder.
+- Missing exports/addons, unsafe tuning, dimension mismatch and native failures
+  fall back to exact cosine search. A failed native instance is retried only on
+  reinitialization, not on every query.
+- Entry objects and embedding/tag/reference arrays are detached on input and
+  output. Use `store`/`update` to change indexed data; arbitrary nested metadata
+  values are not deep-cloned. Query vectors are copied before asynchronous work.
+- HNSW is approximate; equal-score ordering is not guaranteed. Scores and
+  thresholds use this backend's cosine implementation.
 
 ## Installation
 
 ```bash
 # Core package (required)
-npm install agentdb@2.0.0-alpha.3.4
+npm install agentdb@3.0.0-alpha.20
 
 # Optional native dependencies for maximum performance
-npm install hnswlib-node@^3.0.0 better-sqlite3@^11.0.0
+npm install hnswlib-node@^3.0.0 better-sqlite3@^12.9.0
 ```
 
 ## Usage
@@ -86,7 +111,7 @@ await memory.initialize();
 // Structured queries go to SQLite
 const user = await memory.getByKey('users', 'john@example.com');
 
-// Semantic queries go to AgentDB (150x faster)
+// Semantic queries use native HNSW when available, otherwise exact cosine
 const similar = await memory.querySemantic({
   content: 'authentication patterns',
   k: 10,
@@ -206,63 +231,26 @@ interface AgentDBBackendConfig {
 
 ## Graceful Degradation
 
-The backend handles missing dependencies gracefully:
+The backend handles missing dependencies gracefully. `isAvailable()` reports
+AgentDB initialization, **not** whether a native memory index exists.
 
 ```typescript
-// 1. Try native hnswlib (fastest)
-// 2. Fallback to ruvector (fast, pure JS)
-// 3. Fallback to WASM (compatible)
-// 4. Fallback to in-memory brute-force (always works)
-
 const backend = new AgentDBBackend();
 await backend.initialize();
-
-// Check availability
-if (backend.isAvailable()) {
-  console.log('Using AgentDB with HNSW');
-} else {
-  console.log('Using fallback in-memory storage');
-}
+// hnswStats is present only for a current, successfully built native index.
+const stats = await backend.getStats();
+console.log(stats.hnswStats ? 'Native HNSW index built' : 'Exact cosine fallback available');
 ```
 
-## Performance Metrics
+## Performance and supported metrics
 
-### Benchmarks (from agentdb@2.0.0-alpha.3.4)
+Use `node benchmarks/agentdb-hnsw.mjs` after building the package for a bounded,
+seeded end-to-end comparison. The [verification receipt](./AGENTDB-HNSW-4249-VERIFICATION.md)
+reports both warm search latency and first-search build cost, alongside recall.
+Historical 150x–12,500x figures are not evidence for this backend.
 
-| Operation | Brute Force | HNSW (hnswlib) | Speedup |
-|-----------|-------------|----------------|---------|
-| 10k vectors, k=10 | 150ms | 1ms | 150x |
-| 100k vectors, k=10 | 1500ms | 2ms | 750x |
-| 1M vectors, k=10 | 15000ms | 3ms | 5000x |
-
-### Memory Usage
-
-- **No quantization**: ~4 bytes per dimension per vector
-- **8-bit quantization**: ~1 byte per dimension (4x reduction)
-- **4-bit quantization**: ~0.5 bytes per dimension (8x reduction)
-
-## Advanced Features
-
-### Vector Quantization
-
-```typescript
-const backend = new AgentDBBackend({
-  // Enable quantization for 50-75% memory reduction
-  quantization: {
-    type: 'scalar',
-    bits: 8, // 4, 8, or 16
-  },
-});
-```
-
-### Custom Distance Metrics
-
-```typescript
-const backend = new AgentDBBackend({
-  vectorBackend: 'hnswlib',
-  distanceMetric: 'cosine', // 'cosine', 'euclidean', 'dot'
-});
-```
+This adapter uses cosine only. It does not implement quantization or additional
+distance metrics; the separate local `HNSWIndex` API is a different component.
 
 ### Health Monitoring
 
@@ -321,21 +309,21 @@ console.log('Failed:', result.totalFailed);
 ### AgentDB not available
 
 ```
-AgentDB not available. Install agentdb@2.0.0-alpha.3.4 for vector search support.
+AgentDB not available. Install agentdb@3.0.0-alpha.20 for vector search support.
 ```
 
 **Solution**: Install agentdb:
 ```bash
-npm install agentdb@2.0.0-alpha.3.4
+npm install agentdb@3.0.0-alpha.20
 ```
 
 ### Native bindings failed
 
 ```
-Failed to load hnswlib-node, falling back to WASM
+Native HNSW index is not built; exact cosine fallback is available
 ```
 
-**Solution**: This is normal. The system automatically falls back to WASM. For maximum performance, install build tools:
+**Solution**: This is normal. This memory search path falls back to exact in-memory cosine search. For maximum performance, install build tools:
 
 ```bash
 # Ubuntu/Debian
@@ -352,15 +340,15 @@ npm install hnswlib-node@^3.0.0
 
 ```typescript
 const backend = new AgentDBBackend({
-  forceWasm: true, // Skip native bindings
+  forceWasm: true, // Disable this native memory-search adapter
 });
 ```
 
 ## Testing
 
 ```bash
-# Run AgentDB backend tests
-npm test -- agentdb-backend.test.ts
+# Run focused tests; require the real native addon rather than silently skipping
+RUFLO_REQUIRE_NATIVE_HNSW=1 AGENTDB_DISABLE_TRANSFORMERS=1 npm test -- agentdb-backend.test.ts agentdb-backend-hnsw.test.ts agentdb-backend-optional.test.ts
 
 # Run all memory tests
 npm test

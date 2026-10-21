@@ -14,6 +14,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { randomUUID } from 'crypto';
 import {
   isPolicyEnforcementEnabled,
   loadMcpPolicy,
@@ -270,8 +271,8 @@ describe('evaluateToolCall — single enforcement entry point (fail-closed)', ()
 
 describe('getAuditLogPath', () => {
   afterEach(() => setAuditLogPathForTesting(null));
-  it('defaults to a path under the OS tmpdir', () => {
-    expect(getAuditLogPath().startsWith(os.tmpdir())).toBe(true);
+  it('defaults to the current project log directory', () => {
+    expect(getAuditLogPath()).toBe(path.join(process.cwd(), '.claude-flow', 'logs', 'mcp-audit.jsonl'));
   });
 });
 
@@ -290,8 +291,14 @@ describe('MCPServerManager tools/call — policy wiring', () => {
 
   beforeEach(() => {
     resetPolicyEnforcerState();
-    setAuditLogPathForTesting(path.join(os.tmpdir(), `mcp-audit-integration-${Date.now()}.jsonl`));
-    policyPath = path.join(os.tmpdir(), `mcp-policy-integration-${Date.now()}.json`);
+    // A `Date.now()`-only suffix collides when two tests' beforeEach hooks
+    // fire within the same millisecond (easily happens in a fast suite),
+    // pointing them at the identical "unique" file — one test's audit
+    // writes then leak into another's line-count assertions. randomUUID()
+    // guarantees no collision regardless of timing.
+    const runId = randomUUID();
+    setAuditLogPathForTesting(path.join(os.tmpdir(), `mcp-audit-integration-${runId}.jsonl`));
+    policyPath = path.join(os.tmpdir(), `mcp-policy-integration-${runId}.json`);
   });
   afterEach(() => {
     if (ORIGINAL_ENV === undefined) delete process.env.RUFLO_MCP_ENFORCE_POLICY;

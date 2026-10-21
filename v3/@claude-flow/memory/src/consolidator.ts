@@ -25,6 +25,7 @@
 import { createHash } from 'node:crypto';
 import { HNSWIndex } from './hnsw-index.js';
 import type { MemoryEntry } from './types.js';
+import { encodeMemoryKey } from './memory-key.js';
 
 /**
  * Strategy for resolving content-hash duplicates inside {@link MemoryConsolidator.dedup}.
@@ -134,7 +135,8 @@ export class MemoryConsolidator {
     for (const entry of toRemove) {
       entries.delete(entry.id);
       namespaceIndex.get(entry.namespace)?.delete(entry.id);
-      keyIndex.delete(`${entry.namespace}:${entry.key}`);
+      const compositeKey = encodeMemoryKey(entry.namespace, entry.key, adapter.config?.defaultNamespace);
+      if (keyIndex.get(compositeKey) === entry.id) keyIndex.delete(compositeKey);
       for (const tag of entry.tags) tagIndex.get(tag)?.delete(entry.id);
       if (entry.embedding) {
         const removed = await index.removePoint(entry.id);
@@ -185,6 +187,7 @@ export class MemoryConsolidator {
       keyIndex: Map<string, string>;
       tagIndex: Map<string, Set<string>>;
       index: HNSWIndex;
+      defaultNamespace?: string;
     }
   ): Promise<{ keeperId: string; dropped: number }> {
     const keeper = this.selectKeeper(bucket, strategy);
@@ -208,7 +211,7 @@ export class MemoryConsolidator {
       if (e.id === keeper.id) continue;
       ctx.entries.delete(e.id);
       ctx.namespaceIndex.get(e.namespace)?.delete(e.id);
-      const compositeKey = `${e.namespace}:${e.key}`;
+      const compositeKey = encodeMemoryKey(e.namespace, e.key, ctx.defaultNamespace);
       if (ctx.keyIndex.get(compositeKey) === e.id) {
         ctx.keyIndex.delete(compositeKey);
       }
@@ -249,7 +252,7 @@ export class MemoryConsolidator {
     const keyIndex: Map<string, string> = adapter.keyIndex;
     const tagIndex: Map<string, Set<string>> = adapter.tagIndex;
     const index: HNSWIndex = adapter.index;
-    const ctx = { entries, namespaceIndex, keyIndex, tagIndex, index };
+    const ctx = { entries, namespaceIndex, keyIndex, tagIndex, index, defaultNamespace: adapter.config?.defaultNamespace };
 
     const effective = strategy ?? this.opts.dedupStrategy ?? 'keep-newest';
 

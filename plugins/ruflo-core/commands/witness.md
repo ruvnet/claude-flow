@@ -1,6 +1,6 @@
 ---
 name: witness
-description: Manage and verify a cryptographically-signed fix manifest with temporal history (ADR-103)
+description: Manage and verify a tamper-evident fix manifest with temporal history (ADR-103)
 argument-hint: "init|regen|verify|history|regressions [--manifest <path>] [--history <path>]"
 ---
 

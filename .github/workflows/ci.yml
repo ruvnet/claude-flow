@@ -88,6 +88,26 @@ jobs:
         # codex at all; this makes the linked package actually runnable.)
         run: npm run build --workspace=@claude-flow/security
 
+      - name: Build local @claude-flow/cli-core and overlay onto the installed package
+        # dream-cycle 2026-09-21: unlike @claude-flow/security above,
+        # package-lock.json resolves @claude-flow/cli-core from the
+        # published npm registry tarball (not an npm workspace `link`),
+        # even though its version (3.7.0-alpha.5) matches the local
+        # v3/@claude-flow/cli-core source exactly. `node scripts/ci-test-ratchet.mjs`
+        # below runs vitest from repo root, so v3/@claude-flow/cli's tests
+        # resolve `@claude-flow/cli-core` by walking up to the root's
+        # node_modules — the stale published dist/, not local source edits.
+        # This surfaced when validate-input-env.test.ts's new assertions
+        # (PR #3385) passed locally but failed in CI against the untouched
+        # published denylist. Building the local source and overlaying its
+        # dist/ onto the installed package (same version, so this is not a
+        # version bump) makes CI test the actual PR diff instead of a
+        # stale registry snapshot, without touching package-lock.json.
+        run: |
+          npm run build --prefix v3/@claude-flow/cli-core
+          rm -rf node_modules/@claude-flow/cli-core/dist
+          cp -r v3/@claude-flow/cli-core/dist node_modules/@claude-flow/cli-core/dist
+
       - name: Run all tests
         # #3030: the historical suite has known debt, but new failing files
         # are release-blocking. The committed file-level baseline may only

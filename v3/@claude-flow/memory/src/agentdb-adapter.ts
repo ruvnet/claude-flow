@@ -30,6 +30,7 @@ import {
 } from './types.js';
 import { HNSWIndex } from './hnsw-index.js';
 import { CacheManager } from './cache-manager.js';
+import { encodeMemoryKey } from './memory-key.js';
 
 /**
  * Configuration for AgentDB Adapter
@@ -100,7 +101,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
   private index: HNSWIndex;
   private cache: CacheManager<MemoryEntry>;
   private namespaceIndex: Map<string, Set<string>> = new Map();
-  private keyIndex: Map<string, string> = new Map(); // namespace:key -> id
+  private keyIndex: Map<string, string> = new Map(); // encoded [namespace, key] -> id
   private tagIndex: Map<string, Set<string>> = new Map();
   private initialized: boolean = false;
 
@@ -182,18 +183,50 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       entry.embedding = await this.config.embeddingGenerator(entry.content);
     }
 
+    // Namespace is resolved once, up front, so the dedup lookup below and the
+    // index updates further down agree on the same value.
+    const namespace = entry.namespace || this.config.defaultNamespace;
+    const keyIndexKey = encodeMemoryKey(namespace, entry.key);
+
+    // Idempotent upsert-by-key (Dream Cycle 2026-09-18, hardened post-review):
+    // entry.id is always a fresh random id (generateMemoryId()), so a second
+    // store() under the same (namespace, key) previously left the prior
+    // occupant as an orphan — unreachable via getByKey()/keyIndex, but still
+    // live in entries/namespaceIndex/tagIndex and, for embedded entries,
+    // still a point in the HNSW index, so search()/semanticSearch() returned
+    // stale duplicates forever.
+    const existingId = this.keyIndex.get(keyIndexKey);
+    const isReplacement = existingId !== undefined && existingId !== entry.id;
+
+    // Fallible precondition first: HNSWIndex.addPoint() can throw (dimension
+    // mismatch, index full). Doing this BEFORE evicting the prior occupant
+    // means a rejected write fails cleanly with the prior value still intact,
+    // instead of deleting it and only then discovering the replacement can't
+    // be indexed (a real data-loss bug an adversarial review caught).
+    if (entry.embedding) {
+      await this.index.addPoint(entry.id, entry.embedding);
+    }
+
+    // Evict the prior (namespace,key) occupant via the shared primitive also
+    // used by bulkInsert() and delete(). keyIndex is intentionally left
+    // alone here — it's overwritten to the new id a few lines down, and
+    // clearing it in evictEntry() first would just be redone work (worse,
+    // if evictEntry() read a since-mutated keyIndex it could delete the
+    // mapping this call is about to set).
+    if (isReplacement) {
+      await this.evictEntry(existingId!, { touchKeyIndex: false });
+    }
+
     // Store in main storage
     this.entries.set(entry.id, entry);
 
     // Update namespace index
-    const namespace = entry.namespace || this.config.defaultNamespace;
     if (!this.namespaceIndex.has(namespace)) {
       this.namespaceIndex.set(namespace, new Set());
     }
     this.namespaceIndex.get(namespace)!.add(entry.id);
 
     // Update key index
-    const keyIndexKey = `${namespace}:${entry.key}`;
     this.keyIndex.set(keyIndexKey, entry.id);
 
     // Update tag index
@@ -202,11 +235,6 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
         this.tagIndex.set(tag, new Set());
       }
       this.tagIndex.get(tag)!.add(entry.id);
-    }
-
-    // Index embedding if available
-    if (entry.embedding) {
-      await this.index.addPoint(entry.id, entry.embedding);
     }
 
     // Update cache
@@ -249,7 +277,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
    * Get a memory entry by key within a namespace
    */
   async getByKey(namespace: string, key: string): Promise<MemoryEntry | null> {
-    const keyIndexKey = `${namespace}:${key}`;
+    const keyIndexKey = encodeMemoryKey(namespace, key, this.config.defaultNamespace);
     const id = this.keyIndex.get(keyIndexKey);
     if (!id) return null;
     return this.get(id);
@@ -320,6 +348,19 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
    * Delete a memory entry
    */
   async delete(id: string): Promise<boolean> {
+    return this.evictEntry(id, { touchKeyIndex: true });
+  }
+
+  /**
+   * Shared eviction primitive behind delete() and the same-key upsert paths
+   * in store()/bulkInsert() (Dream Cycle 2026-09-18, post-review). Removes
+   * an entry from entries/namespaceIndex/tagIndex/HNSW/cache. touchKeyIndex
+   * is false when the caller is itself about to overwrite the
+   * (namespace,key) -> id mapping to point at a replacement entry —
+   * clearing it here first would either be redone work or, if the mapping
+   * had already been repointed, would incorrectly delete the new mapping.
+   */
+  private async evictEntry(id: string, { touchKeyIndex }: { touchKeyIndex: boolean }): Promise<boolean> {
     const entry = this.entries.get(id);
     if (!entry) return false;
 
@@ -330,8 +371,10 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     this.namespaceIndex.get(entry.namespace)?.delete(id);
 
     // Remove from key index
-    const keyIndexKey = `${entry.namespace}:${entry.key}`;
-    this.keyIndex.delete(keyIndexKey);
+    if (touchKeyIndex) {
+      const keyIndexKey = encodeMemoryKey(entry.namespace, entry.key, this.config.defaultNamespace);
+      if (this.keyIndex.get(keyIndexKey) === id) this.keyIndex.delete(keyIndexKey);
+    }
 
     // Remove from tag index
     for (const tag of entry.tags) {
@@ -458,6 +501,35 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       }
     }
 
+    // Same-key upsert (Dream Cycle 2026-09-18, post-review): bulkInsert()
+    // bypassed store()'s per-key dedup entirely, so a batch containing
+    // duplicate (namespace,key) values -- or replacing an already-stored
+    // key -- left old ids reachable via query()/search() while only
+    // keyIndex pointed at the newest one. Computed from the pre-mutation
+    // keyIndex snapshot and input order, before any Map below is touched:
+    // the *last* entry per key in this batch wins (matching what N
+    // sequential store() calls for the same inputs would produce), and any
+    // id that isn't the winner for its key -- a pre-existing occupant or an
+    // earlier same-key entry within this very batch -- is scheduled for
+    // eviction once the winners are safely indexed.
+    const keyOf = (e: MemoryEntry) => encodeMemoryKey(e.namespace, e.key, this.config.defaultNamespace);
+    const winnerIdForKey = new Map<string, string>();
+    for (const entry of entries) {
+      winnerIdForKey.set(keyOf(entry), entry.id);
+    }
+    const idsToEvict = new Set<string>();
+    for (const [key, winnerId] of winnerIdForKey) {
+      const existingId = this.keyIndex.get(key);
+      if (existingId && existingId !== winnerId) {
+        idsToEvict.add(existingId);
+      }
+    }
+    for (const entry of entries) {
+      if (entry.id !== winnerIdForKey.get(keyOf(entry))) {
+        idsToEvict.add(entry.id);
+      }
+    }
+
     // Phase 2: Store all entries (skip individual cache updates)
     const embeddings: Array<{ id: string; embedding: Float32Array }> = [];
 
@@ -472,9 +544,8 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       }
       this.namespaceIndex.get(namespace)!.add(entry.id);
 
-      // Update key index
-      const keyIndexKey = `${namespace}:${entry.key}`;
-      this.keyIndex.set(keyIndexKey, entry.id);
+      // Update key index (last entry per key wins, per winnerIdForKey above)
+      this.keyIndex.set(keyOf(entry), entry.id);
 
       // Update tag index
       for (const tag of entry.tags) {
@@ -490,16 +561,30 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       }
     }
 
-    // Phase 3: Batch index embeddings
+    // Phase 3: Batch index embeddings. Deliberately BEFORE Phase 3.5's
+    // eviction below, mirroring store()'s ordering: if addPoint() throws
+    // (dimension mismatch, index full) for any winner, nothing superseded
+    // has been evicted yet, so a failed bulkInsert() doesn't lose data that
+    // a failed single store() wouldn't have lost either.
     for (let i = 0; i < embeddings.length; i += batchSize) {
       const batch = embeddings.slice(i, i + batchSize);
       await Promise.all(batch.map(({ id, embedding }) => this.index.addPoint(id, embedding)));
     }
 
-    // Phase 4: Batch cache update (only populate hot entries)
+    // Phase 3.5: evict superseded occupants (pre-existing and intra-batch),
+    // now that every winner is fully written and indexed. keyIndex is left
+    // alone -- Phase 2 already points it at the correct winner for each key.
+    for (const id of idsToEvict) {
+      await this.evictEntry(id, { touchKeyIndex: false });
+    }
+
+    // Phase 4: Batch cache update (only populate hot entries, winners only —
+    // an evicted loser must not be left warm in the cache under its own id)
     if (this.config.cacheEnabled && entries.length <= this.config.cacheSize) {
       for (const entry of entries) {
-        this.cache.set(entry.id, entry);
+        if (!idsToEvict.has(entry.id)) {
+          this.cache.set(entry.id, entry);
+        }
       }
     }
 
@@ -539,8 +624,8 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
         this.namespaceIndex.get(entry.namespace)?.delete(id);
 
         // Remove from key index
-        const keyIndexKey = `${entry.namespace}:${entry.key}`;
-        this.keyIndex.delete(keyIndexKey);
+        const keyIndexKey = encodeMemoryKey(entry.namespace, entry.key, this.config.defaultNamespace);
+        if (this.keyIndex.get(keyIndexKey) === id) this.keyIndex.delete(keyIndexKey);
 
         // Remove from tag index
         for (const tag of entry.tags) {
@@ -821,10 +906,10 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
     const prefix = query.keyPrefix || '';
     const namespace = query.namespace || this.config.defaultNamespace;
 
-    for (const [key, id] of this.keyIndex) {
-      if (key.startsWith(`${namespace}:${prefix}`)) {
-        const entry = this.entries.get(id);
-        if (entry) results.push(entry);
+    for (const id of this.keyIndex.values()) {
+      const entry = this.entries.get(id);
+      if (entry && (entry.namespace || this.config.defaultNamespace) === namespace && entry.key.startsWith(prefix)) {
+        results.push(entry);
       }
     }
 
@@ -1157,12 +1242,21 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
             : undefined,
         };
         this.entries.set(entry.id, entry);
+        // Rebuild from full tuple fields: legacy v1 keys used ambiguous
+        // namespace:key strings and could omit a colliding tuple entirely.
+        this.keyIndex.set(encodeMemoryKey(entry.namespace, entry.key, this.config.defaultNamespace), entry.id);
       }
       for (const [ns, ids] of Object.entries(meta.namespaceIndex)) {
         this.namespaceIndex.set(ns, new Set(ids));
       }
-      for (const [key, id] of Object.entries(meta.keyIndex)) {
-        this.keyIndex.set(key, id);
+      // Preserve the saved winner for true same-tuple duplicates. Entries
+      // are sorted by random ID on disk, not by their original write order.
+      // Reading IDs also accepts both v1 and v2 key encodings.
+      for (const id of Object.values(meta.keyIndex)) {
+        const entry = this.entries.get(id);
+        if (entry) {
+          this.keyIndex.set(encodeMemoryKey(entry.namespace, entry.key, this.config.defaultNamespace), id);
+        }
       }
       for (const [tag, ids] of Object.entries(meta.tagIndex)) {
         this.tagIndex.set(tag, new Set(ids));
@@ -1267,7 +1361,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
       tagIndex[t] = [...this.tagIndex.get(t)!].sort();
     }
 
-    return { version: 1, entries: persistedEntries, namespaceIndex, keyIndex, tagIndex };
+    return { version: 2, entries: persistedEntries, namespaceIndex, keyIndex, tagIndex };
   }
 }
 
@@ -1276,7 +1370,7 @@ export class AgentDBAdapter extends EventEmitter implements IMemoryBackend {
  * `embedding` is stored as a plain number[] to keep the JSON canonical.
  */
 interface PersistedMeta {
-  version: 1;
+  version: 1 | 2;
   entries: Array<Omit<MemoryEntry, 'embedding'> & { embedding?: number[] }>;
   namespaceIndex: Record<string, string[]>;
   keyIndex: Record<string, string>;

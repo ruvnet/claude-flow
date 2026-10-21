@@ -1,7 +1,7 @@
 {
   "name": "ruflo-daa",
   "description": "Dynamic Agentic Architecture — 8 daa_* MCP tools for adaptive agents (create/adapt), cognitive patterns, workflows (create/execute), knowledge sharing, and learning/performance metrics. Feeds the JUDGE phase of the 4-step intelligence pipeline.",
-  "version": "0.2.1",
+  "version": "0.3.4",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,22 @@
     "knowledge-sharing",
     "cognitive-patterns",
     "workflows",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Secret guard",
+      "description": "Refuse daa_* tool calls that hold a key, token or password. On by default; it only ever tightens.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

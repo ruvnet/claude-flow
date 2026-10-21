@@ -166,6 +166,16 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     this.config = this.createDefaultConfig(config);
     this.state = this.createInitialState();
 
+    // Dream Cycle 2026-09-20 (performance): waitForTaskCompletion()/
+    // waitForQueuedTask() now register up to 2 listeners each (task.completed
+    // + task.failed) per in-flight wait, instead of a setInterval poll.
+    // Node's default per-event-name cap is 10 — at realistic concurrency
+    // (>10 simultaneous executeTaskInDomain() calls, well within
+    // config.maxTasks) that would spam MaxListenersExceededWarning even
+    // though nothing is actually leaking. Raise the cap to the coordinator's
+    // own configured task capacity (adversarial-critic finding, same night).
+    this.setMaxListeners(Math.max(EventEmitter.defaultMaxListeners, this.config.maxTasks * 2));
+
     // Initialize components
     this.topologyManager = createTopologyManager(this.config.topology);
     this.messageBus = createMessageBus(this.config.messageBus);
@@ -353,6 +363,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       return;
     }
 
+    // Detach from the domain pool before cancelling. cancelTask() releases a
+    // pool-owned agent and drains that domain's queue, which must not hand a
+    // new task to an agent that is being removed.
+    await this.detachAgentFromDomain(agentId);
+
     // Cancel any assigned tasks
     if (agent.currentTask) {
       await this.cancelTask(agent.currentTask.id);
@@ -369,6 +384,25 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     this.emitEvent('agent.left', { agentId });
   }
 
+  /**
+   * Remove a domain agent from its pool and domain map. This is deliberately
+   * separate from unregisterAgent(): cancellation/release paths use the
+   * domain map, so teardown must revoke pool membership first to prevent a
+   * released slot from being re-acquired for the same agent.
+   */
+  private async detachAgentFromDomain(agentId: string): Promise<void> {
+    const domain = this.agentDomainMap.get(agentId);
+    if (!domain) {
+      return;
+    }
+
+    const pool = this.domainPools.get(domain);
+    if (pool) {
+      await pool.remove(agentId);
+    }
+    this.agentDomainMap.delete(agentId);
+  }
+
   getAgent(agentId: string): AgentState | undefined {
     return this.state.agents.get(agentId);
   }
@@ -382,7 +416,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
   }
 
   getAvailableAgents(): AgentState[] {
-    return this.getAllAgents().filter(a => a.status === 'idle');
+    return this.getAllAgents().filter(a => a.status === 'idle' && !a.currentTask);
   }
 
   // ===== TASK MANAGEMENT =====
@@ -433,9 +467,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   async cancelTask(taskId: string): Promise<void> {
     const task = this.state.tasks.get(taskId);
-    if (!task) {
+    if (!task || this.isTaskSettled(task)) {
       return;
     }
+
+    // Fence late worker reports and our asynchronously delivered cancellation
+    // notification before yielding to the message bus.
+    task.status = 'cancelled';
 
     // Notify assigned agent
     if (task.assignedTo) {
@@ -457,12 +495,19 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       }
     }
 
-    task.status = 'cancelled';
-
     this.emitEvent('task.failed', {
       taskId,
       reason: 'cancelled',
     });
+
+    // A domain-pool agent stays in AgentPool.busy until it is explicitly
+    // released. Cancel is a terminal transition, so return its slot (and
+    // dispatch the next queued task for that domain) now that the guard
+    // above has confirmed this call ended a non-terminal task.
+    if (task.assignedTo) {
+      await this.releaseDomainAgent(task.assignedTo.id);
+    }
+    this.releaseStaleTaskOwners(taskId, task.assignedTo?.id);
   }
 
   getTask(taskId: string): TaskDefinition | undefined {
@@ -660,6 +705,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         scaleDownThreshold: 0.2,
         cooldownMs: 30000,
         healthCheckIntervalMs: this.config.healthCheckIntervalMs,
+        // Domain membership is an explicit 15-agent roster. Letting the pool
+        // create/remove agents would desynchronize it from state.agents,
+        // topology, message subscriptions and consensus (and produce agents
+        // whose task_complete reports are silently ignored).
+        autoScale: false,
+        healthChecks: false,
       });
 
       await pool.initialize();
@@ -740,6 +791,11 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       clearInterval(this.metricsInterval);
       this.metricsInterval = undefined;
     }
+  }
+
+  private isTaskSettled(task: TaskDefinition): boolean {
+    return task.status === 'completed' || task.status === 'failed' ||
+      task.status === 'cancelled';
   }
 
   private async assignTask(task: TaskDefinition): Promise<AgentState | undefined> {
@@ -875,7 +931,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
+    if (task && agent && !this.isTaskSettled(task)) {
       task.status = 'completed';
       task.output = data.result;
       task.completedAt = new Date();
@@ -898,6 +954,18 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
         agentId,
         result: data.result,
       });
+
+      // Domain pool ownership is separate from AgentState.status: acquire()
+      // leaves the agent in AgentPool.busy until release() is called, and
+      // nothing in the completion path used to call it. Without this, every
+      // completed task permanently consumed one slot; once a domain pool was
+      // full, assignTaskToDomain() queued tasks forever because
+      // releaseAgentToDomain() had no callers. The guard above already
+      // confirmed this is a transition out of a non-terminal state, so a
+      // duplicate/late completion cannot free an agent already working on a
+      // reassigned task.
+      void this.releaseDomainAgent(agentId);
+      this.releaseStaleTaskOwners(data.taskId, agentId);
     }
   }
 
@@ -905,7 +973,7 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const task = this.state.tasks.get(data.taskId);
     const agent = this.state.agents.get(agentId);
 
-    if (task && agent) {
+    if (task && agent && !this.isTaskSettled(task)) {
       // Check retry
       if (task.retries < task.maxRetries) {
         task.retries++;
@@ -929,6 +997,13 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
           agentId,
           error: data.error,
         });
+
+        // Terminal failure ends this agent's pool ownership. Retries are left
+        // untouched: handleTaskFail() re-queues them through assignTask(),
+        // which may hand the task back to the same agent, so releasing here
+        // would race that re-assignment.
+        void this.releaseDomainAgent(agentId);
+        this.releaseStaleTaskOwners(data.taskId, agentId);
       }
     }
   }
@@ -961,9 +1036,18 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const timeout = this.config.heartbeatIntervalMs * 3;
 
     for (const [agentId, agent] of this.state.agents) {
+      // An idle agent has no heartbeat producer and no in-flight work to
+      // prove liveness with. Treating silence as failure made every idle
+      // agent flip to 'error' after 3 intervals (and oscillate back through
+      // auto-recovery), so `getAvailableAgents()` stopped offering healthy
+      // workers. Only agents that are actually working need a heartbeat.
+      if (agent.status === 'terminated' || (agent.status === 'idle' && !agent.currentTask)) {
+        continue;
+      }
+
       const timeSinceHeartbeat = now - agent.lastHeartbeat.getTime();
 
-      if (timeSinceHeartbeat > timeout && agent.status !== 'terminated') {
+      if (timeSinceHeartbeat > timeout) {
         agent.status = 'error';
         agent.health = Math.max(0, agent.health - 0.2);
 
@@ -1114,8 +1198,12 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       throw new Error(`Domain pool ${domain} not found`);
     }
 
-    // Try to acquire an agent from the domain pool
-    const agent = await pool.acquire();
+    // A global assignment can already own this task in the requested domain.
+    // Transfer that reservation rather than trying to acquire the busy owner twice.
+    const owner = task.assignedTo && this.state.agents.get(task.assignedTo.id);
+    const sameReservation = owner?.status === 'busy' && owner.currentTask?.id === taskId &&
+      this.agentDomainMap.get(owner.id.id) === domain;
+    const agent = sameReservation ? owner : await pool.acquire();
     if (!agent) {
       // Add to domain queue if no agents available
       const queue = this.domainTaskQueues.get(domain) || [];
@@ -1137,6 +1225,8 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     task.status = 'assigned';
     task.assignedTo = agent.id;
     task.startedAt = new Date();
+    agent.status = 'busy';
+    agent.currentTask = task.id;
 
     // Track assignment
     const assignment: TaskAssignment = {
@@ -1275,50 +1365,82 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     }
   }
 
+  // Dream Cycle 2026-09-20 (performance): both wait functions previously
+  // busy-polled this.state.tasks on a setInterval(..., 100) even though this
+  // class already extends EventEmitter and already fires 'task.completed'/
+  // 'task.failed' at every terminal task-status transition (handleTaskComplete,
+  // handleTaskFail's non-retry branch, cancelTask). Rewritten to be event-driven
+  // with a synchronous pre-check (task may already be terminal by the time the
+  // wait starts) and a setTimeout fallback for the timeout case, which is a
+  // client-side deadline no coordinator event ever announces. Note: cancelTask
+  // emits 'task.failed' too (with reason:'cancelled') — the event type alone
+  // doesn't distinguish failure from cancellation, so listeners re-read the
+  // task's actual status rather than trusting the event name.
   private async waitForQueuedTask(
     taskId: string,
     domain: AgentDomain,
     startTime: number
   ): Promise<ParallelExecutionResult> {
     return new Promise((resolve) => {
-      const checkInterval = setInterval(() => {
+      const resultForCurrentStatus = (): ParallelExecutionResult | undefined => {
         const task = this.state.tasks.get(taskId);
         if (!task) {
-          clearInterval(checkInterval);
-          resolve({
+          return {
             taskId,
             domain,
             success: false,
             error: new Error(`Task ${taskId} not found`),
             durationMs: performance.now() - startTime,
-          });
-          return;
+          };
         }
-
         if (task.status === 'completed') {
-          clearInterval(checkInterval);
-          resolve({
+          return {
             taskId,
             domain,
             success: true,
             result: task.output,
             durationMs: performance.now() - startTime,
-          });
-        } else if (task.status === 'failed' || task.status === 'cancelled' || task.status === 'timeout') {
-          clearInterval(checkInterval);
-          resolve({
+          };
+        }
+        if (task.status === 'failed' || task.status === 'cancelled' || task.status === 'timeout') {
+          return {
             taskId,
             domain,
             success: false,
             error: new Error(`Task ${task.status}`),
             durationMs: performance.now() - startTime,
-          });
+          };
         }
-      }, 100);
+        return undefined;
+      };
 
-      // Timeout after configured duration
-      setTimeout(() => {
-        clearInterval(checkInterval);
+      const immediate = resultForCurrentStatus();
+      if (immediate) {
+        resolve(immediate);
+        return;
+      }
+
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+      const settle = (result: ParallelExecutionResult): void => {
+        clearTimeout(timeoutHandle);
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
+        resolve(result);
+      };
+      const onTaskEvent = (event: SwarmEvent): void => {
+        if (event.data.taskId !== taskId) return;
+        const result = resultForCurrentStatus();
+        if (result) settle(result);
+      };
+
+      this.on('task.completed', onTaskEvent);
+      this.on('task.failed', onTaskEvent);
+
+      // Timeout after configured duration — a client-side deadline, not a
+      // coordinator-observed state, so it stays a timer rather than an event.
+      timeoutHandle = setTimeout(() => {
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
         const task = this.state.tasks.get(taskId);
         if (task && task.status !== 'completed') {
           task.status = 'timeout';
@@ -1336,22 +1458,40 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
 
   private async waitForTaskCompletion(taskId: string, timeoutMs: number): Promise<TaskDefinition> {
     return new Promise((resolve, reject) => {
-      const checkInterval = setInterval(() => {
-        const task = this.state.tasks.get(taskId);
-        if (!task) {
-          clearInterval(checkInterval);
-          reject(new Error(`Task ${taskId} not found`));
-          return;
-        }
+      const isTerminal = (task: TaskDefinition): boolean =>
+        task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled';
 
-        if (task.status === 'completed' || task.status === 'failed' || task.status === 'cancelled') {
-          clearInterval(checkInterval);
+      const existing = this.state.tasks.get(taskId);
+      if (!existing) {
+        reject(new Error(`Task ${taskId} not found`));
+        return;
+      }
+      if (isTerminal(existing)) {
+        resolve(existing);
+        return;
+      }
+
+      let timeoutHandle: ReturnType<typeof setTimeout>;
+      const cleanup = (): void => {
+        clearTimeout(timeoutHandle);
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
+      };
+      const onTaskEvent = (event: SwarmEvent): void => {
+        if (event.data.taskId !== taskId) return;
+        const task = this.state.tasks.get(taskId);
+        if (task && isTerminal(task)) {
+          cleanup();
           resolve(task);
         }
-      }, 100);
+      };
 
-      setTimeout(() => {
-        clearInterval(checkInterval);
+      this.on('task.completed', onTaskEvent);
+      this.on('task.failed', onTaskEvent);
+
+      timeoutHandle = setTimeout(() => {
+        this.off('task.completed', onTaskEvent);
+        this.off('task.failed', onTaskEvent);
         const task = this.state.tasks.get(taskId);
         if (task) {
           task.status = 'timeout';
@@ -1549,17 +1689,89 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
     const domain = this.agentDomainMap.get(agentId);
     if (!domain) return;
 
+    // Read the queue before releasing: if a task is waiting, the just-freed
+    // slot must be handed to it before AgentPool.checkScaling() can remove
+    // the agent (a one-agent domain such as queen would otherwise scale to 0
+    // and the subsequent acquire() would create an unregistered pool agent).
+    const queue = this.domainTaskQueues.get(domain) || [];
+    const hasAssignableTask = queue.some(taskId => {
+      const task = this.state.tasks.get(taskId);
+      return task !== undefined && (task.status === 'queued' || task.status === 'created');
+    });
     const pool = this.domainPools.get(domain);
     if (pool) {
-      await pool.release(agentId);
+      await pool.release(agentId, { rescale: !hasAssignableTask });
     }
 
-    // Check if there are queued tasks for this domain
-    const queue = this.domainTaskQueues.get(domain) || [];
+    // Drain the next task that is still assignable. Cancelled or timed-out
+    // ids can remain in the queue; resurrecting one here would turn a
+    // terminal task back into 'assigned' and send it to a worker.
     if (queue.length > 0) {
-      const nextTaskId = queue.shift()!;
+      let nextTaskId: string | undefined;
+      while (queue.length > 0) {
+        const candidateId = queue.shift()!;
+        const candidate = this.state.tasks.get(candidateId);
+        if (candidate && (candidate.status === 'queued' || candidate.status === 'created')) {
+          nextTaskId = candidateId;
+          break;
+        }
+      }
       this.domainTaskQueues.set(domain, queue);
-      await this.assignTaskToDomain(nextTaskId, domain);
+      if (nextTaskId) {
+        await this.assignTaskToDomain(nextTaskId, domain);
+      }
+    }
+  }
+
+  /**
+   * Fire-and-forget release used by synchronous task handlers. A pool
+   * bookkeeping failure must not turn a completed/failed task into an
+   * unhandled rejection, but it must stay observable.
+   */
+  private async releaseDomainAgent(agentId: string): Promise<void> {
+    const domain = this.agentDomainMap.get(agentId);
+    if (!domain) return;
+
+    const pool = this.domainPools.get(domain);
+    // Membership, not current busy/available bucket: by the time this runs,
+    // the caller (handleTaskComplete/handleTaskFail/cancelTask) has already
+    // reset the shared AgentState to idle, and AgentPool's busy/available
+    // sets self-heal from that live status on every read (reconcileReservations).
+    // Checking getBusyAgents() here would therefore always read this agent as
+    // already-available and skip the release entirely. A generic assignment
+    // can share the same domain map without ever being a pool member; only
+    // skip release for those (releasing them would add an already-available
+    // agent back to the pool and trigger an unnecessary scale-down decision).
+    const poolOwnsAgent = pool?.getAgent(agentId) !== undefined;
+    if (!poolOwnsAgent) return;
+
+    try {
+      await this.releaseAgentToDomain(agentId);
+    } catch (error) {
+      this.emitEvent('agent.domain_release_failed', {
+        agentId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * A task can have more than one AgentState pointing at it after
+   * assignTaskToDomain() retargets a generic reservation: #4245 deliberately
+   * keeps the previous owner busy because a retarget does not prove that
+   * worker stopped executing. Once the task is terminal, however, no other
+   * owner can still be working on it; any remaining currentTask reference is
+   * stale and would keep that agent (and its domain-pool slot) reserved
+   * forever. Clear and release every owner except the terminal reporter.
+   */
+  private releaseStaleTaskOwners(taskId: string, exceptAgentId?: string): void {
+    for (const [agentId, agent] of this.state.agents) {
+      if (agentId === exceptAgentId) continue;
+      if (agent.currentTask?.id !== taskId) continue;
+
+      agent.status = 'idle';
+      agent.currentTask = undefined;
+      void this.releaseDomainAgent(agentId);
     }
   }
 
@@ -1627,6 +1839,30 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       domain = this.agentTypeToDomain(options.type);
       agentId = await this.registerAgent(agentData);
       this.agentDomainMap.set(agentId, domain);
+
+      // Add to domain pool so assignTaskToDomain() can route work to this
+      // agent (mirrors registerAgentWithDomain()'s pool.add() above; without
+      // this the agent is registered/idle but invisible to pool.acquire()).
+      // pool.add() throws once a domain pool is at its (small, fixed)
+      // maxSize (e.g. the 'queen' domain caps at 1) — the agent stays
+      // registered either way, so a full pool degrades back to today's
+      // pre-fix state (pool-invisible) instead of failing spawnAgent()
+      // itself for callers (e.g. a scale-up loop) that don't expect it to
+      // throw.
+      const pool = this.domainPools.get(domain);
+      const agent = this.state.agents.get(agentId);
+      if (pool && agent) {
+        try {
+          await pool.add(agent);
+        } catch (error) {
+          // Only the pool-full condition (AgentPool.add()'s sole throw) is
+          // tolerated; anything else is a real defect and must surface.
+          if (!(error instanceof Error) || !error.message.includes('maximum capacity')) {
+            throw error;
+          }
+          this.emitEvent('agent.domain_pool_full', { agentId, domain });
+        }
+      }
     }
 
     const duration = performance.now() - startTime;
@@ -1676,6 +1912,10 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       };
     }
 
+    // Detach before the grace period so the pool cannot hand this agent a new
+    // domain task while termination is pending.
+    await this.detachAgentFromDomain(agentId);
+
     // If agent has active tasks and not forcing, wait or reassign
     let tasksReassigned = 0;
     if (agent.currentTask && !options?.force) {
@@ -1694,10 +1934,8 @@ export class UnifiedSwarmCoordinator extends EventEmitter implements IUnifiedSwa
       }
     }
 
-    // Remove from domain tracking
-    this.agentDomainMap.delete(agentId);
-
-    // Unregister the agent
+    // Unregister the agent; unregisterAgent() is also idempotent for the
+    // domain detach above.
     await this.unregisterAgent(agentId);
 
     this.emitEvent('agent.left', {

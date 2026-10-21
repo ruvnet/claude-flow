@@ -56,16 +56,16 @@ Each candlestick pattern is encoded as a fixed-length vector:
 - `mcp__plugin_ruflo-core_ruflo__agentdb_pattern-search` -- search for similar patterns via HNSW
 - `mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route` -- route queries to relevant market data sources
 - `mcp__plugin_ruflo-core_ruflo__embeddings_generate` -- generate embeddings for pattern descriptions
-- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_create` -- create HNSW index for pattern vectors
-- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add` -- add pattern vectors to HNSW index
-- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route` -- nearest-neighbor search in pattern index
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_create` -- create a small WASM router for pattern prototypes (capacity about 11; not for candle history)
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_add` -- add a pattern prototype (`routerId`, `name`, `embedding` are required)
+- `mcp__plugin_ruflo-core_ruflo__ruvllm_hnsw_route` -- classify a vector against the prototypes (`routerId`, `query`, `k`)
 
 ### Neural Learning
 
 After successful data ingestion or pattern detection, train patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
-npx @claude-flow/cli@latest neural train --pattern-type market-data --epochs 15
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent data-engineer
+npx @claude-flow/cli@latest neural train --pattern prediction --epochs 15
 ```
 
 ### Memory Learning

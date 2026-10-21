@@ -264,6 +264,75 @@ export interface SQLGenerationOptions {
 }
 
 // ============================================================================
+// SQL Safety Helpers
+// ============================================================================
+//
+// The toSQL()/*SQL() methods below build SQL executed verbatim by a caller's
+// query executor. TypeScript types are erased at runtime, so every value
+// interpolated into a query string must be validated here: an identifier
+// (schema/table/column) that contains `"` or a value that contains `'` would
+// otherwise let a caller break out of the surrounding quotes.
+
+/** Identifiers (schema/table/column names) must be plain SQL identifiers. */
+const SQL_IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/** Validate and double-quote a SQL identifier (schema, table, or column name). */
+function sqlIdent(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !SQL_IDENT_RE.test(value)) {
+    throw new TypeError(
+      `gnn SQL: ${name} must match ${SQL_IDENT_RE} (got ${JSON.stringify(value)})`
+    );
+  }
+  return `"${value}"`;
+}
+
+/** Validate a string and render it as a single-quoted SQL literal. */
+function sqlLiteral(value: unknown, name: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`gnn SQL: ${name} must be a string (got ${JSON.stringify(value)})`);
+  }
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/** Validate a finite number and render it as a bare SQL numeric literal. */
+function sqlNumber(value: unknown, name: string): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`gnn SQL: ${name} must be a finite number (got ${JSON.stringify(value)})`);
+  }
+  return String(value);
+}
+
+/** Validate a finite integer (optionally bounded) and render it as a bare SQL numeric literal. */
+function sqlInt(value: unknown, name: string, opts: { min?: number } = {}): string {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new TypeError(`gnn SQL: ${name} must be an integer (got ${JSON.stringify(value)})`);
+  }
+  if (opts.min !== undefined && value < opts.min) {
+    throw new TypeError(`gnn SQL: ${name} must be >= ${opts.min} (got ${value})`);
+  }
+  return String(value);
+}
+
+/** Serialize a value to JSON and render it as a single-quoted SQL jsonb literal body. */
+function sqlJson(value: unknown, name: string): string {
+  let json: string;
+  try {
+    json = JSON.stringify(value) ?? 'null';
+  } catch {
+    throw new TypeError(`gnn SQL: ${name} could not be serialized to JSON`);
+  }
+  return `'${json.replace(/'/g, "''")}'`;
+}
+
+/** Validate a bind-parameter prefix used in prepared-statement placeholders (e.g. `$`). */
+function sqlParamPrefix(value: unknown, name: string): string {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9_$:]{1,16}$/.test(value)) {
+    throw new TypeError(`gnn SQL: ${name} must be a short alphanumeric token (got ${JSON.stringify(value)})`);
+  }
+  return value;
+}
+
+// ============================================================================
 // GNN Layer Registry
 // ============================================================================
 
@@ -549,12 +618,15 @@ export abstract class BaseGNNLayer implements IGNNLayer {
    * Generate SQL for this layer.
    */
   toSQL(tableName: string, options: SQLGenerationOptions = {}): string {
-    const schema = options.schema ?? 'public';
-    const nodeColumn = options.nodeColumn ?? 'embedding';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const nodeColumn = sqlIdent(options.nodeColumn ?? 'embedding', 'nodeColumn');
+    const table = sqlIdent(tableName, 'tableName');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
+    // Not attacker-reachable: `this.type` is always a key of GNN_SQL_FUNCTIONS
+    // (or falls back to the fixed literal below), never caller-supplied text.
     const sqlFunction = GNN_SQL_FUNCTIONS[this.type] ?? 'ruvector.gnn_layer';
 
-    const configJson = JSON.stringify({
+    const configObj = {
       type: this.type,
       input_dim: this.config.inputDim,
       output_dim: this.config.outputDim,
@@ -566,23 +638,23 @@ export abstract class BaseGNNLayer implements IGNNLayer {
       use_bias: this.config.useBias,
       activation: this.config.activation,
       params: this.config.params,
-    });
+    };
 
     if (options.prepared) {
-      const prefix = options.paramPrefix ?? '$';
+      const prefix = sqlParamPrefix(options.paramPrefix ?? '$', 'paramPrefix');
       return `
 SELECT ${sqlFunction}(
-  (SELECT array_agg(${nodeColumn}) FROM "${schema}"."${tableName}"),
-  (SELECT array_agg(ARRAY[source_id, target_id]) FROM "${schema}"."${edgeTable}"),
+  (SELECT array_agg(${nodeColumn}) FROM ${schema}.${table}),
+  (SELECT array_agg(ARRAY[source_id, target_id]) FROM ${schema}.${edgeTable}),
   ${prefix}1::jsonb
 );`.trim();
     }
 
     return `
 SELECT ${sqlFunction}(
-  (SELECT array_agg(${nodeColumn}) FROM "${schema}"."${tableName}"),
-  (SELECT array_agg(ARRAY[source_id, target_id]) FROM "${schema}"."${edgeTable}"),
-  '${configJson}'::jsonb
+  (SELECT array_agg(${nodeColumn}) FROM ${schema}.${table}),
+  (SELECT array_agg(ARRAY[source_id, target_id]) FROM ${schema}.${edgeTable}),
+  ${sqlJson(configObj, 'config')}::jsonb
 );`.trim();
   }
 
@@ -2651,38 +2723,42 @@ export class GraphOperations {
    * Generate SQL for k-hop neighbors query.
    */
   kHopNeighborsSQL(nodeId: string, k: number, tableName: string, options: SQLGenerationOptions = {}): string {
-    const schema = options.schema ?? 'public';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
+    const nodeIdLit = sqlLiteral(nodeId, 'nodeId');
+    const depth = sqlInt(k, 'k', { min: 0 });
 
     return `
 WITH RECURSIVE k_hop AS (
   SELECT source_id AS node_id, 1 AS depth
-  FROM "${schema}"."${edgeTable}"
-  WHERE target_id = '${nodeId}'
+  FROM ${schema}.${edgeTable}
+  WHERE target_id = ${nodeIdLit}
   UNION
   SELECT target_id AS node_id, 1 AS depth
-  FROM "${schema}"."${edgeTable}"
-  WHERE source_id = '${nodeId}'
+  FROM ${schema}.${edgeTable}
+  WHERE source_id = ${nodeIdLit}
   UNION ALL
   SELECT e.target_id AS node_id, kh.depth + 1
   FROM k_hop kh
-  JOIN "${schema}"."${edgeTable}" e ON kh.node_id = e.source_id
-  WHERE kh.depth < ${k}
+  JOIN ${schema}.${edgeTable} e ON kh.node_id = e.source_id
+  WHERE kh.depth < ${depth}
   UNION ALL
   SELECT e.source_id AS node_id, kh.depth + 1
   FROM k_hop kh
-  JOIN "${schema}"."${edgeTable}" e ON kh.node_id = e.target_id
-  WHERE kh.depth < ${k}
+  JOIN ${schema}.${edgeTable} e ON kh.node_id = e.target_id
+  WHERE kh.depth < ${depth}
 )
-SELECT DISTINCT node_id FROM k_hop WHERE node_id != '${nodeId}';`.trim();
+SELECT DISTINCT node_id FROM k_hop WHERE node_id != ${nodeIdLit};`.trim();
   }
 
   /**
    * Generate SQL for shortest path query.
    */
   shortestPathSQL(source: string, target: string, tableName: string, options: SQLGenerationOptions = {}): string {
-    const schema = options.schema ?? 'public';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
+    const sourceLit = sqlLiteral(source, 'source');
+    const targetLit = sqlLiteral(target, 'target');
 
     return `
 WITH RECURSIVE path AS (
@@ -2692,8 +2768,8 @@ WITH RECURSIVE path AS (
     ARRAY[source_id, target_id] AS path,
     weight AS total_weight,
     1 AS depth
-  FROM "${schema}"."${edgeTable}"
-  WHERE source_id = '${source}'
+  FROM ${schema}.${edgeTable}
+  WHERE source_id = ${sourceLit}
   UNION ALL
   SELECT
     p.source_id,
@@ -2702,13 +2778,13 @@ WITH RECURSIVE path AS (
     p.total_weight + e.weight,
     p.depth + 1
   FROM path p
-  JOIN "${schema}"."${edgeTable}" e ON p.target_id = e.source_id
+  JOIN ${schema}.${edgeTable} e ON p.target_id = e.source_id
   WHERE NOT e.target_id = ANY(p.path)
     AND p.depth < 10
 )
 SELECT path, total_weight
 FROM path
-WHERE target_id = '${target}'
+WHERE target_id = ${targetLit}
 ORDER BY total_weight
 LIMIT 1;`.trim();
   }
@@ -2717,14 +2793,14 @@ LIMIT 1;`.trim();
    * Generate SQL for PageRank computation.
    */
   pageRankSQL(tableName: string, options: PageRankOptions & SQLGenerationOptions = {}): string {
-    const schema = options.schema ?? 'public';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
-    const damping = options.damping ?? 0.85;
-    const maxIterations = options.maxIterations ?? 100;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
+    const damping = sqlNumber(options.damping ?? 0.85, 'damping');
+    const maxIterations = sqlInt(options.maxIterations ?? 100, 'maxIterations', { min: 1 });
 
     return `
 SELECT ruvector.page_rank(
-  (SELECT array_agg(ARRAY[source_id::text, target_id::text]) FROM "${schema}"."${edgeTable}"),
+  (SELECT array_agg(ARRAY[source_id::text, target_id::text]) FROM ${schema}.${edgeTable}),
   ${damping},
   ${maxIterations}
 );`.trim();
@@ -2734,15 +2810,15 @@ SELECT ruvector.page_rank(
    * Generate SQL for community detection.
    */
   communityDetectionSQL(tableName: string, options: CommunityOptions & SQLGenerationOptions): string {
-    const schema = options.schema ?? 'public';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
-    const algorithm = options.algorithm ?? 'louvain';
-    const resolution = options.resolution ?? 1.0;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
+    const algorithm = sqlLiteral(options.algorithm ?? 'louvain', 'algorithm');
+    const resolution = sqlNumber(options.resolution ?? 1.0, 'resolution');
 
     return `
 SELECT ruvector.community_detection(
-  (SELECT array_agg(ARRAY[source_id::text, target_id::text]) FROM "${schema}"."${edgeTable}"),
-  '${algorithm}',
+  (SELECT array_agg(ARRAY[source_id::text, target_id::text]) FROM ${schema}.${edgeTable}),
+  ${algorithm},
   ${resolution}
 );`.trim();
   }
@@ -2775,9 +2851,10 @@ export class GNNSQLGenerator {
     tableName: string,
     options: SQLGenerationOptions = {}
   ): string {
-    const schema = options.schema ?? 'public';
-    const nodeColumn = options.nodeColumn ?? 'embedding';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const nodeColumn = sqlIdent(options.nodeColumn ?? 'embedding', 'nodeColumn');
+    const table = sqlIdent(tableName, 'tableName');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
 
     const layerConfigs = layers.map((l) => ({
       type: l.type,
@@ -2791,9 +2868,9 @@ export class GNNSQLGenerator {
 
     return `
 SELECT ruvector.batch_gnn_forward(
-  (SELECT array_agg(${nodeColumn}) FROM "${schema}"."${tableName}"),
-  (SELECT array_agg(ARRAY[source_id, target_id]) FROM "${schema}"."${edgeTable}"),
-  '${JSON.stringify(layerConfigs)}'::jsonb
+  (SELECT array_agg(${nodeColumn}) FROM ${schema}.${table}),
+  (SELECT array_agg(ARRAY[source_id, target_id]) FROM ${schema}.${edgeTable}),
+  ${sqlJson(layerConfigs, 'layerConfigs')}::jsonb
 );`.trim();
   }
 
@@ -2805,15 +2882,18 @@ SELECT ruvector.batch_gnn_forward(
     cacheTable: string,
     options: SQLGenerationOptions = {}
   ): string {
-    const schema = options.schema ?? 'public';
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const table = sqlIdent(tableName, 'tableName');
+    const cache = sqlIdent(cacheTable, 'cacheTable');
+    const nodeColumn = sqlIdent(options.nodeColumn ?? 'embedding', 'nodeColumn');
 
     return `
-INSERT INTO "${schema}"."${cacheTable}" (node_id, embedding, computed_at)
+INSERT INTO ${schema}.${cache} (node_id, embedding, computed_at)
 SELECT
   id,
-  ${options.nodeColumn ?? 'embedding'},
+  ${nodeColumn},
   NOW()
-FROM "${schema}"."${tableName}"
+FROM ${schema}.${table}
 ON CONFLICT (node_id)
 DO UPDATE SET
   embedding = EXCLUDED.embedding,
@@ -2828,19 +2908,21 @@ DO UPDATE SET
     dimension: number,
     options: SQLGenerationOptions = {}
   ): string {
-    const schema = options.schema ?? 'public';
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const cache = sqlIdent(cacheTable, 'cacheTable');
+    const dim = sqlInt(dimension, 'dimension', { min: 1 });
 
     return `
-CREATE TABLE IF NOT EXISTS "${schema}"."${cacheTable}" (
+CREATE TABLE IF NOT EXISTS ${schema}.${cache} (
   node_id TEXT PRIMARY KEY,
-  embedding vector(${dimension}) NOT NULL,
+  embedding vector(${dim}) NOT NULL,
   computed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   layer_config JSONB,
   version INTEGER DEFAULT 1
 );
 
-CREATE INDEX IF NOT EXISTS "${cacheTable}_computed_at_idx"
-ON "${schema}"."${cacheTable}" (computed_at);`.trim();
+CREATE INDEX IF NOT EXISTS ${sqlIdent(`${cacheTable}_computed_at_idx`, 'cacheTable')}
+ON ${schema}.${cache} (computed_at);`.trim();
   }
 
   /**
@@ -2851,9 +2933,10 @@ ON "${schema}"."${cacheTable}" (computed_at);`.trim();
     aggregation: GNNAggregation,
     options: SQLGenerationOptions = {}
   ): string {
-    const schema = options.schema ?? 'public';
-    const nodeColumn = options.nodeColumn ?? 'embedding';
-    const edgeTable = options.edgeTable ?? `${tableName}_edges`;
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const nodeColumn = sqlIdent(options.nodeColumn ?? 'embedding', 'nodeColumn');
+    const table = sqlIdent(tableName, 'tableName');
+    const edgeTable = sqlIdent(options.edgeTable ?? `${tableName}_edges`, 'edgeTable');
 
     const aggFunctionMap: Record<GNNAggregation, string> = {
       mean: 'avg',
@@ -2867,15 +2950,17 @@ ON "${schema}"."${cacheTable}" (computed_at);`.trim();
       std: 'std',
       var: 'var',
     };
+    // Not attacker-reachable: `aggregation` is a GNNAggregation union member
+    // (or falls back to the fixed 'avg' literal), never caller-supplied text.
     const aggFunction = aggFunctionMap[aggregation] ?? 'avg';
 
     return `
 SELECT
   n.id,
   ruvector.vector_${aggFunction}(array_agg(neighbor.${nodeColumn})) AS aggregated_embedding
-FROM "${schema}"."${tableName}" n
-LEFT JOIN "${schema}"."${edgeTable}" e ON n.id = e.target_id
-LEFT JOIN "${schema}"."${tableName}" neighbor ON e.source_id = neighbor.id
+FROM ${schema}.${table} n
+LEFT JOIN ${schema}.${edgeTable} e ON n.id = e.target_id
+LEFT JOIN ${schema}.${table} neighbor ON e.source_id = neighbor.id
 GROUP BY n.id;`.trim();
   }
 
@@ -2887,9 +2972,12 @@ GROUP BY n.id;`.trim();
     poolingMethod: 'mean' | 'sum' | 'max' | 'attention',
     options: SQLGenerationOptions = {}
   ): string {
-    const schema = options.schema ?? 'public';
-    const nodeColumn = options.nodeColumn ?? 'embedding';
+    const schema = sqlIdent(options.schema ?? 'public', 'schema');
+    const nodeColumn = sqlIdent(options.nodeColumn ?? 'embedding', 'nodeColumn');
+    const table = sqlIdent(tableName, 'tableName');
 
+    // Not attacker-reachable: `poolingMethod` maps through a fixed literal
+    // table (or falls back to 'vector_avg'), never caller-supplied text.
     const poolFunction = {
       mean: 'vector_avg',
       sum: 'vector_sum',
@@ -2899,7 +2987,7 @@ GROUP BY n.id;`.trim();
 
     return `
 SELECT ruvector.${poolFunction}(
-  (SELECT array_agg(${nodeColumn}) FROM "${schema}"."${tableName}")
+  (SELECT array_agg(${nodeColumn}) FROM ${schema}.${table})
 ) AS graph_embedding;`.trim();
   }
 }

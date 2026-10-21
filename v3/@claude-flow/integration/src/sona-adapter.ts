@@ -107,7 +107,7 @@ const MODE_CONFIGS: Record<SONALearningMode, Partial<SONAConfiguration>> = {
  */
 export function sonaModeFromEnv(): SONALearningMode | undefined {
   const raw = process.env.RUFLO_INTELLIGENCE_MODE?.trim();
-  return raw && raw in MODE_CONFIGS ? (raw as SONALearningMode) : undefined;
+  return raw && Object.hasOwn(MODE_CONFIGS, raw) ? (raw as SONALearningMode) : undefined;
 }
 
 /**

@@ -12,8 +12,8 @@
  *
  * This audit asserts:
  *
- *   1. The `ruflo` wrapper's `@claude-flow/cli` dep range INCLUDES the
- *      version that `v3/@claude-flow/cli` currently publishes.
+ *   1. The `ruflo` wrapper pins the exact version that
+ *      `v3/@claude-flow/cli` currently publishes (#3306).
  *
  *   2. The root `claude-flow` umbrella's sibling deps that we maintain
  *      (`@claude-flow/cli-core`, `@claude-flow/mcp`, `@claude-flow/neural`,
@@ -71,11 +71,12 @@ if (!rufloPkg) {
   } else {
     checks.push(`ruflo wraps @claude-flow/cli with range "${rufloDepRange}" — cli published as ${cliVersion}`);
 
-    // 1a. Range must include the current cli version
-    if (!semver.satisfies(cliVersion, rufloDepRange, { includePrerelease: true })) {
+    // #3306: inclusion is insufficient: ^3.33.0 allowed a cached 3.33.0
+    // implementation to sit behind a 3.41.2 wrapper and report as current.
+    if (rufloDepRange !== cliVersion) {
       violations.push(
-        `ruflo's "@claude-flow/cli": "${rufloDepRange}" does NOT include the cli's actual ` +
-        `version ${cliVersion}. Bump the range to "^${cliVersion}" or wider that covers it.`
+        `ruflo's "@claude-flow/cli": "${rufloDepRange}" must pin the exact CLI ` +
+        `version ${cliVersion} (no range).`
       );
     }
 
@@ -131,7 +132,7 @@ console.log(`wrapper-dep-ranges audit — scanned ${checks.length} declaration(s
 for (const c of checks) console.log(`  ${c}`);
 
 if (violations.length === 0) {
-  console.log('  ok: all wrapper ranges include their published target versions');
+  console.log('  ok: ruflo pins its exact CLI version; other ranges include published targets');
   console.log('  ok: no pre-release ranges pointing at stable deps');
   process.exit(0);
 }

@@ -215,3 +215,15 @@ The suite runs a local NIP-42 relay that enforces the same identity binding as
 `buzz-relay`, so the publish path is exercised end to end without touching production.
 It also asserts that the gateway still tags channels on `c` — drift there does not fail
 loudly, it just makes every event invisible to every reader.
+
+## As a mod
+
+Function hooks (ADR-445 pattern, `hooks/register.ts`) that need no model call, no network and no process:
+
+- **Tool guard** (default on, tighten-only: it can only deny). Refuses the connector's `channel_publish` (on a server named for the connector) unless the channel is a public `pub:<name>`, the message holds no secret or credential-named field, and the payload fits the cap. It mirrors the publisher's own channel rule so a bad call is refused before it leaves the machine. A refusal never echoes the offending value.
+- **`/chatgpt-mod`** answers locally: `status`, `scan <text>` and `channel <id>`. (A distinct name from the plugin's own commands/skills, which no hook can answer.)
+- **Status file** `.claude-flow/chatgpt-mod/status.json` (`version`, `updatedMs`, `checked`, `blocked`, `byRule`) is written at session start and after each refusal; the console reads it.
+
+Options (`userConfig`): `guard` (on/off, default on), `maxPayloadBytes` (default 8192, 256 to 65536).
+
+Test: `claude plugin validate plugins/ruflo-chatgpt-federation && claude plugin test plugins/ruflo-chatgpt-federation && bash plugins/ruflo-chatgpt-federation/scripts/smoke.sh`.

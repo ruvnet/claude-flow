@@ -48,6 +48,8 @@ observe correlate <agent-id>         # Correlate all telemetry for an agent
 | `swarm_span_duration_ms` | Histogram | Span durations for tracing |
 | `memory_operations_total` | Counter | AgentDB read/write counts |
 
+**What produces this data.** The plugin reads and analyses records in the `observability` namespace; ruflo itself does not write spans or metric records there automatically (checked in `v3/@claude-flow/cli/src` and the helpers). Something has to store them, for example your own hooks or agents calling `memory_store` with `namespace: "observability"` and a `spanId` / `parentSpanId` / `taskId` / `startTime` / `endTime` shape, or the metric names above. With no records, `observe-trace` and `observe-metrics` report "nothing recorded" and stop; they do not reconstruct a trace from guesses. The metric names are the convention this plugin looks for, not a built-in exporter.
+
 ## Trace Hierarchy
 
 ```
@@ -98,3 +100,19 @@ bash plugins/ruflo-observability/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445 pattern, `hooks/register.ts`). It adds, with no network, no process spawning and no model call:
+
+- **Guard** (tighten-only, default on): refuses a memory write of telemetry (spans, logs, labels) that holds a secret, a US SSN or a spaced payment-card number (13-digit epoch timestamps are fine). The deny reason names the rule, never the value.
+- **`/observe-mod`**: local `status` and `scan <text>` (secret check, same rules as the guard).
+- **Status file** `.claude-flow/observe-mod/status.json` (`{version:1, updatedMs, guard, checked, blocked, ...}`), written at session start and when counters change.
+
+Per-prompt context is deliberately not added: this plugin has nothing worth attaching to every prompt.
+
+| Option | Default | Effect |
+|---|---|---|
+| `guard` | `on` | refuse the calls above |
+
+Test: `claude plugin validate plugins/ruflo-observability`, `claude plugin test plugins/ruflo-observability`, `bash plugins/ruflo-observability/scripts/smoke.sh`.

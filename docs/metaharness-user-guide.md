@@ -328,11 +328,13 @@ A **pure-TS, zero-`@metaharness/*`-dep** similarity engine. Weighted blend:
 
 | Component | Weight | What it compares |
 |---|---|---|
-| **cosine** | 0.4 | 9 numerics: `harnessFit`, `compileConfidence`, `taskCoverage`, `toolSafety`, `memoryUsefulness`, `risk_score`, `test_confidence`, `publish_readiness`, `estCostPerRunUsd` |
-| **categorical** | 0.3 | 4 enums: `repo_type`, `recommendedMode`, `archetype`, `template` |
-| **jaccard** | 0.3 | `agent_topology` (set of declared roles) |
+| **cosine** | 0.6 | 9 numerics: `harnessFit`, `compileConfidence`, `taskCoverage`, `toolSafety`, `memoryUsefulness`, `risk_score`, `test_confidence`, `publish_readiness`, `estCostPerRunUsd` |
+| **categorical** | 0.25 | 4 enums: `repo_type`, `recommendedMode`, `archetype`, `template` |
+| **jaccard** | 0.15 | `agent_topology` (set of declared roles) |
 
-`overall = w_c · cosine + w_k · categorical + w_j · jaccard`, all in `[0, 1]`.
+`overall = 0.6 · cosine + 0.25 · categorical + 0.15 · jaccard`, all in `[0, 1]`. These are the ADR-152 §Decision defaults; `similarity.mjs --format json` echoes them under `weights`, so a consumer never has to hard-code them.
+
+The cost dimension is normalized on a log band (`$0.001–$10` → `0–1`), so costs inside the realistic range stay distinguishable rather than collapsing to a single value.
 
 **Verdict thresholds:**
 
@@ -343,7 +345,7 @@ A **pure-TS, zero-`@metaharness/*`-dep** similarity engine. Weighted blend:
 | ≥ 0.5 | `moderate-drift` |
 | < 0.5 | `major-drift` |
 
-These are the structural-distance verdicts surfaced by `audit-trend` and `drift-from-history`.
+These are the structural-distance verdicts surfaced by `audit-trend` and `drift-from-history`. The bands live in `plugins/ruflo-metaharness/scripts/_similarity.mjs` as `VERDICT_THRESHOLDS`; `audit-trend` imports them rather than re-encoding the cutoffs, so this table and the implementation cannot drift apart.
 
 ---
 

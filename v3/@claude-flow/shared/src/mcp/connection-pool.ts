@@ -146,9 +146,11 @@ export class ConnectionPool extends EventEmitter implements IConnectionPool {
   /**
    * Create a new connection
    */
-  private async createConnection(): Promise<ManagedConnection> {
+  private async createConnection(reserved = false): Promise<ManagedConnection> {
     const id = `conn-${++this.connectionCounter}-${Date.now()}`;
     const connection = new ManagedConnection(id, this.transportType);
+    // Reserve before exposing it in the map or yielding to another acquirer.
+    if (reserved) connection.state = 'busy';
 
     this.connections.set(id, connection);
     this.stats.totalCreated++;
@@ -185,7 +187,7 @@ export class ConnectionPool extends EventEmitter implements IConnectionPool {
 
     // Create new connection if under limit
     if (this.connections.size < this.config.maxConnections) {
-      const connection = await this.createConnection();
+      const connection = await this.createConnection(true);
       connection.acquire();
       this.stats.totalAcquired++;
       this.recordAcquireTime(startTime);

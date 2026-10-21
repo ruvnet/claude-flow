@@ -41,7 +41,7 @@ When handing work between Claude Code and OpenAI Codex workers:
    ```
 3. **Kick off Codex worker** after Claude Code produces the design:
    ```bash
-   npx claude-flow-codex dual run \
+   npx @claude-flow/codex dual run \
      --worker "codex:coder:Implement based on design-<feature>" \
      --namespace collaboration
    ```

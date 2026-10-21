@@ -50,8 +50,10 @@ claude $(ls -d plugins/ruflo-*/ | sed 's|^|--plugin-dir |' | tr '\n' ' ')
 |--------|-------------|
 | [ruflo-security-audit](ruflo-security-audit/) | CVE scanning, dependency vulnerability checks |
 | [ruflo-aidefence](ruflo-aidefence/) | Prompt injection detection, PII scanning |
+| [ruflo-protector](ruflo-protector/) | Project Anatole: optional learning watchdog for unattended agents (default off) |
 | [ruflo-testgen](ruflo-testgen/) | Test gap detection, TDD London School workflow |
 | [ruflo-browser](ruflo-browser/) | Playwright browser automation and testing |
+| [agentic-qe-fleet](https://github.com/proffesor-for-testing/agentic-qe/tree/v3.15.10/plugins/agentic-qe-fleet) | External ([Agentic QE](https://github.com/proffesor-for-testing/agentic-qe), pinned in the marketplace): QE agents, coverage, chaos, TDD skills, `agentic-qe` MCP server. Install with `/plugin install agentic-qe-fleet@ruflo`; not in this folder, so `--plugin-dir` does not load it. Install it from one marketplace only (`agentic-qe` or `ruflo`), not both: enabled from both, its mod and commands load twice |
 
 ### Development Tools
 

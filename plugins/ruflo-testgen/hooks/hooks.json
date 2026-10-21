@@ -1,0 +1,6 @@
+{
+  "description": "Test generation as a mod (ADR-445 pattern): a status file and `/testgen-mod` that count the worker dispatches and coverage calls this session. Observe-only: testgen has no harmful input in its domain, so there is no guard and nothing to configure.",
+  "modules": [
+    "./register.ts"
+  ]
+}

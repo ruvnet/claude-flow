@@ -1,0 +1,4 @@
+{
+  "description": "ruflo as a mod (ADR-404, early access): routes each prompt in-process and hands the route to the model as prompt context; records edits for the intelligence consolidator; tightens tool.check with ruflo's dangerous-command list and the Claude Code rules of ruflo policy, never loosening a verdict; applies the cost-tracker budget ladder to live session cost. Owns an event only where the classic hook-handler hands it over, so nothing fires twice.",
+  "modules": ["./register.ts"]
+}

@@ -6,9 +6,31 @@ export default defineConfig({
     conditions: ['node'],
     // Exercise the workspace security source rather than a stale installed
     // package during cross-package policy integration tests (ADR-324).
-    alias: {
-      '@claude-flow/security': fileURLToPath(new URL('../security/src/index.ts', import.meta.url)),
-    },
+    // Subpath aliases must precede the bare package alias: Vite alias keys
+    // prefix-match, so '@claude-flow/security' alone would rewrite
+    // '@claude-flow/security/safe-git' to '.../src/index.ts/safe-git'.
+    alias: [
+      {
+        find: '@claude-flow/guidance/compiler',
+        replacement: fileURLToPath(new URL('../guidance/src/compiler.ts', import.meta.url)),
+      },
+      {
+        find: '@claude-flow/security/policy/index',
+        replacement: fileURLToPath(new URL('../security/src/policy/index.ts', import.meta.url)),
+      },
+      {
+        find: '@claude-flow/security/mcp-caller-identity',
+        replacement: fileURLToPath(new URL('../security/src/mcp-caller-identity.ts', import.meta.url)),
+      },
+      {
+        find: '@claude-flow/security/safe-git',
+        replacement: fileURLToPath(new URL('../security/src/safe-git.ts', import.meta.url)),
+      },
+      {
+        find: /^@claude-flow\/security$/,
+        replacement: fileURLToPath(new URL('../security/src/index.ts', import.meta.url)),
+      },
+    ],
   },
   plugins: [
     {

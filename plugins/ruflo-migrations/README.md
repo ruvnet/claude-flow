@@ -93,3 +93,19 @@ bash plugins/ruflo-migrations/scripts/smoke.sh
 ## License
 
 MIT
+
+## As a mod
+
+Function-hook mod (ADR-445 pattern, `hooks/register.ts`). It adds, with no network, no process spawning and no model call:
+
+- **Guard** (tighten-only, default on): refuses a memory write (memory_store, agentdb_*store/batch) that holds a secret or a database URL with an inline password. The deny reason names the rule, never the value.
+- **`/migrations-mod`**: local `status` and `scan <text>` (secret check, same rules as the guard); `/migrations-mod scan <sql>` lints SQL for DROP/TRUNCATE/DROP COLUMN/DELETE-without-WHERE (read-only).
+- **Status file** `.claude-flow/migrations-mod/status.json` (`{version:1, updatedMs, guard, checked, blocked, ...}`), written at session start and when counters change.
+
+Per-prompt context is deliberately not added: this plugin has nothing worth attaching to every prompt.
+
+| Option | Default | Effect |
+|---|---|---|
+| `guard` | `on` | refuse the calls above |
+
+Test: `claude plugin validate plugins/ruflo-migrations`, `claude plugin test plugins/ruflo-migrations`, `bash plugins/ruflo-migrations/scripts/smoke.sh`.

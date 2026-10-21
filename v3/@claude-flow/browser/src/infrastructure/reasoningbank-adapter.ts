@@ -150,10 +150,14 @@ export class ReasoningBankAdapter {
    * Generate pattern ID from goal
    */
   private generatePatternId(goal: string): string {
-    return `pattern-${goal
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .slice(0, 50)}-${Date.now().toString(36)}`;
+    // Must be a pure function of the goal: extractPattern() merges a repeated
+    // trajectory into its existing pattern by looking this id up.
+    const normalized = goal.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < normalized.length; i++) {
+      hash = Math.imul(hash ^ normalized.charCodeAt(i), 0x01000193);
+    }
+    return `pattern-${normalized.slice(0, 50)}-${(hash >>> 0).toString(36)}`;
   }
 
   /**

@@ -254,6 +254,21 @@ describe('TopologyManager', () => {
       expect(leader).toBe('agent-1');
       expect(topology.getLeader()).toBe('agent-1');
     });
+
+    it('should connect the queen back to every worker (regression: Dream Cycle 2026-09-19)', async () => {
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+
+      const queen = topology.getNode('agent-1');
+
+      expect(queen?.connections).toContain('agent-2');
+      expect(queen?.connections).toContain('agent-3');
+      expect(topology.getNeighbors('agent-1')).toEqual(
+        expect.arrayContaining(['agent-2', 'agent-3'])
+      );
+      expect(topology.findOptimalPath('agent-1', 'agent-3')).toEqual(['agent-1', 'agent-3']);
+    });
   });
 
   describe('Centralized Topology', () => {
@@ -289,6 +304,20 @@ describe('TopologyManager', () => {
       const leader = await topology.electLeader();
 
       expect(leader).toBe('agent-1');
+    });
+
+    it('should connect the coordinator back to every worker (regression: Dream Cycle 2026-09-19)', async () => {
+      await topology.addNode('agent-1', 'coordinator');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+
+      const coordinator = topology.getNode('agent-1');
+
+      expect(coordinator?.connections).toContain('agent-2');
+      expect(coordinator?.connections).toContain('agent-3');
+      expect(topology.getNeighbors('agent-1')).toEqual(
+        expect.arrayContaining(['agent-2', 'agent-3'])
+      );
     });
   });
 
@@ -326,6 +355,18 @@ describe('TopologyManager', () => {
       expect(queen?.connections.length).toBeGreaterThanOrEqual(0);
       expect(coord?.connections.length).toBeGreaterThanOrEqual(0);
     });
+
+    it('should connect leaders back to workers/peers immediately on add (regression: Dream Cycle 2026-09-19)', async () => {
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'coordinator');
+      await topology.addNode('agent-3', 'peer');
+
+      const queen = topology.getNode('agent-1');
+      const coord = topology.getNode('agent-2');
+
+      expect(queen?.connections).toContain('agent-3');
+      expect(coord?.connections).toContain('agent-3');
+    });
   });
 
   describe('Leader Election', () => {
@@ -357,6 +398,62 @@ describe('TopologyManager', () => {
       // Should elect new leader
       const newLeader = await topology.electLeader();
       expect(newLeader).toBeDefined();
+    });
+
+    it('should promote a replacement queen after the queen dies (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'hierarchical', maxAgents: 5, failoverEnabled: true });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+      await topology.electLeader();
+      expect(topology.getLeader()).toBe('agent-1');
+
+      // Dies while it is the current leader -> removeNode() re-elects internally.
+      await topology.removeNode('agent-1');
+
+      expect(topology.getQueen()).toBeDefined();
+      expect(topology.getQueen()?.agentId).toBe(topology.getLeader());
+      expect(topology.getNode(topology.getLeader()!)?.role).toBe('queen');
+
+      // A subsequent explicit electLeader() call must keep using the O(1)
+      // cached queen, not fall through to the generic ranking again.
+      const reElected = await topology.electLeader();
+      expect(reElected).toBe(topology.getLeader());
+    });
+
+    it('should promote a replacement coordinator after the coordinator dies (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'centralized', maxAgents: 5, failoverEnabled: true });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'coordinator');
+      await topology.addNode('agent-2', 'worker');
+      await topology.addNode('agent-3', 'worker');
+      await topology.electLeader();
+      expect(topology.getLeader()).toBe('agent-1');
+
+      await topology.removeNode('agent-1');
+
+      expect(topology.getCoordinator()).toBeDefined();
+      expect(topology.getCoordinator()?.agentId).toBe(topology.getLeader());
+      expect(topology.getNode(topology.getLeader()!)?.role).toBe('coordinator');
+    });
+
+    it('should NOT auto-promote a replacement when failoverEnabled is false (regression: Dream Cycle 2026-10-19)', async () => {
+      topology = createTopologyManager({ type: 'hierarchical', maxAgents: 5, failoverEnabled: false });
+      await topology.initialize();
+
+      await topology.addNode('agent-1', 'queen');
+      await topology.addNode('agent-2', 'worker');
+      await topology.electLeader();
+
+      await topology.removeNode('agent-1');
+
+      expect(topology.getQueen()).toBeUndefined();
+      // Falls through to the generic ranking path (unchanged pre-existing behavior).
+      expect(topology.getLeader()).toBe('agent-2');
+      expect(topology.getNode('agent-2')?.role).toBe('worker');
     });
 
     it('should throw error when no nodes available', async () => {

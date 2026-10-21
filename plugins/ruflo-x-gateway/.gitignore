@@ -1,4 +1,3 @@
 node_modules/
 *.key
-package-lock.json
 /data/
