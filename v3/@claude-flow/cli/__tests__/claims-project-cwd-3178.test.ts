@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { claimsTools } from '../src/mcp-tools/claims-tools.js';
+import { ClaimService } from '../src/services/claim-service.js';
 
 describe('claims persistence uses the effective project cwd (#3178)', () => {
   let originalCwd: string;
@@ -81,6 +82,24 @@ describe('claims persistence uses the effective project cwd (#3178)', () => {
     expect(await call('claims_load', { agentId: 'coder-2' })).toMatchObject({ totalClaims: 1 });
     expect(readStore(project).claims['3178'].claimant.agentId).toBe('coder-2');
     expect(await call('claims_stealable')).toMatchObject({ count: 0 });
+  });
+
+  it('shares the current CLI/MCP store from nested directories', async () => {
+    const owner = { type: 'agent' as const, agentId: 'cli-worker', agentType: 'coder' };
+    const cli = new ClaimService(project);
+    await cli.initialize();
+    await cli.claim('cli-claim', owner);
+
+    expect(await claim('cli-claim')).toMatchObject({ success: false });
+    process.chdir(secondCwd);
+    expect(await claim('mcp-claim')).toMatchObject({ success: true });
+
+    const reopened = new ClaimService(project);
+    await reopened.initialize();
+    expect((await reopened.getAllClaims()).map(item => item.issueId).sort())
+      .toEqual(['cli-claim', 'mcp-claim']);
+    expect(existsSync(join(firstCwd, '.claude-flow'))).toBe(false);
+    expect(existsSync(join(secondCwd, '.claude-flow'))).toBe(false);
   });
 
   it.each([undefined, '/', process.env.HOME])('preserves cwd fallback for CLAUDE_FLOW_CWD=%s', async value => {

@@ -4,11 +4,11 @@ Companion reference for `cost-analyst`. The agent prompt deliberately stays lean
 
 ## Model pricing (USD per 1M tokens)
 
-| Model | Input | Output | Cache write | Cache read |
-|---|---|---|---|---|
-| Haiku | $0.25 | $1.25 | $0.30 | $0.03 |
-| Sonnet | $3.00 | $15.00 | $3.75 | $0.30 |
-| Opus | $15.00 | $75.00 | $18.75 | $1.50 |
+| Model | Input | Output | Cache write (5m) | Cache read |
+|-------|-------|--------|-------------|------------|
+| Haiku 4.5 | $1.00 | $5.00 | $1.25 | $0.10 |
+| Sonnet 5.5 | $2.00 | $10.00 | $2.50 | $0.20 |
+| Opus 5.5 | $4.00 | $20.00 | $5.00 | $0.20 |
 
 Prices are public-list and may need a refresh — verify against the Anthropic pricing page when running quarterly cost reports.
 

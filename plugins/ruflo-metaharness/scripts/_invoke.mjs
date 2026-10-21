@@ -21,9 +21,16 @@
 //                             invalidate stale caches automatically
 //   - findLocalPackageDir()   walk-up node_modules resolution so an already
 //                             installed optionalDependency is used for free
+//   - resolvePackageBin()     realpath'd bin-map entry of a resolved package
+//                             (#3366 — lets _darwin/_redblue run the installed
+//                             copy instead of npx / a cache install)
 //   - importOptionalLibrary() bare-import → cached-install fallback for
 //                             library entries (gepa) — never throws on absence
 //   - makeDegradedEmitter()   the ADR-150 rule-#3 exit-0 degraded payload
+//   - runRufloCli()           `memory store|list|retrieve` through the ruflo CLI
+//                             that ships this plugin (#3366), else an installed
+//                             `ruflo` / `claude-flow` on PATH (#3558) — replaces
+//                             `npx @claude-flow/cli@latest` in 4 scripts
 //
 // WHAT DOES NOT LIVE HERE (the per-consumer parts):
 //   - _redblue's node-direct isMain workaround rationale
@@ -34,11 +41,16 @@
 // stays meaningful on machines with a warm cache / local install):
 //   - RUFLO_METAHARNESS_CACHE_BASE   overrides ~/.ruflo as the cache root
 //   - RUFLO_METAHARNESS_SKIP_LOCAL=1 disables local node_modules resolution
+//   - RUFLO_PLUGIN_SKIP_LOCAL_CLI=1  resolveRufloCli() skips the shipping CLI /
+//                                    repo checkout (#3558; same name in
+//                                    ruflo-cost-tracker and ruflo-adr)
+//   - RUFLO_PLUGIN_SKIP_PATH_CLI=1   resolveRufloCli() skips `ruflo` /
+//                                    `claude-flow` on PATH (#3558)
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const INSTALL_TIMEOUT_MS = 180_000; // npm install can be slow on cold cache
@@ -102,11 +114,22 @@ export function satisfiesTildeRange(version, pinVersion) {
  * user's ruflo install shipped with). Returns the package dir or null.
  * When `pinVersion` is given, only a copy satisfying the pin is accepted —
  * a stale major/minor in an ancestor node_modules is skipped, not used.
+ *
+ * `{ fromCwd: false }` (#3366) searches ONLY the ruflo install that owns this
+ * plugin. The $CWD walk reaches every ancestor of the tool's working
+ * directory, i.e. directories the user's project — or anything above it —
+ * controls. That is tolerable for the pre-existing `metaharness` lookup,
+ * which this PR does not change, but the two lookups added here (_darwin,
+ * _redblue) END IN A SPAWN of the package's bin with MCP-supplied argv, so
+ * they stay inside ruflo's own tree and fall back to the pinned cache
+ * install instead.
  */
-export function findLocalPackageDir(pkg, pinVersion) {
+export function findLocalPackageDir(pkg, pinVersion, { fromCwd = true } = {}) {
   if (process.env.RUFLO_METAHARNESS_SKIP_LOCAL === '1') return null;
   const segments = pkg.split('/');
-  const starts = [dirname(fileURLToPath(import.meta.url)), process.cwd()];
+  const starts = fromCwd
+    ? [dirname(fileURLToPath(import.meta.url)), process.cwd()]
+    : [dirname(fileURLToPath(import.meta.url))];
   const seen = new Set();
   for (const start of starts) {
     let dir = start;
@@ -132,16 +155,50 @@ export function findLocalPackageDir(pkg, pinVersion) {
 }
 
 /**
+ * Absolute path of `binName` from the package.json `bin` map of an already
+ * resolved package dir (findLocalPackageDir / ensureCachedInstall), or null.
+ * Read from the bin map rather than hardcoded, same as _harness.mjs.
+ *
+ * REALPATH'd on purpose (#3366): pnpm and other symlinked layouts hand us a
+ * symlinked package dir, and @metaharness/redblue's CLI only dispatches when
+ * `import.meta.url === file://${process.argv[1]}` (see _redblue.mjs) — Node
+ * reports import.meta.url as the REAL path, so argv[1] has to be one too or
+ * the CLI exits 0 having done nothing.
+ */
+export function resolvePackageBin(pkgDir, binName) {
+  const rel = packageBinRelPath(pkgDir, binName);
+  if (!rel) return null;
+  try {
+    const abs = join(pkgDir, rel);
+    return existsSync(abs) ? realpathSync(abs) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The package.json `bin` entry for `binName`, as declared (relative), or null. */
+export function packageBinRelPath(pkgDir, binName) {
+  try {
+    const pj = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf-8'));
+    const rel = typeof pj.bin === 'string' ? pj.bin : pj.bin?.[binName];
+    return rel || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * One-time versioned cache install of a PINNED range. Generalizes
  * gepa.mjs:98-121 / _redblue.mjs:72-102. The cache dir is
  * `<base>/<shortname>-cache-<pin-digits>` (e.g. redblue-cache-0.1.4,
- * darwin-cache-0.8.0, metaharness-cache-0.3.0) so existing caches created
+ * darwin-cache-0.10.2, metaharness-cache-0.4.1) so existing caches created
  * by the pre-consolidation helpers remain valid, and bumping the pin
- * invalidates stale installs automatically.
+ * invalidates stale installs automatically (the pre-bump darwin-cache-0.8.0
+ * and metaharness-cache-0.3.0 dirs are simply no longer selected).
  *
  * @param {object} spec
  * @param {string} spec.pkg          npm package name (may be scoped)
- * @param {string} spec.pinVersion   tilde range, e.g. '~0.3.0'
+ * @param {string} spec.pinVersion   tilde range, e.g. '~0.4.1'
  * @param {string} [spec.cliRelPath] path inside the package that must exist
  *                                   post-install (also returned as cliPath)
  * @param {number} [spec.timeoutMs]  install timeout (default 180s)
@@ -227,4 +284,134 @@ export function makeDegradedEmitter(pkg, pinVersion) {
     console.log(JSON.stringify(payload, null, 2));
     process.exit(0);
   };
+}
+
+// ---------------------------------------------------------------------------
+// The ruflo CLI that ships this plugin (#3366)
+// ---------------------------------------------------------------------------
+// audit-list / audit-trend / oia-audit / similarity read and write the
+// `metaharness-audit` memory namespace through the ruflo CLI. They used to
+// spawn `npx @claude-flow/cli@latest memory …`, which on every call:
+//   - resolved `latest` through the npm registry (the "metadata check on
+//     EVERY call" _harness.mjs removed for its own npx path); without registry
+//     access it fails, so oia_audit reports `persisted: false` and audit_list
+//     silently reports 0 records;
+//   - could run a DIFFERENT @claude-flow/cli than the one that spawned the
+//     tool (npx cache vs registry skew — #3306), i.e. another memory backend /
+//     schema than the MCP server's own memory_* tools see;
+//   - cold-fetched the whole CLI when the npx cache was empty (#3145, #3154).
+// The plugin is published INSIDE @claude-flow/cli
+// (<cli>/plugins/ruflo-metaharness/scripts — see prepare-publish.mjs), and the
+// MCP server / `ruflo metaharness` dispatcher locate it by walking up from
+// their own dist/, so the owning CLI is two directories above this plugin.
+// It is run with process.execPath + bin/cli.js (the mcp-launch.cjs /
+// daemon-autostart.ts pattern). A candidate only counts when dist/src/index.js
+// exists next to bin/cli.js — mcp-launch.cjs resolveLocalCliBin()'s guard
+// against an unbuilt checkout — AND its package.json is named
+// @claude-flow/cli, a check added here so an unrelated directory two levels up
+// can never qualify.
+// #3558: a Claude Code marketplace install copies the plugin to
+// ~/.claude/plugins/cache/<marketplace>/ruflo-metaharness/<version>/, where
+// neither candidate exists, so every memory call still went to npx @latest on
+// a machine with ruflo installed. A `ruflo`, then `claude-flow`, found on
+// PATH (ruflo-core ruflo-hook.cjs's order) is now tried before npx.
+// Unchanged:
+//   - CLI_CORE=1 still opts into `npx @claude-flow/cli-core@alpha` (ADR-100);
+//   - no usable local CLI and no ruflo on PATH still falls back to
+//     `npx @claude-flow/cli@latest`.
+const PLUGIN_SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
+
+/** Case-insensitive env lookup — Windows env keys are not case-stable (`Path`). */
+function envValue(env, name) {
+  const key = Object.keys(env).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key ? env[key] : undefined;
+}
+
+/**
+ * npm's Windows shim (`<prefix>/ruflo.cmd`, or `node_modules/.bin/ruflo.cmd`)
+ * cannot be spawned without a shell (CVE-2024-27980), so map it to the entry
+ * it wraps: the package's own `bin` field, which must resolve inside the
+ * package — ruflo-core's resolveNpmShim(). null when it is not such a shim.
+ */
+function npmShimEntry(shim, name) {
+  try {
+    const shimDir = dirname(shim);
+    const pkgDir = basename(shimDir).toLowerCase() === '.bin'
+      ? join(shimDir, '..', name)
+      : join(shimDir, 'node_modules', name);
+    const pj = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf-8'));
+    const declared = typeof pj.bin === 'string' ? pj.bin : pj.bin?.[name];
+    if (typeof declared !== 'string') return null;
+    const entry = realpathSync(join(pkgDir, declared));
+    const rel = relative(realpathSync(pkgDir), entry);
+    if (rel === '..' || rel.startsWith('..' + sep) || isAbsolute(rel) || !statSync(entry).isFile()) return null;
+    return entry;
+  } catch { return null; }
+}
+
+/**
+ * `ruflo`, then `claude-flow`, on PATH → `{ command, args, shell, source }`,
+ * else null. fs-only like ruflo-core's resolveCommandPath(): no `which` /
+ * `where` shell per call. Relative PATH entries (including the empty one) are
+ * skipped so a `ruflo` file inside the project being worked on is never run.
+ * On win32 only an npm shim that maps to its JS entry counts; anything else
+ * is skipped rather than run through cmd.exe. `env` / `platform` are
+ * parameters so the win32 branch is testable on POSIX.
+ */
+export function findRufloOnPath(env = process.env, platform = process.platform) {
+  const dirs = (envValue(env, 'PATH') || '')
+    .split(platform === 'win32' ? ';' : delimiter)
+    .filter((d) => isAbsolute(d));
+  for (const name of ['ruflo', 'claude-flow']) {
+    for (const dir of dirs) {
+      if (platform === 'win32') {
+        const shim = join(dir, `${name}.cmd`);
+        const entry = existsSync(shim) ? npmShimEntry(shim, name) : null;
+        if (entry) return { command: process.execPath, args: [entry], shell: false, source: 'path' };
+        continue;
+      }
+      const file = join(dir, name);
+      try {
+        accessSync(file, constants.X_OK);
+        if (statSync(file).isFile()) return { command: file, args: [], shell: false, source: 'path' };
+      } catch { /* keep searching */ }
+    }
+  }
+  return null;
+}
+
+let RUFLO_CLI = null;
+/** `{ command, args, shell, source }` for invoking the ruflo CLI. Memoized. */
+export function resolveRufloCli() {
+  if (RUFLO_CLI) return RUFLO_CLI;
+  if (process.env.CLI_CORE === '1') {
+    return (RUFLO_CLI = { command: 'npx', args: ['@claude-flow/cli-core@alpha'], shell: process.platform === 'win32', source: 'npx-cli-core' });
+  }
+  const candidates = process.env.RUFLO_PLUGIN_SKIP_LOCAL_CLI === '1' ? [] : [
+    join(PLUGIN_SCRIPTS_DIR, '..', '..', '..'),                              // published: <cli>/plugins/ruflo-metaharness/scripts
+    join(PLUGIN_SCRIPTS_DIR, '..', '..', '..', 'v3', '@claude-flow', 'cli'), // repo checkout / marketplace clone
+  ];
+  for (const dir of candidates) {
+    try {
+      const bin = join(dir, 'bin', 'cli.js');
+      const pj = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf-8'));
+      if (pj.name === '@claude-flow/cli' && existsSync(bin) && existsSync(join(dir, 'dist', 'src', 'index.js'))) {
+        return (RUFLO_CLI = { command: process.execPath, args: [bin], shell: false, source: 'local' });
+      }
+    } catch { /* not this layout — try the next */ }
+  }
+  const onPath = process.env.RUFLO_PLUGIN_SKIP_PATH_CLI === '1' ? null : findRufloOnPath();
+  if (onPath) return (RUFLO_CLI = onPath);
+  return (RUFLO_CLI = { command: 'npx', args: ['@claude-flow/cli@latest'], shell: process.platform === 'win32', source: 'npx' });
+}
+
+/** spawnSync the ruflo CLI with `args` (e.g. ['memory', 'list', …]); same result shape as before. */
+export function runRufloCli(args, opts = {}) {
+  const cli = resolveRufloCli();
+  return spawnSync(cli.command, [...cli.args, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf-8',
+    shell: cli.shell,
+    ...opts,
+  });
 }

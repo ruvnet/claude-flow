@@ -1,0 +1,40 @@
+{
+  "name": "ruflo-ai-team",
+  "description": "Give Claude a tenant-isolated AI team that divides work, coordinates progress, recalls approved context, and returns evidence-backed results.",
+  "version": "0.3.2",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://team.ruv.io",
+  "privacyPolicyUrl": "https://team.ruv.io/privacy",
+  "supportUrl": "https://team.ruv.io/support",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/main/plugins/ruflo-ai-team",
+  "termsOfServiceUrl": "https://team.ruv.io/terms",
+  "icon": ".claude-plugin/icon.svg",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "ai-team",
+    "multi-agent",
+    "automation",
+    "ruvector",
+    "mcp",
+    "mod",
+    "function-hooks"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "AI Team guard",
+      "description": "Refuse what goes into team memory and task or run records (memory_remember, task_create, task_update, run_create on the ruflo-ai-team server) that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

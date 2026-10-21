@@ -203,6 +203,25 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
         this.state.leader = queen.agentId;
         return queen.agentId;
       }
+
+      // Dream Cycle 2026-10-19 (swarm): the cached queenNode is nulled by
+      // removeFromRoleIndex() when the queen dies (see removeNode()), but
+      // nothing ever repopulated it — this fell straight through to the
+      // generic mesh-style ranking below, which sets state.leader to some
+      // node's agentId without ever promoting that node's `.role` or
+      // re-caching queenNode/coordinatorNode. Every hierarchical/centralized
+      // swarm therefore silently lost its "queen controls workers directly"
+      // guarantee (CLAUDE.md) after exactly one queen death, even though
+      // `failoverEnabled` (default true) documents the opposite. Promote a
+      // replacement here, gated on that same flag.
+      if (this.config.failoverEnabled) {
+        const promoted = this.promoteToRole('queen');
+        if (promoted) {
+          this.state.leader = promoted.agentId;
+          this.emit('leader.elected', { leaderId: promoted.agentId });
+          return promoted.agentId;
+        }
+      }
     }
 
     // For centralized topology, the coordinator is the leader (O(1) lookup)
@@ -211,6 +230,16 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
       if (coordinator) {
         this.state.leader = coordinator.agentId;
         return coordinator.agentId;
+      }
+
+      // Same failover gap as the hierarchical branch above.
+      if (this.config.failoverEnabled) {
+        const promoted = this.promoteToRole('coordinator');
+        if (promoted) {
+          this.state.leader = promoted.agentId;
+          this.emit('leader.elected', { leaderId: promoted.agentId });
+          return promoted.agentId;
+        }
       }
     }
 
@@ -368,11 +397,27 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
 
   private async createEdgesForNode(node: TopologyNode): Promise<void> {
     for (const connectionId of node.connections) {
+      // Dream Cycle 2026-09-19 (swarm): mirror the edge onto the counterpart
+      // whenever it already exists in the topology, not only for `mesh`.
+      // For hierarchical/centralized/hybrid, a new worker's initial
+      // connections already point at the queen/coordinator (see
+      // calculateInitialConnections), so `bidirectional` gated on
+      // `type === 'mesh'` alone left the queen/coordinator's own
+      // `connections`/adjacencyList permanently missing every worker —
+      // shouldRebalance() has no non-mesh logic to repair it later, and
+      // even an explicit rebalance*() call can't: each one's own "connect
+      // worker to leader" guard checks the worker's (already-populated)
+      // connections instead of the leader's, so it never re-triggers.
+      // Net effect before this fix: getNeighbors(queenId) and
+      // findOptimalPath(queenId, workerId) were always empty for every
+      // hierarchical/centralized/hybrid swarm, in steady-state operation,
+      // not just transiently stale.
+      const bidirectional = this.config.type === 'mesh' || this.nodeIndex.has(connectionId);
       const edge: TopologyEdge = {
         from: node.agentId,
         to: connectionId,
         weight: 1,
-        bidirectional: this.config.type === 'mesh',
+        bidirectional,
         latencyMs: 0,
       };
 
@@ -537,6 +582,16 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
         worker.connections.push(target.agentId);
         currentWorkerConnections.push(target.agentId);
         this.adjacencyList.get(worker.agentId)?.add(target.agentId);
+
+        // Dream Cycle 2026-08-29 (swarm): mirror the edge onto the target so
+        // the worker-mesh graph stays symmetric, matching every other
+        // rebalance*() method (and this same function's coordinator loop
+        // below) — without this, the mesh silently degrades into a random
+        // directed graph instead of the undirected mesh it's meant to be.
+        if (!target.connections.includes(worker.agentId)) {
+          target.connections.push(worker.agentId);
+        }
+        this.adjacencyList.get(target.agentId)?.add(worker.agentId);
       }
     }
 
@@ -593,6 +648,32 @@ export class TopologyManager extends EventEmitter implements ITopologyManager {
     } else if (node.role === 'coordinator' && this.coordinatorNode?.agentId === node.agentId) {
       this.coordinatorNode = null;
     }
+  }
+
+  /**
+   * Promote the best remaining active node into a vacated queen/coordinator
+   * role after a failover, re-caching it via the existing role index so
+   * subsequent O(1) lookups (getQueen/getCoordinator, electLeader) see it.
+   *
+   * KNOWN LIMITATION (disclosed by adversarial critique, not fixed here):
+   * this only promotes `.role` + the cache, not `.connections`/adjacencyList.
+   * With the default `autoRebalance: true`, removeNode()'s trailing
+   * rebalance() call rewires the promoted node's edges immediately
+   * afterward, so the gap is self-healing. With `autoRebalance: false`,
+   * the promoted node keeps its stale pre-promotion edges until something
+   * calls rebalance()/addNode() manually.
+   */
+  private promoteToRole(role: 'queen' | 'coordinator'): TopologyNode | undefined {
+    const candidate = this.state.nodes.find(n => n.status === 'active' && n.role !== role);
+    if (!candidate) {
+      return undefined;
+    }
+
+    this.removeFromRoleIndex(candidate);
+    candidate.role = role;
+    this.addToRoleIndex(candidate);
+
+    return candidate;
   }
 
   /**

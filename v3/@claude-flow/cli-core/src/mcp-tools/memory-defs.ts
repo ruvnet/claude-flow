@@ -65,7 +65,7 @@ export const memoryToolDefs: MCPToolDef[] = [
   {
     name: 'memory_search',
     description:
-      'Find stored memories by meaning (vector similarity), not by literal text — finds "JWT auth pattern" when you query "token-based login flow". Use when native Grep is wrong because Grep matches characters and you need to find conceptually-related entries across past sessions. Backed by HNSW index over ONNX embeddings (heavy backend) or substring fallback (lite cli-core JSON backend); returns top-k with similarity scores.',
+      'Find stored memories by meaning (vector similarity), not by literal text — finds "JWT auth pattern" when you query "token-based login flow". Use when native Grep is wrong because Grep matches characters and you need to find conceptually-related entries across past sessions. Heavy retrieval or lite substring fallback returns similarity as raw retrieval relevance, not guaranteed cosine similarity. With smart=true on the heavy backend, similarity is the highest raw score across query variants and rankingScore is composite ranking relevance, not cosine similarity, probability, or confidence. Diversity can change result order.',
     category: 'memory',
     inputSchema: {
       type: 'object',
@@ -73,8 +73,8 @@ export const memoryToolDefs: MCPToolDef[] = [
         query: { type: 'string', description: 'Search query (semantic similarity)' },
         namespace: { type: 'string', description: 'Namespace to search (default: "default")' },
         limit: { type: 'number', description: 'Maximum results (default: 10)' },
-        threshold: { type: 'number', description: 'Minimum similarity threshold 0-1 (default: 0.3)' },
-        smart: { type: 'boolean', description: 'Enable SmartRetrieval pipeline — query expansion, RRF fusion, recency boost, MMR diversity (default: false). No-op in cli-core lite backend.' },
+        threshold: { type: 'number', description: 'Minimum raw retrieval relevance 0-1 for candidate admission, applied per query before SmartRetrieval ranking; not a floor on rankingScore (default: 0.3)' },
+        smart: { type: 'boolean', description: 'Enable SmartRetrieval — query expansion, RRF fusion, recency boost, MMR diversity; preserves raw similarity and adds rankingScore (default: false). No-op in cli-core lite backend.' },
         provenance_filter: {
           type: 'array',
           items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },

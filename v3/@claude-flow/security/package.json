@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/security",
-  "version": "3.0.0-alpha.14",
+  "version": "3.0.5",
   "type": "module",
   "description": "Security module - CVE fixes, input validation, path security",
   "main": "dist/index.js",
@@ -19,6 +19,7 @@
     "benchmark:product-plane": "npm run build && node scripts/benchmark-product-plane.mjs",
     "test:oauth-surface": "vitest run __tests__/oauth-export-surface.test.ts __tests__/oauth-pkce.test.ts __tests__/oauth-browser.test.ts",
     "build": "tsc && node scripts/verify-oauth-exports.mjs",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build && npm run test:oauth-surface"
   },
   "dependencies": {
@@ -33,7 +34,6 @@
     "vitest": "^4.1.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

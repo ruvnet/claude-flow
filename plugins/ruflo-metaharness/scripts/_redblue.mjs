@@ -32,6 +32,16 @@
 // (file separately — when fixed, we could go back to a bin-shim pattern,
 // though the node-direct cached path is now the family-wide standard anyway).
 //
+// INSTALLED COPY FIRST (#3366): an @metaharness/redblue already on disk that
+// satisfies the pin (a ruflo 3.42.4 install carries 0.1.4, via metaharness /
+// ruvector) is used before the cache install, same order as _harness.mjs /
+// _darwin.mjs. Previously the first call always ran `npm install` into the
+// cache even with that copy present.
+// Whichever copy is chosen, its CLI path is realpath'd
+// (_invoke.resolvePackageBin / realpathSync): a pnpm-symlinked package dir,
+// or a cache base under a symlink such as macOS /tmp -> /private/tmp, would
+// otherwise hit the same isMain mismatch described above.
+//
 // CONTRACT (matches runMetaharness/runDarwin):
 //   - returns `{ stdout, stderr, exitCode, durationMs, degraded, reason? }`
 //   - subprocess hard timeout (default 120s; --mock-judge runs are seconds)
@@ -47,12 +57,15 @@
 //   $OPENROUTER_API_KEY which we never inject.
 
 import { spawnSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   classifyDegraded,
   ensureCachedInstall,
+  findLocalPackageDir,
   makeDegradedEmitter,
+  resolvePackageBin,
 } from './_invoke.mjs';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -80,8 +93,15 @@ export function runRedblue(args, opts = {}) {
   const start = Date.now();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  // 1. Ensure redblue is installed in our cache dir (one-time install).
-  const install = ensureCachedInstall({
+  // 0. An installed copy satisfying the pin — free, no npm (#3366).
+  //    fromCwd:false: the resolved bin is SPAWNED with argv that comes from
+  //    MCP input, so only ruflo's own tree is searched, never the tool's cwd
+  //    or its ancestors (see findLocalPackageDir in _invoke.mjs).
+  const localDir = findLocalPackageDir(REDBLUE_PKG, REDBLUE_PIN_VERSION, { fromCwd: false });
+  const localCli = localDir ? resolvePackageBin(localDir, 'redblue') : null;
+
+  // 1. Otherwise ensure redblue is installed in our cache dir (one-time install).
+  const install = localCli ? { ok: true, cliPath: localCli } : ensureCachedInstall({
     pkg: REDBLUE_PKG,
     pinVersion: REDBLUE_PIN_VERSION,
     cliRelPath: CLI_REL_PATH,
@@ -99,15 +119,22 @@ export function runRedblue(args, opts = {}) {
     };
   }
 
-  // 2. Invoke `node <real-path-to-cli> <args>` so upstream's isMain check
-  //    succeeds (argv[1] matches import.meta.url).
-  const r = spawnSync('node', [install.cliPath, ...args], {
+  // 2. Invoke `<this node> <real-path-to-cli> <args>` so upstream's isMain
+  //    check succeeds (argv[1] matches import.meta.url) — realpath'd, see
+  //    header. process.execPath + shell:false, like _darwin/_harness: the
+  //    argv carries MCP-supplied values (--config / --out / --in), and with
+  //    shell:true on win32 Node hands cmd.exe one unquoted string, so a value
+  //    such as `x.yaml & whoami` would run as a command (and a path with a
+  //    space — `C:\Program Files\…` — would break). node needs no shell.
+  let cliPath = install.cliPath;
+  try { cliPath = realpathSync(cliPath); } catch { /* missing — node's MODULE_NOT_FOUND → degraded below */ }
+  const r = spawnSync(process.execPath, [cliPath, ...args], {
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf-8',
     timeout: timeoutMs,
     cwd: opts.cwd,
     env: { ...process.env, ...(opts.env || {}) },
-    shell: process.platform === 'win32',
+    shell: false,
   });
   const durationMs = Date.now() - start;
   const stdout = r.stdout || '';

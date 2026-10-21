@@ -210,11 +210,19 @@ const DEFAULT_EF_CONSTRUCTION = 200;
 const DEFAULT_MAX_ELEMENTS = 100000;
 const DEFAULT_PERSIST_INTERVAL = 30000;
 
+/**
+ * Pure-TS RVF backend: entries live in memory and persist to a single
+ * `RVF\0` snapshot file at `databasePath`, with `HnswLite` for search.
+ *
+ * There is deliberately no `@ruvector/rvf` native path (#4279). The SDK is a
+ * vector index (u64 ids, `{id, distance}` results, no payloads), so it cannot
+ * hold `MemoryEntry` records, and a native store opened at `databasePath`
+ * would compete with the snapshot for the same file.
+ */
 export class RvfBackend implements IMemoryBackend {
   private entries = new Map<string, MemoryEntry>();
   private keyIndex = new Map<string, string>();
   private hnswIndex: HnswLite | null = null;
-  private nativeDb: any = null;
   private config: Required<RvfBackendConfig>;
   private initialized = false;
   private dirty = false;
@@ -246,16 +254,13 @@ export class RvfBackend implements IMemoryBackend {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    const useNative = await this.tryNativeInit();
-    if (!useNative) {
-      this.hnswIndex = new HnswLite(
-        this.config.dimensions,
-        this.config.hnswM,
-        this.config.hnswEfConstruction,
-        this.config.metric,
-      );
-      await this.loadFromDisk();
-    }
+    this.hnswIndex = new HnswLite(
+      this.config.dimensions,
+      this.config.hnswM,
+      this.config.hnswEfConstruction,
+      this.config.metric,
+    );
+    await this.loadFromDisk();
 
     if (this.config.autoPersistInterval > 0 && this.config.databasePath !== ':memory:') {
       this.persistTimer = setInterval(() => {
@@ -266,8 +271,7 @@ export class RvfBackend implements IMemoryBackend {
 
     this.initialized = true;
     if (this.config.verbose) {
-      const mode = this.nativeDb ? 'native @ruvector/rvf' : 'pure-TS fallback';
-      console.log(`[RvfBackend] Initialized (${mode}), ${this.entries.size} entries loaded`);
+      console.log(`[RvfBackend] Initialized, ${this.entries.size} entries loaded`);
     }
   }
 
@@ -281,11 +285,6 @@ export class RvfBackend implements IMemoryBackend {
 
     if (this.dirty) {
       await this.persistToDisk();
-    }
-
-    if (this.nativeDb) {
-      try { await this.nativeDb.close(); } catch {}
-      this.nativeDb = null;
     }
 
     this.entries.clear();
@@ -491,10 +490,6 @@ export class RvfBackend implements IMemoryBackend {
     const recommendations: string[] = [];
 
     if (!this.initialized) issues.push('Backend not initialized');
-    if (!this.hnswIndex && !this.nativeDb) {
-      issues.push('No vector index available');
-      recommendations.push('Install @ruvector/rvf for native HNSW performance');
-    }
 
     const status = issues.length === 0
       ? 'healthy'
@@ -504,38 +499,13 @@ export class RvfBackend implements IMemoryBackend {
       status,
       components: {
         storage: { status: this.initialized ? 'healthy' : 'unhealthy', latency: 0 },
-        index: { status: this.hnswIndex || this.nativeDb ? 'healthy' : 'degraded', latency: 0 },
+        index: { status: this.hnswIndex ? 'healthy' : 'degraded', latency: 0 },
         cache: { status: 'healthy', latency: 0 },
       },
       timestamp: Date.now(),
       issues,
       recommendations,
     };
-  }
-
-  private async tryNativeInit(): Promise<boolean> {
-    try {
-      const rvf = await import('@ruvector/rvf' as string);
-      this.nativeDb = new rvf.RvfDatabase({
-        path: this.config.databasePath,
-        dimensions: this.config.dimensions,
-        metric: this.config.metric,
-        quantization: this.config.quantization,
-        hnswM: this.config.hnswM,
-        hnswEfConstruction: this.config.hnswEfConstruction,
-        maxElements: this.config.maxElements,
-      });
-      await this.nativeDb.open();
-      if (this.config.verbose) {
-        console.log('[RvfBackend] Native @ruvector/rvf loaded successfully');
-      }
-      return true;
-    } catch {
-      if (this.config.verbose) {
-        console.log('[RvfBackend] @ruvector/rvf not available, using pure-TS fallback');
-      }
-      return false;
-    }
   }
 
   private compositeKey(namespace: string, key: string): string {

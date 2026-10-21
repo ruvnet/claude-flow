@@ -1,0 +1,20 @@
+{
+  "manifest": {
+    "schema": "ruflo-witness/v1",
+    "gitCommit": "synthetic-smoke-test-fixture",
+    "fixes": [
+      {
+        "id": "test-source",
+        "desc": "Synthetic source-only strict verification fixture",
+        "file": "source.js",
+        "sha256": "7efd9d12f48223fce735bfca349a8f96bcdc888d2dc8b8cfe3364cc545dd6a6e",
+        "marker": "witnessSmokeMarker"
+      }
+    ]
+  },
+  "integrity": {
+    "manifestHash": "3fdc9d312a7364e8c4a9e55f48c858f51e3289f2184bb99714ea1863a7c1b92b",
+    "publicKey": "d6b01eb8cf88be0eac71ff419ea32fc8c34de1e1790ff5c709a6fda16c71b6ac",
+    "signature": "00ca3722db547fc5eb9af57b8ade4ef082cbb4d3657bba7ea9cc1b655652daedc8f52c98425a2629767770ebc6f455069f089398be416e5df1f85f80eab99d0f"
+  }
+}

@@ -10,13 +10,22 @@
 // uses `scripts/*.mjs` for the CLI surface check, but reaches this file
 // only through the `parses cleanly` step (still valid).
 
-// USD per 1M tokens. Kept in sync with REFERENCE.md "Model pricing" table.
+// USD per 1M tokens, per tier. DERIVED from data/prices.json (see _pricebook.mjs),
+// the one dated, sourced price table; nothing here hard-codes a rate any more.
+// Each tier is the current model of that family; cache_write is the 5-minute rate.
 // Source of truth for: track.mjs (session cost computation),
-// counterfactual.mjs (multi-baseline analysis), bench.mjs (anthropic baseline).
+// counterfactual.mjs (multi-baseline analysis). The multi-provider ledger
+// (ledger.mjs) prices per model id with the 5m/1h split instead of per tier.
+import { loadBook } from './_pricebook.mjs';
+
+const tierOf = (id) => {
+  const m = loadBook().models.find((entry) => entry.id === id);
+  return { input: m.input, output: m.output, cache_write: m.cache_write_5m, cache_read: m.cache_read };
+};
 export const PRICING = {
-  haiku:  { input: 0.25,  output: 1.25,  cache_write: 0.30,  cache_read: 0.03 },
-  sonnet: { input: 3.00,  output: 15.00, cache_write: 3.75,  cache_read: 0.30 },
-  opus:   { input: 15.00, output: 75.00, cache_write: 18.75, cache_read: 1.50 },
+  haiku:  tierOf('claude-haiku-4-5'),
+  sonnet: tierOf('claude-sonnet-5-5'),
+  opus:   tierOf('claude-opus-5-5'),
 };
 
 /** Map a model id to one of `haiku | sonnet | opus | unknown`. */

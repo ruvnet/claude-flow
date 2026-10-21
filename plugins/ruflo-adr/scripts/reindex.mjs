@@ -40,7 +40,6 @@
 // primitive. Re-run this script if that ever happens; the post-condition
 // check below will tell you.
 
-import { spawnSync } from 'node:child_process';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
 import {
   CLI_PKG,
@@ -51,10 +50,12 @@ import {
   memoryStoreArgs,
   uniqueEdges,
 } from './lib/index-records.mjs';
+import { spawnCliSync } from './lib/ruflo-cli.mjs';
 
 // #2781: unify on the default CLI so the reindex writer and the default
 // `ruflo memory search` reader hit the same store. See import.mjs for the
-// full rationale.
+// full rationale. #3558: every call below prefers an installed ruflo CLI over
+// npx (lib/ruflo-cli.mjs), the same resolution import.mjs and verify.mjs use.
 if (process.env.CLI_CORE === '1') {
   console.warn(
     '[ruflo-adr] warning: CLI_CORE=1 is ignored — writing to the default ' +
@@ -69,7 +70,7 @@ const fmt = process.env.REINDEX_FORMAT || 'markdown';
 const NAMESPACES = ['adr-patterns', 'adr-edges'];
 
 function purgeNamespace(namespace) {
-  const r = spawnSync('npx', [
+  const r = spawnCliSync([
     CLI_PKG, 'memory', 'purge',
     `--namespace=${namespace}`,
     '--force',
@@ -83,8 +84,7 @@ function purgeNamespace(namespace) {
 function memoryStore(namespace, key, value) {
   // Same argv-encoding note as import.mjs: `--flag=value` avoids npm's
   // non-ASCII-leading-dash argv rejection on em-dash titles (#2474 Bug 1).
-  const r = spawnSync(
-    'npx',
+  const r = spawnCliSync(
     memoryStoreArgs(namespace, key, value),
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT },
   );
@@ -93,7 +93,7 @@ function memoryStore(namespace, key, value) {
 }
 
 function memoryListCount(namespace) {
-  const r = spawnSync('npx', [
+  const r = spawnCliSync([
     CLI_PKG, 'memory', 'list',
     '--namespace', namespace, '--format', 'json',
   ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });

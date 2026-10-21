@@ -55,5 +55,6 @@
       }
     }
   ],
-  "generatedAt": "2026-08-17T06:29:03.189Z"
+  "generatedAt": "2026-09-17T06:11:51.261Z",
+  "note": "Regenerated 2026-09-17 (Dream Cycle intelligence night) to confirm reproducibility ahead of wiring CLAUDE_FLOW_PRIOR_DECAY env override (#pending). Numbers identical to 2026-08-17 original (deterministic paired-seed RNG) — this benchmark exercises the decay math directly via constructor config, independent of tonight's env-var wiring change."
 }

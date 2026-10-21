@@ -3,18 +3,25 @@
  *
  * Two surfaces under test:
  *   1. STRUCTURAL — exposure, schema, validation. Runs regardless of agentbbs presence.
- *   2. HAPPY PATH — gated on agentbbs being importable via it.skipIf(!havePkg).
+ *   2. HAPPY PATH — gated on the `agentbbs` CLI being resolvable, via it.skipIf(!havePkg).
  *
- * The degraded path is exercised structurally: when agentbbs is missing,
- * every handler returns `{degraded: true, reason: 'agentbbs-not-found'}`
+ * The degraded path is exercised structurally: when the agentbbs CLI is
+ * missing, every handler returns `{degraded: true, reason: 'agentbbs-not-found'}`
  * matching the metaharness / agenticow / testgen contract.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 
-import { agentbbsTools } from '../src/mcp-tools/agentbbs-tools.js';
+import {
+  agentbbsTools,
+  nextSeq,
+  lastPeerHelloMs,
+  shouldEmitHello,
+  dedupEnvelopes,
+} from '../src/mcp-tools/agentbbs-tools.js';
 
 function findTool(name: string) {
   const t = agentbbsTools.find(t => t.name === name);
@@ -23,18 +30,36 @@ function findTool(name: string) {
 }
 
 // Detect agentbbs availability at module scope so it.skipIf evaluates correctly.
+// The published `agentbbs` package is a CLI-only launcher with no importable
+// JS entry point, so presence is a subprocess probe, not a module import —
+// mirrors agentbbsCliAvailable() in the tools module under test.
 let havePkg = false;
-try { await import('agentbbs'); havePkg = true; } catch { havePkg = false; }
+try {
+  // shell only on win32 — see agentbbsCliAvailable() in the module under test.
+  execFileSync(process.env.AGENTBBS_BIN || 'agentbbs', ['--version'], {
+    stdio: 'ignore',
+    timeout: 5000,
+    shell: process.platform === 'win32',
+    windowsHide: true,
+  });
+  havePkg = true;
+} catch { havePkg = false; }
 
 describe('agentbbs MCP tools — structural contract', () => {
-  it('exposes exactly 4 tools (register / publish / watch / human_join)', () => {
+  it('exposes the Phase 1 room surface plus the Phase 2 federation surface', () => {
     const names = agentbbsTools.map(t => t.name).sort();
-    expect(names).toEqual([
-      'federation_bbs_human_join',
-      'federation_bbs_publish',
-      'federation_bbs_register',
-      'federation_bbs_watch',
-    ]);
+    // Phase 1 — local room/envelope handling.
+    for (const n of ['federation_bbs_register', 'federation_bbs_publish',
+                     'federation_bbs_watch', 'federation_bbs_human_join']) {
+      expect(names).toContain(n);
+    }
+    // Phase 2 — cross-host identity, peer pinning, transport and sync.
+    for (const n of ['federation_bbs_identity', 'federation_bbs_peer_add',
+                     'federation_bbs_peers', 'federation_bbs_serve', 'federation_bbs_sync']) {
+      expect(names).toContain(n);
+    }
+    // Pinned so adding a tool is a deliberate contract change, not a slip.
+    expect(names).toHaveLength(9);
   });
 
   it('every tool has an object inputSchema with handler + ≥80-char description', () => {
@@ -179,5 +204,67 @@ describe('agentbbs MCP tools — happy path (real package)', () => {
     // Expiry must be ≤ ttlSeconds from now (within a wide margin to absorb scheduling jitter).
     expect(expiresAt - after).toBeLessThanOrEqual(120 * 1000 + 1000);
     expect(expiresAt - before).toBeGreaterThanOrEqual(120 * 1000 - 1000);
+  });
+});
+
+describe('agentbbs — dedup + seq optimizations (ADR-164, PeerHello spam fix)', () => {
+  let dir: string;
+  beforeAll(() => { dir = mkdtempSync(join(tmpdir(), 'bbs-opt-')); });
+  afterAll(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  it('shouldEmitHello: a genuinely new registration always emits', () => {
+    expect(shouldEmitHello(false, 1_000, -Infinity, 60)).toBe(true);
+  });
+
+  it('shouldEmitHello: re-register within the window is suppressed (kills the 8-hello spam)', () => {
+    // last hello 10s ago, 60s window -> suppress the retry
+    expect(shouldEmitHello(true, 60_000, 50_000, 60)).toBe(false);
+  });
+
+  it('shouldEmitHello: re-register past the window refreshes the heartbeat', () => {
+    // last hello 61s ago, 60s window -> emit a fresh heartbeat
+    expect(shouldEmitHello(true, 61_000, 0, 60)).toBe(true);
+  });
+
+  it('dedupEnvelopes: collapses duplicate envelopeIds, preserves order (first wins)', () => {
+    const out = dedupEnvelopes([
+      { envelopeId: 'a' }, { envelopeId: 'b' }, { envelopeId: 'a' }, { envelopeId: 'c' },
+    ]);
+    expect(out.map(e => e.envelopeId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('nextSeq: monotonic across 500 appends (tail-read stays exact)', () => {
+    const p = join(dir, 'room-seq.jsonl');
+    expect(nextSeq(p)).toBe(1); // no file yet
+    let seq = 0;
+    for (let i = 0; i < 500; i++) {
+      seq = nextSeq(p);
+      appendFileSync(p, JSON.stringify({ envelopeId: `e${i}`, roomId: 'r', seq, msgType: 'X', payload: {}, timestamp: new Date().toISOString() }) + '\n');
+    }
+    expect(seq).toBe(500);
+    expect(nextSeq(p)).toBe(501);
+  });
+
+  it('nextSeq: exact even when the log exceeds the tail read window (partial first line)', () => {
+    const p = join(dir, 'room-big.jsonl');
+    const pad = 'x'.repeat(2000); // ~2KB/line * 60 lines ~= 120KB > 64KB tail window
+    let seq = 0;
+    for (let i = 0; i < 60; i++) {
+      seq = nextSeq(p);
+      appendFileSync(p, JSON.stringify({ envelopeId: `e${i}`, roomId: 'r', seq, msgType: 'X', payload: { pad }, timestamp: new Date().toISOString() }) + '\n');
+    }
+    expect(seq).toBe(60);
+    expect(nextSeq(p)).toBe(61);
+  });
+
+  it('lastPeerHelloMs: most-recent PeerHello timestamp, ignoring other msgTypes', () => {
+    const p = join(dir, 'room-hello.jsonl');
+    expect(lastPeerHelloMs(p)).toBe(-Infinity); // no file
+    const t1 = '2026-09-10T00:00:00.000Z';
+    const t2 = '2026-09-10T00:05:00.000Z';
+    appendFileSync(p, JSON.stringify({ envelopeId: 'h1', roomId: 'r', seq: 1, msgType: 'PeerHello', payload: {}, timestamp: t1 }) + '\n');
+    appendFileSync(p, JSON.stringify({ envelopeId: 'x1', roomId: 'r', seq: 2, msgType: 'pod-status', payload: {}, timestamp: '2026-09-10T00:10:00.000Z' }) + '\n');
+    appendFileSync(p, JSON.stringify({ envelopeId: 'h2', roomId: 'r', seq: 3, msgType: 'PeerHello', payload: {}, timestamp: t2 }) + '\n');
+    expect(lastPeerHelloMs(p)).toBe(Date.parse(t2));
   });
 });

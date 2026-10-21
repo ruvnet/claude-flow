@@ -1,0 +1,8 @@
+{
+  "hooks_recall": "ruvector MCP server (npx ruvector), not the ruflo CLI registry",
+  "hooks_remember": "ruvector MCP server (npx ruvector), not the ruflo CLI registry",
+  "hooks_learn": "ruvector MCP server (npx ruvector), not the ruflo CLI registry",
+  "hooks_compress_store": "ruvector MCP server (npx ruvector), not the ruflo CLI registry",
+  "agent_message": "a Claude Code stream-event type the console renders, not an MCP tool",
+  "mcp_tool_call": "a Codex stream-event type the console renders, not an MCP tool"
+}

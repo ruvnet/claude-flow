@@ -1,0 +1,4 @@
+{
+  "description": "Plugin creator as a mod (ADR-445): /creator-mod answers locally (status, reserved names, a plugin contract check) and a status file the console reads.",
+  "modules": ["./register.ts"]
+}

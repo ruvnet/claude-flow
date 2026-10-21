@@ -15,10 +15,21 @@
 //   node scripts/mint.mjs --name my-harness --template vertical:coding --host claude-code --target /tmp/foo --confirm
 //     # → actually scaffolds
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runMetaharness, emitDegradedJsonAndExit } from './_harness.mjs';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { tmpdir } from 'node:os';
+
+guardCliArgs(import.meta.url, {
+  '--name': 'value',
+  '--template': 'value',
+  '--host': 'value',
+  '--target': 'value',
+  '--confirm': null,
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { name: null, template: null, host: 'claude-code', target: null, confirm: false, format: 'json' };

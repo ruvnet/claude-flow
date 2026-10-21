@@ -24,7 +24,12 @@ vi.mock('node:fs', () => {
   let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
+    readFileSync: vi.fn((p: string) => {
+      if (!memStore.has(p)) {
+        throw Object.assign(new Error(`ENOENT: no such file or directory, open '${p}'`), { code: 'ENOENT' });
+      }
+      return memStore.get(p)!;
+    }),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
     renameSync: vi.fn((from: string, to: string) => {
       memStore.set(to, memStore.get(from) || '');
@@ -57,7 +62,12 @@ vi.mock('fs', () => {
   let nextDescriptor = 3;
   return {
     existsSync: vi.fn((p: string) => memStore.has(p)),
-    readFileSync: vi.fn((p: string) => memStore.get(p) || '{}'),
+    readFileSync: vi.fn((p: string) => {
+      if (!memStore.has(p)) {
+        throw Object.assign(new Error(`ENOENT: no such file or directory, open '${p}'`), { code: 'ENOENT' });
+      }
+      return memStore.get(p)!;
+    }),
     writeFileSync: vi.fn((p: string, d: string) => memStore.set(p, d)),
     renameSync: vi.fn((from: string, to: string) => {
       memStore.set(to, memStore.get(from) || '');
@@ -187,6 +197,14 @@ vi.mock('../src/mcp-tools/auto-install.js', () => ({
   autoInstallPackage: vi.fn(async () => false),
 }));
 
+vi.mock('../src/mcp-tools/agent-execute-core.js', () => ({
+  executeAgentTask: vi.fn(async ({ prompt }: { prompt: string }) => ({
+    success: true,
+    output: `output:${prompt}`,
+    durationMs: 1,
+  })),
+}));
+
 // Mock security package
 vi.mock('@claude-flow/aidefence', () => {
   throw new Error('Cannot find package');
@@ -228,6 +246,7 @@ import { taskTools } from '../src/mcp-tools/task-tools.js';
 import { terminalTools } from '../src/mcp-tools/terminal-tools.js';
 import { transferTools } from '../src/mcp-tools/transfer-tools.js';
 import { workflowTools } from '../src/mcp-tools/workflow-tools.js';
+import { executeAgentTask } from '../src/mcp-tools/agent-execute-core.js';
 import { hooksTools } from '../src/mcp-tools/hooks-tools.js';
 
 import type { MCPTool } from '../src/mcp-tools/types.js';
@@ -749,6 +768,26 @@ describe('MCP Tools Deep Test Suite', () => {
       const result: any = await tool.handler({ name: 'test-wf', description: 'Test workflow' });
       expect(result.workflowId).toBeDefined();
       expect(result.name).toBe('test-wf');
+    });
+
+    it('binds the default step-1 output in the next task prompt', async () => {
+      const create = workflowTools.find(t => t.name === 'workflow_create')!;
+      const execute = workflowTools.find(t => t.name === 'workflow_execute')!;
+      const created: any = await create.handler({
+        name: 'step-output-binding',
+        variables: { defaultAgentId: 'test-agent' },
+        steps: [
+          { name: 'Produce', type: 'task', config: { prompt: 'first' } },
+          { name: 'Consume', type: 'task', config: { prompt: 'Use {{step-1.output}}' } },
+        ],
+      });
+
+      const priorCalls = vi.mocked(executeAgentTask).mock.calls.length;
+      const result: any = await execute.handler({ workflowId: created.workflowId });
+
+      expect(result.status).toBe('completed');
+      expect(vi.mocked(executeAgentTask).mock.calls.slice(priorCalls).map(([input]) => input.prompt))
+        .toEqual(['first', 'Use output:first']);
     });
   });
 

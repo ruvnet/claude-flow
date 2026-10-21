@@ -1,7 +1,7 @@
 {
   "name": "ruflo-loop-workers",
-  "description": "Cache-aware /loop workers and CronCreate background automation — wraps 5 hooks_worker-* MCP tools (list/dispatch/status/detect/cancel) and exposes 12 background worker triggers (ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps)",
-  "version": "0.2.1",
+  "description": "Cache-aware /loop workers and CronCreate background automation — wraps 5 hooks_worker-* MCP tools (list/dispatch/status/detect/cancel) and exposes 12 background worker triggers (ultralearn, optimize, consolidate, predict, audit, map, preload, deepdive, document, refactor, benchmark, testgaps). As a mod (ADR-445): a per-session dispatch cap, no secrets in worker context, /loop-mod, and a status file the console shows",
+  "version": "0.3.6",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,29 @@
     "mcp",
     "background-workers",
     "cache-aware",
-    "schedule-wakeup"
-  ]
+    "schedule-wakeup",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse tool calls that are clearly harmful in this plugin's domain (see README, As a mod).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "maxDispatch": {
+      "type": "number",
+      "title": "Worker dispatch cap",
+      "description": "Most hooks_worker-dispatch calls per session, 1 to 1000.",
+      "required": false,
+      "default": 100
+    }
+  }
 }

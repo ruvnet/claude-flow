@@ -26,7 +26,16 @@ interface MemoryContext {
   query: string;
   memories: Array<{ content: string; score: number }>;
   compactPrompt: string;
-  tokensSaved: number;
+  /**
+   * Tokens this compact prompt saved against the context it replaced, or
+   * `null` when the caller supplied no baseline to measure against.
+   *
+   * `null` rather than `0`: a zero is a measurement that came out empty,
+   * and callers that sum these would fold "no saving" and "no measurement"
+   * into the same number -- which is how this value came to be reported as
+   * a saving in the first place.
+   */
+  tokensSaved: number | null;
 }
 
 interface EditOptimization {
@@ -51,6 +60,12 @@ async function safeImport<T>(modulePath: string): Promise<T | null> {
 export class TokenOptimizer extends EventEmitter {
   private stats = {
     totalTokensSaved: 0,
+    /**
+     * How many `getCompactContext` calls carried a baseline. `totalTokensSaved`
+     * is the sum over exactly these, so a reader can tell an honest zero from
+     * a total that nothing was ever measured into.
+     */
+    contextsMeasured: 0,
     editsOptimized: 0,
     cacheHits: 0,
     cacheMisses: 0,
@@ -65,31 +80,25 @@ export class TokenOptimizer extends EventEmitter {
 
   async initialize(): Promise<void> {
     try {
-      // Dynamic import of agentic-flow main module
-      const af = await safeImport<any>('agentic-flow');
-
-      if (af) {
-        this.agenticFlowAvailable = true;
-
-        // Load ReasoningBank (exported path)
-        const rb = await safeImport<any>('agentic-flow/reasoningbank');
-        if (rb && rb.retrieveMemories) {
-          this.reasoningBank = rb;
-        }
-
-        // Load Agent Booster (exported path)
-        const ab = await safeImport<any>('agentic-flow/agent-booster');
-        if (ab) {
-          // Agent booster may export different API
-          this.agentBooster = ab.agentBooster || ab.AgentBooster || ab;
-        }
-
-        // Config tuning is part of main module or agent-booster
-        // Use our fallback with anti-drift defaults
-        if (af.configTuning) {
-          this.configTuning = af.configTuning;
-        }
+      // Only library subpaths: importing the agentic-flow root entry runs its
+      // CLI main() in 3.0.0-alpha.x. No published root exports configTuning,
+      // so the anti-drift defaults below are used.
+      const rb = await safeImport<any>('agentic-flow/reasoningbank');
+      if (rb && rb.retrieveMemories) {
+        this.reasoningBank = rb;
       }
+
+      const ab = await safeImport<any>('agentic-flow/agent-booster');
+      if (ab) {
+        // The real package exports a `getAgentBooster()` factory returning an
+        // instance whose prototype has `apply`/`applyBatch` (#4311) — calling
+        // `.apply` on the un-instantiated export (`ab.AgentBooster`, a class)
+        // would silently resolve to `Function.prototype.apply` instead.
+        this.agentBooster =
+          typeof ab.getAgentBooster === 'function' ? ab.getAgentBooster() : ab.agentBooster || ab.AgentBooster || ab;
+      }
+
+      this.agenticFlowAvailable = rb !== null || ab !== null;
     } catch {
       this.agenticFlowAvailable = false;
     }
@@ -104,11 +113,27 @@ export class TokenOptimizer extends EventEmitter {
 
   /**
    * Retrieve compact context instead of full file content.
-   * Token savings depend on query length vs retrieved context size.
+   *
+   * Savings are measured against `options.baselineTokens`: the size of the
+   * context this compact prompt is replacing. That number is the caller's to
+   * supply, because this method never sees it -- it receives a search
+   * instruction, not the context being replaced.
+   *
+   * Without it the result is reported as unmeasured (`tokensSaved: null`) and
+   * nothing is added to the running total. The previous baseline was the
+   * QUERY's own length, which measured nothing: a short query against a longer
+   * retrieved prompt reported 0 no matter how much context the caller then
+   * dropped, and a long query against a short prompt reported a saving with no
+   * replaced context behind it (#3289).
    */
   async getCompactContext(query: string, options?: {
     limit?: number;
     threshold?: number;
+    /**
+     * Token count of the context the compact prompt replaces. Omit it when
+     * nothing was replaced or the size is unknown.
+     */
+    baselineTokens?: number;
   }): Promise<MemoryContext> {
     const limit = options?.limit ?? 5;
     const threshold = options?.threshold ?? 0.7;
@@ -119,7 +144,7 @@ export class TokenOptimizer extends EventEmitter {
         query,
         memories: [],
         compactPrompt: '',
-        tokensSaved: 0,
+        tokensSaved: null,
       };
     }
 
@@ -136,13 +161,20 @@ export class TokenOptimizer extends EventEmitter {
       compactPrompt = '';
     }
 
-    // Estimate tokens saved based on actual content length difference
-    // Rough heuristic: ~4 chars per token, compare full query context vs compact
-    const queryTokenEstimate = Math.ceil(query.length / 4);
+    // ~4 chars per token, the same rough heuristic as before -- what changes
+    // is what it is compared against.
+    const baseline = options?.baselineTokens;
+    const measurable =
+      typeof baseline === 'number' && Number.isFinite(baseline) && baseline >= 0;
     const compactTokenEstimate = Math.ceil(compactPrompt.length / 4);
-    const saved = Math.max(0, queryTokenEstimate - compactTokenEstimate);
+    const saved = measurable
+      ? Math.max(0, Math.floor(baseline) - compactTokenEstimate)
+      : null;
 
-    this.stats.totalTokensSaved += saved;
+    if (saved !== null) {
+      this.stats.totalTokensSaved += saved;
+      this.stats.contextsMeasured += 1;
+    }
     this.stats.memoriesRetrieved += memories.length;
 
     return {
@@ -172,23 +204,36 @@ export class TokenOptimizer extends EventEmitter {
       };
     }
 
-    const result = await this.agentBooster.editCode({
-      filePath,
-      oldContent,
-      newContent,
+    // agentic-flow/agent-booster's real API is `apply({ code, edit, language,
+    // filePath? })` → `{ output, success, latency, strategy, ... }` — there is
+    // no `editCode` method and no `speedupFactor`/`executionTimeMs`/`method`
+    // on its result (#4311).
+    const result = await this.agentBooster.apply({
+      code: oldContent,
+      edit: newContent,
       language,
+      filePath,
     });
+
+    // A 'fallback'/'error_avoided' strategy means the booster declined to
+    // optimize this edit, not that it failed outright.
+    const method: EditOptimization['method'] =
+      result.success && result.strategy !== 'fallback' && result.strategy !== 'error_avoided'
+        ? 'agent-booster'
+        : 'traditional';
 
     // Track optimized edits (no fabricated token savings — actual savings
     // come from fewer retries, which we can't measure here)
-    if (result.method === 'agent-booster') {
+    if (method === 'agent-booster') {
       this.stats.editsOptimized++;
     }
 
     return {
-      speedupFactor: result.speedupFactor,
-      executionMs: result.executionTimeMs,
-      method: result.method,
+      // No real speedup measurement is available from this API either;
+      // keep the same "no claim" value the no-booster fallback above uses.
+      speedupFactor: 1,
+      executionMs: result.latency,
+      method,
     };
   }
 
@@ -293,6 +338,7 @@ export class TokenOptimizer extends EventEmitter {
 | Metric | Value |
 |--------|-------|
 | Tokens Saved | ${stats.totalTokensSaved.toLocaleString()} |
+| Contexts Measured | ${stats.contextsMeasured} |
 | Edits Optimized | ${stats.editsOptimized} |
 | Cache Hit Rate | ${stats.cacheHitRate} |
 | Memories Retrieved | ${stats.memoriesRetrieved} |

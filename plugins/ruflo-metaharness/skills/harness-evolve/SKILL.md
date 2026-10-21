@@ -1,6 +1,6 @@
 ---
 name: harness-evolve
-description: Run `@metaharness/darwin evolve <repo>` to mutate a harness's seven policy surfaces (planner/contextBuilder/reviewer/retryPolicy/toolPolicy/memoryPolicy/scorePolicy), sandbox-score each variant, and promote only measured wins. The model is frozen; the harness evolves. Closes the loop ADR-150 opens (score+genome describe; evolve changes). Degrades gracefully when @metaharness/darwin is absent (ADR-150 + ADR-153 architectural constraints).
+description: Run `@metaharness/darwin evolve {repo}` to mutate a harness's seven policy surfaces (planner/contextBuilder/reviewer/retryPolicy/toolPolicy/memoryPolicy/scorePolicy), sandbox-score each variant, and promote only measured wins. The model is frozen; the harness evolves. Closes the loop ADR-150 opens (score+genome describe; evolve changes). Degrades gracefully when @metaharness/darwin is absent (ADR-150 + ADR-153 architectural constraints).
 argument-hint: "--repo <path> [--generations 3] [--children 3] [--concurrency 2] [--sandbox real|mock|agent] [--selection pareto|quality-diversity|...] [--mutator deterministic|ruvllm] [--diagnose] [--confirm]"
 allowed-tools: Bash
 ---
@@ -35,8 +35,10 @@ Implementation: [`scripts/evolve.mjs`](../../scripts/evolve.mjs).
    ≤ 20, `--concurrency` ≤ 8, sandbox/selection/mutator are known values).
 2. Without `--confirm`: print plan + exit 0 (mirrors `harness-mint` safety
    convention; defense in depth over the upstream `safety.ts` checks).
-3. With `--confirm`: shell to `npx -y @metaharness/darwin@~0.8.0 metaharness-darwin evolve <repo> ...`
-   via the shared `_darwin.mjs` async helper. Per-generation progress is
+3. With `--confirm`: run `metaharness-darwin evolve <repo> ...` from the installed
+   `@metaharness/darwin` (pin in `_darwin.mjs`; one-time `~/.ruflo/darwin-cache-<pin>`
+   install only if no installed copy qualifies — never npx) via the shared
+   `_darwin.mjs` async helper. Per-generation progress is
    forwarded to stderr; final champion JSON is captured from stdout.
 4. Compute timeout from `generations × children × per-variant` (per-variant
    ≈ 60s real, ≈ 2s mock). Caller may override with `--timeout-ms`.

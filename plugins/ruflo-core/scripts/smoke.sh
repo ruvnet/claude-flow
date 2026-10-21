@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structural smoke test for ruflo-core v0.2.6 (ADR-0001).
+# Structural smoke test for ruflo-core v0.2.11 (ADR-0001).
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PASS=0
@@ -8,10 +8,10 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.6 with new keywords"
+step "1. plugin.json declares 0.2.11 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.6" ]]; then
-  bad "expected 0.2.6, got '$v'"
+if [[ "$v" != "0.2.11" ]]; then
+  bad "expected 0.2.11, got '$v'"
 else
   miss=""
   for k in foundation mcp-server plugin-catalog discovery; do
@@ -59,9 +59,14 @@ else
   bad "expected ≥25 distinct ruflo-* references, got $n"
 fi
 
-step "6. README pins @claude-flow/cli to v3.6"
-grep -qE "@claude-flow/cli.*v3\.6|v3\.6.*claude-flow/cli" "$ROOT/README.md" \
-  && ok || bad "Compatibility pin to v3.6 missing"
+# #3428: the launcher no longer pins to a fixed CLI minor line — it resolves a
+# built/installed @claude-flow/cli first and only falls back to `npx @latest`.
+# The compatibility contract now documents that resolution order instead of a
+# version pin; verify the README still describes it accurately.
+step "6. README documents the CLI resolution/fallback contract"
+grep -qE "RUFLO_MCP_CLI_OVERRIDE" "$ROOT/README.md" \
+  && grep -qE "RUFLO_MCP_SKIP_NPX" "$ROOT/README.md" \
+  && ok || bad "CLI resolution/fallback contract missing from README"
 
 step "7. README cross-references sibling contracts"
 F="$ROOT/README.md"

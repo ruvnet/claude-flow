@@ -188,6 +188,17 @@ export const terminalTools: MCPTool[] = [
       let output: string;
       let exitCode: number;
 
+      // dream-cycle 2026-09-21 (post-review): session.env was validated once
+      // at terminal_create time and trusted forever after via the on-disk
+      // store — a session persisted before a denylist update (or a store.json
+      // edited/restored out of band) could carry an env that the *current*
+      // validateEnv() would reject, silently bypassing the denylist for every
+      // execute on that pre-existing session. Re-validate at execution time
+      // too; drop (not fail the whole call) on now-invalid env so a stale
+      // session degrades to a clean environment rather than blocking.
+      const vSessionEnv = validateEnv(session.env, 'session.env');
+      const effectiveEnv = vSessionEnv.valid ? vSessionEnv.sanitized : {};
+
       try {
         output = execSync(command, {
           cwd,
@@ -195,7 +206,7 @@ export const terminalTools: MCPTool[] = [
           timeout,
           maxBuffer: 5 * 1024 * 1024,
           stdio: ['pipe', 'pipe', 'pipe'],
-          env: { ...process.env, ...session.env },
+          env: { ...process.env, ...effectiveEnv },
         });
         exitCode = 0;
       } catch (err: any) {

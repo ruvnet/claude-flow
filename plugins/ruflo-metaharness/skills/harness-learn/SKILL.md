@@ -41,7 +41,7 @@ ADR-235 follow-up and not available yet.
 Implementation: [`scripts/learn.mjs`](../../scripts/learn.mjs).
 
 1. Validate `--repo` exists when given; export it as `$METAHARNESS_REPO`.
-2. Invoke the pinned `metaharness` binary (`metaharness@~0.3.0`, local install
+2. Invoke the pinned `metaharness` binary (`metaharness@~0.4.1`, local install
    or one-time versioned cache — never `@latest`): `metaharness learn --host <h>
    --model <m> --slice <s> [--run]` via `_harness.mjs` (graceful degradation,
    hard timeout).

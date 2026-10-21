@@ -1,0 +1,3 @@
+# Claude Code writes its declarations here on load or validate (early access, regenerate per release)
+.claude-plugin/types/
+dist/

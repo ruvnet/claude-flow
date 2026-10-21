@@ -503,8 +503,25 @@ export const neuralTools: MCPTool[] = [
         }
       }
 
+      // #4156: nothing stored means nothing was trained. Reporting success and "ready" made
+      // callers (the neural-train skill) believe the pattern store had been filled.
+      if (patternsStored === 0) {
+        model.status = 'untrained';
+        model.accuracy = 0;
+        saveNeuralStore(store);
+        return {
+          success: false,
+          status: 'empty',
+          modelId,
+          type: modelType,
+          patternsStored: 0,
+          totalPatterns: Object.keys(store.patterns).length,
+          error: 'neural_train stored nothing: pass `data` (an array of strings or {text, label} entries). It does not read trajectories, SONA or the ReasoningBank: those (hooks_intelligence_*) are a separate store that neural_predict and neural_patterns do not see.',
+        };
+      }
+
       model.status = 'ready';
-      model.accuracy = patternsStored > 0 ? 1.0 : 0; // accuracy = data stored, not simulated
+      model.accuracy = 1.0; // accuracy = data stored, not simulated
       model.trainedAt = new Date().toISOString();
       saveNeuralStore(store);
 
@@ -536,6 +553,7 @@ export const neuralTools: MCPTool[] = [
         modelId: { type: 'string', description: 'Model ID to use' },
         input: { type: 'string', description: 'Input text or data' },
         topK: { type: 'number', description: 'Number of top predictions' },
+        minSimilarity: { type: 'number', description: 'Minimum cosine similarity for a stored pattern to count as a match (default 0.5). A softmax over a single candidate is always 1.0, so without a floor any input matched the only stored pattern with confidence 1' },
       },
       required: ['input'],
     },
@@ -547,6 +565,7 @@ export const neuralTools: MCPTool[] = [
       const modelId = input.modelId as string;
       const inputText = input.input as string;
       const topK = (input.topK as number) || 3;
+      const minSimilarity = typeof input.minSimilarity === 'number' ? input.minSimilarity : 0.5;
 
       // Find model or use default
       const model = modelId ? store.models[modelId] : Object.values(store.models).find(m => m.status === 'ready');
@@ -568,10 +587,11 @@ export const neuralTools: MCPTool[] = [
       // to 1, and we surface enough metadata to trust the result.
       const storedPatterns = Object.values(store.patterns);
       let predictions: Array<{ label: string; confidence: number; patternId: string; cosineSimilarity: number }>;
+      let bestSimilarity: number | null = null;
 
       if (storedPatterns.length > 0) {
         // Step 1: k-NN with cosine
-        const scored = storedPatterns
+        let scored = storedPatterns
           .map(p => {
             const sim = cosineSimilarity(embedding, p.embedding);
             return {
@@ -580,8 +600,10 @@ export const neuralTools: MCPTool[] = [
               cosineSimilarity: sim,
             };
           })
-          .sort((a, b) => b.cosineSimilarity - a.cosineSimilarity)
-          .slice(0, topK);
+          .sort((a, b) => b.cosineSimilarity - a.cosineSimilarity);
+        bestSimilarity = scored[0]?.cosineSimilarity ?? null;
+        // #4156: only patterns that reach the similarity floor are candidates.
+        scored = scored.filter((c) => c.cosineSimilarity >= minSimilarity).slice(0, topK);
 
         // Step 2: temperature-softmax over the top-K so confidence sums to 1.
         // Temperature 0.1 sharpens differences between similar candidates.
@@ -621,8 +643,11 @@ export const neuralTools: MCPTool[] = [
         embedding: embedding.slice(0, 8), // Preview of embedding
         embeddingDims: embedding.length,
         latency,
+        ...(bestSimilarity !== null ? { bestSimilarity: Number(bestSimilarity.toFixed(4)), minSimilarity } : {}),
         ...(storedPatterns.length === 0 ? {
           _note: 'No patterns stored. Train with neural_train(modelType, trainingData) before predicting.',
+        } : predictions.length === 0 ? {
+          _note: `No stored pattern reached the similarity floor (best ${bestSimilarity === null ? 'n/a' : bestSimilarity.toFixed(3)}, floor ${minSimilarity}); pass minSimilarity to lower it.`,
         } : {}),
       };
     },
@@ -938,9 +963,6 @@ export const neuralTools: MCPTool[] = [
     handler: async (input) => {
       if (input.modelId) { const v = validateIdentifier(input.modelId as string, 'modelId'); if (!v.valid) return { success: false, error: v.error }; }
 
-      // Resolve provider so embeddingProvider in the result matches the old
-      // eager-init reporting.
-      await ensureEmbeddings();
       const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
       const targetReduction = (input.targetSize as number) || 0.5;
@@ -951,38 +973,27 @@ export const neuralTools: MCPTool[] = [
       }
 
       const beforeCount = patterns.length;
-      const beforeSize = patterns.reduce((s, p) => s + (p.embedding?.length || 0) * 4, 0); // Float32 = 4 bytes
 
       if (method === 'quantize') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          let totalCompressed = 0;
-          for (const pattern of patterns) {
-            if (pattern.embedding && pattern.embedding.length > 0) {
-              const stats = getQuantizationStats(pattern.embedding);
-              const quantized = quantizeInt8(pattern.embedding);
-              // Store quantized metadata (keep original embedding for search)
-              (pattern as any)._quantized = {
-                scale: quantized.scale,
-                zeroPoint: quantized.zeroPoint,
-                compressionRatio: stats.compressionRatio,
-              };
-              totalCompressed++;
-            }
-          }
-          saveNeuralStore(store);
-          return {
-            success: true, _real: true, method,
-            embeddingProvider: embeddingServiceName,
-            patternsCompressed: totalCompressed,
-            compressionRatio: '3.92x (Int8)',
-            beforeBytes: beforeSize,
-            afterBytes: Math.round(beforeSize / 3.92),
-          };
-        } catch {
-          return { success: false, error: 'Quantization requires memory-initializer. Run `memory init` first.' };
-        }
+        // Neural-store readers consume `embedding` as a full-precision number[]
+        // (search, prediction, deduplication, and optimization). The former
+        // implementation discarded the Int8 vector, persisted only metadata,
+        // and reported a calculated 3.92x reduction. Refuse until the store has
+        // a persisted representation with a reader-side decode contract.
+        const storedBytes = readFileSync(getNeuralPath()).byteLength;
+        return {
+          success: false,
+          error: 'Quantized embeddings are not persisted: neural-store readers require full-precision embedding arrays.',
+          method,
+          patternsCompressed: 0,
+          beforeBytes: storedBytes,
+          afterBytes: storedBytes,
+          compressionRatio: '1.00x (unchanged JSON storage)',
+        };
       }
+
+      // Resolve provider only for operations that actually use embeddings.
+      await ensureEmbeddings();
 
       if (method === 'prune') {
         // Prune patterns with low usage count below threshold (targetReduction as min usage)
@@ -1164,22 +1175,10 @@ export const neuralTools: MCPTool[] = [
         if (duplicatesRemoved > 0) actions.push(`Removed ${duplicatesRemoved} near-duplicate patterns`);
       }
 
-      // memory / balanced: quantize large embeddings
+      // memory / balanced: report the unsupported persisted representation
+      // instead of attaching metadata for a discarded Int8 vector.
       if (target === 'memory' || target === 'balanced') {
-        try {
-          const { quantizeInt8, getQuantizationStats } = await import('../memory/memory-initializer.js');
-          for (const p of Object.values(store.patterns)) {
-            if (p.embedding && p.embedding.length > 0 && !(p as any)._quantized) {
-              const stats = getQuantizationStats(p.embedding);
-              const q = quantizeInt8(p.embedding);
-              (p as any)._quantized = { scale: q.scale, zeroPoint: q.zeroPoint, compressionRatio: stats.compressionRatio };
-              patternsQuantized++;
-            }
-          }
-          if (patternsQuantized > 0) actions.push(`Quantized ${patternsQuantized} pattern embeddings (Int8, ~3.92x)`);
-        } catch {
-          actions.push('Quantization skipped (memory-initializer not available)');
-        }
+        actions.push('Quantization skipped: neural-store readers require persisted full-precision embedding arrays.');
       }
 
       // accuracy / balanced: prune low-usage, zero-embedding patterns

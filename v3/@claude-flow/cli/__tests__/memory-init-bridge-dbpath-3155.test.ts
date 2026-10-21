@@ -20,7 +20,7 @@
  * back `found:false` / an empty list, with no error anywhere.
  *
  * The fix: `activateControllerRegistry()` no longer forwards the sql.js
- * `dbPath` to the bridge at all — it calls `bridge.getControllerRegistry()`
+ * `dbPath` to the bridge at all — it calls the lease-owned `bridge.bridgeListControllers()`
  * with no argument, so both the init-time warm-up and every later bridge
  * call (bridgeStoreEntry, bridgeGetEntry, ...) resolve the SAME file via
  * `getAgentDbPath()`, regardless of whether this is a fresh directory or a
@@ -31,11 +31,11 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const getControllerRegistry = vi.fn(async (_dbPath?: string) => null);
+const bridgeListControllers = vi.fn(async (_dbPath?: string) => null);
 const shutdownBridge = vi.fn(async () => {});
 
 vi.mock('../src/memory/memory-bridge.js', () => ({
-  getControllerRegistry,
+  bridgeListControllers,
   shutdownBridge,
 }));
 
@@ -45,7 +45,7 @@ let testDir: string;
 
 beforeEach(() => {
   testDir = mkdtempSync(join(tmpdir(), 'memory-init-bridge-dbpath-3155-'));
-  getControllerRegistry.mockClear();
+  bridgeListControllers.mockClear();
 });
 
 afterEach(() => {
@@ -69,9 +69,9 @@ describe('initializeMemoryDatabase -> ControllerRegistry activation (#3155)', ()
     // The regression: this used to be called with `dbPath` (the sql.js
     // file just written above) — the bridge's own dedicated file must be
     // resolved independently, so no dbPath is forwarded here at all.
-    expect(getControllerRegistry).toHaveBeenCalledTimes(1);
-    expect(getControllerRegistry).toHaveBeenCalledWith();
-    const [calledArg] = getControllerRegistry.mock.calls[0]!;
+    expect(bridgeListControllers).toHaveBeenCalledTimes(1);
+    expect(bridgeListControllers).toHaveBeenCalledWith();
+    const [calledArg] = bridgeListControllers.mock.calls[0]!;
     expect(calledArg).toBeUndefined();
     expect(calledArg).not.toBe(dbPath);
   });
@@ -83,10 +83,10 @@ describe('initializeMemoryDatabase -> ControllerRegistry activation (#3155)', ()
       throw new Error('sql.js unavailable in this simulated environment');
     });
     vi.resetModules();
-    getControllerRegistry.mockClear();
+    bridgeListControllers.mockClear();
 
     vi.doMock('../src/memory/memory-bridge.js', () => ({
-      getControllerRegistry,
+      bridgeListControllers,
       shutdownBridge,
     }));
 
@@ -102,8 +102,8 @@ describe('initializeMemoryDatabase -> ControllerRegistry activation (#3155)', ()
 
     expect(result.success).toBe(true);
     expect(existsSync(dbPath)).toBe(true);
-    expect(getControllerRegistry).toHaveBeenCalledTimes(1);
-    const [calledArg] = getControllerRegistry.mock.calls[0]!;
+    expect(bridgeListControllers).toHaveBeenCalledTimes(1);
+    const [calledArg] = bridgeListControllers.mock.calls[0]!;
     expect(calledArg).toBeUndefined();
     expect(calledArg).not.toBe(dbPath);
 

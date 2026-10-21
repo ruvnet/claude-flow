@@ -8,6 +8,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validateIdentifier, validateText } from './validate-input.js';
+import { resolveAgentBrowserLaunch, resolveNpxLaunch } from '../runtime/browser-command.js';
 
 // Session registry for multi-session support
 const browserSessions = new Map<string, {
@@ -15,6 +16,34 @@ const browserSessions = new Map<string, {
   createdAt: string;
   lastActivity: string;
 }>();
+
+/** Preserve agent-browser's JSON error on non-zero exit without echoing other process output. */
+function browserCommandFailure(error: unknown, missingExecutable?: string): MCPToolResult {
+  const err = error as NodeJS.ErrnoException & { stdout?: string | Buffer; status?: number };
+  const stdout = typeof err?.stdout === 'string'
+    ? err.stdout
+    : Buffer.isBuffer(err?.stdout) ? err.stdout.toString('utf8') : '';
+  let reason: string | undefined;
+  if (stdout.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(stdout);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const failure = parsed as { success?: unknown; error?: unknown };
+        if (failure.success === false && typeof failure.error === 'string' && failure.error.trim()) {
+          reason = failure.error.slice(0, 2000);
+        }
+      }
+    } catch { /* non-JSON stdout is not an error message */ }
+  }
+  reason ??= err?.code === 'ENOENT' && missingExecutable
+    ? missingExecutable
+    : err?.code === 'ETIMEDOUT'
+      ? 'agent-browser command timed out'
+      : typeof err?.status === 'number'
+        ? `agent-browser exited with status ${err.status} without a JSON error`
+        : `agent-browser failed${err?.code ? ` (${err.code})` : ''} without a JSON error`;
+  return { content: [{ type: 'text', text: JSON.stringify({ success: false, error: reason }) }], isError: true };
+}
 
 /**
  * Execute agent-browser CLI command.
@@ -27,54 +56,37 @@ export async function execBrowserCommand(args: string[], session = 'default'): P
   const { execFileSync } = await import('child_process');
   const fullArgs = ['--session', session, '--json', ...args];
 
-  let result: string;
-  try {
-    result = execFileSync('agent-browser', fullArgs, {
-      encoding: 'utf-8',
-      timeout: 30000,
-    });
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException;
-    if (err.code === 'ENOENT') {
-      try {
-        // #2770: On Windows, `npx` ships as `npx.cmd`; execFileSync cannot spawn
-        // a .cmd file without going through cmd.exe. Enable shell on win32 so
-        // cmd.exe resolves the .cmd extension. POSIX keeps shell:false.
-        // NOTE: shell:true joins args by spaces and passes to cmd.exe — the args
-        // here are hard-coded flags + a package name, so no injection risk. If
-        // user-controlled args are ever added, escape them before spawn.
-        result = execFileSync('npx', ['--yes', 'agent-browser', ...fullArgs], {
-          encoding: 'utf-8',
-          timeout: 60000,
-          shell: process.platform === 'win32',
-          windowsHide: true,
-        });
-      } catch (npxError) {
-        const npxErr = npxError as NodeJS.ErrnoException;
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: npxErr.code === 'ENOENT'
-                ? 'Neither agent-browser nor npx found. Install with: npm i -g agent-browser'
-                : npxErr instanceof Error ? npxErr.message : String(npxError),
-            }),
-          }],
-          isError: true,
-        };
-      }
-    } else {
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            success: false,
-            error: err instanceof Error ? err.message : String(error),
-          }),
-        }],
-        isError: true,
-      };
+  // ADR-401: fullArgs carries tool-supplied text (fill values, eval scripts,
+  // selectors), so no spawn here may use a shell. On Windows the npm shims are
+  // resolved to the process behind them instead of enabling `shell: true`,
+  // which would hand that text to cmd.exe. Never add a `shell` option below.
+  const missing = 'Neither agent-browser nor npx found. Install with: npm i -g agent-browser';
+  let result: string | undefined;
+
+  const global = resolveAgentBrowserLaunch();
+  if (global) {
+    try {
+      result = execFileSync(global.command, [...global.argsPrefix, ...fullArgs], {
+        encoding: 'utf-8',
+        timeout: 30000,
+        windowsHide: true,
+      });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') return browserCommandFailure(error);
+    }
+  }
+
+  if (result === undefined) {
+    const npx = resolveNpxLaunch();
+    if (!npx) return browserCommandFailure(Object.assign(new Error('npx not resolvable'), { code: 'ENOENT' }), missing);
+    try {
+      result = execFileSync(npx.command, [...npx.argsPrefix, '--yes', 'agent-browser', ...fullArgs], {
+        encoding: 'utf-8',
+        timeout: 60000,
+        windowsHide: true,
+      });
+    } catch (npxError) {
+      return browserCommandFailure(npxError, missing);
     }
   }
 

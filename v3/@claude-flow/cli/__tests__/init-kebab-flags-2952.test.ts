@@ -17,12 +17,19 @@
  * because the bug is in how the parser's actual output key and the command's
  * read key disagree, which a unit test against either side alone wouldn't
  * catch.
+ *
+ * #3370: the spawned CLI must not touch the developer's real home. `init`
+ * writes `~/.claude/CLAUDE.md` and `~/.codex/config.toml`, and shells out to
+ * `codex plugin marketplace add` (a network clone that outlives the 20 s
+ * timeout as an orphan). So every spawn gets a throwaway HOME/CODEX_HOME and a
+ * stub `codex` first on PATH that fails fast, which init treats as a non-fatal
+ * skip.
  */
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { join } from 'path';
+import { delimiter, join } from 'path';
 import { tmpdir } from 'os';
 
 const CLI_BIN = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
@@ -43,18 +50,41 @@ function countAgentFiles(cwd: string): number {
   return count;
 }
 
+/** Throwaway home + fail-fast `codex` stub; the spawned CLI sees only these. */
+function makeIsolatedHome(): { home: string; env: NodeJS.ProcessEnv } {
+  const home = mkdtempSync(join(tmpdir(), 'ruflo-2952-home-'));
+  const bin = join(home, 'bin');
+  mkdirSync(bin, { recursive: true });
+  const stub = join(bin, 'codex');
+  writeFileSync(stub, '#!/bin/sh\nexit 1\n');
+  chmodSync(stub, 0o755);
+  return {
+    home,
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      CODEX_HOME: join(home, '.codex'),
+      PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`,
+    },
+  };
+}
+
 describe.skipIf(!CLI_BUILT)('#2952 init reads the parser\'s actual (camelCase) flag keys', () => {
   it('--all-agents installs strictly more agents than the curated default', () => {
     const defaultCwd = mkdtempSync(join(tmpdir(), 'ruflo-2952-default-'));
     const allAgentsCwd = mkdtempSync(join(tmpdir(), 'ruflo-2952-all-'));
+    const { home, env } = makeIsolatedHome();
     try {
       execFileSync(process.execPath, [CLI_BIN, 'init', '--force'], {
         cwd: defaultCwd,
+        env,
         timeout: 30_000,
         stdio: 'pipe',
       });
       execFileSync(process.execPath, [CLI_BIN, 'init', '--force', '--all-agents'], {
         cwd: allAgentsCwd,
+        env,
         timeout: 30_000,
         stdio: 'pipe',
       });
@@ -69,6 +99,7 @@ describe.skipIf(!CLI_BUILT)('#2952 init reads the parser\'s actual (camelCase) f
     } finally {
       rmSync(defaultCwd, { recursive: true, force: true });
       rmSync(allAgentsCwd, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
     }
   }, 60_000);
 });

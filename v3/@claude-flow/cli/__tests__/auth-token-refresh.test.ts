@@ -147,6 +147,52 @@ describe('getValidAccessToken', () => {
   });
 });
 
+describe('concurrent access-token refresh', () => {
+  it('shares one rotating credential across overlapping proxy refresh calls', async () => {
+    const name = profileName('concurrent-proxy');
+    writeProfile(name, name);
+    secrets.set(name, 'one-use-refresh');
+    let spent = false;
+    refreshTokenMock.mockImplementation(async () => {
+      if (spent) throw new Error('refresh token reuse detected');
+      spent = true;
+      await new Promise(resolve => setImmediate(resolve));
+      return { access_token: 'shared-access', refresh_token: 'rotated', expires_in: 900 };
+    });
+    const { refreshInjectedToken } = await import('../src/proxy/token-bridge.js');
+    expect(await Promise.all([refreshInjectedToken(), refreshInjectedToken()])).toEqual([true, true]);
+    expect(refreshTokenMock).toHaveBeenCalledTimes(1);
+    expect(setSecretMock).toHaveBeenCalledTimes(1);
+    expect(getSessionToken(name)).toBe('shared-access');
+    clearSessionToken(name);
+  });
+
+  it('shares a failed attempt but allows a later demand-driven retry', async () => {
+    const name = profileName('retry-flight');
+    writeProfile(name, name);
+    secrets.set(name, 'unspent-refresh');
+    refreshTokenMock.mockRejectedValue(new Error('temporary transport failure'));
+    const failures = await Promise.allSettled([getValidAccessToken(name), getValidAccessToken(name)]);
+    expect(failures.map(result => result.status)).toEqual(['rejected', 'rejected']);
+    expect(refreshTokenMock).toHaveBeenCalledTimes(1);
+    expect(getSessionToken(name)).toBeNull();
+    refreshTokenMock.mockResolvedValue({ access_token: 'retried', expires_in: 900 });
+    await expect(getValidAccessToken(name)).resolves.toBe('retried');
+    expect(refreshTokenMock).toHaveBeenCalledTimes(2);
+    clearSessionToken(name);
+  });
+
+  it('does not share credentials between different profiles', async () => {
+    const names = [profileName('independent-a'), profileName('independent-b')];
+    for (const name of names) { writeProfile(name, name); secrets.set(name, name); }
+    refreshTokenMock.mockImplementation(async (token: string) => ({ access_token: token + '-access', expires_in: 900 }));
+    expect(await Promise.all(names.map(name => getValidAccessToken(name))))
+      .toEqual(names.map(name => name + '-access'));
+    expect(refreshTokenMock).toHaveBeenCalledTimes(2);
+    names.forEach(clearSessionToken);
+  });
+});
+
 describe('auth status --check consumer', () => {
   it('uses the demand-driven accessor without exposing the token', async () => {
     const name = profileName('status-check');

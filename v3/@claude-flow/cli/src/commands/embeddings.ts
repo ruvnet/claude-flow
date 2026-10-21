@@ -776,7 +776,13 @@ const initCommand: Command = {
         fs.mkdirSync(modelDir, { recursive: true });
       }
 
-      // Download model if requested
+      // Download model if requested. #3376: record what actually happened
+      // instead of assuming the download ran — `getEmbeddings()` returns null
+      // whenever the optional @claude-flow/embeddings package is absent, which
+      // is every plain `npm i -g ruflo` install.
+      let modelDownloaded = false;
+      let modelSkipReason: string | null = null;
+
       if (download) {
         spinner.setText(`Downloading ONNX model: ${model}...`);
         const embeddings = await getEmbeddings();
@@ -785,11 +791,16 @@ const initCommand: Command = {
           await embeddings.downloadEmbeddingModel(model, modelDir, (p) => {
             spinner.setText(`Downloading ${model}... ${p.percent.toFixed(0)}%`);
           });
+          modelDownloaded = true;
         } else {
-          // Embeddings package not available — skip download
-          await new Promise(r => setTimeout(r, 500));
-          output.writeln(output.dim('  (Skipped — @claude-flow/embeddings not installed)'));
+          // No download happened. That is the outcome of this command, not an
+          // aside — reported below via spinner.fail + a warning, never as a
+          // dimmed note on a success path. No fake progress delay: there is
+          // nothing in progress.
+          modelSkipReason = '@claude-flow/embeddings is not installed';
         }
+      } else {
+        modelSkipReason = 'download disabled by --no-download';
       }
 
       // Write embeddings config
@@ -800,6 +811,12 @@ const initCommand: Command = {
         modelPath: modelDir,
         dimension,
         cacheSize,
+        // #3376: additive, optional fields. `modelPath` keeps its old meaning
+        // (the directory the model belongs in), but it no longer implies a
+        // model is in it — `modelDownloaded` says whether one is. Readers that
+        // predate these keys are unaffected; they ignore unknown properties.
+        modelDownloaded,
+        ...(modelSkipReason ? { modelSkipReason } : {}),
         hyperbolic: {
           enabled: hyperbolic,
           curvature,
@@ -816,7 +833,15 @@ const initCommand: Command = {
 
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
-      spinner.succeed('Embedding subsystem initialized');
+      // A download that was asked for and did not happen is a failed init:
+      // the only substantive step of `embeddings init` did not run. #3376.
+      const downloadSkipped = download && !modelDownloaded;
+
+      if (downloadSkipped) {
+        spinner.fail('Embedding model NOT downloaded — embedding subsystem is not ready');
+      } else {
+        spinner.succeed('Embedding subsystem initialized');
+      }
 
       output.writeln();
       output.printTable({
@@ -826,6 +851,7 @@ const initCommand: Command = {
         ],
         data: [
           { setting: 'Model', value: model },
+          { setting: 'Model Status', value: modelDownloaded ? output.success('Downloaded') : output.error('NOT downloaded') },
           { setting: 'Dimension', value: String(dimension) },
           { setting: 'Cache Size', value: String(cacheSize) + ' entries' },
           { setting: 'Hyperbolic', value: hyperbolic ? `${output.success('Enabled')} (c=${curvature})` : output.dim('Disabled') },
@@ -834,6 +860,21 @@ const initCommand: Command = {
           { setting: 'Config', value: configPath },
         ],
       });
+
+      if (downloadSkipped) {
+        output.writeln();
+        output.printWarning(`No embedding model was installed: ${modelSkipReason}.`);
+        output.printWarning('Until a real embedder is present, embeddings fall back to hash vectors, which carry no semantic meaning.');
+        output.printInfo(`Configuration was still written to ${configPath}, recording "modelDownloaded": false.`);
+        output.writeln();
+        output.writeln(output.dim('To finish initializing:'));
+        output.printList([
+          'npm install @claude-flow/embeddings   - the package this command downloads with; then: embeddings init --force',
+          'npm install ruvector                  - the other real embedder ruflo accepts; needs no download step',
+          'embeddings init --no-download --force - keep this configuration without a model (exits 0)',
+        ]);
+        return { success: false, exitCode: 1, data: config };
+      }
 
       output.writeln();
       if (hyperbolic) {
@@ -1322,8 +1363,11 @@ const modelsCommand: Command = {
           return { success: false, exitCode: 1 };
         }
       } else {
-        await new Promise(r => setTimeout(r, 500));
-        spinner.succeed(`Download skipped — @claude-flow/embeddings not installed`);
+        // #3376, same class as `init`: nothing was downloaded, so this is a
+        // failure, not a success with a caveat. No fake progress delay either.
+        spinner.fail(`Download skipped — @claude-flow/embeddings is not installed`);
+        output.printWarning(`"${download}" was not downloaded. Install @claude-flow/embeddings to enable model downloads.`);
+        return { success: false, exitCode: 1 };
       }
       return { success: true };
     }

@@ -15,50 +15,146 @@
 import { join } from 'path';
 
 // Lazy-loaded graph-node module
-let graphNodeModule: any = null;
-let graphDb: any = null;
-let graphBackendLoaded = false;
+let graphNodeModulePromise: Promise<any> | null = null;
+let graphDbPromise: Promise<any> | null = null;
 let graphBackendAvailable = false;
 
 const DEFAULT_EMBEDDING_DIM = 8; // Minimal embedding for graph structure
+const DEFAULT_DISTANCE_METRIC = 'Cosine';
 
 /**
- * Load @ruvector/graph-node via createRequire (CJS package)
+ * Load @ruvector/graph-node via createRequire (CJS package).
+ *
+ * The promise is the memo rather than a "loaded" flag. The flag was set
+ * BEFORE its own `await`, so a caller arriving inside that window would take
+ * the early return and read `graphNodeModule` while it was still `null`.
+ * I could not make that window observable -- `import('module')` resolves a
+ * builtin before another caller gets a turn -- so this is hardening on the
+ * same shape as the open memo below, not a defect with a reproduction behind
+ * it.
  */
 async function loadGraphNode(): Promise<any> {
-  if (graphBackendLoaded) return graphNodeModule;
-  graphBackendLoaded = true;
-  try {
-    const { createRequire } = await import('module');
-    const requireCjs = createRequire(import.meta.url);
-    graphNodeModule = requireCjs('@ruvector/graph-node');
-    graphBackendAvailable = true;
-    return graphNodeModule;
-  } catch {
-    graphBackendAvailable = false;
-    return null;
+  if (!graphNodeModulePromise) {
+    graphNodeModulePromise = (async () => {
+      try {
+        const { createRequire } = await import('module');
+        const requireCjs = createRequire(import.meta.url);
+        const mod = requireCjs('@ruvector/graph-node');
+        graphBackendAvailable = true;
+        return mod;
+      } catch {
+        graphBackendAvailable = false;
+        return null;
+      }
+    })();
   }
+  return graphNodeModulePromise;
 }
 
 /**
- * Get or create the singleton graph database instance
+ * Report a graph-backend problem.
+ *
+ * No "already warned" flag: the open runs once per process because
+ * `getGraphDb` memoizes the promise, and a second flag would only hide it if
+ * that ever stopped being true.
  */
-async function getGraphDb(): Promise<any> {
-  if (graphDb) return graphDb;
+function warnGraphInit(message: string): void {
+  console.warn(`[graph-backend] ${message}`);
+}
+
+/**
+ * Whether this handle is actually backed by the file we asked for.
+ *
+ * `@ruvector/graph-node` 2.1.0 accepts a bare path STRING without throwing
+ * and hands back a volatile in-memory instance -- `isPersistent() === false`,
+ * `getStoragePath() === null`. Nothing downstream notices: writes succeed,
+ * reads succeed, and the graph is gone at exit. Passing the options object
+ * fixes that, and this check is what makes the fix self-reporting instead of
+ * something a future signature change can quietly undo.
+ *
+ * A build that exposes neither accessor cannot be interrogated, so it is
+ * accepted rather than refused -- this guards against a silent downgrade, not
+ * against an unfamiliar version.
+ */
+function isPersistentAt(db: any, storagePath: string): boolean {
+  const canReport =
+    typeof db?.isPersistent === 'function' || typeof db?.getStoragePath === 'function';
+  if (!canReport) return true;
+
+  if (typeof db.isPersistent === 'function' && db.isPersistent() !== true) return false;
+  if (typeof db.getStoragePath === 'function' && db.getStoragePath() !== storagePath) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Open the graph database, or return null with a stated reason.
+ *
+ * The old fallback replaced an open failure with `new mod.GraphDatabase()` --
+ * an empty in-memory graph that answers every query successfully and persists
+ * nothing. A permission error, a lock held by another process and a healthy
+ * database were indistinguishable from the outside. Callers already handle
+ * `null` by degrading to `backend: 'unavailable'`, which is the honest shape
+ * for "the graph is not there".
+ */
+async function openGraphDb(): Promise<any> {
   const mod = await loadGraphNode();
   if (!mod) return null;
 
-  // Use persistent path if available, otherwise in-memory
   const dataDir = join(process.cwd(), '.claude-flow', 'graph');
+  const storagePath = join(dataDir, 'agents.db');
+
+  let db: any;
   try {
     const fs = await import('fs');
     fs.mkdirSync(dataDir, { recursive: true });
-    graphDb = new mod.GraphDatabase(join(dataDir, 'agents.db'));
-  } catch {
-    // Fallback to in-memory
-    graphDb = new mod.GraphDatabase();
+    // The options object, not the path string: see `isPersistentAt`.
+    db = new mod.GraphDatabase({
+      storagePath,
+      dimensions: DEFAULT_EMBEDDING_DIM,
+      distanceMetric: DEFAULT_DISTANCE_METRIC,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnGraphInit(`could not open ${storagePath}: ${reason}. Graph backend disabled.`);
+    return null;
   }
-  return graphDb;
+
+  if (!isPersistentAt(db, storagePath)) {
+    const reported =
+      typeof db?.getStoragePath === 'function' ? db.getStoragePath() : 'unknown';
+    warnGraphInit(
+      `opened a non-persistent graph (storage path ${String(reported)}, wanted ${storagePath}). ` +
+        'Graph backend disabled rather than writing to a graph that vanishes at exit.',
+    );
+    try {
+      db?.close?.();
+    } catch {
+      // A handle we are already discarding.
+    }
+    return null;
+  }
+
+  return db;
+}
+
+/**
+ * Get or create the singleton graph database instance.
+ *
+ * The promise is the singleton, not the handle: two callers racing the first
+ * call used to each run the constructor, and the second overwrote the first's
+ * `graphDb` while nodes were already being written through it.
+ */
+async function getGraphDb(): Promise<any> {
+  if (!graphDbPromise) {
+    graphDbPromise = openGraphDb().catch((error) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      warnGraphInit(`initialization failed: ${reason}. Graph backend disabled.`);
+      return null;
+    });
+  }
+  return graphDbPromise;
 }
 
 /**

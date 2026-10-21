@@ -1,0 +1,6 @@
+{
+  "description": "Workflows as a mod (ADR-445 pattern): a guard that keeps secrets out of workflow definitions and GAIA run records, and refuses a workflow delete that names no single workflow, `/wf-mod`, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

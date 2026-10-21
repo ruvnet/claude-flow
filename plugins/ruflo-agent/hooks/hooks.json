@@ -1,0 +1,6 @@
+{
+  "description": "Agent as a mod (ADR-445 pattern): a tighten-only guard on text sent into an agent runtime (`wasm_agent_prompt`, `wasm_agent_tool`, `wasm_agent_create`, `wasm_gallery_create`, `managed_agent_create`, `managed_agent_prompt`), /agent-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

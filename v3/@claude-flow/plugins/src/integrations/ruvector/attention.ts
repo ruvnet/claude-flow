@@ -257,23 +257,44 @@ export abstract class BaseAttentionMechanism implements IAttentionMechanism {
     return this.config.scale ?? Math.sqrt(this.config.headDim);
   }
 
+  // toSQL output is executed verbatim by AttentionExecutor when a query
+  // executor is configured. TypeScript types are erased at runtime, so any
+  // value interpolated below must be proven numeric/boolean here: a string
+  // element such as "1]'::vector); DROP TABLE t; --" would otherwise break out
+  // of the quoted vector literal.
+  protected sqlNumber(value: unknown, name: string): string {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new TypeError(`attention SQL: ${name} must be a finite number`);
+    }
+    return String(value);
+  }
+
+  protected sqlBool(value: unknown, name: string): string {
+    if (typeof value !== 'boolean') {
+      throw new TypeError(`attention SQL: ${name} must be a boolean`);
+    }
+    return value ? 'true' : 'false';
+  }
+
   /**
    * Format vector for SQL.
    */
   protected formatVector(v: number[] | Float32Array): string {
+    if (!Array.isArray(v) && !(v instanceof Float32Array)) {
+      throw new TypeError('attention SQL: vector must be an array of numbers');
+    }
     const arr = Array.isArray(v) ? v : Array.from(v);
-    return `'[${arr.join(',')}]'::vector`;
+    return `'[${arr.map((x, i) => this.sqlNumber(x, `vector[${i}]`)).join(',')}]'::vector`;
   }
 
   /**
    * Format matrix for SQL.
    */
   protected formatMatrix(m: number[][] | Float32Array[]): string {
-    const rows = m.map(row => {
-      const arr = Array.isArray(row) ? row : Array.from(row);
-      return `'[${arr.join(',')}]'::vector`;
-    });
-    return `ARRAY[${rows.join(',')}]`;
+    if (!Array.isArray(m)) {
+      throw new TypeError('attention SQL: matrix must be an array of vectors');
+    }
+    return `ARRAY[${m.map(row => this.formatVector(row)).join(',')}]`;
   }
 }
 
@@ -306,7 +327,7 @@ export class MultiHeadAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.multi_head_attention(${q}, ${k}, ${v}, ${this.config.numHeads}, ${this.getScale()}, ${this.config.causal})`;
+    return `SELECT ruvector.multi_head_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.config.numHeads, 'numHeads')}, ${this.sqlNumber(this.getScale(), 'scale')}, ${this.sqlBool(this.config.causal, 'causal')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -356,7 +377,7 @@ export class SelfAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.self_attention(${q}, ${k}, ${v}, ${this.getScale()}, ${this.config.causal})`;
+    return `SELECT ruvector.self_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.getScale(), 'scale')}, ${this.sqlBool(this.config.causal, 'causal')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -406,7 +427,7 @@ export class CrossAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.cross_attention(${q}, ${k}, ${v}, ${this.config.numHeads}, ${this.getScale()})`;
+    return `SELECT ruvector.cross_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.config.numHeads, 'numHeads')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -470,7 +491,7 @@ export class CausalAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.causal_attention(${q}, ${k}, ${v}, ${this.config.numHeads}, ${this.getScale()})`;
+    return `SELECT ruvector.causal_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.config.numHeads, 'numHeads')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -522,7 +543,7 @@ export class BidirectionalAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.bidirectional_attention(${q}, ${k}, ${v}, ${this.config.numHeads}, ${this.getScale()})`;
+    return `SELECT ruvector.bidirectional_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.config.numHeads, 'numHeads')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -586,7 +607,7 @@ export class LocalAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const windowSize = this.config.params?.windowSize ?? 256;
-    return `SELECT ruvector.local_attention(${q}, ${k}, ${v}, ${windowSize}, ${this.getScale()})`;
+    return `SELECT ruvector.local_attention(${q}, ${k}, ${v}, ${this.sqlNumber(windowSize, 'windowSize')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -639,7 +660,7 @@ export class GlobalAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const numGlobal = this.config.params?.numGlobalTokens ?? 1;
-    return `SELECT ruvector.global_attention(${q}, ${k}, ${v}, ${numGlobal}, ${this.getScale()})`;
+    return `SELECT ruvector.global_attention(${q}, ${k}, ${v}, ${this.sqlNumber(numGlobal, 'numGlobal')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -730,7 +751,7 @@ export class FlashAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const blockSize = this.config.params?.flashBlockSize ?? 64;
-    return `SELECT ruvector.flash_attention(${q}, ${k}, ${v}, ${blockSize}, ${this.getScale()}, ${this.config.causal})`;
+    return `SELECT ruvector.flash_attention(${q}, ${k}, ${v}, ${this.sqlNumber(blockSize, 'blockSize')}, ${this.sqlNumber(this.getScale(), 'scale')}, ${this.sqlBool(this.config.causal, 'causal')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -795,7 +816,7 @@ export class FlashAttentionV2 extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const blockSize = this.config.params?.flashBlockSize ?? 128;
-    return `SELECT ruvector.flash_attention_v2(${q}, ${k}, ${v}, ${blockSize}, ${this.getScale()}, ${this.config.causal})`;
+    return `SELECT ruvector.flash_attention_v2(${q}, ${k}, ${v}, ${this.sqlNumber(blockSize, 'blockSize')}, ${this.sqlNumber(this.getScale(), 'scale')}, ${this.sqlBool(this.config.causal, 'causal')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -832,7 +853,7 @@ export class MemoryEfficientAttention extends BaseAttentionMechanism {
     const q = this.formatMatrix(input.query);
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
-    return `SELECT ruvector.memory_efficient_attention(${q}, ${k}, ${v}, ${this.getScale()}, ${this.config.params?.checkpointing ?? false})`;
+    return `SELECT ruvector.memory_efficient_attention(${q}, ${k}, ${v}, ${this.sqlNumber(this.getScale(), 'scale')}, ${this.sqlBool(this.config.params?.checkpointing ?? false, 'checkpointing')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -906,7 +927,7 @@ export class ChunkAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const chunkSize = this.config.params?.blockSize ?? 512;
-    return `SELECT ruvector.chunk_attention(${q}, ${k}, ${v}, ${chunkSize}, ${this.getScale()})`;
+    return `SELECT ruvector.chunk_attention(${q}, ${k}, ${v}, ${this.sqlNumber(chunkSize, 'chunkSize')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -974,7 +995,7 @@ export class SlidingWindowAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const windowSize = this.config.params?.windowSize ?? 256;
-    return `SELECT ruvector.sliding_window_attention(${q}, ${k}, ${v}, ${windowSize}, ${this.getScale()})`;
+    return `SELECT ruvector.sliding_window_attention(${q}, ${k}, ${v}, ${this.sqlNumber(windowSize, 'windowSize')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {
@@ -1033,7 +1054,7 @@ export class DilatedAttention extends BaseAttentionMechanism {
     const k = this.formatMatrix(input.key);
     const v = this.formatMatrix(input.value);
     const dilationRate = this.config.params?.dilationRate ?? 2;
-    return `SELECT ruvector.dilated_attention(${q}, ${k}, ${v}, ${dilationRate}, ${this.getScale()})`;
+    return `SELECT ruvector.dilated_attention(${q}, ${k}, ${v}, ${this.sqlNumber(dilationRate, 'dilationRate')}, ${this.sqlNumber(this.getScale(), 'scale')})`;
   }
 
   private dotProduct(a: number[], b: number[]): number {

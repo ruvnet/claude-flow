@@ -512,6 +512,23 @@ function envMaxUncertainty(): number | undefined {
   return n;
 }
 
+// Dream Cycle 2026-09-17 — env override for priorDecay, mirroring
+// envMaxUncertainty() above. The discounted-Thompson-sampling primitive
+// (see priorDecay's doc comment) was built, tested, and benchmarked in
+// #3049 but shipped with no way to actually turn it on — DEFAULT_CONFIG
+// hardcoded 1 (disabled) with no env/config knob, unlike every sibling
+// tunable in this file. Parsed once at module load; invalid/out-of-range
+// values fall through to the constructor's own priorDecay<=0||>1 guard,
+// which already normalizes to 1 (disabled) — so an unset or malformed env
+// var is fully backward compatible with existing deployments.
+function envPriorDecay(): number | undefined {
+  const raw = process.env.CLAUDE_FLOW_PRIOR_DECAY;
+  if (!raw) return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0 || n > 1) return undefined;
+  return n;
+}
+
 const DEFAULT_CONFIG: ModelRouterConfig = {
   confidenceThreshold: 0.85,
   maxUncertainty: envMaxUncertainty() ?? 0.15,
@@ -521,7 +538,7 @@ const DEFAULT_CONFIG: ModelRouterConfig = {
   autoSaveInterval: 1, // Save after every decision for CLI persistence
   enableCostOptimization: true,
   preferSpeed: true,
-  priorDecay: 1,
+  priorDecay: envPriorDecay() ?? 1,
 };
 
 // Beta shape parameters must stay well clear of 0 for sampleGamma/sampleBeta

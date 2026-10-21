@@ -124,7 +124,7 @@ export const RUFLO_CLI_COMMANDS = [
   'ruvector', 'benchmark', 'guidance', 'appliance', 'appliance-advanced',
   'transfer-store', 'cleanup', 'autopilot', 'gaia-bench', 'metaharness',
   'eject', 'funnel', 'settings', 'auth', 'proxy', 'advisor', 'spinner',
-  'announcements',
+  'announcements', 'tui', 'harness',
 ] as const;
 
 export interface ImplementationLoopStep {
@@ -244,7 +244,7 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'guidance',
     name: 'Capability Guidance',
-    prefixes: ['guidance_'],
+    prefixes: ['guidance_', 'seraphina_'],
     description: 'Live capability inventory, task routing, workflow guidance, and system discovery.',
     taskSignals: ['guidance', 'discover', 'capability', 'what can ruflo do'],
     commands: ['guidance compile', 'guidance retrieve', 'guidance gates', 'guidance optimize'],
@@ -403,9 +403,10 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'swarm-coordination',
     name: 'Swarm & Coordination',
-    prefixes: ['swarm_', 'coordination_', 'daa_'],
+    // team_: host-agnostic Agent Teams bus (ADR-402)
+    prefixes: ['swarm_', 'coordination_', 'daa_', 'team_'],
     description: 'Topology-aware multi-agent coordination, task ownership, and collective scheduling.',
-    taskSignals: ['swarm', 'concurrent', 'parallel', 'coordinate', 'multi-agent'],
+    taskSignals: ['swarm', 'concurrent', 'parallel', 'coordinate', 'multi-agent', 'agent team'],
     commands: ['swarm init', 'swarm status', 'swarm coordinate'],
     skills: ['swarm-orchestration', 'swarm-advanced'],
     agents: ['coordinator', 'coder', 'tester', 'reviewer'],
@@ -433,7 +434,7 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
   {
     id: 'tasks-workflows-sessions',
     name: 'Tasks, Workflows, Sessions & Progress',
-    prefixes: ['task_', 'workflow_', 'session_', 'progress_'],
+    prefixes: ['task_', 'workflow_', 'session_', 'progress_', 'mission_'],
     description: 'Task orchestration, reusable workflows, session state, progress, and handoff.',
     taskSignals: ['task', 'workflow', 'session', 'handoff', 'progress'],
     commands: ['task create', 'task status', 'workflow run'],
@@ -549,7 +550,7 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
     id: 'business-collaboration',
     name: 'AgentBBS & Business Pods',
     // Metadata classification only; execution remains behind the existing loadAgentbbs guard.
-    prefixes: ['agentbbs_', 'business_pod_', 'federation_bbs_'],
+    prefixes: ['agentbbs_', 'business_pod_', 'federation_bbs_', 'x_federation_'],
     description: 'Federated business rooms, domain-affinity routing, and business-pod validation.',
     taskSignals: ['business pod', 'bbs', 'room', 'domain affinity'],
     commands: [],
@@ -678,6 +679,9 @@ const TOOL_OWNERSHIP: ReadonlyArray<{
   { prefixes: ['testgen_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-testgen' },
   { prefixes: ['managed_agent_', 'wasm_agent_', 'wasm_gallery_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-agent' },
   { prefixes: ['guidance_'], packageOwner: '@claude-flow/guidance', pluginOwner: 'ruflo-core' },
+  { prefixes: ['seraphina_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-core' },
+  { prefixes: ['x_federation_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-x-gateway' },
+  { prefixes: ['team_'], packageOwner: '@claude-flow/cli' },
 ] as const;
 
 function ownershipForTool(
