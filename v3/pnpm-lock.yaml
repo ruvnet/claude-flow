@@ -213,7 +213,7 @@ importers:
         version: link:../memory
       '@metaharness/darwin':
         specifier: ~0.12.0
-        version: 0.12.0
+        version: 0.12.1
       '@metaharness/flywheel':
         specifier: ~0.1.10
         version: 0.1.10
@@ -1732,8 +1732,8 @@ packages:
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
     dev: false
 
-  /@metaharness/darwin@0.12.0:
-    resolution: {integrity: sha512-opUL/Ho/48I0HWs+eSePVkrl1O9F+MreFakw2nYJGT5tG92DtOSmeFcpzLAEWt5Rnr5xNFZ0Ieg0RMKRhUyqiw==}
+  /@metaharness/darwin@0.12.1:
+    resolution: {integrity: sha512-LJfSbi2kOwEoyao5NrwgB4JeIbQPBmFPdF5njhS4gK3Z0GU3eqkvrGcw66OLuwP4hUIk/U7prhz0zZTq0uFkDw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
     requiresBuild: true
