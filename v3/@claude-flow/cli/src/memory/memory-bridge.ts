@@ -1845,12 +1845,29 @@ export async function bridgeDeleteEntry(options: {
       return { success: false, deleted: false, key, namespace, remainingEntries: 0, error: `MutationGuard rejected: ${guardResult.reason}` };
     }
 
-    // Soft delete using parameterized query
+    // #3785: secure_delete zeroes the old cells while the payload columns are
+    // scrubbed; otherwise SQLite can leave the deleted text in free pages.
+    try {
+      ctx.db.pragma('secure_delete = ON');
+    } catch { /* non-fatal: the logical scrub below still hides the row */ }
+
+    // Soft delete using parameterized query. The tombstone must keep only
+    // what later upserts/audits need: the payload columns are scrubbed here,
+    // not merely hidden by the status filter. `content` is NOT NULL in the
+    // schema, so "scrubbed" is the empty string rather than SQL NULL; that
+    // still removes the deleted value from disk and from any raw SQLite read.
     let changes = 0;
     try {
       const result = ctx.db.prepare(`
         UPDATE memory_entries
-        SET status = 'deleted', updated_at = ?
+        SET status = 'deleted',
+            content = '',
+            embedding = NULL,
+            embedding_model = NULL,
+            embedding_dimensions = NULL,
+            tags = NULL,
+            metadata = NULL,
+            updated_at = ?
         WHERE key = ? AND namespace = ? AND ${ACTIVE_MEMORY_ROW_SQL}
       `).run(Date.now(), key, namespace);
       changes = result?.changes ?? 0;
@@ -1935,6 +1952,11 @@ export async function bridgePurgeNamespace(options: {
 
     let deletedCount = 0;
     try {
+      // #3785: a hard DELETE without secure_delete leaves the purged payload
+      // in free pages; purge claims to be irreversible.
+      try {
+        ctx.db.pragma('secure_delete = ON');
+      } catch { /* non-fatal: the rows are still removed below */ }
       const result = ctx.db.prepare(`DELETE FROM memory_entries WHERE namespace = ?`).run(namespace);
       deletedCount = result?.changes ?? 0;
     } catch (e) {
