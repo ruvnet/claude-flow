@@ -123,11 +123,41 @@ export function resolveRufloCli() {
 }
 
 /**
+ * Path to npm's `npx-cli.js`, or null. On win32 `npx` is a .cmd shim that
+ * spawnSync cannot launch without a shell; running the JS entry directly keeps
+ * argv intact (no shell quoting) while matching what the shim would execute.
+ * `env` / `platform` / `execPath` are parameters so the win32 branch is
+ * testable on POSIX.
+ */
+export function resolveNpxCli(env = process.env, platform = process.platform, execPath = process.execPath) {
+  if (platform !== 'win32') return null;
+  const candidates = [];
+  const npmExecPath = envValue(env, 'npm_execpath');
+  if (npmExecPath) {
+    if (/[\\/]npx-cli\.js$/i.test(npmExecPath)) candidates.push(npmExecPath);
+    else if (/[\\/]npm-cli\.js$/i.test(npmExecPath)) candidates.push(join(dirname(npmExecPath), 'npx-cli.js'));
+  }
+  // Follow the npx.cmd shims on PATH first, then the standard Node layout.
+  for (const dir of (envValue(env, 'PATH') || '').split(';').filter((d) => isAbsolute(d))) {
+    if (existsSync(join(dir, 'npx.cmd'))) candidates.push(join(dir, 'node_modules', 'npm', 'bin', 'npx-cli.js'));
+  }
+  candidates.push(join(dirname(execPath), 'node_modules', 'npm', 'bin', 'npx-cli.js'));
+  for (const file of candidates) {
+    try { if (statSync(file).isFile()) return realpathSync(file); } catch { /* keep looking */ }
+  }
+  return null;
+}
+
+/**
  * spawnSync `npx <npxArgs>` — unless npxArgs[0] is CLI_PKG and an installed
  * ruflo CLI resolves, which then runs with the rest of the argv and no shell.
+ * On Windows the npx fallback runs npm's npx-cli.js with node instead of the
+ * unspawnable .cmd shim (#2413).
  */
 export function spawnCliSync(npxArgs, options = {}) {
   const cli = npxArgs[0] === CLI_PKG ? resolveRufloCli() : null;
   if (cli) return spawnSync(cli.command, [...cli.args, ...npxArgs.slice(1)], { ...options, shell: false });
+  const npxCli = resolveNpxCli();
+  if (npxCli) return spawnSync(process.execPath, [npxCli, ...npxArgs], { ...options, shell: false });
   return spawnSync('npx', npxArgs, options);
 }

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 
 import { findAdrs, parseAdr } from '../lib/parse-adrs.mjs';
@@ -73,7 +73,7 @@ test('index and template files in docs/adr are not ADRs', () => {
     'template-madr.md': '# ADR-000: template\n',
     'ADR-001-real.md': adr(1, '- **Status**: accepted'),
   }, (root) => {
-    const found = findAdrs(root).map((p) => p.split('/').pop());
+    const found = findAdrs(root).map((p) => basename(p));
     assert.deepEqual(found, ['ADR-001-real.md']);
   });
 });
