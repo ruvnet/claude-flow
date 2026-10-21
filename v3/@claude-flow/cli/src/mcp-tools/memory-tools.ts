@@ -1657,13 +1657,19 @@ export const memoryTools: MCPTool[] = [
       properties: {
         outputPath: { type: 'string', description: 'File path to write the JSON export to' },
         format: { type: 'string', enum: ['json', 'csv'], description: 'Export format (csv falls back to json today)' },
+        dbPath: { type: 'string', description: 'Explicit memory DB to export (default: the AgentDB store plus the CLI sibling)' },
         namespace: { type: 'string', description: 'Limit export to one namespace' },
         includeVectors: { type: 'boolean', description: 'Include embedding vectors (advisory — not exported yet)' },
       },
       required: ['outputPath'],
     },
     handler: async (input) => {
-      await ensureInitialized();
+      const requestedDbPath = typeof input.dbPath === 'string' && input.dbPath.trim()
+        ? resolve(input.dbPath)
+        : undefined;
+      // An explicit file selection is a single-store read. Do not initialize or
+      // migrate the unrelated default store just to export a snapshot.
+      if (!requestedDbPath) await ensureInitialized();
       const { listEntries } = await getMemoryFunctions();
       const outputPath = String(input.outputPath ?? '');
       if (!outputPath) return { error: 'outputPath is required' };
@@ -1690,14 +1696,16 @@ export const memoryTools: MCPTool[] = [
         } while (out.length < total);
         return { entries: out };
       };
-      const primary = await readStore();
+      const primary = await readStore(requestedDbPath);
       if ('error' in primary) return { error: primary.error };
       // #4148: the default reader is the AgentDB bridge, but the CLI's own store
       // (.swarm/memory.db, possibly encrypted) can hold rows the bridge never
       // sees, so an export silently covered one store and reported success. Read
       // the CLI store too and merge, newest copy of a (namespace, key) winning.
       const warnings: string[] = [];
-      const stores: Array<{ store: string; entries: number }> = [{ store: 'default', entries: primary.entries.length }];
+      const stores: Array<{ store: string; entries: number }> = [
+        { store: requestedDbPath ?? 'default', entries: primary.entries.length },
+      ];
       const merged = new Map<string, ExportEntry>();
       const keep = (e: ExportEntry): void => {
         const id = `${e.namespace}\u0000${e.key}`;
@@ -1705,14 +1713,18 @@ export const memoryTools: MCPTool[] = [
         if (!have || String(e.updatedAt) > String(have.updatedAt)) merged.set(id, e);
       };
       primary.entries.forEach(keep);
-      const cliStore = await resolveCliStorePath();
-      if (cliStore && existsSync(cliStore)) {
-        const secondary = await readStore(cliStore);
-        if ('error' in secondary) {
-          warnings.push(`Could not read the CLI store ${cliStore} (${secondary.error}); the export covers the AgentDB store only.`);
-        } else {
-          stores.push({ store: cliStore, entries: secondary.entries.length });
-          secondary.entries.forEach(keep);
+      // The implicit default export still merges the sibling CLI store; an
+      // explicit dbPath must cover exactly that file.
+      if (!requestedDbPath) {
+        const cliStore = await resolveCliStorePath();
+        if (cliStore && existsSync(cliStore)) {
+          const secondary = await readStore(cliStore);
+          if ('error' in secondary) {
+            warnings.push(`Could not read the CLI store ${cliStore} (${secondary.error}); the export covers the AgentDB store only.`);
+          } else {
+            stores.push({ store: cliStore, entries: secondary.entries.length });
+            secondary.entries.forEach(keep);
+          }
         }
       }
       const all = { entries: [...merged.values()] };

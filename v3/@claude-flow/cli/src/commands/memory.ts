@@ -1790,10 +1790,12 @@ const exportCommand: Command = {
       description: 'Include vector embeddings',
       type: 'boolean',
       default: true
-    }
+    },
+    DB_PATH_OPTION
   ],
   examples: [
     { command: 'claude-flow memory export -o ./backup.json', description: 'Export all to JSON' },
+    { command: 'claude-flow memory export -o ./agentdb.json --path .swarm/agentdb-memory.db', description: 'Export one specific store' },
     { command: 'claude-flow memory export -o ./data.csv -f csv', description: 'Export to CSV' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -1822,6 +1824,7 @@ const exportCommand: Command = {
         format,
         namespace: ctx.flags.namespace,
         includeVectors: ctx.flags.includeVectors ?? true,
+        dbPath: resolveDbPath(ctx.flags.path as string | undefined),
       });
 
       // memory_export reports failure as { error } rather than throwing; without
