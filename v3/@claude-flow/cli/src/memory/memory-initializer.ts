@@ -3973,6 +3973,11 @@ export async function deleteEntry(options: {
       const fileBuffer = readFileMaybeEncrypted(dbPath, null);
       const db = new SQL.Database(fileBuffer);
 
+      // #3785: zero the old cells as well as the live row. Without
+      // secure_delete, UPDATE leaves the previous text in SQLite free pages,
+      // so the "deleted" value is still recoverable from the file image.
+      db.run('PRAGMA secure_delete = ON');
+
       // Check if entry exists first
       const checkStmt = db.prepare(`
         SELECT id FROM memory_entries
@@ -4004,12 +4009,19 @@ export async function deleteEntry(options: {
         };
       }
 
-      // Delete the entry (soft delete by setting status to 'deleted')
-      // Also null out the embedding to clean up vector data from SQLite
+      // Soft delete by setting status to 'deleted'. Scrub the payload, not
+      // only the vector: a tombstone that keeps `content` on disk still
+      // exposes deleted data to anyone who opens the SQLite file. `content`
+      // is NOT NULL, so use the empty string rather than SQL NULL.
       db.run(`
         UPDATE memory_entries
         SET status = 'deleted',
+            content = '',
             embedding = NULL,
+            embedding_model = NULL,
+            embedding_dimensions = NULL,
+            tags = NULL,
+            metadata = NULL,
             updated_at = strftime('%s', 'now') * 1000
         WHERE key = ?
           AND namespace = ?
@@ -4205,6 +4217,9 @@ export async function purgeNamespace(options: {
 
       const fileBuffer = readFileMaybeEncrypted(dbPath, null);
       const db = new SQL.Database(fileBuffer);
+
+      // #3785: purge is advertised as irreversible; zero free pages too.
+      db.run('PRAGMA secure_delete = ON');
 
       const beforeResult = db.exec(`SELECT COUNT(*) FROM memory_entries WHERE namespace = ?`, [namespace]);
       const deletedCount = (beforeResult[0]?.values?.[0]?.[0] as number) || 0;
