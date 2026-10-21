@@ -1,6 +1,6 @@
 {
   "name": "claude-flow",
-  "version": "3.59.4",
+  "version": "3.59.5",
   "workspaces": [
     "v3/@claude-flow/codex",
     "v3/@claude-flow/mcp",
