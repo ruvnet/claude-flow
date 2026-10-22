@@ -1,0 +1,4 @@
+node_modules/
+golf_players.db
+*.db-shm
+*.db-wal
