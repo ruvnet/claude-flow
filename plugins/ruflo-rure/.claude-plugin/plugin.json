@@ -1,0 +1,22 @@
+{
+  "name": "ruflo-rure",
+  "description": "Statically analyze a local JS/Electron app you're authorized to study, with file+line evidence, and build an original reimplementation of what you find. Phase 1 (experimental): JS/Electron static analysis only — parses, never executes. Native binary, .NET, EVM, and dynamic-instrumentation analysis are future phases, not yet implemented.",
+  "version": "0.1.0",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "repository": "https://github.com/ruvnet/ruflo",
+  "documentationUrl": "https://github.com/ruvnet/ruflo/tree/main/plugins/ruflo-rure",
+  "license": "MIT",
+  "keywords": [
+    "ruflo",
+    "reverse-engineering",
+    "static-analysis",
+    "electron",
+    "javascript",
+    "mcp",
+    "experimental"
+  ]
+}

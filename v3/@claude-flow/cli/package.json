@@ -100,6 +100,7 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "@electron/asar": "^4.3.1",
     "@claude-flow/cli-core": "3.7.5",
     "@claude-flow/codex": "3.0.5",
     "@claude-flow/mcp": "3.1.1",
