@@ -2,6 +2,14 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.2.0 — 2026-10-22
+
+- feat: Phase 2 per ADR-0003 — `rure_analyze_binary` inspects ELF, PE and Mach-O containers (format, architecture, entry point, sections, linked libraries, imported/exported symbols, optional strings) with an original pure-TypeScript parser. No disassembler, no new dependency, never loads or executes the target.
+- feat: hostile-input handling — every read is bounds-checked, tables are capped (4096 sections, 2000 symbols, 200 strings), files over 128 MiB are refused, and a failure in one structure is a warning while the rest still parses.
+- feat: library, symbol and string text passes through the AIDefence gate; flagged values are redacted and counted.
+- chore: measured on a 64 MiB synthetic image (`scripts/benchmark.ts`): header parse 0.3 ms (it reads headers, not the whole file); worst-case full string scan 118 ms (~540 MiB/s).
+- chore: Mach-O reports linked libraries but not imported symbols; fat binaries report all architectures with details from the first slice only.
+
 ## 0.1.0 — 2026-10-22
 
 - feat: Phase 1 ships — JS/Electron static analysis only, per ADR-0001/ADR-0002. Three MCP tools: `rure_extract_asar`, `rure_analyze_js_app`, `rure_find_feature`.

@@ -15,6 +15,7 @@ for (const dir of ['skills', 'commands', 'agents', 'docs/adrs']) {
 }
 check('ADR-0001 exists', existsSync(new URL('docs/adrs/0001-scope-and-dual-use-policy.md', root)));
 check('ADR-0002 exists', existsSync(new URL('docs/adrs/0002-phase1-architecture.md', root)));
+check('ADR-0003 exists', existsSync(new URL('docs/adrs/0003-phase2-native-binary-static-analysis.md', root)));
 
 const adr1 = read('docs/adrs/0001-scope-and-dual-use-policy.md');
 check('ADR-0001 states parse-never-execute', /parses, (it )?never executes/i.test(adr1));
@@ -54,11 +55,12 @@ check('rure-tools.ts imports gateWithAIDefence', /gateWithAIDefence/.test(toolsS
 
 // Resource caps must be referenced by the tool layer (not just declared and unused).
 check('rure-tools.ts references DEFAULT_ASAR_LIMITS', /DEFAULT_ASAR_LIMITS/.test(toolsSrc));
+check('rure-tools.ts references MAX_BINARY_BYTES', /MAX_BINARY_BYTES/.test(toolsSrc));
 
 // Tool names referenced by the skill/command/agent docs must exist on the tool list.
 const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].map((m) => m[1]));
-check('exactly three Phase 1 tools', toolNames.size === 3);
-for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature']) {
+check('exactly four tools (three Phase 1, one Phase 2)', toolNames.size === 4);
+for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }
 

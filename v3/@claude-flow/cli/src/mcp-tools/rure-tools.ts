@@ -7,12 +7,14 @@
  * AIDefence gate before being returned to the caller.
  */
 
+import { readFileSync, statSync } from 'node:fs';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validatePath, validateText } from './validate-input.js';
 import { extractAsarWithCaps, DEFAULT_ASAR_LIMITS } from '../rure/extract-asar.js';
 import { analyzeJsApp } from '../rure/analyze-js-app.js';
 import { findFeature } from '../rure/find-feature.js';
 import { gateWithAIDefence } from '../rure/aidefence-gate.js';
+import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-parse.js';
 import type { ModuleAnalysis } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -128,6 +130,56 @@ export const rureTools: MCPTool[] = [
         return ok({ matches: gated, filesScanned: result.filesScanned, truncated: result.truncated });
       } catch (err) {
         return fail(`feature search failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'rure_analyze_binary',
+    description:
+      'Statically inspect a native ELF, PE, or Mach-O file (ADR-0003): format, architecture, entry point, section layout, linked libraries, and imported/exported symbols, plus optional printable strings. Pure byte parsing under hard caps (128 MiB file, bounded tables); the file is never loaded or executed, and every name and string is AIDefence-screened before return. Use when you need an inventory of what a native binary links against and exposes before deciding where to look next — not for disassembly or decompilation, which this does not do. Malformed headers yield warnings, not errors.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'binary', 'elf', 'pe', 'macho', 'static-analysis'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to a native binary (ELF, PE, or Mach-O)' },
+        includeStrings: { type: 'boolean', description: 'Also return up to 200 printable strings (default false)' },
+      },
+      required: ['path'],
+    },
+    handler: async (input): Promise<MCPToolResult> => {
+      const v = validatePath(input.path, 'path');
+      if (!v.valid) return fail(v.error!);
+      try {
+        const st = statSync(v.sanitized);
+        if (!st.isFile()) return fail('path is not a regular file');
+        if (st.size > MAX_BINARY_BYTES) return fail(`file exceeds the ${MAX_BINARY_BYTES}-byte analysis cap`);
+        const buf = readFileSync(v.sanitized);
+        const info = parseBinary(buf);
+        let redacted = 0;
+        const screen = async (items: string[]): Promise<string[]> => {
+          const out: string[] = [];
+          for (const item of items) {
+            const g = await gateWithAIDefence(item);
+            if (g.flagged) redacted += 1;
+            out.push(g.text);
+          }
+          return out;
+        };
+        const libraries = await screen(info.libraries);
+        const imports = await screen(info.imports);
+        const exports = await screen(info.exports);
+        let strings: { value: string; offset: number }[] | undefined;
+        let stringsTruncated = false;
+        if (input.includeStrings === true) {
+          const ex = extractStrings(buf);
+          stringsTruncated = ex.truncated;
+          const gated = await screen(ex.strings.map((s) => s.value));
+          strings = ex.strings.map((s, i) => ({ value: gated[i], offset: s.offset }));
+        }
+        return ok({ ...info, libraries, imports, exports, ...(strings ? { strings, stringsTruncated } : {}), redactedCount: redacted });
+      } catch (err) {
+        return fail(`binary analysis failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
   },
