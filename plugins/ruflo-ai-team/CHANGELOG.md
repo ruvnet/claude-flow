@@ -2,6 +2,20 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-ai-team`.
 
+## 0.3.3 — 2026-10-22
+- fix: `annotation-review.md` documented only 12 of the 14 live tools, missing `team_board` and `run_complete` (added at 0.2.0/0.2.1) from its readOnly/destructive/idempotent/openWorld classification table
+- chore: smoke now asserts the doc's tool list matches the live server tool set exactly, so this can't silently drift again
+
+## 0.3.2 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.3.1 — 2026-10-12
+- fix: stored teams, runs, tasks and memories no longer share mutable objects with the caller or with exported snapshots (#3995)
+- fix: run evidence includes the task history of the run in its audit trail (#3996)
+- fix: re-remembering a memory keeps its original creation time (#3997)
+- fix: a pending vector index build can no longer restore an invalidated tenant index (#4004)
+- chore: thanks to @rudycelekli for all four fixes
+
 ## 0.3.0 — 2026-10-09
 - feat: skills, commands and agents name the connector tools in plain language instead of Claude Code namespaced identifiers (allowed-tools lists only the portable Read tool; the repo audit requires the field), so they read correctly on claude.ai and Cowork
 - feat: lifecycle skill covers run_complete (the tasks_incomplete rule); skills state the real status values, template ids and budget range

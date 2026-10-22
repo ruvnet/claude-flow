@@ -131,15 +131,15 @@ export class ConfigFileManager {
     this.selectProject(cwd);
     // A targeted update must not persist unrelated defaults (notably the
     // default memory path, which would relocate an existing memory store).
-    const config = this.config ?? this.load(cwd) ?? {};
+    const config = structuredClone(this.config ?? this.load(cwd) ?? {});
     if (Object.hasOwn(config, key)) {
       config[key] = value;
     } else {
       setNestedValue(config, key, value);
     }
-    this.config = config;
     const targetPath = this.configPath ?? path.resolve(cwd, CONFIG_FILENAMES[0]);
     this.writeAtomic(targetPath, config);
+    this.config = config;
     this.configPath = targetPath;
   }
 
@@ -282,7 +282,7 @@ export function parseConfigValue(value: string): unknown {
   if (/^\d+\.\d+$/.test(value)) return parseFloat(value);
   try {
     const parsed = JSON.parse(value);
-    if (typeof parsed === 'object') return parsed;
+    if (typeof parsed === 'object' || (typeof parsed === 'number' && Number.isFinite(parsed))) return parsed;
   } catch { /* not JSON, use as string */ }
   return value;
 }

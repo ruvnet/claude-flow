@@ -11,7 +11,7 @@
  * A refusal, a missing file or a file too large is a stated reason, never an empty success.
  */
 import { readBounded, type ReadCache } from './files'
-import { below, hasParentSegment, isAbsolutePath, samePath, trimTrailing } from './paths'
+import { filterGuarded } from './git-filters'
 import { cleanLine, cleanPath, journalResult, type Capped, type Parsed } from './wf-activity'
 import { activityOf, parsedStats, PARSED_BUDGET_CHARS, resetStore } from './wf-incr-store'
 import { TAIL_BYTES, TRANSCRIPT_CAP, type WorkflowFs } from './workflows-read'
@@ -254,8 +254,8 @@ export const diffOf = (agent: WfAgent): { files: Diff; extra: number } | undefin
 
 /**
  * The fixed argv of the one process this module runs: no shell, the path is its own argument after `-C`, no external diff driver, no text
- * conversion, no fsmonitor hook and no optional lock. A `filter.*.clean` command in the worktree's own config can still run when git compares
- * the working tree with HEAD; that is why only a worktree inside this project's folder is read.
+ * conversion, no fsmonitor hook and no optional lock. A `filter.*.clean` command in the worktree's own config would run when git compares the
+ * working tree with HEAD, so loadDiff blanks every configured driver first (git-filters.ts); and only a worktree inside this project's folder is read.
  */
 export const diffArgv = (worktree: string): string[] => ['git', '--no-optional-locks', '-c', 'core.fsmonitor=false', '-C', worktree, 'diff', '--numstat', '--no-renames', '--no-color', '--no-ext-diff', '--no-textconv', 'HEAD', '--']
 
@@ -280,7 +280,8 @@ export async function loadDiff(agent: WfAgent): Promise<void> {
 
     if (stat === undefined) notes.set(path, { phase: 'none', why: 'the worktree folder no longer exists' })
     else {
-      const result = await b.host.run(diffArgv(path), 8000)
+      const guarded = await filterGuarded(b.host.run, path, diffArgv(path))
+      const result = guarded === null ? { stdout: '', stderr: "a filter driver in the repository's config could not be switched off", exitCode: 1 } : await b.host.run(guarded, 8000)
 
       if (result.exitCode !== 0) notes.set(path, { phase: 'failed', why: cleanLine(result.stderr ?? `git exited ${result.exitCode}`, 100) || `git exited ${result.exitCode}` })
       else {

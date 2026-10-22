@@ -201,7 +201,9 @@ export function resolveFindings(
     } else if (!market.location) {
       findings.push(installed.installed
         ? { name, status: 'pass', message: `installed (${installed.scope} scope, ${installed.installPath})` }
-        : { name, status: 'warn', message: plugin.required ? 'loads once Claude Code has cloned the marketplace' : 'pending: not released in the ruflo marketplace yet' });
+        : plugin.required
+          ? { name, status: 'warn', message: 'loads once Claude Code has cloned the marketplace (a headless `claude -p` run on a fresh config does not clone it, so the mod is absent there)', fix }
+          : { name, status: 'warn', message: 'pending: not released in the ruflo marketplace yet' });
     } else if (!plugin.required) {
       findings.push({ name, status: 'warn', message: `pending: not in the ruflo marketplace yet (${market.location})${also}` });
     } else if (installed.installed) {

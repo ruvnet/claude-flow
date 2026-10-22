@@ -17,7 +17,7 @@ After the Specification phase is complete and its gate has been passed. This ski
 
 1. **Retrieve specification** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-phases` and query for the feature's spec. Extract requirements, acceptance criteria, constraints, and edge cases.
 
-2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` and query for the feature to confirm we are in Phase 2 or 3.
+2. **Retrieve phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with namespace `sparc-state` and exact key `current-phase-{feature-slug}` to confirm we are in Phase 2 or 3.
 
 3. **Search for architectural patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_predict` with the feature description to find relevant architectural decisions from past projects
 
@@ -54,7 +54,7 @@ After the Specification phase is complete and its gate has been passed. This ski
       - Call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-phases`, key `arch-{feature-slug}`
       - Value: `{ status: "complete", boundedContexts: [...], apiContracts: [...], moduleBoundaries: {...}, infrastructure: {...} }`
 
-6. **Update phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, updating current phase to 3 (Architecture) with both artifacts recorded
+6. **Update phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with namespace `sparc-state`, exact key `current-phase-{feature-slug}`; preserve existing state fields, update current phase to 3 (Architecture) with both artifacts recorded, and set `updatedAt` to the current ISO timestamp
 
 7. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with architecture summary
 
@@ -65,7 +65,7 @@ After the Specification phase is complete and its gate has been passed. This ski
    d. Write unit tests alongside implementation (TDD when possible)
    e. Run tests to verify acceptance criteria
 
-9. **Present architecture** — display the architecture decision record and suggest running `/sparc advance` to pass the Phase 3 gate
+9. **Present architecture** — display the architecture decision record and suggest running `/ruflo-sparc:ruflo-sparc advance` to pass the Phase 3 gate
 
 ## Output format
 
@@ -118,5 +118,5 @@ src/{feature}/
 - Events: {strategy}
 
 ---
-Phases 2-3 complete. Run `/sparc advance` to pass the gate check.
+Phases 2-3 complete. Run `/ruflo-sparc:ruflo-sparc advance` to pass the gate check.
 ```

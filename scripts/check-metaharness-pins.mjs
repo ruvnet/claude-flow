@@ -168,13 +168,13 @@ async function main() {
   }
 
   // Lock-step: MH_DARWIN_PIN constant must satisfy the declared darwin range.
-  let constRow = null;
+  let constRow = { name: 'MH_DARWIN_PIN (distill-oracle.ts)', pin: null, declared: declaredRange(pkg, '@metaharness/darwin').range ?? null, status: 'UNREADABLE' };
   try {
     const m = readFileSync(DISTILL, 'utf-8').match(/MH_DARWIN_PIN\s*=\s*['"]([^'"]+)['"]/);
     const declared = declaredRange(pkg, '@metaharness/darwin').range;
     if (m && declared) {
       const inRange = satisfies(declared, m[1]);
-      constRow = { name: 'MH_DARWIN_PIN (distill-oracle.ts)', pin: m[1], declared, status: inRange === false ? 'OUT-OF-RANGE' : 'in-range' };
+      constRow = { name: 'MH_DARWIN_PIN (distill-oracle.ts)', pin: m[1], declared, status: inRange === false ? 'OUT-OF-RANGE' : inRange === true ? 'in-range' : 'unparseable' };
     }
   } catch { /* non-fatal */ }
 
@@ -214,7 +214,7 @@ async function main() {
   const pluginBad = pluginRows.filter((r) => ['NOT-COVERED', 'NOT-TILDE', 'UNREADABLE', 'STALE', 'unparseable'].includes(r.status));
 
   const stale = rows.filter((r) => r.status === 'STALE' || r.status === 'UNDECLARED' || r.status === 'PEER-ONLY');
-  const constBad = constRow && constRow.status === 'OUT-OF-RANGE';
+  const constBad = constRow.status !== 'in-range';
   const apiErrors = [];
   if (ARGS.requireInstalled) {
     const cliDir = dirname(CLI_PKG);

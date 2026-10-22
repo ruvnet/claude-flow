@@ -17,14 +17,15 @@
  * written by this OS, on this kernel boot and in this PID namespace, treats
  * only ESRCH as dead, reads only small regular files (no symlinks, FIFOs or
  * devices), and answers only for the lock it read, by re-reading its bytes
- * (not a lock a new owner created meanwhile). Every other lock keeps the old
- * mtime rule.
+ * (not a lock a new owner created meanwhile). Unknown/foreign/nonregular owners require explicit inspection; mtime
+ * alone never grants takeover.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { execFileSync, spawn } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -37,6 +38,7 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
+  acquireLock,
   authorizeMcpTool,
   autoMigratePolicyStateIfNeeded,
   classifyMcpTool,
@@ -289,16 +291,15 @@ describe('policy state.lock that must still be waited for', () => {
   }, 15_000);
 });
 
-describe('policy state.lock mtime fallback', () => {
-  it('still reclaims an old lock with no parsable pid', async () => {
+describe('policy state.lock unsafe age-only takeover is refused', () => {
+  it('preserves an old lock with no parsable pid', async () => {
     const { root, lock } = await setup();
     plantLock(lock, '{"pid":');
     const old = (Date.now() - LOCK_STALE_MS - 5_000) / 1000;
     utimesSync(lock, old, old);
 
-    const started = Date.now();
-    expect((await authorizeRead(root)).enforcedOutcome).toBe('allowed');
-    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS / 5);
+    await expect(authorizeRead(root)).rejects.toThrow('policy-state-lock-timeout');
+    expect(readFileSync(lock, 'utf8')).toBe('{"pid":');
   }, 15_000);
 
   // POSIX only: needs mkfifo and symlinks. Opening a FIFO for reading blocks
@@ -319,9 +320,66 @@ describe('policy state.lock mtime fallback', () => {
     children.push(spawn('sh', ['-c', 'sleep 2; : > "$1"', 'sh', fifo], { stdio: 'ignore' }));
 
     const started = Date.now();
-    expect((await authorizeRead(root)).enforcedOutcome).toBe('allowed');
-    expect(Date.now() - started).toBeLessThan(1_000);
-    // The mtime rule removed the symlink, not its target.
+    // A non-regular lock path is a path-type error, not lock contention: fail
+    // immediately instead of waiting the full lock budget and misreporting a
+    // timeout. O_NOFOLLOW also prevents create-through-symlink.
+    await expect(authorizeRead(root)).rejects.toThrow('policy-state-lock-error: lock path is not a regular file');
+    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS / 5);
+    // No nonregular owner or target is removed.
     expect(existsSync(fifo)).toBe(true);
+  }, 15_000);
+});
+
+
+describe('lock path type and creation failures', () => {
+  it('fails immediately when the lock path is a directory', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-lock-dir-'));
+    roots.push(root);
+    const lock = join(root, 'state.lock');
+    mkdirSync(lock);
+
+    const started = Date.now();
+    await expect(acquireLock(lock)).rejects.toThrow('policy-state-lock-error: lock path is not a regular file');
+    expect(Date.now() - started).toBeLessThan(LOCK_WAIT_MS / 5);
+    expect(existsSync(lock)).toBe(true);
+  });
+
+  it.skipIf(process.platform === 'win32')('does not create through a dangling symlink', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'ruflo-policy-lock-link-'));
+    roots.push(root);
+    const lock = join(root, 'state.lock');
+    const target = join(root, 'attacker-target');
+    symlinkSync(target, lock);
+
+    await expect(acquireLock(lock)).rejects.toThrow(/policy-state-lock-error/);
+    expect(existsSync(target)).toBe(false);
+    expect(lstatSync(lock).isSymbolicLink()).toBe(true);
+  });
+});
+
+describe('serialized dead-owner reclamation', () => {
+  it('a competing reclaimer sees the guard before it can remove a new owner', async () => {
+    const { root, lock, owner } = await setup(); const dead = await deadPid();
+    plantLock(lock, JSON.stringify({ ...owner, pid: dead }));
+    let competitor: Promise<unknown> | undefined; let active = 0; let max = 0; let probed = false;
+    const run = () => withPolicyTransaction(root, async () => { active++; max = Math.max(max, active); await sleep(30); active--; });
+    const realKill = process.kill.bind(process);
+    const probe = vi.spyOn(process, 'kill').mockImplementation(((pid: number, signal?: string | number) => {
+      if (pid === dead && signal === 0 && !probed) {
+        probed = true; expect(existsSync(`${lock}.reclaim`)).toBe(true);
+        competitor = run();
+      }
+      return realKill(pid, signal);
+    }) as typeof process.kill);
+    try { await run(); await competitor; expect(probed).toBe(true); expect(max).toBe(1); }
+    finally { probe.mockRestore(); }
+  });
+  it('preserves a dead-owner lock when its reclamation guard is orphaned', async () => {
+    const { root, lock, owner } = await setup(); const dead = await deadPid();
+    const content = JSON.stringify({ ...owner, pid: dead }); plantLock(lock, content);
+    const guard = JSON.stringify({ ...owner, pid: dead, nonce: 'orphan-regression' });
+    writeFileSync(`${lock}.reclaim`, guard); utimesSync(`${lock}.reclaim`, new Date(0), new Date(0));
+    await expect(authorizeRead(root)).rejects.toThrow('inspect exact owner');
+    expect(readFileSync(lock, 'utf8')).toBe(content); expect(readFileSync(`${lock}.reclaim`, 'utf8')).toBe(guard);
   }, 15_000);
 });

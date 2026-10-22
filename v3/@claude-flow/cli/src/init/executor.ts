@@ -31,9 +31,9 @@ import {
 import { getInstalledCliVersion, HELPERS_STAMP_FILE } from './helper-refresh.js';
 import { generateClaudeMd } from './claudemd-generator.js';
 import { recordMemoryPackagePath } from './memory-package-resolver.js';
-import { ensureCommonJsCompanions } from './helper-companions.js';
+import { COMMONJS_COMPANION_HELPERS, ensureCommonJsCompanions } from './helper-companions.js';
 import { scanSettingsForRisk, formatRiskFindingsAsWarnings } from './settings-risk-scanner.js';
-import { helperHookCommand, helperScopeFor, helperStatusLineCommand, pinToUserHelpers } from './helper-commands.js';
+import { AUTO_MEMORY_HOOK_TIMEOUT_S, helperHookCommand, helperScopeFor, helperStatusLineCommand, pinToUserHelpers } from './helper-commands.js';
 
 /**
  * Skills to copy based on configuration
@@ -375,18 +375,15 @@ export function mergeSettingsForUpgrade(
   const existingHooks = (existing.hooks as Record<string, unknown[]>) || {};
   merged.hooks = { ...existingHooks };
 
-  // Cross-platform auto-memory hook commands that resolve paths via git root.
-  // Uses node -e with git rev-parse so hooks work regardless of CWD (#1259, #1284).
-  const gitRootResolver = "var c=require('child_process'),p=require('path'),u=require('url'),r;"
-    + "try{r=c.execSync('git rev-parse --show-toplevel',{encoding:'utf8'}).trim()}"
-    + 'catch(e){r=process.cwd()}';
+  // Auto-memory hook commands. They go through helperHookCommand like every other
+  // helper hook (#4058): the previous `node -e "…import(file)" import` form left the
+  // subcommand in process.argv[1], the helper read argv[2], and both hooks only
+  // printed the status banner. Hooks run in the project directory with
+  // CLAUDE_PROJECT_DIR set, so the shared probe resolves the helper without a
+  // `git rev-parse` of its own.
   const autoMemoryScript = '.claude/helpers/auto-memory-hook.mjs';
-  const autoMemoryImportCmd = scope === 'user'
-    ? helperHookCommand(autoMemoryScript, 'import', 'user')
-    : `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" import`;
-  const autoMemorySyncCmd = scope === 'user'
-    ? helperHookCommand(autoMemoryScript, 'sync', 'user')
-    : `node -e "${gitRootResolver}var f=p.join(r,'${autoMemoryScript}');import(u.pathToFileURL(f).href)" sync`;
+  const autoMemoryImportCmd = helperHookCommand(autoMemoryScript, 'import', scope);
+  const autoMemorySyncCmd = helperHookCommand(autoMemoryScript, 'sync', scope);
 
   // Add auto-memory import to SessionStart (if not already present)
   const sessionStartHooks = existingHooks.SessionStart as Array<{ hooks?: Array<{ command?: string }> }> | undefined;
@@ -402,7 +399,7 @@ export function mergeSettingsForUpgrade(
     startGroup.hooks.push({
       type: 'command',
       command: autoMemoryImportCmd,
-      timeout: 6000,
+      timeout: AUTO_MEMORY_HOOK_TIMEOUT_S,
       continueOnError: true,
     });
   }
@@ -422,7 +419,7 @@ export function mergeSettingsForUpgrade(
     endGroup.hooks.unshift({
       type: 'command',
       command: autoMemorySyncCmd,
-      timeout: 8000,
+      timeout: AUTO_MEMORY_HOOK_TIMEOUT_S,
       continueOnError: true,
     });
   }
@@ -620,10 +617,16 @@ export async function executeUpgrade(targetDir: string, upgradeSettings = false)
       }
     }
 
-    // #3555: the refreshed hook-handler requires the .cjs companions; older
-    // installs only have session.js / memory.js, which can't load in ESM.
-    for (const name of await ensureCommonJsCompanions(path.join(targetDir, '.claude', 'helpers'))) {
-      result.created.push(`.claude/helpers/${name}`);
+    // #4198: refresh existing companions too, so upgraded hook handlers never
+    // keep obsolete session/memory logic. Generate from the CLI trust root.
+    const helpersDir = path.join(targetDir, '.claude', 'helpers');
+    const existingCompanions = new Set<string>(COMMONJS_COMPANION_HELPERS.filter(
+      (name) => fs.existsSync(path.join(helpersDir, name)),
+    ));
+    for (const name of await ensureCommonJsCompanions(helpersDir, true)) {
+      const changes = existingCompanions.has(name)
+        ? result.updated : result.created;
+      changes.push(`.claude/helpers/${name}`);
     }
 
     // Stamp the installed version so the startup auto-refresh treats these as
@@ -1584,7 +1587,8 @@ swarm:
 memory:
   backend: ${options.runtime.memoryBackend}
   enableHNSW: ${options.runtime.enableHNSW}
-  persistPath: .claude-flow/data
+  # Store location is read from claude-flow.config.json (memory.persistPath);
+  # this YAML file is runtime/daemon configuration only.
   cacheSize: 100
   # ADR-049: Self-Learning Memory
   learningBridge:

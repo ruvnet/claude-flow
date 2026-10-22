@@ -77,6 +77,11 @@ or its last 256 KB where the host offers `readTail`; a line over 400 KB is skipp
 a backtracking pattern on file text. **The host `$.fs` has no tail read (ADR-473)**, so on the real host a transcript over 2 MB is listed from its
 stat and shows "larger than this host can read" instead of a preview; it is not guessed from the folder name. Previews are computed during the scan,
 so moving the selection does no I/O. A pass that reaches its 12 MB read budget leaves the rest unread (the row says "not read yet") for the next pass.
+The budget is one per workspace pass, shared by every adapter, and reads are taken one at a time across all of them: never-read files first,
+first come first served (a file that did not fit is remembered with when it was first seen), then changed files least recently read first, so
+neither a stream of new sessions nor a set that changes on every pass can starve a file. Where the host bounds reads (`readTail`) a read is
+capped at what the pass has left; without it (today's host) a read that comes back larger than it reserved ends the pass's reads, so a pass
+overruns by at most one file's growth since its stat (at most the engine's 4 MiB).
 
 **The 2 s promise has a scope.** Surfacing within 2 s (a 1 s tick plus a pass of a few milliseconds) holds for the tracked sessions: the 60 most
 recently written per adapter. A dormant session outside them that wakes by appending to its file (the folder's mtime does not move) is found by
@@ -90,7 +95,9 @@ evidence is verified, from the observation, the ledger and the claims the consol
 ### 2.6 ruflo-mods
 
 `sessionAttention` (default off) adds one `attention:` row to `/ruflo-mods` with four counts and when they changed. The console keeps those counts
-(only) in `.claude-flow/console/attention.json`, in a ruflo project, rewritten only when a count changes. No gating behaviour changed.
+(only) in `.claude-flow/console/attention.json`, in a ruflo project, rewritten when a count changes and at least every 5 minutes while the workspace
+runs (a failed write is retried after 30 s, doubling to 5 minutes); a summary older than 15 minutes (or with no believable time) is shown as
+STALE, because the console closed or the workspace is off. No gating behaviour changed.
 
 ## 3. Threat model
 

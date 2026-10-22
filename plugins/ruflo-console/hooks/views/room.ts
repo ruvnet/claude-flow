@@ -12,6 +12,8 @@ import { statsOf } from './manage'
 import { modsRows } from './mods'
 import { sessionRows } from './sessions'
 
+/** How long the Room says a card expired, after the runner cleared it. */
+const EXPIRED_SHOWN_MS = 15_000
 const TONE_COLOR = { ok: THEME.ok, warn: THEME.warn, bad: THEME.bad, info: THEME.info } as const
 const SOURCES: readonly { id: 'all' | RoomSource; label: string }[] = [
   { id: 'all', label: 'all' },
@@ -54,12 +56,18 @@ export function roomView(ctx: Ctx): RenderElement {
   const banner = pendingBanner(state.pending, nowMs, PENDING_TTL_MS)
   const rows: RenderElement[] = []
 
-  rows.push(rule(ctx, 'Waiting for a yes', banner === null ? 'nothing' : `${banner.ageS}s of ${PENDING_TTL_MS / 1000}s`))
+  // Past the window a card is expired, never "63s of 30s": the runner clears it on its clock, and the page says so for a moment after.
+  const isLate = banner !== null && banner.leftS === 0
+  const expired = banner === null && state.outcome?.expired === true && nowMs - state.outcome.atMs < EXPIRED_SHOWN_MS ? state.outcome : null
 
-  if (banner === null) rows.push(text(ctx, ' Nothing is waiting. Anything that asks first shows up here, unmissable, with how long you have to answer.', { dimColor: true }))
+  rows.push(rule(ctx, 'Waiting for a yes', isLate || expired !== null ? 'expired' : banner === null ? 'nothing' : `${banner.ageS}s of ${PENDING_TTL_MS / 1000}s`))
+
+  if (expired !== null) rows.push(text(ctx, `⌛ ${clip(expired.label, 100)}: expired after ${PENDING_TTL_MS / 1000} s with no answer, so it did not run. Ask again if it is still wanted.`, { color: THEME.warn }))
+  else if (banner === null) rows.push(text(ctx, ' Nothing is waiting. Anything that asks first shows up here, unmissable, with how long you have to answer.', { dimColor: true }))
+  else if (isLate) rows.push(text(ctx, `⌛ ${banner.label}: expired after ${PENDING_TTL_MS / 1000} s with no answer. It will not run: ask again.`, { color: THEME.bad }))
   else {
     rows.push(text(ctx, `⚠ ${banner.label}`, { bold: true, color: TONE_COLOR[banner.tone] }))
-    rows.push(text(ctx, `   expects: ${banner.expect}${banner.view === null ? '' : ` · raised on ${banner.view}`} · ${banner.leftS}s left to answer${banner.leftS === 0 ? ' (too late: it will not run, ask again)' : ''}`, { color: TONE_COLOR[banner.tone] }))
+    rows.push(text(ctx, `   expects: ${banner.expect}${banner.view === null ? '' : ` · raised on ${banner.view}`} · ${banner.leftS}s left to answer`, { color: TONE_COLOR[banner.tone] }))
   }
 
   rows.push(...sessionRows(ctx))
@@ -125,6 +133,8 @@ export function roomView(ctx: Ctx): RenderElement {
 
     rows.push(row(ctx, [ctx.kit.Text({ bold: true, color: THEME.head, children: ` ${clip(lane.label, 20).padEnd(20)}` }), ctx.kit.Text({ color: share === null ? THEME.info : share >= 60 ? THEME.ok : share >= 20 ? THEME.warn : THEME.info, children: ` ${share === null ? 'no status seen' : `busy ${share}%`}` }), ctx.kit.Text({ dimColor: true, children: ` · ${stats.calls} tool call${stats.calls === 1 ? '' : 's'}` })], `room-lane-${i}`))
   }
+
+  if (lanes.length > 8) rows.push(text(ctx, ` +${lanes.length - 8} more`, { dimColor: true }))
 
   rows.push(...modsRows(ctx))
 

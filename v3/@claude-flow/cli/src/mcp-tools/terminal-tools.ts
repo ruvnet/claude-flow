@@ -351,11 +351,11 @@ export const terminalTools: MCPTool[] = [
       // Return combined history from all sessions
       const allHistory = Object.values(store.sessions)
         .flatMap(s => s.history.map(h => ({ ...h, sessionId: s.id })))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(offset, offset + limit);
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
       return {
-        history: allHistory,
+        history: allHistory.slice(offset, offset + limit),
+        // Every stored entry, like the single-session branch, not just this page.
         total: allHistory.length,
       };
     },

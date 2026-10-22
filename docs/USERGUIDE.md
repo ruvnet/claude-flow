@@ -578,6 +578,75 @@ Install Ruflo as a native Claude Code plugin -- adds skills, commands, agents, a
 
 After installing, new `/slash-commands` and agent types are available immediately. Run `/reload-plugins` if needed.
 
+### Terminal UI (optional)
+
+The Claude Code console (`/ruflo`) stays the main way to use Ruflo. If you are not in Claude Code, `ruflo tui` shows the same pages in any terminal, in the console's own look: the Classic BBS block-letter titles by default, or Orbital with its globe, and the pictures of the pages (the swarm graph, gauges and charts) drawn as colour and moving at the console's own speed. It is optional: nothing else depends on it.
+
+<p align="center"><img src="assets/ruflo-tui-walkthrough.svg" width="100%" alt="Looping recording of ruflo tui with its pictures: Overview and Cost in the Classic BBS look, the Orbital look moving, the Swarm graph and Events, then Swarm in a small 80 by 24 window. Sample project and sample agents only."></p>
+
+*The recording is a real run in a throwaway sample project, so some pages say `n/a` or "none yet".*
+
+**Requirements:** Node.js 20 or later and `ruflo` 3.56.7 or later (`npx ruflo@latest tui`). Use `ruflo` or `@claude-flow/cli`: `npx claude-flow tui` does not ship the bundle and says so.
+
+```bash
+npx ruflo tui                       # open it in this terminal
+npx ruflo tui --view swarm          # start on a page: overview | cost | swarm | events | missions | ai
+npx ruflo tui --look orbital        # the look: bbs (default, as in the console) | orbital | plain
+npx ruflo tui --fps 12              # frames per second for moving pictures, 0-30 (default 8; 0 draws them still)
+npx ruflo tui --no-anim             # draw the pictures still (same as --fps 0)
+npx ruflo tui --no-pictures         # the words of each picture only
+npx ruflo tui --boot                # play the look's start-up screen first
+npx ruflo tui --mouse               # click a page in the bar, scroll with the wheel (every action also has a key)
+npx ruflo tui --view federation     # open on any console page, not only the first six
+npx ruflo tui --plain | head -40    # print one plain frame and exit 0 (scripts, CI; the plain look, no colour)
+```
+
+**Pictures and colour.** Pictures are drawn in 24-bit colour when your terminal says it has it (`COLORTERM=truecolor`) and in the nearest of 256 otherwise. With `NO_COLOR`, `TERM=dumb`, `--no-pictures`, or a window narrower than 44 columns, each picture is replaced by the words it stands for. Moving pictures redraw only the rows that changed, pause while the terminal reports it is behind another window (terminals that send focus reports), and a slow terminal skips frames rather than queueing them. A look is the console's own, so the Orbital globe and masthead are the same drawings Claude Code shows.
+
+Without a terminal and without `--plain`, `tui` prints a one-line hint and exits 2.
+
+| Key | Does |
+|---|---|
+| `1`–`6`, or `o` `c` `s` `e` `m` `a` | Go to a page (Overview, Cost, Swarm, Events, Missions, AI) |
+| `Tab` / `Shift-Tab` | Next / previous page |
+| `j` `k` or the arrow keys | Scroll |
+| `r` | Read the files again |
+| `t` | Next look: Classic BBS, Orbital, plain |
+| `0` | The main menu: the console's board, with each entry's key (press it to open that page) |
+| `:` or `/` | Go to any page by name, id or key: `settings`, `go federation`, `terminal` |
+| `Esc` or Backspace | Back to the page you were on |
+| `y` / `n` | Only while a confirm card is on screen: `y` runs the command it shows, `n` or `Esc` drops it |
+| `q` or `Ctrl-C` | Quit |
+
+**What each page shows.** It reads Ruflo's own files and the CLI's output in the current project, and says `n/a` for anything it cannot measure.
+
+- **Overview:** setup steps, health findings and the subsystems.
+- **Cost:** budget and spend across Claude Code and Codex. Missing cost reports are not counted as zero.
+- **Swarm:** topology, agents and the hive-mind.
+- **Events:** swarm, claim, memory and mod events. History is kept only when the `eventsPersist` option is on.
+- **Missions:** the mission record, read-only. Missions are made from a goal in the Claude Code console.
+- **AI (optional):** ask Codex or OpenRouter a question. This is the only page that can send anything, and it always asks first.
+
+**The AI page asks first.** Typing a question and pressing Enter does not send it. It shows a card with exactly what would go out, and only a lone `y` (or a second Enter) while that card is on screen sends it. `n` cancels, and an unanswered card expires after 60 seconds. This is a real card:
+
+```text
+Ask first, #1: this goes to OpenRouter
+POST https://openrouter.ai/api/v1/chat/completions  Authorization: Bearer ‹from
+$OPENROUTER_API_KEY› {"model":"openrouter/auto","messages":[{"role":"user","content":"Summarize
+what my agents did today"}],"usage":{"include":true}}
+The key is read from the named variable, sent in one header and never shown or stored. Metered by the provider.
+y sends it · n cancels · it expires in 59 s
+```
+
+- **Keys on this page:** typing is text, so `Esc` hands the keys back to the page keys. `Ctrl-T` switches between Codex and OpenRouter, `Ctrl-S` stops a running answer, and `Ctrl-C` quits.
+- **Codex** runs only as the pinned `0.162.0` release found under `~/.codex/packages/standalone/releases`, read-only. It never uses the `current` link or `PATH` (0.162.1 crashes). If that release is not installed the page says so.
+- **OpenRouter** needs `OPENROUTER_API_KEY` in your environment. The key is named by its variable and never shown. Requests go only to `https://openrouter.ai` and to the HTTPS hosts you name with `--convo-targets` (or `RUFLO_TUI_CONVO_TARGETS`, syntax `endpoint:<name>=<https-base-url>|<KEY_ENV>|<model>;...`), with no redirects. `--model` picks the model (default `openrouter/auto`), and `--max-spend-usd` stops sending once the provider-reported spend reaches the cap (default `0.5`).
+- `--no-ai` turns the AI page off.
+
+**Limits.** It reads files and changes nothing, except what you ask for by name and confirm with a single `y` on the console card, and the AI page after its own card. Tested on Linux in tmux with Node 22; Windows, macOS and Node 20 are untested. The animation was measured on Linux: at 8 frames per second it used about 2–3% of one core and 14–80 KB/s of terminal output depending on the look and window size (Orbital on a 200 by 50 window is the heaviest), and 30 frames per second about 9% and 230 KB/s. **Every console page opens here** (33 of them, from the main menu `0` or the go prompt `:`), each with the console's own body. What changes is recorded per page in ADR-489: most are read-only here because their action buttons wait for the confirm gate (the next stage); the Room needs a Claude Code session and says so on one screen; the console's terminal is this shell's AI page. **Actions.** The go prompt (`:`) also takes an action by name, such as `swarm-stop` or `evolve plan`: a read runs at once; a change shows the console's confirm card (who asked, the exact command, what it will do) pinned under the bar, and only a single `y` runs it, and only when the whole card fits on screen. A paste, Enter or a card cut off by a small window runs nothing. Settings cannot be changed here yet. On the menu the console's keys work (`b` Hive-Mind, `9` Memory Lab, …; `q` still quits and `p` is the go prompt), so a letter there is not the page-bar letter. Design and decisions: [ADR-489](../v3/docs/adr/ADR-489-ruflo-tui-standalone-console.md).
+
+**In Claude Code**, the same console has an optional Orbital look and a Theme Studio: run `/ruflo themes`. See the [console README](../plugins/ruflo-console/README.md#orbital-theme).
+
 <details>
 <summary>🤖 <strong>OpenAI Codex CLI Support</strong> — Full Codex integration with self-learning</summary>
 
@@ -1614,13 +1683,13 @@ chain.verify(envelope); // true — tamper-evident
 
 ### Documentation
 
-- [Architecture Overview](v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
-- [Getting Started](v3/@claude-flow/guidance/docs/guides/getting-started.md)
-- [Enforcement Gates Tutorial](v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
-- [Proof Audit Trail](v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
-- [Multi-Agent Security](v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
-- [API Quick Reference](v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
-- [Full README](v3/@claude-flow/guidance/README.md)
+- [Architecture Overview](../v3/@claude-flow/guidance/docs/guides/architecture-overview.md)
+- [Getting Started](../v3/@claude-flow/guidance/docs/guides/getting-started.md)
+- [Enforcement Gates Tutorial](../v3/@claude-flow/guidance/docs/tutorials/enforcement-gates.md)
+- [Proof Audit Trail](../v3/@claude-flow/guidance/docs/tutorials/proof-audit-trail.md)
+- [Multi-Agent Security](../v3/@claude-flow/guidance/docs/guides/multi-agent-security.md)
+- [API Quick Reference](../v3/@claude-flow/guidance/docs/reference/api-quick-reference.md)
+- [Full README](../v3/@claude-flow/guidance/README.md)
 
 </details>
 
@@ -2112,8 +2181,8 @@ Workers run automatically based on context, or dispatch manually via MCP tools.
 | **TestGaps** | `testgaps` | Test coverage analysis | Code changes without tests |
 
 ```bash
-npx ruflo@latest worker dispatch --trigger audit --context "./src"
-npx ruflo@latest worker status
+npx ruflo@latest hooks worker dispatch --trigger audit --context "./src"
+npx ruflo@latest hooks worker status
 ```
 
 </details>
@@ -2846,6 +2915,7 @@ Run `npx ruflo@latest doctor` to diagnose and fix common issues.
 | **MCP servers** | Responsive | ✅ Restarts unresponsive servers |
 | **Disk space** | >100MB free | ❌ Manual cleanup required |
 | **TypeScript** | Installed | ✅ Installs if missing |
+| **Native addon headers** | No `better-sqlite3` built against Node 24.19+ headers while running Node 24.19–24.21 | ❌ See below |
 
 **Commands:**
 
@@ -2862,6 +2932,14 @@ npx ruflo@latest doctor --component memory
 # Verbose output
 npx ruflo@latest doctor --verbose
 ```
+
+**Node 24.19–24.21 abort (#4055).** A native addon compiled against Node 24.19+ headers can abort the process with `Assertion failed: (env) != nullptr` in `node::RemoveEnvironmentCleanupHook` (nodejs/node#65446; the fix, PR #65943, is in no release through 24.21.0). Prebuilt binaries are not affected, only copies compiled locally, which carry a `build/config.gypi` naming the headers they used. `doctor --component native-addon` reads those files (it never loads an addon) and lists each affected copy. Workarounds, any one of:
+
+- run Node 22, or Node 24.18.1, or a Node release that contains the fix;
+- rebuild the listed copy against older headers: `cd <copy> && npx node-gyp rebuild --release --nodedir=<node 24.18.1 headers>`;
+- install the 12.x prebuilt in the project: `npm install better-sqlite3@12`.
+
+ruflo opens AgentDB through its own prebuilt 12.x copy (since 3.56.4), so a flagged nested copy under `agentdb` or `agentic-flow` matters only to code that loads it directly. npm ignores `overrides` in a dependency's package.json, so the nested 11.x copies cannot be removed from inside the published package.
 
 **Output Example:**
 
@@ -4269,9 +4347,9 @@ The Claims system manages **who is working on what** — whether human or agent.
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `issues list` | See all issues and their status | `npx ruflo@latest issues list` |
-| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --as coder-1` |
-| `issues release` | Release your claim | `npx ruflo@latest issues release #123` |
-| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to reviewer` |
+| `issues claim` | Claim an issue for yourself/agent | `npx ruflo@latest issues claim #123 --agent coder:coder-1` |
+| `issues release` | Release your claim | `npx ruflo@latest issues release #123 --agent coder:coder-1` |
+| `issues handoff` | Hand off to another worker | `npx ruflo@latest issues handoff #123 --to agent:reviewer:reviewer-1` |
 | `issues status` | Update progress on claimed work | `npx ruflo@latest issues status #123 --progress 75` |
 | `issues stealable` | List abandoned/stuck issues | `npx ruflo@latest issues stealable` |
 | `issues steal` | Take over stealable issue | `npx ruflo@latest issues steal #123` |
@@ -4305,12 +4383,10 @@ When you need to pass work to someone else:
 ```bash
 # 1. Request handoff with context
 npx ruflo@latest issues handoff #123 \
-  --to security-architect \
-  --reason "Needs security review" \
-  --progress 80
+  --to agent:security-architect:security-architect-1 \
+  --reason "Needs security review"
 
-# 2. Target accepts handoff
-npx ruflo@latest issues accept #123 --as security-architect
+# 2. Target accepts the handoff through the claims_accept-handoff MCP tool
 
 # 3. Work continues with full context
 ```
@@ -4392,7 +4468,7 @@ The Route system uses **Q-Learning** to automatically assign tasks to the best a
 | Command | What It Does | Example |
 |---------|--------------|---------|
 | `route task` | Get agent recommendation | `npx ruflo@latest route task "implement OAuth2"` |
-| `route explain` | Understand routing decision | `npx ruflo@latest route explain "task"` |
+| `hooks explain` | Understand routing decision | `npx ruflo@latest hooks explain -t "task"` |
 | `route coverage` | Route based on test coverage | `npx ruflo@latest route coverage` |
 
 ### Example: Route a Task
@@ -6383,7 +6459,7 @@ const template = getWorkflow('login-basic');
 // { steps: [{action: 'open'}, {action: 'fill'}, ...], variables: [...] }
 ```
 
-📖 [Full Documentation](./v3/@claude-flow/browser/README.md)
+📖 [Full Documentation](../v3/@claude-flow/browser/README.md)
 
 </details>
 
@@ -7633,27 +7709,27 @@ cp -r ./data-backup-v2 ./data
 
 | Module | Description | Docs |
 |--------|-------------|------|
-| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](./v3/@claude-flow/plugins/README.md) |
-| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](./v3/@claude-flow/hooks/) |
-| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](./v3/@claude-flow/memory/) |
-| `@claude-flow/security` | CVE remediation & security patterns | [Source](./v3/@claude-flow/security/) |
-| `@claude-flow/swarm` | 15-agent coordination engine | [Source](./v3/@claude-flow/swarm/) |
-| `@claude-flow/cli` | CLI modernization | [Source](./v3/@claude-flow/cli/) |
-| `@claude-flow/neural` | SONA learning integration | [Source](./v3/@claude-flow/neural/) |
-| `@claude-flow/testing` | TDD London School framework | [Source](./v3/@claude-flow/testing/) |
-| `@claude-flow/mcp` | MCP server & tools | [Source](./v3/@claude-flow/mcp/) |
-| `@claude-flow/embeddings` | Vector embedding providers | [Source](./v3/@claude-flow/embeddings/) |
-| `@claude-flow/providers` | LLM provider integrations | [Source](./v3/@claude-flow/providers/) |
-| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](./v3/@claude-flow/integration/) |
-| `@claude-flow/performance` | Benchmarking & optimization | [Source](./v3/@claude-flow/performance/) |
-| `@claude-flow/deployment` | Release & CI/CD | [Source](./v3/@claude-flow/deployment/) |
-| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](./v3/@claude-flow/shared/) |
-| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](./v3/@claude-flow/browser/README.md) |
+| `@claude-flow/plugins` | Plugin SDK with workers, hooks, providers, security | [README](../v3/@claude-flow/plugins/README.md) |
+| `@claude-flow/hooks` | Event-driven lifecycle hooks + ReasoningBank | [Source](../v3/@claude-flow/hooks/) |
+| `@claude-flow/memory` | AgentDB unification with HNSW indexing | [Source](../v3/@claude-flow/memory/) |
+| `@claude-flow/security` | CVE remediation & security patterns | [Source](../v3/@claude-flow/security/) |
+| `@claude-flow/swarm` | 15-agent coordination engine | [Source](../v3/@claude-flow/swarm/) |
+| `@claude-flow/cli` | CLI modernization | [Source](../v3/@claude-flow/cli/) |
+| `@claude-flow/neural` | SONA learning integration | [Source](../v3/@claude-flow/neural/) |
+| `@claude-flow/testing` | TDD London School framework | [Source](../v3/@claude-flow/testing/) |
+| `@claude-flow/mcp` | MCP server & tools | [Source](../v3/@claude-flow/mcp/) |
+| `@claude-flow/embeddings` | Vector embedding providers | [Source](../v3/@claude-flow/embeddings/) |
+| `@claude-flow/providers` | LLM provider integrations | [Source](../v3/@claude-flow/providers/) |
+| `@claude-flow/integration` | agentic-flow@alpha integration | [Source](../v3/@claude-flow/integration/) |
+| `@claude-flow/performance` | Benchmarking & optimization | [Source](../v3/@claude-flow/performance/) |
+| `@claude-flow/deployment` | Release & CI/CD | [Source](../v3/@claude-flow/deployment/) |
+| `@claude-flow/shared` | Shared utilities, types & V3ProgressService | [Source](../v3/@claude-flow/shared/) |
+| `@claude-flow/browser` | AI-optimized browser automation with agent-browser | [README](../v3/@claude-flow/browser/README.md) |
 
 ### Additional Resources
 
 - [V2 Documentation](./v2/README.md)
-- [Architecture Decisions (ADRs)](./v3/implementation/adrs/)
+- [Architecture Decisions (ADRs)](../v3/implementation/adrs/)
 - [API Reference](./v2/docs/technical/)
 - [Examples](./v2/examples/)
 

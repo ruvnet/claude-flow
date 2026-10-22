@@ -93,7 +93,7 @@ Key invariants per ADR-099:
 
 ```bash
 bash plugins/ruflo-goals/scripts/smoke.sh
-# Expected: "12 passed, 0 failed"
+# Expected: "16 passed, 0 failed"
 ```
 
 ## As a mod (0.4.3)

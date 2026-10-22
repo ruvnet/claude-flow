@@ -40,13 +40,13 @@ describe('the hook’s scoring, copied', () => {
     expect(jaccard(new Set(), new Set())).toBe(0)
   })
 
-  it('scores 0.6 * match + 0.4 * pageRank, drops what is under 0.05, best first', () => {
+  it('scores 0.9 * coverage + 0.1 * pageRank, drops weak coverage and single-term hits, best first', () => {
     const parsed = parseRanked(RANKED)
     const top = explainPrompt('authentication token refresh', parsed?.entries ?? [])
 
     expect(top[0]?.entry.id).toBe('mem_a')
     expect(top.map(item => item.entry.id)).not.toContain('mem_c')
-    expect(top[0]?.score).toBeCloseTo(0.6 * (top[0]?.match ?? 0) + 0.4 * 0.04, 10)
+    expect(top[0]?.score).toBeCloseTo(0.9 * (top[0]?.match ?? 0) + 0.1 * 0.04, 10)
     expect(explainPrompt('the of and', parsed?.entries ?? [])).toEqual([])
   })
 
@@ -190,7 +190,7 @@ describe('the rows', () => {
 
     pickPrompt(null)
     expect(text).toMatch(/recomputed, not what surfaced then/)
-    expect(text).toMatch(/0\.6·match .* \+ 0\.4·pr 0\.040/)
+    expect(text).toMatch(/0\.9·coverage .* \+ 0\.1·pr 0\.040/)
   })
 
   it('says so when nothing clears the threshold', () => {
@@ -199,7 +199,7 @@ describe('the rows', () => {
     const text = words(recallRows(ctxOf(facts)))
 
     pickPrompt(null)
-    expect(text).toMatch(/nothing clears the hook’s 0\.05 threshold/)
+    expect(text).toMatch(/nothing clears the hook’s coverage threshold \(0\.15\)/)
   })
 
   it('draws the lifecycle table with uses and verdict, and no rank or last-used column', () => {
@@ -303,10 +303,10 @@ describe('what the scoring and the table promise', () => {
     expect(explainPrompt('authentication token refresh login service', parseRanked(many)?.entries ?? [])).toHaveLength(5)
   })
 
-  it('drops an entry that scores under 0.05 and keeps one that reaches it', () => {
-    const low = parseRanked(ranked([{ ...entry('lo', 'zzz', 0.0499 / 0.4), words: [] }, { ...entry('hi', 'zzz', 0.05 / 0.4), words: [] }]))?.entries ?? []
+  it('drops an entry that covers under 0.15 of the prompt or matches a single term', () => {
+    const entries = parseRanked(ranked([entry('one', 'authentication gardening', 0.5), entry('two', 'authentication token gardening', 0.5)]))?.entries ?? []
 
-    expect(explainPrompt('authentication', [{ ...low[0], pageRank: 0.1249 } as never, { ...low[1], pageRank: 0.125 } as never]).map(item => item.entry.id)).toEqual(['hi'])
+    expect(explainPrompt('authentication token refresh', entries).map(item => item.entry.id)).toEqual(['two'])
   })
 
   it('prunes strictly below the threshold, never at it', () => {

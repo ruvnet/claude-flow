@@ -7,7 +7,7 @@
  *   npx vitest run plugins/ruflo-console/tests/write-argv.spec.ts --testTimeout=30000
  */
 import { spawnSync } from 'node:child_process'
-import { closeSync, existsSync, lstatSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, closeSync, existsSync, lstatSync, mkdtempSync, openSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -331,6 +331,7 @@ describe('the POSIX scripts on a real disk (sh and dd as this machine has them)'
     const victim = join(dir, 'victim')
 
     writeFileSync(victim, 'precious', { mode: 0o644 })
+    chmodSync(victim, 0o644) // writeFileSync's mode is subject to the process umask; force it so this assertion isn't host-dependent.
     symlinkSync(victim, join(dir, 'link-flag'))
     expect(run(touchArgv(join(dir, 'link-flag'), 'posix')).status).toBe(73)
     expect(readFileSync(victim, 'utf8')).toBe('precious')

@@ -580,11 +580,11 @@ const tasksCommand: Command = {
     try {
       const result = await callMCPTool<{
         tasks: Array<{
-          id: string;
+          taskId: string;
           type: string;
           status: string;
           priority: string;
-          agent?: string;
+          assignedTo?: string[];
           progress: number;
           createdAt: string;
         }>;
@@ -614,11 +614,11 @@ const tasksCommand: Command = {
           { key: 'progress', header: 'Progress', width: 10 }
         ],
         data: result.tasks.map(t => ({
-          id: t.id,
+          id: t.taskId,
           type: t.type,
           status: formatHealth(t.status),
           priority: t.priority,
-          agent: t.agent || '-',
+          agent: t.assignedTo?.length ? t.assignedTo.join(', ') : '-',
           progress: `${t.progress}%`
         }))
       });

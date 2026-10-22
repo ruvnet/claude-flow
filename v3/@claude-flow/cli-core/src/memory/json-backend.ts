@@ -55,7 +55,7 @@ export class JsonMemoryBackend implements MemoryBackend {
   }
 
   private load(): FileShape {
-    if (this.cache) return this.cache;
+    if (this.cache) return structuredClone(this.cache);
     if (!existsSync(this.path)) {
       const fresh: FileShape = {
         version: 1,
@@ -65,7 +65,7 @@ export class JsonMemoryBackend implements MemoryBackend {
         updatedAt: nowIso(),
       };
       this.cache = fresh;
-      return fresh;
+      return structuredClone(fresh);
     }
     try {
       const raw = readFileSync(this.path, 'utf-8');
@@ -73,8 +73,11 @@ export class JsonMemoryBackend implements MemoryBackend {
       if (parsed.version !== 1) {
         throw new Error(`Unsupported memory file version: ${parsed.version}`);
       }
+      if (typeof parsed.entries !== 'object' || parsed.entries === null || Array.isArray(parsed.entries)) {
+        throw new Error('Memory entries must be a JSON object');
+      }
       this.cache = parsed;
-      return parsed;
+      return structuredClone(parsed);
     } catch (err) {
       throw new Error(`memory: failed to load ${this.path}: ${(err as Error).message}`);
     }
@@ -82,27 +85,29 @@ export class JsonMemoryBackend implements MemoryBackend {
 
   private save(state: FileShape): void {
     state.updatedAt = nowIso();
-    this.cache = state;
     const dir = dirname(this.path);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
     const tmp = `${this.path}.tmp.${process.pid}.${Date.now()}`;
-    writeFileSync(tmp, JSON.stringify(state, null, 2), 'utf-8');
+    const serialized = JSON.stringify(state, null, 2);
+    writeFileSync(tmp, serialized, 'utf-8');
     renameSync(tmp, this.path);
+    // Commit only the independently owned representation actually persisted.
+    this.cache = JSON.parse(serialized);
   }
 
   private isExpired(entry: MemoryEntry): boolean {
-    if (!entry.ttlSeconds) return false;
+    if (entry.ttlSeconds === undefined) return false;
     const expiresAt = new Date(entry.storedAt).getTime() + entry.ttlSeconds * 1000;
-    return Date.now() > expiresAt;
+    return Date.now() >= expiresAt;
   }
 
   async store(key: string, value: unknown, opts?: StoreOptions): Promise<void> {
     const namespace = opts?.namespace || 'default';
     const ck = compositeKey(namespace, key);
     const state = this.load();
-    if (state.entries[ck] && !opts?.upsert) {
+    if (state.entries[ck] && !this.isExpired(state.entries[ck]) && !opts?.upsert) {
       throw new Error(`memory: UNIQUE constraint failed for namespace='${namespace}' key='${key}' (pass --upsert to overwrite)`);
     }
     state.entries[ck] = {
@@ -153,7 +158,7 @@ export class JsonMemoryBackend implements MemoryBackend {
       const haystack = `${entry.key} ${JSON.stringify(entry.value)}`.toLowerCase();
       let score = 0;
       if (haystack.includes(q)) score = 1.0;
-      if (score < threshold) continue;
+      if (score === 0 || score < threshold) continue;
       out.push({ ...entry, score, backend: 'json' });
     }
     out.sort((a, b) => b.score - a.score);
@@ -193,7 +198,7 @@ export class JsonMemoryBackend implements MemoryBackend {
     const entries = Object.values(state.entries);
     const namespaces = [...new Set(entries.map((e) => e.namespace))].sort();
     const sizeBytes = existsSync(this.path)
-      ? readFileSync(this.path, 'utf-8').length
+      ? Buffer.byteLength(readFileSync(this.path, 'utf-8'), 'utf-8')
       : 0;
     return {
       totalEntries: entries.length,

@@ -8,12 +8,14 @@
 [![npm version (ruflo)](https://img.shields.io/npm/v/ruflo?label=npx%20ruflo&style=for-the-badge&logo=npm&color=cb3837)](https://www.npmjs.com/package/ruflo)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/claude-flow?style=for-the-badge&logo=github&color=gold)](https://github.com/ruvnet/claude-flow)
+[![Follow @rUv on X](https://img.shields.io/badge/Follow-@rUv-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/rUv)
 
 <p align="center">
-<a href="data/npm-downloads.latest.json"><img src="docs/assets/readme/badges/downloads.svg?v=mobile-readable-3" width="300" alt="Ecosystem npm downloads: 12.52M over 12 months through October 4, 2026"></a>
+<a href="docs/harness-origins.md"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/e69e4b95aa08d65ea0f7715489bbf8e62a83a0d2/docs/assets/readme/badges/first-commit.svg" width="300" height="76" alt="Claude Flow lineage: first commit June 2, 2025 by rUv; inspect the evidence"></a>
+<a href="data/npm-downloads.latest.json"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/275aff65a198af758923669acff36f03d1f41623/docs/assets/readme/badges/downloads.svg" width="300" height="76" alt="Illustrative download counter starts at 98,000,000 and adds varied amounts each second in a 30 second loop. Verified dataset: 97,022,120 download events."></a>
 <br>
-<a href="https://github.com/ruvnet/claude-flow"><img src="docs/assets/readme/badges/claude.svg?v=mobile-readable-3" width="300" alt="Claude Code"></a>
-<a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="docs/assets/readme/badges/codex.svg?v=mobile-readable-3" width="300" alt="Codex Plugin"></a>
+<a href="https://github.com/ruvnet/claude-flow"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/claude.svg" width="300" height="76" alt="Claude Code plugin"></a>
+<a href="https://www.npmjs.com/package/@claude-flow/codex"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/d1e80400bdefe01d3b13e70395f88fffab76bb18/docs/assets/readme/badges/codex.svg" width="300" height="76" alt="Codex plugin"></a>
 </p>
 
 </div>
@@ -48,6 +50,10 @@ npx -y ruflo@latest mcp start
 ```
 
 MCP exposes Ruflo tools to your client. The console and mods above are Claude Code integrations; hook support depends on the client.
+
+<img src="docs/assets/readme/icons/terminal.svg" width="28" height="28" alt=""> **Prefer a plain terminal? Optional.** The console also runs on its own, with no Claude Code: `npx ruflo tui` (add `--plain` to print one frame for scripts). It shows Overview, Cost, Swarm, Events and Missions, plus an optional AI page. [Terminal UI guide](docs/USERGUIDE.md#terminal-ui-optional)
+
+<p align="center"><img src="docs/assets/ruflo-tui-compact.svg" width="640" alt="Looping recording of the optional ruflo terminal UI with its pictures: Overview in the Classic BBS look, the Orbital look with its moving globe, and the Swarm graph, in a sample project"></p>
 
 [Compare install paths](#quick-start) · [Open the console](#console-walkthrough) · [User guide](docs/USERGUIDE.md)
 
@@ -105,6 +111,16 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 
 > **New to Ruflo?** You don't need to learn 314 MCP tools or 26 CLI commands. After `init`, just use Claude Code normally — the hooks system automatically routes tasks, learns from successful patterns, and coordinates agents in the background.
 
+### An origin you can inspect
+
+[![Claude Flow to Ruflo: founding idea on June 2, 2025, orchestration source on June 10, and the continuing Ruflo lineage.](docs/assets/readme/harness-origins.svg)](docs/harness-origins.md)
+
+**Built by [Reuven Cohen (rUv)](https://github.com/ruvnet), originally as Claude Flow.** The [first commit, June 2, 2025](https://github.com/ruvnet/ruflo/commit/7c1f9402d70e7af56c01a879073cbac92564dc4e), describes a code orchestration layer for recursive agent cycles: Claude writes, edits, tests and improves. The [June 10 source snapshot](https://github.com/ruvnet/ruflo/tree/dba545f012ea92a2375a26332bbf3797495e93c9) adds orchestration, task scheduling, memory and terminal modules.
+
+A harness is the workbench around the model: it organizes tasks, carries context between steps and helps check results. **This establishes Ruflo's lineage, not a universal first across every Claude Code tool.** [See the illustrated explainer, exact commits and earlier ecosystem context](docs/harness-origins.md).
+
+**Grok Build:** `npx ruflo init --grok` writes the project host surface (`.grok/`, the team bus, and the operator guide) and nothing outside the project; add `--dry-run` to preview. Setup, the `spawn_subagent` contract, the optional status row, and what to re-check when Grok updates: [the Grok operator guide](v3/@claude-flow/cli/templates/grok/docs/README.md).
+
 <details>
 <summary><strong>📖 Background — where the name comes from</strong></summary>
 
@@ -116,9 +132,11 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 
 <p align="center"><img src="docs/assets/readme/console.svg" alt="Mission control: inspect agent work" width="100%"></p>
 
-<p align="center"><img src="docs/assets/ruflo-console-workflows.svg" width="952" height="964" alt="An animated recording of the ruflo console inside Claude Code: the boot (the neon sign and every area checked), then the Workflows page on a sample run: phases and agents with model, tokens and time; drilling from a run into one agent's activity, log and result; search; failure triage; cost; replay and compare; the control tab with a confirm card; and the mission autopilot panel"></p>
+<p align="center"><a href="https://raw.githubusercontent.com/ruvnet/ruflo/main/docs/assets/ruflo-console-theme-compact.svg"><img src="docs/assets/ruflo-console-theme-compact.svg" width="100%" alt="Ruflo Orbital theme: animated boot checks, block logo, menu icons, rotating globe, swarm routing, six color palettes and responsive Theme Studio"></a></p>
 
-<img src="docs/assets/readme/console-icon-workflows.svg" width="28" height="28" alt=""> **Your agent cockpit.** Track workflows, agents, models, tokens and cost beside Claude Code. The animation shows startup checks and a **sample workflow**, not a live session.
+[Open animated demo](https://raw.githubusercontent.com/ruvnet/ruflo/main/docs/assets/ruflo-console-theme-compact.svg) · [Theme Studio guide](plugins/ruflo-console/README.md) · [Workflow demo](docs/assets/ruflo-console-workflows.svg)
+
+<img src="docs/assets/readme/console-icon-workflows.svg" width="28" height="28" alt=""> **Your agent cockpit.** Track workflows, agents, models, tokens and cost beside Claude Code. The 38 second animation shows **Orbital and Theme Studio** through actual renderer frames, including boot checks, six palettes, customization, saved themes, JSON import and resizing. This compact 3.84 MB SVG retains all 456 frames. Native host and AI provider execution are not demonstrated.
 
 <img src="docs/assets/readme/console-icon-inspect.svg" width="28" height="28" alt=""> **Inspect any run.** Open agent logs and results, search, triage failures, replay and compare. Start with `npx ruflo init`, restart Claude Code, then `/ruflo`. [Full console tour](docs/assets/ruflo-console-walkthrough-wide.gif).
 
@@ -136,7 +154,7 @@ User → Ruflo (CLI/MCP) → Router → Swarm → Agents → Memory → LLM prov
 4. **Verify the result.** Check that Missions contains the goal and Overview records the action. Creating a mission does not mean the feature has been implemented.
 5. **Keep control.** **Take back control** pauses Claude's console tools. A later call should be refused until you restore control.
 
-**What the recording demonstrates:** a real Claude Haiku session with `write + auto`, mission creation, page navigation, a refused swarm stop, and control being taken back. The steps above use `ask` so you approve creation yourself. The separate workflow animation uses sample data; neither is evidence of completed swarm work or memory recall.
+**What the recording demonstrates:** a real Claude Haiku session with `write + auto`, mission creation, page navigation, a refused swarm stop, and control being taken back. The steps above use `ask` so you approve creation yourself. The linked workflow animation uses sample data, while the theme demo replays renderer frames. Neither is evidence of completed swarm work or memory recall.
 
 [Implementation and recorded test findings](v3/docs/adr/ADR-444-claude-controls-the-console.md) · [Reproduction script](plugins/ruflo-console/scripts/e2e-control.sh)
 
@@ -225,6 +243,7 @@ This adds slash commands and agent definitions. `ruflo-core` (installed above) d
 | [**ruflo-browser**](plugins/ruflo-browser/README.md) | Automate browser testing with Playwright |
 | [**ruflo-jujutsu**](plugins/ruflo-jujutsu/README.md) | Analyze git diffs, score risk, suggest reviewers |
 | [**ruflo-docs**](plugins/ruflo-docs/README.md) | Generate and maintain documentation automatically |
+| [**agentic-qe-fleet**](https://github.com/proffesor-for-testing/agentic-qe/tree/v3.15.11/plugins/agentic-qe-fleet) | External, maintained by [Agentic QE](https://github.com/proffesor-for-testing/agentic-qe): 11 QE agents, test generation, coverage, chaos and TDD skills, the `agentic-qe` MCP server, and a guard for AQE learning data (`/plugin install agentic-qe-fleet@ruflo`). Install it from one marketplace only, `agentic-qe` or `ruflo`: enabled from both, its mod and commands load twice |
 
 #### Security & Compliance
 

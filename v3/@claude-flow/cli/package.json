@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/cli",
-  "version": "3.56.3",
+  "version": "3.59.17",
   "type": "module",
   "description": "Ruflo CLI - Enterprise AI agent orchestration with 60+ specialized agents, swarm coordination, MCP server, self-learning hooks, and vector memory for Claude Code",
   "main": "dist/src/index.js",
@@ -48,6 +48,7 @@
       "import": "./dist/src/index.js"
     },
     "./dist/*": "./dist/*",
+    "./package.json": "./package.json",
     "./ruvector": {
       "types": "./dist/src/ruvector/index.d.ts",
       "import": "./dist/src/ruvector/index.js"
@@ -75,6 +76,7 @@
     "!dist/**/*.tsbuildinfo",
     "bin",
     "scripts/postinstall.cjs",
+    "templates",
     ".claude",
     "plugins",
     "README.md",
@@ -98,13 +100,13 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
-    "@claude-flow/cli-core": "3.7.0",
-    "@claude-flow/codex": "3.0.3",
-    "@claude-flow/mcp": "3.1.0",
+    "@claude-flow/cli-core": "3.7.5",
+    "@claude-flow/codex": "3.0.5",
+    "@claude-flow/mcp": "3.1.1",
     "@claude-flow/neural": "3.0.0",
     "@claude-flow/plugin-agent-federation": "1.0.1",
-    "@claude-flow/security": "3.0.3",
-    "@claude-flow/shared": "3.0.2",
+    "@claude-flow/security": "3.0.5",
+    "@claude-flow/shared": "3.0.5",
     "@iarna/toml": "^2.2.5",
     "@noble/ed25519": "2.3.0",
     "@ruvector/rabitq-wasm": "0.1.0",
@@ -121,16 +123,15 @@
     "inquirer": "^9.2.0",
     "semver": "7.7.3",
     "sql.js": "^1.13.0",
-    "toml": "^3.0.0",
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
     "zod": "^3.22.0",
-    "@claude-flow/memory": "3.0.4"
+    "@claude-flow/memory": "3.0.9"
   },
   "optionalDependencies": {
-    "@agntcy/slim-bindings": "2.0.0-alpha.5",
-    "@claude-flow/memory": "3.0.4",
-    "@metaharness/darwin": "~0.10.2",
+    "@agntcy/slim-bindings": "2.1.1",
+    "@claude-flow/memory": "3.0.9",
+    "@metaharness/darwin": "~0.12.0",
     "@metaharness/flywheel": "~0.1.10",
     "@metaharness/radio": "~0.1.0",
     "@metaharness/turn-credit": "~0.1.0",

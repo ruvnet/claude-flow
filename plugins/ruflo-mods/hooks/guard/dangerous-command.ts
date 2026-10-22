@@ -10,7 +10,8 @@ export const DANGEROUS_COMMANDS: readonly string[] = ['rm -rf /', 'format c:', '
 // Keep this literal-word scanner in sync with the classic helpers/fallback.
 // It joins quote fragments and escapes, but never evaluates expansions or links.
 function hasRootDelete(command: string, depth = 0): boolean {
-  let word = '', quote = '', started = false, redirect = false
+  // mask has one letter per character of word: 'u' unquoted, 'q' quoted or escaped (only unquoted braces expand).
+  let word = '', mask = '', quote = '', started = false, redirect = false
   let ansiNul = false // a NUL inside $'...' ends that string, as in bash
   let inRm = false, optionsEnded = false, recursive = false, force = false, root = false
   const isRoot = (operand: string) => {
@@ -40,22 +41,91 @@ function hasRootDelete(command: string, depth = 0): boolean {
     if (c === 'c' && at + 1 < s.length) return [String.fromCharCode(s.charCodeAt(at + 1) & 31), at + 1]
     return ['\\' + c, at]
   }
+  // Past the rescan bound (or the brace budget), a string is judged by its tokens: an rm and a possible root operand
+  // anywhere in it deny. Quote characters are dropped first, so r"m" is still rm; a path token with braces may expand to /.
+  const looseRootDelete = (text: string) => {
+    const tokens = text.replace(/["'\\]/g, '').split(/[\s;&|()\x60$]+/)
+    return tokens.some(t => t === 'rm' || t.endsWith('/rm')) && tokens.some(t => isRoot(t) || (t.includes('/') && /[{}]/.test(t)))
+  }
+  // Bash brace expansion of one word ({a,b} lists, nested or glued to text), and nothing else: no {1..3} sequences, and
+  // nothing inside parameter braces after a dollar sign. Only unquoted braces and commas count. Iterative and bounded:
+  // past BRACE_WORDS words or BRACE_CHARS characters of work in this call it returns undefined.
+  const BRACE_WORDS = 4096
+  let braceChars = 1_000_000
+  // The leftmost expandable group: an unquoted {...} with an unquoted comma at its own level, outside any dollar-brace parameter. One pass.
+  const firstGroup = (text: string, marks: string): [number, number[], number] | undefined => {
+    const stack: { open: number; commas: number[]; dollar: boolean }[] = []
+    let dollars = 0
+    let best: [number, number[], number] | undefined
+    for (let k = 0; k < text.length; k++) {
+      if (marks[k] !== 'u') continue
+      const c = text[k]
+      if (c === '{') {
+        const dollar = k > 0 && text[k - 1] === '$' && marks[k - 1] === 'u'
+        if (dollar) dollars++
+        stack.push({ open: k, commas: [], dollar: dollar || dollars > 0 })
+      } else if (c === ',' && stack.length > 0) stack[stack.length - 1].commas.push(k)
+      else if (c === '}' && stack.length > 0) {
+        const top = stack.pop()!
+        if (top.dollar && text[top.open - 1] === '$' && marks[top.open - 1] === 'u') dollars--
+        if (!top.dollar && top.commas.length > 0 && (best === undefined || top.open < best[0])) best = [top.open, top.commas, k]
+      }
+    }
+    return best
+  }
+  const braceExpand = (text: string, marks: string): string[] | undefined => {
+    const out: string[] = []
+    const todo: [string, string][] = [[text, marks]]
+    while (todo.length > 0) {
+      const [t, m] = todo.pop()!
+      if ((braceChars -= t.length) < 0) return undefined
+      const group = firstGroup(t, m)
+      if (group === undefined) {
+        out.push(t)
+        if (out.length > BRACE_WORDS) return undefined
+        continue
+      }
+      const [open, commas, close] = group
+      const cuts = [open, ...commas, close]
+      // Pushed in reverse, so the words come out in bash's left-to-right order.
+      for (let c = cuts.length - 2; c >= 0; c--) {
+        const from = cuts[c] + 1, to = cuts[c + 1]
+        todo.push([t.slice(0, open) + t.slice(from, to) + t.slice(close + 1), m.slice(0, open) + m.slice(from, to) + m.slice(close + 1)])
+      }
+      if (todo.length > BRACE_WORDS) return undefined
+    }
+    return out
+  }
+  const takeWord = (w: string) => {
+    if (!inRm) inRm = w === 'rm' || w.endsWith('/rm')
+    else if (!optionsEnded && w === '--') optionsEnded = true
+    else if (!optionsEnded && w.startsWith('-')) {
+      // GNU getopt accepts any unambiguous long-option prefix: --r, --recur, --forc.
+      recursive = recursive || (w.length > 2 && '--recursive'.startsWith(w)) || (/^-[a-z]*$/.test(w) && w.includes('r'))
+      force = force || (w.length > 2 && '--force'.startsWith(w)) || (/^-[a-z]*$/.test(w) && w.includes('f'))
+    } else root = root || isRoot(w)
+    return inRm && recursive && force && root
+  }
   const finishWord = () => {
     if (!started) return false
-    // Literal shell strings (e.g. sh -c 'rm -rf /') also carried the old guard.
-    // Bound rescanning to four levels; beyond that retain its conservative check.
-    if (/[\s;&|()\x60]/.test(word)) {
-      if (depth < 4 ? hasRootDelete(word, depth + 1) : word.includes('rm -rf /')) return true
+    const text = word, marks = mask
+    word = ''; mask = ''; started = false
+    // Literal shell strings (e.g. sh -c 'rm -rf /', or sh -c '{rm,-rf,/}') also carried the old guard.
+    // Bound rescanning to four levels; beyond that judge the string by its tokens.
+    if (/[\s;&|()\x60{]/.test(text)) {
+      if (depth < 4 ? hasRootDelete(text, depth + 1) : looseRootDelete(text)) return true
     }
-    if (!inRm) inRm = word === 'rm' || word.endsWith('/rm')
-    else if (!optionsEnded && word === '--') optionsEnded = true
-    else if (!optionsEnded && word.startsWith('-')) {
-      // GNU getopt accepts any unambiguous long-option prefix: --r, --recur, --forc.
-      recursive = recursive || (word.length > 2 && '--recursive'.startsWith(word)) || /^-[a-z]*r[a-z]*$/.test(word)
-      force = force || (word.length > 2 && '--force'.startsWith(word)) || /^-[a-z]*f[a-z]*$/.test(word)
-    } else root = root || isRoot(word)
-    word = ''; started = false
-    return inRm && recursive && force && root
+    // An unquoted {a,b} becomes separate words, as bash expands it: rm -rf {/*,} is rm -rf /*.
+    const words = text.includes('{') ? braceExpand(text, marks) : [text]
+    if (words === undefined) {
+      // Too many alternatives to check: one of them may be the root (an rm in progress fails closed), or the
+      // list itself may spell the rm: judge its tokens.
+      if (inRm) root = true
+      if (looseRootDelete(text.replace(/[{},]/g, ' '))) return true
+      return takeWord(text)
+    }
+    for (const w of words) if (w !== '' && takeWord(w)) return true
+    return false
   }
   // A command substitution's body, from just after its opening backtick. Bash removes a
   // backslash only before $, a backtick or a backslash (and " inside double quotes) and
@@ -70,7 +140,7 @@ function hasRootDelete(command: string, depth = 0): boolean {
       }
       body += command[j]
     }
-    return [j, depth < 4 ? hasRootDelete(body, depth + 1) : body.includes('rm -rf /')]
+    return [j, depth < 4 ? hasRootDelete(body, depth + 1) : looseRootDelete(body)]
   }
   const finishCommand = () => {
     const denied = inRm && recursive && force && root
@@ -87,8 +157,8 @@ function hasRootDelete(command: string, depth = 0): boolean {
         else if (char === '\\' && i + 1 < command.length) {
           const [text, last] = ansiEscape(command, i + 1)
           i = last
-          if (!ansiNul) { const nul = text.indexOf('\0'); if (nul < 0) word += text; else { word += text.slice(0, nul); ansiNul = true } }
-        } else if (!ansiNul) word += char
+          if (!ansiNul) { const nul = text.indexOf('\0'); const kept = nul < 0 ? text : text.slice(0, nul); word += kept; mask += 'q'.repeat(kept.length); if (nul >= 0) ansiNul = true }
+        } else if (!ansiNul) { word += char; mask += 'q' }
         continue
       }
       if (char === quote) quote = ''
@@ -98,20 +168,20 @@ function hasRootDelete(command: string, depth = 0): boolean {
         // The substitution is gone from the word, as bash's empty output is (a quoted empty substitution glued to -rf leaves -rf).
         // A # right after it is still inside the word: a placeholder keeps a rescan (sh -c "...")
         // from reading it as the start of a comment.
-        if (command[end + 1] === '#') word += '\u0001'
+        if (command[end + 1] === '#') { word += '\u0001'; mask += 'q' }
         i = end
       }
       else if (quote === '"' && char === '\\' && i + 1 < command.length &&
         (command[i + 1] === '"' || command[i + 1] === '\\' || command[i + 1] === '$' ||
           command.charCodeAt(i + 1) === 96 || command[i + 1] === '\n')) {
         const next = command[++i]
-        if (next !== '\n') word += next
-      } else word += char
+        if (next !== '\n') { word += next; mask += 'q' }
+      } else { word += char; mask += 'q' }
       continue
     }
     if (char === '\\' && i + 1 < command.length) {
       const next = command[++i]
-      if (next !== '\n') { word += next; started = true }
+      if (next !== '\n') { word += next; mask += 'q'; started = true }
     } else if (char === '\x60' && command.indexOf('\x60', i + 1) > i) {
       // Command substitution: scan the body as its own command; the substitution
       // stays inside the enclosing word, so the rm being parsed keeps its state,
@@ -134,10 +204,26 @@ function hasRootDelete(command: string, depth = 0): boolean {
       redirect = char === '<' || char === '>'
       if (!redirectionAmpersand && (char === '\n' || ';|&()'.includes(char)) && finishCommand()) return true
     } else {
-      word += char; started = true
+      word += char; mask += 'u'; started = true
     }
   }
   return finishWord() || finishCommand()
+}
+
+// A fork bomb's definition as bash reads it, whatever the spacing or the name: f(){ f|f& }, function f { f|f& },
+// function f(){ f|f& }. Defining one is the danger: the call may come anywhere later.
+function hasForkBomb(command: string): boolean {
+  const s = command.replace(/\s+/g, '')
+  for (let brace = s.indexOf('{'); brace >= 0; brace = s.indexOf('{', brace + 1)) {
+    const end = s.startsWith('()', brace - 2) ? brace - 2 : brace
+    let start = end
+    while (start > 0 && end - start < 72 && /[a-z0-9_:.-]/.test(s[start - 1])) start--
+    const run = s.slice(start, end)
+    for (const name of run.startsWith('function') && run.length > 8 ? [run, run.slice(8)] : [run]) {
+      if (name && s.startsWith(name + '|' + name + '&}', brace + 1)) return true
+    }
+  }
+  return false
 }
 
 /**
@@ -152,7 +238,7 @@ export function dangerousCommandVerdict(tool: string, input: unknown): Verdict |
   // Same belt-and-braces as #2017: a non-string command is checked as text,
   // never skipped.
   const command = String(raw ?? '').toLowerCase()
-  const hit = DANGEROUS_COMMANDS.find(d => d === 'rm -rf /' ? hasRootDelete(command) : command.includes(d))
+  const hit = DANGEROUS_COMMANDS.find(d => d === 'rm -rf /' ? hasRootDelete(command) : d === ':(){:|:&};:' ? hasForkBomb(command) : command.includes(d))
   return hit === undefined
     ? undefined
     : { decision: 'deny', reason: `ruflo: dangerous command blocked (${hit})` }

@@ -84,6 +84,26 @@ export function currentInstallEnv(cwd: string = process.cwd()): InstallEnv {
   return env;
 }
 
+/**
+ * #4176: is `cwd` a ruflo project? A bare `.claude/` is not enough: Claude Code
+ * itself creates `.claude/.cc-writes/` in whatever directory a Bash command ran
+ * in, so every subdirectory a session cd-ed into used to qualify and received a
+ * proven-config.json. A ruflo project carries `ruflo init`'s own markers: a
+ * `.claude/settings.json`, the `.claude/helpers/` directory, or an earlier
+ * adoption stamp.
+ */
+export function isRufloProject(cwd: string): boolean {
+  try {
+    const claudeDir = path.join(cwd, '.claude');
+    if (!fs.statSync(claudeDir).isDirectory()) return false;
+    return fs.existsSync(path.join(claudeDir, 'settings.json'))
+      || fs.existsSync(path.join(claudeDir, 'helpers'))
+      || fs.existsSync(path.join(claudeDir, PROVEN_CONFIG_STAMP));
+  } catch {
+    return false;
+  }
+}
+
 export interface AdoptResult { adopted: boolean; from?: string; to?: string; reason?: string; skipped?: string }
 
 /**
@@ -99,7 +119,7 @@ export function adoptSignedConfig(
 ): AdoptResult {
   try {
     const claudeDir = path.join(cwd, '.claude');
-    if (!fs.existsSync(claudeDir)) return { adopted: false }; // not a ruflo project
+    if (!isRufloProject(cwd)) return { adopted: false }; // not a ruflo project (#4176)
     const championId = signed.manifest?.policy?.ref;
     if (!championId) return { adopted: false, skipped: 'manifest missing policy.ref' };
 
@@ -135,7 +155,7 @@ export function adoptSignedConfig(
  */
 export async function autoAdoptProvenConfigIfStale(cwd: string = process.cwd()): Promise<AdoptResult> {
   try {
-    if (!fs.existsSync(path.join(cwd, '.claude'))) return { adopted: false };
+    if (!isRufloProject(cwd)) return { adopted: false };
     const src = findPackageProvenConfig();
     if (!src) return { adopted: false }; // no champion ships → no-op (additive)
     const signed = loadShippedChampion(src);

@@ -14,7 +14,7 @@ import { adrOf, loadAdrs } from '../hooks/adr'
 import { adrBlockFor, attachedOf, DIGEST_FILE, draftSpec, mirrorDigest, scopeCheck, setAttached, suggestFor, syncAdrDigest } from '../hooks/adr-mission'
 import { contextSection, claudeActions } from '../hooks/mission-claude'
 import { missionContextText } from '../hooks/mission-context'
-import { instructionOf, loadLedger, LEDGER_KEY, mcOf } from '../hooks/mission-control'
+import { instructionOf, ledgerKeyOf, loadLedger, mcOf } from '../hooks/mission-control'
 import type { MissionRecord } from '../hooks/mission-types'
 import { settingsOf } from '../hooks/settings'
 import { newState } from '../hooks/state'
@@ -39,7 +39,7 @@ describe('attach, suggest and detach on a mission', () => {
     await setAttached(state, host as never, '0003-use-graphql.md', true)
     await setAttached(state, host as never, '0003-use-graphql.md', true)
     expect(attachedOf(m)).toEqual(['0003-use-graphql.md'])
-    expect((stored.get(LEDGER_KEY) as { missions: MissionRecord[] }).missions[0]?.adrs).toEqual(['0003-use-graphql.md'])
+    expect((stored.get(ledgerKeyOf(state.cwd)) as { missions: MissionRecord[] }).missions[0]?.adrs).toEqual(['0003-use-graphql.md'])
     expect(m.events.filter(event => event.type === 'adr.attached')).toHaveLength(2)
 
     await setAttached(state, host as never, '../../etc/passwd', true)
@@ -69,9 +69,9 @@ describe('attach, suggest and detach on a mission', () => {
 
   it('a saved ledger is not trusted: hostile attached names are dropped on load', async () => {
     const { state, host } = await world('nygard', null)
-    const bad = missionOf({ adrs: ['../../x.md', 'ok.md', 7 as never, 'a/b.md', 'x'.repeat(300) + '.md'] })
+    const bad = { ...missionOf({ adrs: ['../../x.md', 'ok.md', 7 as never, 'a/b.md', 'x'.repeat(300) + '.md'] }), cwd: state.cwd }
 
-    await host.storeSet(LEDGER_KEY, { active: bad.id, missions: [bad] })
+    await host.storeSet(ledgerKeyOf(state.cwd), { active: bad.id, missions: [bad] })
     await loadLedger(state, host as never)
     expect(mcOf(state).missions.get(bad.id)?.adrs).toEqual(['ok.md'])
   })

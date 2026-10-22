@@ -1,16 +1,20 @@
 ---
 name: agntcy-status
-description: Show AGNTCY/SLIM/CASA integration status — whether upstream AGNTCY packages are installed, which transport (local vs SLIM) is active, and whether CASA enforcement is enabled. Use when the user asks "is AGNTCY configured?", "show SLIM/CASA status", or "is AGNTCY/IOC integration active?".
-allowed-tools: Read
+description: Show AGNTCY/SLIM/CASA integration status — whether the optional SLIM runtime package is installed, whether a SLIM endpoint is configured, which transport is the default, and what the agntcy mod has seen this session. Use when the user asks "is AGNTCY configured?", "show SLIM/CASA status", or "is AGNTCY/IOC integration active?". Read-only; makes no network call.
+allowed-tools: Read Bash
 argument-hint: ""
 ---
 
-Scaffolding stub — not yet implemented. This skill will report, once `ruflo-agntcy` ships real logic (see [ADR-380](../../docs/adrs/ADR-380-agntcy-outshift-runtime-integration.md)):
+Report what can be measured on this machine, and say "unknown" for anything that cannot. Never invent a healthy status.
 
-1. **Package availability** — whether `@claude-flow/agntcy` (TS) and/or the Rust `ruflo-agntcy` crate are installed as `optionalDependencies`, or absent (the expected default today — no such upstream package exists yet publicly).
-2. **Active transport** — local in-process (default) vs SLIM (opt-in, per ADR-380 §2), and which swarms/hive-mind sessions are on which transport.
-3. **CASA enforcement state** — enabled/disabled, and for enabled tenants, the compiled intent envelope's `allow`/`deny`/`budget_usd`/`expires_at` currently in force (ADR-380 §3).
-4. **IOC coordination events** — whether optional Layer 9 semantic events (ADR-380 §4) are wired on top of `hive-mind_broadcast`/`hive-mind_consensus`.
-5. **Identity/observability** — whether AGNTCY OTel span attributes (`agent.identity`, `coordination.episode`, `authorization.decision`, etc., ADR-380 §5) are being emitted through `ruflo-observability`.
+## Steps
 
-Until upstream AGNTCY/SLIM packages exist, this status check MUST report "not configured — see ADR-380" rather than fabricate a healthy status. No network call to AGNTCY infrastructure (Directory, SLIM broker) is safe to make from this skill until a real client library is available.
+1. **Endpoint** — run `test -n "$RUFLO_AGNTCY_SLIM_ENDPOINT" && echo set || echo unset`. Report only set or unset; do not print the value (an endpoint can carry credentials).
+2. **Runtime package** — run `npm ls @agntcy/slim-bindings 2>&1 | tail -3` from the project root. `(empty)` or `ERR! missing` means not installed (the supported default: the package is an `optionalDependency`). Do not `import()` it from the shell; resolving a package runs its code.
+3. **Active transport** — local in-process transport is the default. There is no read-only transport status command: `ruflo transport` with no arguments only prints help, and `ruflo transport use slim` is a switch that contacts the configured endpoint, so do not run it just to check status. Report "local (default)" unless the user says they switched.
+4. **Mod counters** — `Read` `.claude-flow/agntcy-mod/status.json` if it exists (`calls`, `blocked`, `guard`, `updatedMs`). Missing file means the mod has not run in this project yet.
+5. **CASA, IOC events, identity attributes** — the CASA policy compiler ships in this plugin (`src/casa`), but runtime enforcement is not wired into the ruflo CLI (no CASA reference in `v3/@claude-flow/*/src`), and Layer 9 events and OTel attributes are design items in ADR-380 §§4-5. Report these as "compiler present, enforcement not wired in the CLI" and "not implemented"; do not report them as enabled.
+
+## Output
+
+One short table: endpoint (set/unset), package (installed version or absent), transport (local/slim), mod counters, CASA/IOC/identity (state from step 5). If the endpoint is set but the package is absent, say the transport falls back to local and point to ADR-380 §1 for setup.

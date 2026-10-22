@@ -54,6 +54,7 @@ const commandLoaders: Record<string, CommandLoader> = {
   // P0 Commands
   completions: () => import('./completions.js'),
   doctor: () => import('./doctor.js'),
+  harness: () => import('./harness.js'),
   // Verification (ADR-095, signed witness manifest)
   verify: () => import('./verify.js'),
   // Analysis Commands
@@ -78,6 +79,9 @@ const commandLoaders: Record<string, CommandLoader> = {
   'transfer-store': () => import('./transfer-store.js'),
   cleanup: () => import('./cleanup.js'),
   autopilot: () => import('./autopilot.js'),
+  // Pair programming session state (restores the v2 `pair` command the
+  // bundled pair-programming skill depends on)
+  pair: () => import('./pair.js'),
   // GAIA Benchmark Harness (ADR-133)
   'gaia-bench': () => import('./gaia-bench.js'),
   // MetaHarness integration (ADR-150) — dispatcher over plugins/ruflo-metaharness/
@@ -99,6 +103,8 @@ const commandLoaders: Record<string, CommandLoader> = {
   spinner: () => import('./spinner.js'),
   // ruflo as a Claude Code mod: function hooks, early access (ADR-404)
   mods: () => import('./mods.js'),
+  // ADR-489: the console in a terminal of its own (read-only Overview and Cost); loads a bundle from this CLI's own install.
+  tui: () => import('./tui.js'),
   // ADR-406 command catalog and mission control (interim homes until mods.ts follow-up)
   catalog: () => import('./catalog.js'),
   mission: () => import('./mission.js'),
@@ -220,6 +226,7 @@ export async function getGuidanceCommand() { return loadCommand('guidance'); }
 export async function getApplianceCommand() { return loadCommand('appliance'); }
 export async function getCleanupCommand() { return loadCommand('cleanup'); }
 export async function getAutopilotCommand() { return loadCommand('autopilot'); }
+export async function getPairCommand() { return loadCommand('pair'); }
 export async function getTransportCommand() { return loadCommand('transport'); }
 
 /**
@@ -276,7 +283,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     analyzeCmd, routeCmd, progressCmd, providersCmd,
     pluginsCmd, deploymentCmd, claimsCmd, issuesCmd,
     updateCmd, processCmd, guidanceCmd, applianceCmd,
-    cleanupCmd, autopilotCmd, policyCmd,
+    cleanupCmd, autopilotCmd, policyCmd, pairCmd,
   ] = await Promise.all([
     loadCommand('daemon'), loadCommand('doctor'), loadCommand('embeddings'), loadCommand('neural'),
     loadCommand('performance'), loadCommand('security'), loadCommand('ruvector'), loadCommand('hive-mind'),
@@ -284,7 +291,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     loadCommand('analyze'), loadCommand('route'), loadCommand('progress'), loadCommand('providers'),
     loadCommand('plugins'), loadCommand('deployment'), loadCommand('claims'), loadCommand('issues'),
     loadCommand('update'), loadCommand('process'), loadCommand('guidance'), loadCommand('appliance'),
-    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'),
+    loadCommand('cleanup'), loadCommand('autopilot'), loadCommand('policy'), loadCommand('pair'),
   ]);
 
   return {
@@ -299,7 +306,7 @@ export async function getCommandsByCategory(): Promise<Record<string, Command[]>
     ].filter(Boolean) as Command[],
     utility: [
       configCmd, doctorCmd, daemonCmd, completionsCmd,
-      migrateCmd, workflowCmd,
+      migrateCmd, workflowCmd, pairCmd,
     ].filter(Boolean) as Command[],
     analysis: [
       analyzeCmd, routeCmd, progressCmd,

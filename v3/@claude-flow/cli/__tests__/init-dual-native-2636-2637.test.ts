@@ -82,6 +82,21 @@ describe('native dual initialization (#2636)', () => {
   });
 });
 
+describe('generated runtime config (#3193)', () => {
+  it('does not advertise a memory.persistPath that getMemoryRoot ignores', async () => {
+    const options = structuredClone(MINIMAL_INIT_OPTIONS);
+    options.targetDir = projectPath;
+    options.skipGlobalClaudeMd = true;
+
+    const result = await executeInit(options);
+
+    expect(result.success).toBe(true);
+    const cfg = readFileSync(join(projectPath, '.claude-flow', 'config.yaml'), 'utf8');
+    expect(cfg).not.toMatch(/^\s*persistPath:/m);
+    expect(cfg).toContain('claude-flow.config.json');
+  });
+});
+
 describe('root secret ignore (#2637)', () => {
   it('appends secret/runtime entries without replacing existing project rules', async () => {
     writeFileSync(join(projectPath, '.gitignore'), 'dist/\n', 'utf8');

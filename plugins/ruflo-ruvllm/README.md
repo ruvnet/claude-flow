@@ -9,22 +9,31 @@ RuVLLM local inference with chat formatting, model configuration, MicroLoRA fine
 /plugin install ruflo-ruvllm@ruflo
 ```
 
+## Requirements
+
+The WASM-backed tools (`ruvllm_chat_format`, `ruvllm_microlora_*`, `ruvllm_sona_*`, `ruvllm_hnsw_*`) need `@ruvector/ruvllm-wasm`, which `@claude-flow/cli` does not install. `ruvllm_status` reports `wasm.available: false` plus a `wasm.hint` until it is present:
+
+```bash
+npm i -g @ruvector/ruvllm-wasm   # global ruflo / @claude-flow/cli install
+npm i @ruvector/ruvllm-wasm      # project-local install
+```
+
 ## Features
 
 - **Model configuration**: Generate optimal configs for local inference
-- **MicroLoRA**: Task-specific fine-tuning with lightweight adapters
+- **MicroLoRA**: Ultra-light in-process LoRA adapters (rank 1-4) adjusted from quality signals
 - **SONA adaptation**: Real-time neural adaptation (<0.05ms)
-- **Chat formatting**: Multi-provider prompt formatting (Claude, GPT, Gemini, Ollama, Cohere)
+- **Chat formatting**: Local-model chat templates (llama3, mistral, chatml, phi, gemma, or a model id for auto-detect)
 - **HNSW routing**: Context retrieval for RAG pipelines (≤11 hot patterns; for large-corpus search see `ruflo-agentdb` `embeddings_search`)
 
 ## Commands
 
-- `/ruvllm` -- Model status, adapters, and provider availability
+- `/ruvllm` -- ruvllm-wasm, native backend and graph backend status
 
 ## Skills
 
 - `llm-config` -- Configure models, MicroLoRA, and SONA
-- `chat-format` -- Format prompts for different LLM providers
+- `chat-format` -- Format messages in a local model's chat template
 
 ## Compatibility
 

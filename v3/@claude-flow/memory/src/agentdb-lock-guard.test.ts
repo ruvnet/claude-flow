@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+  AGENTDB_CONCURRENT_MODIFICATION_CODE,
   AgentdbLockError,
   closeWithAgentdbLockRecovery,
   clearStaleAgentdbLock,
@@ -99,10 +100,12 @@ describe('inspectAgentdbLock / clearStaleAgentdbLock', () => {
     plantLock(`${process.pid}\n`);
     expect(inspectAgentdbLock(dbFile).state).toBe('live');
   });
-  it('dead PID but fresh lock is not cleared', () => {
+  it('dead PID but fresh lock is recent, not live, and is not cleared', () => {
     plantLock(`${DEAD_PID}\n`, new Date());
     const r = clearStaleAgentdbLock(dbFile);
     expect(r.cleared).toBe(false);
+    expect(r.inspection.state).toBe('recent');
+    expect(r.inspection.reason).toMatch(/dead but the lock is only \d+ms old/);
     expect(fs.existsSync(lockFile)).toBe(true);
   });
   it('non-PID content is unverifiable and untouched', () => {
@@ -170,6 +173,23 @@ describe('withAgentdbLockRecovery', () => {
     expect(err).toBeInstanceOf(AgentdbLockError);
     expect((err as AgentdbLockError).lockState).toBe('absent');
     expect(await rows(dbFile)).toEqual(['from-A']);
+  });
+
+  it('a recent dead lock surfaces recent guidance, not another-process guidance', async () => {
+    plantLock(`${DEAD_PID}\n`, new Date());
+    const e = Object.assign(new Error('concurrent'), { code: AGENTDB_CONCURRENT_MODIFICATION_CODE });
+    let err: unknown;
+    try {
+      await withAgentdbLockRecovery(dbFile, () => { throw e; });
+    } catch (x) {
+      err = x;
+    }
+    expect(err).toBeInstanceOf(AgentdbLockError);
+    expect((err as AgentdbLockError).lockState).toBe('recent');
+    expect((err as Error).message).toMatch(/dead but the lock is only \d+ms old/);
+    expect((err as Error).message).toMatch(/retry in a moment/i);
+    expect((err as Error).message).not.toMatch(/another process is writing/i);
+    expect(fs.existsSync(lockFile)).toBe(true);
   });
 
   it('passes unrelated errors through untouched and never inspects the filesystem for them', async () => {

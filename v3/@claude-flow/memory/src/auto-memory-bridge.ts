@@ -128,6 +128,9 @@ export interface ImportResult {
   /** Number of entries skipped (already in AgentDB) */
   skipped: number;
 
+  /** Number of AgentDB entries deleted because their source heading was removed */
+  deleted: number;
+
   /** Files processed */
   files: string[];
 
@@ -379,7 +382,7 @@ export class AutoMemoryBridge extends EventEmitter {
     const memoryDir = this.config.memoryDir;
 
     if (!existsSync(memoryDir)) {
-      return { imported: 0, skipped: 0, files: [], durationMs: 0 };
+      return { imported: 0, skipped: 0, deleted: 0, files: [], durationMs: 0 };
     }
 
     let imported = 0;
@@ -388,19 +391,46 @@ export class AutoMemoryBridge extends EventEmitter {
 
     const files = readdirSync(memoryDir).filter(f => f.endsWith('.md'));
 
-    // Pre-fetch existing content hashes to avoid N queries
-    const existingHashes = await this.fetchExistingContentHashes();
+    // Pre-fetch existing content hashes + per-file key->id index to avoid N queries
+    const { hashes: existingHashes, byFile: existingByFile } =
+      await this.fetchExistingAutoMemoryIndex();
 
-    // Batch entries for bulk insert
+    // Batch entries for bulk insert / stale ids for bulk delete
     const batch: MemoryEntry[] = [];
+    const deleteBatch: string[] = [];
 
     for (const file of files) {
       const filePath = path.join(memoryDir, file);
-      const content = await fs.readFile(filePath, 'utf-8');
-      const entries = parseMarkdownEntries(content);
+      const oldKeysForFile = existingByFile.get(file);
+
+      let content: string;
+      let entries: ParsedEntry[];
+      try {
+        content = await fs.readFile(filePath, 'utf-8');
+        entries = parseMarkdownEntries(content);
+      } catch (err) {
+        // A transient read/parse failure must never be treated as "the file
+        // is now empty" — that would delete-sync every entry this file ever
+        // wrote. Skip delete-sync for this file only; keep processing the rest.
+        this.emit('import:file-error', { file, reason: 'read-failed', error: err });
+        continue;
+      }
+
+      const newKeysForFile = new Set<string>();
+
+      if (entries.length === 0 && content.trim().length > 0 && oldKeysForFile && oldKeysForFile.size > 0) {
+        // Non-empty source parsed to zero entries while AgentDB holds entries
+        // for this file already — more likely a parser/encoding edge case
+        // than "every heading was really removed." Refuse to delete-sync.
+        this.emit('import:delete-skipped', { file, reason: 'suspicious-empty-parse' });
+        processedFiles.push(file);
+        continue;
+      }
 
       for (const entry of entries) {
         const contentHash = hashContent(entry.content);
+        const key = `auto-memory:${file}:${entry.heading}`;
+        newKeysForFile.add(key);
 
         if (existingHashes.has(contentHash)) {
           skipped++;
@@ -408,7 +438,7 @@ export class AutoMemoryBridge extends EventEmitter {
         }
 
         const input: MemoryEntryInput = {
-          key: `auto-memory:${file}:${entry.heading}`,
+          key,
           content: entry.content,
           namespace: 'auto-memory',
           type: 'semantic',
@@ -416,6 +446,7 @@ export class AutoMemoryBridge extends EventEmitter {
           metadata: {
             sourceFile: file,
             heading: entry.heading,
+            memoryDir: this.config.memoryDir,
             importedAt: new Date().toISOString(),
             contentHash,
           },
@@ -426,7 +457,35 @@ export class AutoMemoryBridge extends EventEmitter {
         imported++;
       }
 
+      if (oldKeysForFile) {
+        for (const [oldKey, oldId] of oldKeysForFile) {
+          if (!newKeysForFile.has(oldKey)) {
+            deleteBatch.push(oldId);
+          }
+        }
+      }
+
       processedFiles.push(file);
+    }
+
+    // Delete-sync, part 2: a source file removed entirely from disk (not
+    // just emptied) is never visited by the loop above, so its entries would
+    // otherwise become permanent orphans. `existingByFile` came from AgentDB,
+    // independent of the current directory listing, so this is free — no
+    // extra query. Same false-wipe concern as the per-file guard: if the
+    // directory listing itself looks suspiciously empty against non-trivial
+    // prior history, skip rather than treat it as "every file was deleted."
+    if (files.length === 0 && existingByFile.size > 0) {
+      this.emit('import:delete-skipped', { file: '*', reason: 'suspicious-empty-directory' });
+    } else {
+      const currentFileSet = new Set(files);
+      for (const [oldFile, keyIndex] of existingByFile) {
+        if (!currentFileSet.has(oldFile)) {
+          for (const oldId of keyIndex.values()) {
+            deleteBatch.push(oldId);
+          }
+        }
+      }
     }
 
     // Bulk insert all at once
@@ -434,14 +493,21 @@ export class AutoMemoryBridge extends EventEmitter {
       await this.backend.bulkInsert(batch);
     }
 
+    // Delete-sync: remove entries whose source heading no longer exists.
+    let deleted = 0;
+    if (deleteBatch.length > 0) {
+      deleted = await this.backend.bulkDelete(deleteBatch);
+    }
+
     // ADR-049: Build knowledge graph from imported entries
-    if (this.memoryGraph && batch.length > 0) {
+    if (this.memoryGraph && (batch.length > 0 || deleted > 0)) {
       await this.memoryGraph.buildFromBackend(this.backend, 'auto-memory');
     }
 
     const result: ImportResult = {
       imported,
       skipped,
+      deleted,
       files: processedFiles,
       durationMs: Date.now() - startTime,
     };
@@ -760,8 +826,15 @@ export class AutoMemoryBridge extends EventEmitter {
     await this.writeInsightToFiles(insight);
   }
 
-  /** Fetch all existing content hashes from the auto-memory namespace in one query */
-  private async fetchExistingContentHashes(): Promise<Set<string>> {
+  /**
+   * Fetch all existing auto-memory entries in one query, returning both the
+   * content-hash set (dedup-on-import) and a per-source-file key->id index
+   * (delete-sync: find entries whose heading no longer exists in the file).
+   */
+  private async fetchExistingAutoMemoryIndex(): Promise<{
+    hashes: Set<string>;
+    byFile: Map<string, Map<string, string>>;
+  }> {
     try {
       const entries = await this.backend.query({
         type: 'hybrid',
@@ -769,13 +842,32 @@ export class AutoMemoryBridge extends EventEmitter {
         limit: 10_000,
       });
       const hashes = new Set<string>();
+      const byFile = new Map<string, Map<string, string>>();
       for (const entry of entries) {
         const hash = entry.metadata?.contentHash as string | undefined;
         if (hash) hashes.add(hash);
+
+        // Delete-sync eligibility is scoped to entries written by THIS
+        // memoryDir. The same backend can be shared across multiple memory
+        // dirs (e.g. the SessionStart hook's main dir vs. a worktree dir
+        // from worktreeMemoryDir()) — without this check, importing one dir
+        // would see the other dir's same-named file/heading as "gone" and
+        // delete it. Legacy entries written before this field existed have
+        // no `memoryDir` and are therefore never delete-sync eligible.
+        const sourceFile = entry.metadata?.sourceFile as string | undefined;
+        const entryMemoryDir = entry.metadata?.memoryDir as string | undefined;
+        if (sourceFile && entry.key && entry.id && entryMemoryDir === this.config.memoryDir) {
+          let fileIndex = byFile.get(sourceFile);
+          if (!fileIndex) {
+            fileIndex = new Map<string, string>();
+            byFile.set(sourceFile, fileIndex);
+          }
+          fileIndex.set(entry.key, entry.id);
+        }
       }
-      return hashes;
+      return { hashes, byFile };
     } catch {
-      return new Set();
+      return { hashes: new Set(), byFile: new Map() };
     }
   }
 

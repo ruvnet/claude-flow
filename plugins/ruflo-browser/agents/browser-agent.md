@@ -12,14 +12,14 @@ Every browser session you open MUST be allocated as an RVF cognitive container a
 
 ```bash
 SID=$(date +%Y%m%d-%H%M%S)-<task-slug>
-npx -y ruvector@0.2.25 rvf create "$SID.rvf" --dimension 384
-npx -y ruvector@0.2.25 hooks trajectory-begin --session-id "$SID" --task "<human-task>"
+npx -y ruvector@0.2.27 rvf create "$SID.rvf" --dimension 384
+npx -y ruvector@0.2.27 hooks trajectory-begin --session-id "$SID" --task "<human-task>"
 ```
 
 Per action (click, fill, eval, snapshot, screenshot, navigate):
 
 ```bash
-npx -y ruvector@0.2.25 hooks trajectory-step \
+npx -y ruvector@0.2.27 hooks trajectory-step \
   --session-id "$SID" --action <tool> --args '<json>' \
   --selector '<sel>' --result <ok|fail>
 ```
@@ -27,9 +27,9 @@ npx -y ruvector@0.2.25 hooks trajectory-step \
 At session-end:
 
 ```bash
-npx -y ruvector@0.2.25 hooks trajectory-end --session-id "$SID" --verdict <pass|fail|partial>
-npx -y ruvector@0.2.25 rvf compact "$SID.rvf"
-npx -y ruvector@0.2.25 rvf export "$SID.rvf" -o "<dest>"
+npx -y ruvector@0.2.27 hooks trajectory-end --session-id "$SID" --verdict <pass|fail|partial>
+npx -y ruvector@0.2.27 rvf compact "$SID.rvf"
+npx -y ruvector@0.2.27 rvf export "$SID.rvf" -o "<dest>"
 ```
 
 ## MCP tools you use
@@ -43,15 +43,15 @@ npx -y ruvector@0.2.25 rvf export "$SID.rvf" -o "<dest>"
 - Capture: `browser_screenshot` / `browser_snapshot`
 - Extraction: `browser_get-text` / `browser_get-title` / `browser_get-url` / `browser_get-value` / `browser_eval`
 
-**Session lifecycle (5 tools, planned — see ADR-0001):**
+**Session lifecycle (5 tools, shipped in `@claude-flow/cli`; see ADR-0001):**
 
 - `browser_session_record` — wrap `browser_open` with RVF allocation + trajectory-begin
 - `browser_session_end` — compact, AIDefence scan, AgentDB index
-- `browser_session_replay` — re-drive a stored trajectory
-- `browser_template_apply` — run a `browser-templates` recipe
-- `browser_cookie_use` — mount a `browser-cookies` entry into an active session
+- `browser_session_replay` — load a stored trajectory and return its steps; you dispatch them through the `browser_*` tools (it does not drive the browser itself)
+- `browser_template_apply` — fetch a `browser-templates` recipe and return it for you to execute
+- `browser_cookie_use` — look up the vault handle record for a host in `browser-cookies` (never returns raw cookie values; it does not inject cookies into the page)
 
-Until the 5 lifecycle tools ship, you implement the session contract above by composing `browser_open` + `rvf create` + `trajectory-*` hooks yourself.
+The lifecycle tools shell out to the `agent-browser`, `ruvector` and `memory` CLIs and degrade with a structured error when one is missing. If a call returns that error, fall back to composing `browser_open` + `rvf create` + `trajectory-*` hooks yourself.
 
 ## Memory layer (4 AgentDB namespaces)
 

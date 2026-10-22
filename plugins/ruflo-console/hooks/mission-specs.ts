@@ -7,7 +7,7 @@ import type { Host } from './host'
 import { adrBlockFor } from './adr-mission'
 import { EVENT_RESUMED, stoppedByAdvisor } from './mission-advisor'
 import { activeMission, instructionOf, mcOf, nextTask, record, rufloTaskOf, saveLedger } from './mission-control'
-import type { LedgerTask, MissionRecord } from './mission-types'
+import type { LedgerTask, MissionRecord, ResumeBy } from './mission-types'
 import { argvOf } from './mission-create'
 import type { State } from './state'
 
@@ -88,19 +88,30 @@ export function dispatchSpec(state: State, host: Host, mission: MissionRecord, t
   }
 }
 
-/** Pause or resume dispatching, kept in the ledger (a session-bound mission has no durable executor to pause). */
-export function setPaused(state: State, host: Host, paused: boolean): void {
+/**
+ * Pause or resume dispatching, kept in the ledger (a session-bound mission has no durable executor to pause). Only the person's resume re-arms
+ * hand-outs: Claude may resume at write:auto without a Yes, so its resume keeps every task's count (and an advisor stop-the-line stays stopped),
+ * and a task that used its MAX_HANDOUTS is not handed out again (no new billed turn) until the person resumes it themselves (#3823).
+ */
+export function setPaused(state: State, host: Host, paused: boolean, by: ResumeBy = 'person'): void {
   const mission = activeMission(state)
 
   if (mission === null || mission.cancelled) return
 
+  const isPerson = by === 'person'
+  const spent = mission.tasks.filter(task => (task.handouts ?? 0) >= MAX_HANDOUTS).length
+
   mission.paused = paused
   // The person resuming has seen why it stopped: each task gets its hand-outs again.
-  if (!paused) for (const task of mission.tasks) task.handouts = 0
-  record(mission, { type: paused ? 'mission.paused' : 'mission.resumed', status: paused ? 'paused' : 'running' })
-  // ADR-483: resuming after an advisor stop-the-line gives the failing check a fresh run of tries.
-  if (!paused && stoppedByAdvisor(mission)) record(mission, { type: EVENT_RESUMED })
-  mcOf(state).last = { label: paused ? 'paused: no more tasks are handed out' : 'resumed', ok: true, detail: paused ? 'a task already handed to Claude finishes first' : 'Run next hands out the next ready task' }
+  if (!paused && isPerson) for (const task of mission.tasks) task.handouts = 0
+  record(mission, { type: paused ? 'mission.paused' : 'mission.resumed', status: paused ? 'paused' : 'running', ...(!paused && !isPerson && { note: `resumed by Claude: hand-out counts kept${spent > 0 ? ` (${spent} task${spent === 1 ? '' : 's'} at the limit)` : ''}` }) })
+  // ADR-483: the person resuming after an advisor stop-the-line gives the failing check a fresh run of tries. Claude's resume does not, for the
+  // same reason it keeps the hand-out counts: the next checkpoint stops the line again (#3823).
+  if (!paused && isPerson && stoppedByAdvisor(mission)) record(mission, { type: EVENT_RESUMED })
+
+  const detail = paused ? 'a task already handed to Claude finishes first' : !isPerson && spent > 0 ? `${spent} task${spent === 1 ? '' : 's'} used every hand-out: only your own resume gives them more` : 'Run next hands out the next ready task'
+
+  mcOf(state).last = { label: paused ? 'paused: no more tasks are handed out' : isPerson ? 'resumed' : 'resumed by Claude', ok: true, detail }
   saveLedger(state, host)
   host.invalidate()
 }

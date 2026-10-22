@@ -231,10 +231,10 @@ export function skillActions(state: State, host: Host, runner: Runner, load: (te
       const asked = skills.asked
       const name = newNameOf(text)
 
-      if (asked !== null && (asked.key === text.trim() || text.trim() === '') && state.pending?.label === asked.label) {
+      if (asked !== null && asked.card !== null && (asked.key === text.trim() || text.trim() === '') && state.pending?.id === asked.card) {
         skills.asked = null
         skills.createDraft = ''
-        void runner.confirm()
+        void runner.confirm(asked.card)
 
         return
       }
@@ -243,8 +243,10 @@ export function skillActions(state: State, host: Host, runner: Runner, load: (te
 
       skills.createDraft = text
       if (name !== null) skills.authored = name
+      const before = state.pending?.id
+
       runner.ask(spec, NAME_RULE)
-      skills.asked = spec !== null && name !== null ? { key: name, label: spec.label } : null
+      skills.asked = spec !== null && name !== null ? { key: name, label: spec.label, card: state.pending !== null && state.pending.id !== before ? (state.pending.id ?? null) : null } : null
     },
     add: (found, scope) => runner.ask(addSpec(state, host, found, scope), 'that result is not an owner/repo@skill id'),
     remove: skill => runner.ask(removeSpec(state, host, skill), nameless('remove')),

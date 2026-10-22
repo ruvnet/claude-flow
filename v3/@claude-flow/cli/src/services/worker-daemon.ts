@@ -31,7 +31,12 @@ import {
 // service itself is owned/frozen elsewhere (memory-distillation.ts) — it is
 // incremental (rowid cursor), non-destructive, transactional, and
 // quick_check-gated, so it's safe to call unconditionally on every tick.
-import { runDistillation, defaultMemoryDbPath, type DistillReport } from './memory-distillation.js';
+import {
+  runDistillationForStores,
+  projectMemoryDbPaths,
+  type DistillReport,
+  type StoreDistillResult,
+} from './memory-distillation.js';
 import { backupProjectMemoryDbs } from './memory-backup.js';
 import { resolveGitWorkspaceIdentity, type GitWorkspaceIdentity } from './git-workspace-identity.js';
 import { getWorkspaceLeaseRegistry } from './workspace-lease.js';
@@ -195,6 +200,10 @@ const CONSOLIDATE_DEDUP_DISTANCE = 0.2;
 // `--no-distill` flag on `daemon start` (see commands/daemon.ts), which sets
 // this env var on the forked/foreground daemon process.
 const NO_DISTILL_ENV = 'RUFLO_DAEMON_NO_DISTILL';
+
+// Opt-out for recording each finished worker job as a learning trajectory
+// (see WorkerDaemon.recordWorkerTrajectory).
+const NO_LEARN_ENV = 'RUFLO_DAEMON_NO_LEARN';
 
 // #2356 — Self-terminating lifecycle defaults. A background daemon with no
 // upper bound on its lifetime runs until the box reboots; in the field this
@@ -559,14 +568,22 @@ export class WorkerDaemon extends EventEmitter {
     }
 
     try {
-      // The CLI writes nested objects; legacy files use dotted keys. Scoped
+      // The CLI writes nested objects; legacy files use dotted keys. Each
+      // key resolves independently through scopes.project -> values -> root
+      // — `values` is the envelope config_set writes for its default scope
+      // (#3192 — without this, config_set daemon.idleSecs 0 has no effect
+      // on the running daemon even though it succeeds and updates
+      // config.json) — rather than picking one whole object as "cfg", since
+      // a config.json can legitimately have some keys written under
+      // scopes.project (project-scoped config_set calls) and others under
+      // values (default-scope config_set calls) at the same time. Scoped
       // values retain precedence, including explicit false and zero.
       const read = (obj: Record<string, any> | undefined, key: string): unknown => {
         if (!obj) return undefined;
         return obj[key] ?? key.split('.').reduce((value, part) =>
           value && typeof value === 'object' && Object.hasOwn(value, part) ? value[part] : undefined, obj as any);
       };
-      const get = (key: string) => read(raw?.scopes?.project, key) ?? read(raw, key);
+      const get = (key: string) => read(raw?.scopes?.project, key) ?? read(raw?.values, key) ?? read(raw, key);
       const rawAutoStart = get('daemon.autoStart');
       const rawCpuLoad = get('daemon.resourceThresholds.maxCpuLoad');
       const rawMinMem = get('daemon.resourceThresholds.minFreeMemoryPercent');
@@ -1413,6 +1430,7 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:complete', result);
       this.log('info', `Worker ${workerConfig.type} completed in ${durationMs}ms`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } catch (error) {
@@ -1435,12 +1453,47 @@ export class WorkerDaemon extends EventEmitter {
       this.emit('worker:error', result);
       this.log('error', `Worker ${workerConfig.type} failed: ${result.error}`);
       this.saveState();
+      await this.recordWorkerTrajectory(result);
 
       return result;
     } finally {
       // Remove from running set and process queue
       this.runningWorkers.delete(workerConfig.type);
       this.processPendingWorkers();
+    }
+  }
+
+  /**
+   * Feed a finished worker job into the self-learning pipeline as a one-step
+   * trajectory (SONA + ReasoningBank + @ruvector/ruvllm forwarding, persisted
+   * to `.claude-flow/neural/stats.json`). Before this, the daemon could run
+   * hundreds of jobs at "100% success" while `trajectoriesRecorded` stayed 0:
+   * no daemon code path ever called the intelligence module.
+   *
+   * Best-effort and bounded: never throws, never changes the WorkerResult.
+   * Opt-out: RUFLO_DAEMON_NO_LEARN=1.
+   */
+  private async recordWorkerTrajectory(result: WorkerResult): Promise<void> {
+    if (process.env[NO_LEARN_ENV] === '1') return;
+    try {
+      const intel = await import('../memory/intelligence.js');
+      await intel.recordTrajectory(
+        [{
+          type: 'result',
+          // A worker error is free text (it can quote command output): keep only its first line, cut, so it cannot fill the learning store.
+          content: `daemon worker ${result.type} ${result.success ? 'succeeded' : `failed: ${String(result.error ?? 'unknown error').split('\n')[0].slice(0, 200)}`}`,
+          metadata: {
+            source: 'worker-daemon',
+            worker: result.type,
+            success: result.success,
+            durationMs: result.durationMs,
+          },
+          timestamp: Date.now(),
+        }],
+        result.success ? 'success' : 'failure',
+      );
+    } catch (error) {
+      this.log('warn', `Worker ${result.type}: trajectory recording skipped: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1786,13 +1839,15 @@ export class WorkerDaemon extends EventEmitter {
     }
 
     let report: DistillReport;
+    let stores: StoreDistillResult[] = [];
     try {
-      report = await runDistillation({
-        dbPath: defaultMemoryDbPath(this.projectRoot),
+      const outcome = await runDistillationForStores(projectMemoryDbPaths(this.projectRoot), {
         maxEntries: CONSOLIDATE_MAX_ENTRIES_PER_TICK,
         batchSize: CONSOLIDATE_BATCH_SIZE,
         dedupDistance: CONSOLIDATE_DEDUP_DISTANCE,
       });
+      report = outcome.report;
+      stores = outcome.stores;
     } catch (error) {
       // Defensive only — runDistillation() is internally try/catch'd and
       // should never reach here. A worker must never crash the daemon.
@@ -1810,6 +1865,11 @@ export class WorkerDaemon extends EventEmitter {
       return errorResult;
     }
 
+    for (const store of stores) {
+      if (store.report.skipped) {
+        this.log('info', `Consolidate worker: ${store.dbPath} skipped (${store.report.skipped})`);
+      }
+    }
     if (report.corrupt) {
       this.log('warn', `Consolidate worker: memory DB reports corruption — ${report.skipped ?? 'skipped'}`);
     } else if (report.skipped) {
@@ -1839,6 +1899,12 @@ export class WorkerDaemon extends EventEmitter {
       dryRun: report.dryRun,
       corrupt: report.corrupt ?? false,
       skipped: report.skipped,
+      stores: stores.map(({ dbPath, report: part }) => ({
+        dbPath,
+        processed: part.processed,
+        patterns: part.patterns,
+        skipped: part.skipped,
+      })),
     };
 
     writeFileSync(consolidateFile, JSON.stringify(result, null, 2));
@@ -1873,6 +1939,10 @@ export class WorkerDaemon extends EventEmitter {
         rotatedAway: r.rotatedAway?.length ?? 0,
         gcsUri: r.gcsUri,
         skipped: r.skipped,
+        // Which method actually completed (per-store detail is in `backups`);
+        // migration tooling should require 'native-online-backup', not a
+        // blanket `backedUp: true` — see #4287.
+        method: r.method,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

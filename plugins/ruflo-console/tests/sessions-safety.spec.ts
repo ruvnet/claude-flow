@@ -216,8 +216,9 @@ describe('adapters on their own', () => {
     const result = await codexAdapter().scan({ fs: fsOn(w.disk), claudeDir: null, codexDir: CODEX, nowMs: NOW, full: true })
 
     expect(result.state).toBe('ok')
-    expect(result.rows.map(row => row.status).sort()).toEqual(['done', 'failed', 'working'])
-    expect(result.rows.find(row => row.status === 'failed')?.preview?.latest).toBe('turn aborted: interrupted')
+    // The aborted rollout was interrupted by the person (Esc): idle, not failed.
+    expect(result.rows.map(row => row.status).sort()).toEqual(['done', 'idle', 'working'])
+    expect(result.rows.find(row => row.status === 'idle')?.preview?.latest).toBe('turn aborted: interrupted')
   })
 
   it('reads a sub-agent rollout’s own identity, not the parent’s session_meta that follows it', async () => {

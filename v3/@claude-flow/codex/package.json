@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/codex",
-  "version": "3.0.3",
+  "version": "3.0.5",
   "description": "Codex CLI integration for Ruflo (claude-flow) - OpenAI Codex platform adapter",
   "type": "module",
   "main": "./dist/index.js",
@@ -100,7 +100,6 @@
     "chalk": "^5.3.0",
     "inquirer": "^9.2.0",
     "yaml": "^2.4.0",
-    "toml": "^3.0.0",
     "@iarna/toml": "^2.2.5",
     "@claude-flow/security": "^3.0.0"
   },

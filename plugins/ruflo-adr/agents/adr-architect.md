@@ -17,8 +17,8 @@ The full ADR markdown template, the AgentDB graph-storage commands for persistin
 
 ## Tools
 
-- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` / `agentdb_hierarchical-query` — ADR tree storage.
-- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` / `agentdb_causal-query` — relationship tracking.
+- `mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-store` / `agentdb_hierarchical-recall` — ADR tree storage.
+- `mcp__plugin_ruflo-core_ruflo__agentdb_causal-edge` records a relationship; read relationships back with `memory_list` namespace `adr-edges` (there is no `agentdb_causal-query` tool).
 - `mcp__plugin_ruflo-core_ruflo__memory_store` / `memory_search` — semantic search.
 - `Read`, `Write`, `Edit` — ADR file operations.
 - `Grep`, `Glob` — code scanning.

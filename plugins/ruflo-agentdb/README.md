@@ -1,6 +1,6 @@
 # ruflo-agentdb
 
-The substrate plugin for Ruflo memory. Wraps three CLI MCP families — `agentdb_*` (controller bridge, 15 tools), `embeddings_*` (RuVector ONNX engine, 10 tools), and `ruvllm_hnsw_*` (WASM-backed pattern router, 3 tools) — into discoverable skills and commands. Other plugins (`ruflo-browser`, `ruflo-rag-memory`, `ruflo-intelligence`) compose this substrate; this plugin owns the namespace convention and the smoke contract for the substrate as a whole.
+The substrate plugin for Ruflo memory. Wraps three CLI MCP families — `agentdb_*` (controller bridge, 20 tools), `embeddings_*` (RuVector ONNX engine, 10 tools), and `ruvllm_hnsw_*` (WASM-backed pattern router, 3 tools) — into discoverable skills and commands. Other plugins (`ruflo-browser`, `ruflo-rag-memory`, `ruflo-intelligence`) compose this substrate; this plugin owns the namespace convention and the smoke contract for the substrate as a whole.
 
 > **Status:** ADR-0001 implemented. Plugin v0.3.0 targets `@claude-flow/cli` v3.6.x with bundled `agentdb@^3.0.0-alpha.11`. The smoke contract (13 numbered checks + 3 documentation invariants) is the verification mechanism — see [docs/adrs/0001-agentdb-optimization.md](./docs/adrs/0001-agentdb-optimization.md).
 
@@ -15,11 +15,11 @@ The substrate plugin for Ruflo memory. Wraps three CLI MCP families — `agentdb
 
 - **CLI:** pinned to `@claude-flow/cli` v3.6 major+minor. Patch bumps within v3.6 are expected to be no-op.
 - **AgentDB:** the CLI bundles `agentdb@^3.0.0-alpha.11`. The plugin does **not** pin the npm package — internals (alpha.11 → alpha.12 etc.) are not the plugin's contract.
-- **Verification:** the bundled smoke script is the source of truth (`bash plugins/ruflo-agentdb/scripts/smoke.sh`). If smoke passes against your CLI version, the plugin's contract holds.
+- **Verification:** `bash plugins/ruflo-agentdb/scripts/smoke.sh` checks the plugin's structure and documented surface offline; `--live` also exercises the real AgentDB tools. Passing the offline run does not prove the substrate works.
 
 ## Features
 
-- **Controller bridge**: 15 `agentdb_*` MCP tools (hierarchical store/recall, semantic routing, pattern store/search, causal edges, context synthesis, batch ops, consolidation, feedback, sessions).
+- **Controller bridge**: 20 `agentdb_*` MCP tools (hierarchical store/recall/delete, semantic routing, pattern store/search, causal edges and their deletes, graph query and pathfinder, context synthesis, batch ops, consolidation, feedback, sessions).
 - **RuVector embeddings**: 10 `embeddings_*` MCP tools — 384-dim ONNX (all-MiniLM-L6-v2), HNSW search, hyperbolic (Poincare), neural substrate, and **RaBitQ 1-bit quantization (32× memory reduction)**.
 - **HNSW pattern router**: 3 `ruvllm_hnsw_*` tools (WASM-backed, ≤11 high-priority patterns — distinct from the large-scale embeddings HNSW path).
 - **Causal knowledge graphs**: `agentdb_causal-edge` (graph-node backend with bridge fallback per ADR-087).
@@ -200,10 +200,10 @@ Replacement table for bridge-unavailable mode:
 
 ```bash
 bash plugins/ruflo-agentdb/scripts/smoke.sh
-# Expected: "10 passed, 0 failed"
+# Expected: "0 failed" (offline checks); add --live to exercise the real tools
 ```
 
-The smoke script is the contract. It calls each documented MCP tool, exercises the RaBitQ workflow, and source-inspects the fallback path (no env-var gate exists to force the fallback live).
+The default smoke run is an offline structure and documentation check: it greps the plugin's docs, manifest, commands and the CLI tool source, and it does not call any MCP tool, so it passes even when the AgentDB substrate is broken. `bash plugins/ruflo-agentdb/scripts/smoke.sh --live` adds a live check in a throwaway directory: `agentdb_health` must report `available` and `durable`, and a `agentdb_hierarchical-store` then `agentdb_hierarchical-recall` round trip must return the stored entry. The RaBitQ workflow and the fallback path are only source-inspected (no env-var gate exists to force the fallback live).
 
 ## As a mod (0.4.7, ADR-445)
 

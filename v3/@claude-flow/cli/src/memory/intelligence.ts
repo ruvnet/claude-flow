@@ -11,11 +11,13 @@
  * @module v3/cli/intelligence
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
+import { getProjectCwd } from '../mcp-tools/types.js';
+import { withStatsFileLock } from './stats-file-lock.js';
 
 // ============================================================================
 // Persistence Configuration
@@ -27,7 +29,11 @@ import { resolveTrainingBackend } from '../ruvector/lora-adapter.js';
  * falling back to home directory
  */
 function getDataDir(): string {
-  const cwd = process.cwd();
+  // Every MCP tool resolves `.claude-flow/` against the project root
+  // (CLAUDE_FLOW_CWD when set), so the neural stats/patterns must too —
+  // otherwise an MCP server whose process cwd differs from the project
+  // writes learning state where nothing reads it.
+  const cwd = getProjectCwd();
   const localDir = join(cwd, '.claude-flow', 'neural');
   const homeDir = join(homedir(), '.claude-flow', 'neural');
 
@@ -557,8 +563,12 @@ class LocalReasoningBank {
    * Deduplicates by content: if a pattern with the same content already
    * exists, the existing entry is updated (bumped usageCount, higher
    * confidence wins, refreshed lastUsedAt) instead of adding a duplicate.
+   *
+   * Returns true only when a NEW pattern was added (#3979 item 4): callers that
+   * keep a "patterns learned" counter must not count a merge or an update of an
+   * existing pattern as a newly learned one.
    */
-  store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): void {
+  store(pattern: Omit<StoredPattern, 'usageCount' | 'createdAt' | 'lastUsedAt'> & Partial<StoredPattern>): boolean {
     const now = Date.now();
     const stored: StoredPattern = {
       ...pattern,
@@ -578,6 +588,9 @@ class LocalReasoningBank {
       if (idx >= 0) {
         this.patternList[idx] = stored;
       }
+      this.patterns.set(pattern.id, stored);
+      this.saveToDisk();
+      return false;
     } else {
       // Check for content-duplicate before inserting a new entry
       const contentDupe = this.patternList.find(p => p.content === pattern.content);
@@ -591,7 +604,7 @@ class LocalReasoningBank {
         // Keep the Map in sync with the mutated object
         this.patterns.set(contentDupe.id, contentDupe);
         this.saveToDisk();
-        return;
+        return false;
       }
 
       // Evict oldest if at capacity
@@ -608,6 +621,7 @@ class LocalReasoningBank {
 
     // Trigger persistence (debounced)
     this.saveToDisk();
+    return true;
   }
 
   /**
@@ -783,6 +797,40 @@ let globalStats = {
   lastAdaptation: null as number | null
 };
 
+type CounterKey = 'trajectoriesRecorded' | 'patternsLearned' | 'signalsProcessed';
+
+/**
+ * Increments made by THIS process that have not yet been merged into
+ * stats.json. Persistence is delta-based: several processes (MCP server,
+ * hook one-shots, the worker daemon) share one stats.json, and each holds
+ * its own module-level globalStats. Writing the local snapshot verbatim let
+ * any writer erase every other writer's progress — notably the
+ * memory-bridge `recordSignalProcessed()` path, which persists without ever
+ * loading the file, reset `trajectoriesRecorded` to 0 on disk every 16
+ * writes. Merging deltas makes the counters monotonic across processes.
+ */
+let pendingDelta: Record<CounterKey, number> = {
+  trajectoriesRecorded: 0,
+  patternsLearned: 0,
+  signalsProcessed: 0,
+};
+let persistedStatsLoaded = false;
+
+function bumpStat(key: CounterKey, n = 1): void {
+  globalStats[key] = (globalStats[key] ?? 0) + n;
+  pendingDelta[key] += n;
+}
+
+function readStatsFile(): Partial<typeof globalStats> | null {
+  try {
+    // Read-only callers keep their unavailable-on-error contract, while invalid
+    // disk values cannot poison local state and a later repaired-file flush.
+    return readStatsForWrite(getStatsPath());
+  } catch {
+    return null;
+  }
+}
+
 // ============================================================================
 // Stats Persistence
 // ============================================================================
@@ -791,35 +839,94 @@ let globalStats = {
  * Load persisted stats from disk
  */
 function loadPersistedStats(): void {
-  try {
-    const path = getStatsPath();
-    if (existsSync(path)) {
-      const data = JSON.parse(readFileSync(path, 'utf-8'));
-      if (data && typeof data === 'object') {
-        // #2245: previously only restored trajectoriesRecorded — patternsLearned
-        // and signalsProcessed reset to zero on every restart, masking real
-        // learning progress in the dashboards.
-        globalStats.trajectoriesRecorded = data.trajectoriesRecorded ?? 0;
-        globalStats.patternsLearned = data.patternsLearned ?? 0;
-        globalStats.signalsProcessed = data.signalsProcessed ?? 0;
-        globalStats.lastAdaptation = data.lastAdaptation ?? null;
-      }
-    }
-  } catch {
-    // Ignore load errors, start fresh
-  }
+  persistedStatsLoaded = true;
+  const data = readStatsFile();
+  if (!data) return;
+  // #2245: previously only restored trajectoriesRecorded — patternsLearned
+  // and signalsProcessed reset to zero on every restart, masking real
+  // learning progress in the dashboards. Unsaved local increments are
+  // re-applied on top so a late load never drops them.
+  globalStats.trajectoriesRecorded = (data.trajectoriesRecorded ?? 0) + pendingDelta.trajectoriesRecorded;
+  globalStats.patternsLearned = (data.patternsLearned ?? 0) + pendingDelta.patternsLearned;
+  globalStats.signalsProcessed = (data.signalsProcessed ?? 0) + pendingDelta.signalsProcessed;
+  globalStats.lastAdaptation = maxTimestamp(data.lastAdaptation ?? null, globalStats.lastAdaptation);
 }
 
-/**
- * Save stats to disk
- */
-function savePersistedStats(): void {
+function maxTimestamp(a: number | null, b: number | null): number | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return Math.max(a, b);
+}
+
+/** Missing files are first use; unreadable or invalid files must not be replaced. */
+function readStatsForWrite(path: string): Partial<typeof globalStats> | null {
+  let text: string;
   try {
-    ensureDataDir();
-    const path = getStatsPath();
-    writeFileSync(path, JSON.stringify(globalStats, null, 2), 'utf-8');
+    text = readFileSync(path, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(text);
   } catch {
-    // Ignore save errors
+    throw Object.assign(new Error('Invalid learning stats JSON'), { code: 'EINVALIDSTATS' });
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw Object.assign(new Error('Invalid learning stats object'), { code: 'EINVALIDSTATS' });
+  }
+  for (const key of ['trajectoriesRecorded', 'patternsLearned', 'signalsProcessed']) {
+    const value = data[key];
+    // Older files may omit a counter, but present counters must be exact counts.
+    if (value === undefined) continue;
+    if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+      throw Object.assign(new Error(`Invalid learning stats field: ${key}`), { code: 'EINVALIDSTATS' });
+    }
+  }
+  const timestamp = data.lastAdaptation;
+  if (timestamp != null && (typeof timestamp !== 'number' || !Number.isFinite(timestamp) || timestamp < 0)) {
+    throw Object.assign(new Error('Invalid learning stats timestamp'), { code: 'EINVALIDSTATS' });
+  }
+  return data as Partial<typeof globalStats>;
+}
+
+/** Merge pending deltas under the cooperating-writer lock, then adopt committed totals. */
+function savePersistedStats(): void {
+  let statsPath: string | undefined;
+  try {
+    statsPath = join(ensureDataDir(), 'stats.json');
+    withStatsFileLock(statsPath, (path) => {
+      const disk = readStatsForWrite(path);
+      const merged = disk
+        ? {
+            trajectoriesRecorded: (disk.trajectoriesRecorded ?? 0) + pendingDelta.trajectoriesRecorded,
+            patternsLearned: (disk.patternsLearned ?? 0) + pendingDelta.patternsLearned,
+            signalsProcessed: (disk.signalsProcessed ?? 0) + pendingDelta.signalsProcessed,
+            lastAdaptation: maxTimestamp(disk.lastAdaptation ?? null, globalStats.lastAdaptation),
+          }
+        : { ...globalStats };
+      for (const key of ['trajectoriesRecorded', 'patternsLearned', 'signalsProcessed'] as const) {
+        if (!Number.isSafeInteger(merged[key]) || merged[key] < 0) {
+          throw Object.assign(new Error('Learning stats counter overflow'), { code: 'EINVALIDSTATS' });
+        }
+      }
+      if (merged.lastAdaptation != null &&
+          (!Number.isFinite(merged.lastAdaptation) || merged.lastAdaptation < 0)) {
+        throw Object.assign(new Error('Invalid merged learning stats timestamp'), { code: 'EINVALIDSTATS' });
+      }
+      const tmp = `${path}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify(merged, null, 2), 'utf-8');
+      renameSync(tmp, path);
+      // Commit local state before release: a failed release must not replay it.
+      globalStats = merged;
+      pendingDelta = { trajectoriesRecorded: 0, patternsLearned: 0, signalsProcessed: 0 };
+      persistedStatsLoaded = true;
+    });
+  } catch (error) {
+    const { code = 'UNKNOWN', path = statsPath || 'neural stats directory' } = error as NodeJS.ErrnoException;
+    // Do not print file contents, which may be malformed or user-controlled.
+    console.warn(`[intelligence] Could not persist learning stats at ${path} (${code}); pending increments retained`);
   }
 }
 
@@ -834,7 +941,7 @@ function savePersistedStats(): void {
 let signalsSinceLastSave = 0;
 const SIGNAL_PERSIST_EVERY = 16;
 export function recordSignalProcessed(): number {
-  globalStats.signalsProcessed = (globalStats.signalsProcessed ?? 0) + 1;
+  bumpStat('signalsProcessed');
   signalsSinceLastSave++;
   if (signalsSinceLastSave >= SIGNAL_PERSIST_EVERY) {
     savePersistedStats();
@@ -1113,7 +1220,7 @@ export async function recordStep(step: TrajectoryStep): Promise<boolean> {
       globalStats.lastAdaptation = Date.now();
     }
 
-    globalStats.trajectoriesRecorded++;
+    bumpStat('trajectoriesRecorded');
     savePersistedStats();
     return true;
   } catch {
@@ -1164,7 +1271,7 @@ export async function recordTrajectory(
       if (verdict === 'success') {
         for (const step of enrichedSteps) {
           if (step.embedding && step.embedding.length > 0) {
-            reasoningBank.store({
+            const added = reasoningBank.store({
               id: `pattern-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: step.type,
               content: step.content,
@@ -1173,7 +1280,10 @@ export async function recordTrajectory(
               metadata: step.metadata || {},
               createdAt: Date.now(),
             });
-            globalStats.patternsLearned++;
+            // #3979 item 4: count only patterns that were actually added. A step
+            // whose content already exists is merged into that pattern, so the
+            // counter no longer climbs once per successful step.
+            if (added) bumpStat('patternsLearned');
           }
         }
       }
@@ -1186,21 +1296,27 @@ export async function recordTrajectory(
         const avgQuality = verdict === 'success' ? 1.0 : verdict === 'partial' ? 0.5 : 0.0;
         ruvllmCoord.recordTrajectory({
           steps: enrichedSteps.map(s => ({
-            state: s.content,
-            action: s.type,
-            reward: avgQuality,
-            embedding: s.embedding || []
+            type: ['query', 'route', 'generate', 'memory', 'feedback'].includes(s.type)
+              ? s.type : 'generate',
+            input: s.content,
+            output: '',
+            durationMs: 0,
+            confidence: avgQuality
           })),
           totalReward: avgQuality,
-          success: verdict === 'success'
+          outcome: verdict
         });
       } catch {
         // ruvllm recording failed silently
       }
     }
 
-    globalStats.trajectoriesRecorded++;
+    bumpStat('trajectoriesRecorded');
     globalStats.lastAdaptation = Date.now();
+    // #4283: the bank's own save is debounced, and the one-shot bins exit as
+    // soon as the command resolves, so write the patterns now. Otherwise
+    // stats.json counts patterns that never reach patterns.json.
+    reasoningBank?.flushToDisk();
     savePersistedStats();
 
     return true;
@@ -1289,6 +1405,12 @@ export function getIntelligenceStats(): IntelligenceStats & {
   // when @ruvector/ruvllm is fully resolvable. Sync require — cheap, idempotent.
   if (!ruvllmLoaded) {
     loadRuvllmCoordinatorSync();
+  }
+  // A read-only status process (ruvllm_status, `neural status`, a fresh MCP
+  // server) has never run initializeIntelligence(); without this it reported
+  // 0 trajectories no matter what other processes had persisted.
+  if (!persistedStatsLoaded) {
+    loadPersistedStats();
   }
   const ruvllmStats = ruvllmCoordinator?.stats?.() || null;
 
@@ -1408,6 +1530,10 @@ export function clearIntelligence(): void {
     signalsProcessed: 0,
     lastAdaptation: null
   };
+  pendingDelta = { trajectoriesRecorded: 0, patternsLearned: 0, signalsProcessed: 0 };
+  // In-memory reset only: stay "loaded" so the next stats read does not
+  // immediately re-hydrate the counters this call just cleared.
+  persistedStatsLoaded = true;
 }
 
 /**

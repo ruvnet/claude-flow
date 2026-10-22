@@ -1,10 +1,11 @@
-import { validateFeedbackPatterns } from '../memory/feedback-patterns.js';
 /**
  * V3 CLI Hooks Command
  * Self-learning hooks system for intelligent workflow automation
  */
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
+import { validateFeedbackPatterns } from '../memory/feedback-patterns.js';
+import { readCoverageFromDisk } from './coverage-reader.js';
 import { output } from '../output.js';
 import { select, confirm, input } from '../prompt.js';
 import { callMCPTool, MCPClientError } from '../mcp-client.js';
@@ -26,210 +27,6 @@ import {
 function safeNum(value: unknown, fallback = 0): number {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : fallback;
-}
-
-// ============================================================================
-// Coverage Data Reader - reads Jest/Istanbul coverage files from disk
-// ============================================================================
-
-interface CoverageFileEntry {
-  filePath: string;
-  lines: number;
-  branches: number;
-  functions: number;
-  statements: number;
-}
-
-interface CoverageData {
-  found: boolean;
-  source: string;
-  entries: CoverageFileEntry[];
-  summary: {
-    totalFiles: number;
-    overallLineCoverage: number;
-    overallBranchCoverage: number;
-    overallFunctionCoverage: number;
-    overallStatementCoverage: number;
-  };
-}
-
-/**
- * Read coverage data from disk. Checks these locations in order:
- * 1. coverage/coverage-summary.json (Jest/Istanbul)
- * 2. coverage/lcov.info (lcov format)
- * 3. .nyc_output/out.json (nyc)
- */
-function readCoverageFromDisk(): CoverageData {
-  const cwd = process.cwd();
-  const noData: CoverageData = {
-    found: false,
-    source: 'none',
-    entries: [],
-    summary: { totalFiles: 0, overallLineCoverage: 0, overallBranchCoverage: 0, overallFunctionCoverage: 0, overallStatementCoverage: 0 },
-  };
-
-  // 1. Try coverage-summary.json (Jest/Istanbul)
-  for (const relPath of ['coverage/coverage-summary.json', 'coverage-summary.json']) {
-    const summaryPath = join(cwd, relPath);
-    if (existsSync(summaryPath)) {
-      try {
-        const raw = JSON.parse(readFileSync(summaryPath, 'utf-8'));
-        return parseCoverageSummaryJson(raw, relPath);
-      } catch {
-        // malformed, try next
-      }
-    }
-  }
-
-  // 2. Try lcov.info
-  for (const relPath of ['coverage/lcov.info', 'lcov.info']) {
-    const lcovPath = join(cwd, relPath);
-    if (existsSync(lcovPath)) {
-      try {
-        const raw = readFileSync(lcovPath, 'utf-8');
-        return parseLcovInfo(raw, relPath);
-      } catch {
-        // malformed, try next
-      }
-    }
-  }
-
-  // 3. Try .nyc_output/out.json
-  const nycPath = join(cwd, '.nyc_output', 'out.json');
-  if (existsSync(nycPath)) {
-    try {
-      const raw = JSON.parse(readFileSync(nycPath, 'utf-8'));
-      return parseCoverageSummaryJson(raw, '.nyc_output/out.json');
-    } catch {
-      // malformed
-    }
-  }
-
-  return noData;
-}
-
-function parseCoverageSummaryJson(data: Record<string, unknown>, source: string): CoverageData {
-  const entries: CoverageFileEntry[] = [];
-  let totalLines = 0, coveredLines = 0;
-  let totalBranches = 0, coveredBranches = 0;
-  let totalFunctions = 0, coveredFunctions = 0;
-  let totalStatements = 0, coveredStatements = 0;
-
-  for (const [filePath, metrics] of Object.entries(data)) {
-    if (filePath === 'total') continue;
-    const m = metrics as Record<string, { total?: number; covered?: number; pct?: number }>;
-    if (!m || typeof m !== 'object') continue;
-
-    const linePct = m.lines?.pct ?? m.lines?.covered != null ? ((m.lines?.covered ?? 0) / Math.max(m.lines?.total ?? 1, 1)) * 100 : 0;
-    const branchPct = m.branches?.pct ?? (m.branches?.total ? ((m.branches?.covered ?? 0) / m.branches.total) * 100 : 100);
-    const funcPct = m.functions?.pct ?? (m.functions?.total ? ((m.functions?.covered ?? 0) / m.functions.total) * 100 : 100);
-    const stmtPct = m.statements?.pct ?? (m.statements?.total ? ((m.statements?.covered ?? 0) / m.statements.total) * 100 : 100);
-
-    entries.push({ filePath, lines: linePct, branches: branchPct, functions: funcPct, statements: stmtPct });
-
-    totalLines += m.lines?.total ?? 0;
-    coveredLines += m.lines?.covered ?? 0;
-    totalBranches += m.branches?.total ?? 0;
-    coveredBranches += m.branches?.covered ?? 0;
-    totalFunctions += m.functions?.total ?? 0;
-    coveredFunctions += m.functions?.covered ?? 0;
-    totalStatements += m.statements?.total ?? 0;
-    coveredStatements += m.statements?.covered ?? 0;
-  }
-
-  // Also read the total key if present
-  const total = data['total'] as Record<string, { pct?: number }> | undefined;
-  const overallLine = total?.lines?.pct ?? (totalLines > 0 ? (coveredLines / totalLines) * 100 : 0);
-  const overallBranch = total?.branches?.pct ?? (totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0);
-  const overallFunction = total?.functions?.pct ?? (totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0);
-  const overallStatement = total?.statements?.pct ?? (totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0);
-
-  // Sort by lowest line coverage
-  entries.sort((a, b) => a.lines - b.lines);
-
-  return {
-    found: true,
-    source,
-    entries,
-    summary: {
-      totalFiles: entries.length,
-      overallLineCoverage: overallLine,
-      overallBranchCoverage: overallBranch,
-      overallFunctionCoverage: overallFunction,
-      overallStatementCoverage: overallStatement,
-    },
-  };
-}
-
-function parseLcovInfo(raw: string, source: string): CoverageData {
-  const entries: CoverageFileEntry[] = [];
-  let currentFile = '';
-  let linesHit = 0, linesFound = 0;
-  let branchesHit = 0, branchesFound = 0;
-  let functionsHit = 0, functionsFound = 0;
-
-  const flushRecord = () => {
-    if (currentFile) {
-      entries.push({
-        filePath: currentFile,
-        lines: linesFound > 0 ? (linesHit / linesFound) * 100 : 0,
-        branches: branchesFound > 0 ? (branchesHit / branchesFound) * 100 : 100,
-        functions: functionsFound > 0 ? (functionsHit / functionsFound) * 100 : 100,
-        statements: linesFound > 0 ? (linesHit / linesFound) * 100 : 0,
-      });
-    }
-  };
-
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('SF:')) {
-      currentFile = trimmed.slice(3);
-      linesHit = 0; linesFound = 0;
-      branchesHit = 0; branchesFound = 0;
-      functionsHit = 0; functionsFound = 0;
-    } else if (trimmed.startsWith('LH:')) {
-      linesHit = parseInt(trimmed.slice(3), 10) || 0;
-    } else if (trimmed.startsWith('LF:')) {
-      linesFound = parseInt(trimmed.slice(3), 10) || 0;
-    } else if (trimmed.startsWith('BRH:')) {
-      branchesHit = parseInt(trimmed.slice(4), 10) || 0;
-    } else if (trimmed.startsWith('BRF:')) {
-      branchesFound = parseInt(trimmed.slice(4), 10) || 0;
-    } else if (trimmed.startsWith('FNH:')) {
-      functionsHit = parseInt(trimmed.slice(4), 10) || 0;
-    } else if (trimmed.startsWith('FNF:')) {
-      functionsFound = parseInt(trimmed.slice(4), 10) || 0;
-    } else if (trimmed === 'end_of_record') {
-      flushRecord();
-      currentFile = '';
-    }
-  }
-  flushRecord();
-
-  entries.sort((a, b) => a.lines - b.lines);
-
-  let totalLH = 0, totalLF = 0, totalBH = 0, totalBF = 0;
-  for (const e of entries) {
-    // Approximate from percentages (we lost exact counts after flush, but summaries are okay)
-    totalLH += e.lines;
-    totalLF += 100;
-    totalBH += e.branches;
-    totalBF += 100;
-  }
-  const n = entries.length || 1;
-
-  return {
-    found: true,
-    source,
-    entries,
-    summary: {
-      totalFiles: entries.length,
-      overallLineCoverage: totalLH / n,
-      overallBranchCoverage: totalBH / n,
-      overallFunctionCoverage: 0,
-      overallStatementCoverage: totalLH / n,
-    },
-  };
 }
 
 /**
@@ -710,9 +507,18 @@ const postCommandCommand: Command = {
         timestamp: Date.now(),
       });
 
+      // #4056: recording switched off on purpose is not a failure.
+      const recordingOff = (result as { disabled?: boolean }).disabled === true;
+
       if (ctx.flags.format === 'json') {
         output.printJson(result);
-        return { success: result.recorded, exitCode: result.recorded ? 0 : 1, data: result };
+        const ok = result.recorded || recordingOff;
+        return { success: ok, exitCode: ok ? 0 : 1, data: result };
+      }
+
+      if (recordingOff) {
+        output.printInfo('Command recording is switched off (CLAUDE_FLOW_HOOKS_RECORD_COMMANDS / CLAUDE_FLOW_HOOKS_ENABLED / hooks.recordCommands); nothing was stored.');
+        return { success: true, data: result };
       }
 
       if (!result.recorded) {
@@ -2996,6 +2802,20 @@ const workerListCommand: Command = {
   }
 };
 
+// Render the status hooks_worker-dispatch actually returned. Only a status that
+// means work finished may read as "completed" (#4196).
+function dispatchStatusLabel(status: string): string {
+  switch (status) {
+    case 'dispatched': return output.highlight('dispatched (background)');
+    case 'queued': return output.highlight('queued (daemon)');
+    case 'no-daemon': return output.warning('no-daemon (not run)');
+    case 'mcp-only': return output.warning('mcp-only (not queued)');
+    case 'synthetic-completed': return output.warning('recorded (no work executed)');
+    case 'completed': return output.success('completed');
+    default: return output.dim(String(status));
+  }
+}
+
 const workerDispatchCommand: Command = {
   name: 'dispatch',
   description: 'Dispatch a background worker for analysis/optimization',
@@ -3039,6 +2859,7 @@ const workerDispatchCommand: Command = {
           capabilities: string[];
         };
         status: string;
+        note?: string;
         error?: string;
       }>('hooks_worker-dispatch', {
         trigger,
@@ -3068,9 +2889,16 @@ const workerDispatchCommand: Command = {
           { field: 'Description', value: result.config.description },
           { field: 'Est. Duration', value: result.config.estimatedDuration },
           { field: 'Capabilities', value: result.config.capabilities.join(', ') },
-          { field: 'Status', value: result.status === 'dispatched' ? output.highlight('dispatched (background)') : output.success('completed') },
+          { field: 'Status', value: dispatchStatusLabel(result.status) },
         ],
       });
+
+      // The tool says why it could not run the worker (e.g. no daemon); show it
+      // rather than letting a recorded-only dispatch read as finished work (#4196).
+      if (result.note) {
+        output.writeln();
+        output.printWarning(result.note);
+      }
 
       if (background) {
         output.writeln();
@@ -3626,7 +3454,7 @@ const coverageRouteCommand: Command = {
         'c8:       npx c8 npm test',
       ]);
       output.writeln();
-      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, or .nyc_output/out.json'));
+      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, coverage/coverage-final.json, or .nyc_output/out.json'));
       return { success: false, exitCode: 1 };
     }
   }
@@ -3861,7 +3689,7 @@ const coverageSuggestCommand: Command = {
         'c8:       npx c8 npm test',
       ]);
       output.writeln();
-      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, or .nyc_output/out.json'));
+      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, coverage/coverage-final.json, or .nyc_output/out.json'));
       return { success: false, exitCode: 1 };
     }
   }
@@ -4120,7 +3948,7 @@ const coverageGapsCommand: Command = {
         'c8:       npx c8 npm test',
       ]);
       output.writeln();
-      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, or .nyc_output/out.json'));
+      output.writeln(output.dim('Expected files: coverage/coverage-summary.json, coverage/lcov.info, coverage/coverage-final.json, or .nyc_output/out.json'));
       return { success: false, exitCode: 1 };
     }
   }
@@ -4623,7 +4451,8 @@ const statuslineCommand: Command = {
     }
 
     // Full colored output
-    const noColor = ctx.flags['no-color'] || ctx.flags.noColor;
+    // The parser stores `--no-color` as `color: false`.
+    const noColor = ctx.flags['no-color'] || ctx.flags.noColor || ctx.flags.color === false;
     const c = noColor ? {
       reset: '', bold: '', dim: '', red: '', green: '', yellow: '', blue: '',
       purple: '', cyan: '', brightRed: '', brightGreen: '', brightYellow: '',

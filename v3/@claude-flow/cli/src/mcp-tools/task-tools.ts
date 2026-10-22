@@ -241,9 +241,11 @@ export const taskTools: MCPTool[] = [
 
       // Apply filters
       if (input.status) {
-        // Support comma-separated status values
+        // Support comma-separated status values. 'all' (sent by `status tasks`) means no status filter.
         const statuses = (input.status as string).split(',').map(s => s.trim());
-        tasks = tasks.filter(t => statuses.includes(t.status));
+        if (!statuses.includes('all')) {
+          tasks = tasks.filter(t => statuses.includes(t.status));
+        }
       }
       if (input.type) {
         tasks = tasks.filter(t => t.type === input.type);
@@ -257,6 +259,9 @@ export const taskTools: MCPTool[] = [
 
       // Sort by creation date (newest first)
       tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Count matches before applying the limit so callers can tell when the list was truncated
+      const total = tasks.length;
 
       // Apply limit
       const limit = (input.limit as number) || 50;
@@ -273,7 +278,7 @@ export const taskTools: MCPTool[] = [
           assignedTo: t.assignedTo,
           createdAt: t.createdAt,
         })),
-        total: tasks.length,
+        total,
         filters: {
           status: input.status,
           type: input.type,
@@ -544,6 +549,19 @@ export const taskTools: MCPTool[] = [
       const task = store.tasks[taskId];
 
       if (task) {
+        const previousStatus = task.status;
+        // A finished task keeps its outcome: cancelling it used to overwrite a
+        // completed task's result and completedAt with a cancel reason.
+        if (previousStatus === 'completed' || previousStatus === 'failed' || previousStatus === 'cancelled') {
+          return {
+            success: false,
+            taskId,
+            status: previousStatus,
+            previousStatus,
+            error: `Task is already ${previousStatus}`,
+          };
+        }
+
         task.status = 'cancelled';
         task.completedAt = new Date().toISOString();
         task.result = { cancelReason: input.reason || 'Cancelled by user' };
@@ -554,6 +572,7 @@ export const taskTools: MCPTool[] = [
           success: true,
           taskId: task.taskId,
           status: task.status,
+          previousStatus,
           cancelledAt: task.completedAt,
         };
       }

@@ -49,6 +49,6 @@ npx @claude-flow/cli@latest memory search --query "aggregate DOMAIN" --namespace
 
 After completing tasks, store successful patterns so future domain models inherit them:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true
 npx @claude-flow/cli@latest memory store --key "ddd-pattern-CONTEXT" --value "APPROACH" --namespace patterns
 ```

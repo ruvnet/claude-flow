@@ -1,7 +1,7 @@
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 import { tolerantPress } from './press-guard'
 import { ANSWER_KEYS } from './views/attention'
-
+import { rootedPath } from './data/abs-path'
 import { createController, type Controller } from './controller'
 import { startSessions } from './sessions'
 import { record } from './data/events'
@@ -25,7 +25,7 @@ import { prefsFromStore, recordToast, saveToastPrefs, TOASTS_KEY } from './toast
 import { contextSection, onPromptSubmit, onTurnComplete } from './mission-claude'
 import { parseMode, RECHECK_EVERY_MS, UPDATES_KEY } from './updates'
 import { selfCheckResults } from './self-check'
-import type { Kit } from './views/common'
+import { kitForSurface, type Kit } from './views/common'
 import { createToaster, type Digest, type ToastLevel, type ToastPrefs } from './toast-policy'
 import { picturesOf } from './views/frames'
 import { withClearing } from './views/clearing'
@@ -41,7 +41,7 @@ const RUFLO_TOOL = /^mcp__(claude-flow|ruflo|plugin_ruflo[\w-]*)__/
 let isResettingScroll = false
 
 function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
-  const rooted = (path: string) => (isAbsolutePath(path) ? path : joinPath(cwd, path))
+  const rooted = (path: string) => rootedPath(cwd, path)
   const quietly = (fn: () => unknown) => {
     try {
       const result = fn()
@@ -201,7 +201,7 @@ export const register: Register = (on, raw: PluginOptions) => {
 
     const built = here
       .run(['git', '-C', root, 'rev-parse', '--show-prefix'], 3_000)
-      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
+      .then(prefix => (prefix.exitCode === 0 && isOurCheckout(prefix.stdout) ? here.run(['git', '-C', root, '--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', 'describe', '--always', '--dirty', '--abbrev=7'], 3_000) : null))
       .then(described => {
         setBuild(described !== null && described.exitCode === 0 ? buildOf(described.stdout) : '')
         here.invalidate()
@@ -329,7 +329,7 @@ export const register: Register = (on, raw: PluginOptions) => {
     }
 
     const started = Date.now()
-    const table = $.ui.resolve(e) as unknown as Kit
+    const table = kitForSurface($.ui.resolve(e) as unknown as Kit, e.surface)
     const columns = Math.max(20, Math.floor(Number(e.props.bodyColumns) || 0) - 1)
     const isNarrow = columns < NARROW
     const kit: Kit = isNarrow ? { Box: table.Box, Text: table.Text, Button: table.Button, ...(table.Input !== undefined && { Input: table.Input }) } : table
@@ -339,15 +339,16 @@ export const register: Register = (on, raw: PluginOptions) => {
     state.pane.isFocused = e.props.isFocused === true
     state.pane.columns = columns
     state.pane.placement = e.props.placement
+    // Height-dependent art must use this render's allocation before its Raster size is recorded.
+    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
     // A reload while the pane stayed up: timers are gone, so resume them from here.
     if (!state.timers.has('watch')) control.resume()
 
-    const pictures = isNarrow ? new Map() : picturesOf(state, columns, Date.now(), Date.now())
+    const pictures = isNarrow ? new Map() : picturesOf(state, columns, Date.now(), Date.now(), kit.Raster === undefined)
 
-    state.mounted = new Map([...pictures].map(([key, grid]) => [key, { columns: grid.columns, rows: grid.rows }]))
+    state.mounted = kit.Raster === undefined ? new Map() : new Map([...pictures].map(([key, grid]) => [key, { columns: grid.columns, rows: grid.rows }]))
+    state.pictured = pictures.size
     control.animate()
-
-    state.pane.rows = Math.max(0, Math.floor(Number(e.props.scroll?.bodyRows) || 0))
 
     const tree = paneView({ kit: withClearing(kit, state, control.actions.clearField, { columns, repaint: () => host?.invalidate() }), state, nowMs: Date.now(), columns, pictures, act: control.actions })
 
@@ -378,7 +379,7 @@ export const register: Register = (on, raw: PluginOptions) => {
       return next(e)
     }
 
-    const table = $.ui.resolve(e) as unknown as Kit
+    const table = kitForSurface($.ui.resolve(e) as unknown as Kit, e.surface)
     const bound = control
 
     state.barDrawnAtMs = Date.now()

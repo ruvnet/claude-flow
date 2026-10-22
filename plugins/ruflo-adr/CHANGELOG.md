@@ -2,6 +2,19 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-adr`.
 
+## 0.5.8 — 2026-10-14
+- fix: the ADR parser reads the leading status keyword, so `superseded by [ADR-025](…) (date)`, `accepted (date) — note` and `Accepted (date) · **AMENDED …**` are no longer indexed as Unknown (adr-review enforces only accepted ADRs, so those ADRs were being skipped); `superseded by ADR-X` now records the supersedes edge; README.md, index.md and template*.md files in docs/adr are no longer indexed as ADRs; `adr-verify` reports any ADR left at Unknown (exit 1 under VERIFY_STRICT=1) (#4126, thanks @ronmikailov)
+
+## 0.5.7 — 2026-10-12
+- fix: the shared text screen now catches `.env` and e-mailed credentials, no longer flags a model's token talk (`--max-tokens`, `/oauth/token`, "token usage"), and no longer flags values that only name where a secret lives (`./service-account.json`, `--set-secrets=NAME=NAME:latest`); every rule stays linear (#4094, thanks @proffesor-for-testing)
+
+## 0.5.6 — 2026-10-11
+- fix: adr-review, `adr graph` and the adr-architect agent called `agentdb_causal-query` and `agentdb_hierarchical-query`, which are not tools; relationships are now read from the `adr-edges` memory namespace (`memory_list`) and the hierarchical lookup uses `agentdb_hierarchical-recall`
+
+## 0.5.5 — 2026-10-11
+- fix: keep the last ADR's Context when the file ends without a following heading, and keep literal `Z` characters (#4027, thanks @rudycelekli)
+- fix: scan each real directory once so symlink cycles cannot loop (#4034, thanks @rudycelekli)
+
 ## 0.5.4 — 2026-10-07
 - fix: run the installed ruflo CLI before `npx @claude-flow/cli@latest` in cost-tracker, adr and metaharness
 - fix: use a key separator the memory validator accepts for edges

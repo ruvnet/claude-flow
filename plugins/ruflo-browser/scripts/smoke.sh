@@ -15,10 +15,10 @@ ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
 # 1. plugin.json version + keywords
-step "plugin.json declares version 0.3.4 with new keywords"
+step "plugin.json declares version 0.3.6 with new keywords"
 v=$(grep -E '"version"[[:space:]]*:' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.3.4" ]]; then
-  bad "expected 0.3.4, got '$v'"
+if [[ "$v" != "0.3.6" ]]; then
+  bad "expected 0.3.6, got '$v'"
 else
   missing=""
   for kw in rvf replay trajectory agentdb aidefence; do
@@ -113,8 +113,11 @@ done
 
 # 12. The 5 browser_session_* lifecycle tools are present in the CLI source
 step "5 browser_session_* lifecycle tools registered in mcp-tools"
-TOOLS_FILE="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/browser-session-tools.ts"
-if [[ ! -f "$TOOLS_FILE" ]]; then
+CLI_SRC="$ROOT/../../v3/@claude-flow/cli/src"
+TOOLS_FILE="$CLI_SRC/mcp-tools/browser-session-tools.ts"
+if [[ ! -d "$CLI_SRC" ]]; then
+  printf "SKIP (monorepo CLI source not beside this plugin; lifecycle tools not checked)\n"
+elif [[ ! -f "$TOOLS_FILE" ]]; then
   bad "browser-session-tools.ts not found at $TOOLS_FILE"
 else
   missing=""
@@ -124,7 +127,7 @@ else
   if [[ -n "$missing" ]]; then
     bad "missing tool definitions:$missing"
   else
-    grep -q 'browserSessionTools' "$ROOT/../../v3/@claude-flow/cli/src/mcp-client.ts" \
+    grep -q 'browserSessionTools' "$CLI_SRC/mcp-client.ts" \
       && ok || bad "browserSessionTools not imported in mcp-client.ts"
   fi
 fi

@@ -21,8 +21,17 @@ import { prettyLines } from './result-lines'
 
 export const PENDING_TTL_MS = 30_000
 
-/** How long a start that ran ok but is not yet on disk waits before its one re-check. */
-const VERIFY_RETRY_MS = 1_000
+/** The state.timers key of the expiry timer, so the controller's stop and close cancel it with the rest. */
+export const EXPIRY_TIMER = 'pending-expiry'
+/** A typed Yes (`/ruflo yes`, bound to no card) is refused this soon after Claude raised the card, or after a card left unanswered. */
+export const UNBOUND_FRESH_MS = 3_000
+export const UNBOUND_REPLACED_MS = 10_000
+/** Claude may withdraw at most this many asks per minute, and may not re-ask the same label this soon after withdrawing it. */
+export const WITHDRAW_MAX_PER_MIN = 3
+export const REASK_COOLDOWN_MS = 10_000
+
+/** True when a waiting card has outlived its window: a Yes for it would be refused, so it only blocks the next ask. */
+export const isStale = (pending: Pick<Pending, 'askedAtMs'>, nowMs = Date.now()): boolean => nowMs - pending.askedAtMs >= PENDING_TTL_MS
 
 export type RunnerDeps = {
   /** A read of the disk that starts after this call. */
@@ -39,9 +48,17 @@ export type Runner = {
   /** `seen` is the id of the card the person said Yes to: when another card took its place meanwhile, nothing runs and the new card stays (ADR-450 T17). */
   confirm: (seen?: number) => Promise<void>
   cancel: () => void
+  /** Clears a card left past PENDING_TTL_MS, unrun, with one event and an "expired: ask again" outcome. True when it cleared one. */
+  expireStale: (nowMs?: number) => boolean
+  /** Clears the waiting card only when Claude raised it; the person's own card is never withdrawn. True when it cleared one. */
+  withdraw: () => boolean
+  /** Why Claude may not withdraw the waiting card now, or null when it may. */
+  withdrawRefusal: () => string | null
   runEntry: (entry: PaletteEntry, text: string) => void
   /** `exact` (the model path, ADR-450 T13) resolves the id as written and never falls back to fuzzy matching. */
-  runById: (id: string, text: string, options?: { exact?: boolean }) => boolean
+  runById: (id: string, text: string, options?: { exact?: boolean; direct?: boolean }) => boolean
+  /** A Yes typed with no card id (`/ruflo yes`): refused while the card is too new or just replaced one, else it answers the card waiting now. */
+  confirmUnbound: (card?: number) => Promise<void>
   /** Resolves when the read started last has finished: `/ruflo run` waits on it to answer with what it printed. */
   settled: () => Promise<void>
   /** Resolves when the last action that brought its own `run` (and is not awaited by `confirm`) has finished: the model tools wait on it, with a limit. */
@@ -53,6 +70,12 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
   let asks = 0
   let inflight: Promise<void> = Promise.resolve()
   let background: Promise<void> = Promise.resolve()
+  // The card Claude raised by its own direct console_run (its id), the only one it may withdraw; set while runById({ direct }) runs.
+  let directCardId: number | null = null
+  let isDirectRun = false
+  // When a card last left with no answer from the person (expired or withdrawn): a typed Yes soon after may be meant for it.
+  let goneUnansweredAtMs = -Infinity
+  const withdrawals: { label: string; atMs: number }[] = []
 
   const say = (label: string, ok: boolean, detail: string, lines?: string[]) => {
     state.outcome = { label, ok, verified: 'n/a', detail, atMs: Date.now(), ...(lines !== undefined && { lines }) }
@@ -177,15 +200,76 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
     }
   }
 
+  /** Forgets the waiting card and its expiry timer (kept in state.timers, so closing the console cancels it too). */
+  function clear(): void {
+    state.timers.get(EXPIRY_TIMER)?.cancel()
+    state.timers.delete(EXPIRY_TIMER)
+    directCardId = null
+    pendingSpec = null
+    state.pending = null
+  }
+
+  function expireStale(nowMs = Date.now()): boolean {
+    const pending = state.pending
+
+    if (pending === null || !isStale(pending, nowMs)) return false
+
+    clear()
+    goneUnansweredAtMs = nowMs
+    say(pending.label, false, `expired: ask again. Nobody answered within ${PENDING_TTL_MS / 1000} s, so it did not run`)
+    if (state.outcome !== null) state.outcome.expired = true
+    record(state.events, [{ atMs: nowMs, kind: 'tools', text: `ask for "${plain(pending.label, 60)}" expired after ${PENDING_TTL_MS / 1000} s, not run` }])
+
+    return true
+  }
+
+  /**
+   * Why Claude may not withdraw the waiting card, or null when it may. Only its own direct console_run ask, matched by id, and only of the write class:
+   * a spend, install, network or delete card is one the person must see, and it now leaves by itself at the window. At most a few per minute.
+   */
+  function withdrawRefusal(nowMs = Date.now()): string | null {
+    const pending = state.pending
+
+    if (pending === null) return 'nothing is waiting'
+    if (!state.control.viaModel) return 'only Claude withdraws its own ask; the person answers a card with Yes or No'
+    if (pending.source !== 'claude' || pending.origin !== 'console_run' || pending.id === undefined || pending.id !== directCardId) return 'that card was not raised by your own console_run: only the person answers it'
+    if (pending.kind !== 'write') return `it is a ${pending.kind ?? 'unclassed'} action the person must see; it expires by itself ${PENDING_TTL_MS / 1000} s after the ask`
+    if (withdrawals.filter(entry => nowMs - entry.atMs < 60_000).length >= WITHDRAW_MAX_PER_MIN) return `${WITHDRAW_MAX_PER_MIN} asks were withdrawn in the last minute: leave this one to the person`
+
+    return null
+  }
+
+  function withdraw(): boolean {
+    const pending = state.pending
+    const nowMs = Date.now()
+    const refused = withdrawRefusal(nowMs)
+
+    if (pending === null || refused !== null) {
+      say('withdraw', false, `not withdrawn: ${refused ?? 'nothing is waiting'}`)
+
+      return false
+    }
+
+    clear()
+    goneUnansweredAtMs = nowMs
+    withdrawals.push({ label: pending.label, atMs: nowMs })
+    if (withdrawals.length > 20) withdrawals.shift()
+    say('withdrawn ask', true, `withdrew "${plain(pending.label, 80)}": it did not run`)
+    record(state.events, [{ atMs: nowMs, kind: 'tools', text: `Claude withdrew its ask "${plain(pending.label, 60)}", not run` }])
+
+    return true
+  }
+
   function ask(spec: ActionSpec | null, why: string): void {
     state.palette.isOpen = false
+    // A card left past its window blocks nothing: it is cleared (and said so) before this ask is looked at.
+    expireStale()
     // Where this came from: the page puts the confirm and the answer right after that element. A headless run has no press, so it falls back to the top.
     state.origin = state.lastPressed
     state.lastPressed = null
 
     if (spec === null) {
-      pendingSpec = null
-      state.pending = null
+      clear()
       say('nothing to do', false, why)
 
       return
@@ -198,6 +282,15 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
 
     if (spec.isReadOnly === true && !isActingForModel) {
       inflight = execute(spec)
+
+      return
+    }
+
+    // Withdrawing and asking again is not a loop Claude can run: the same ask waits out a cooldown after its withdrawal.
+    const withdrawn = byModel ? withdrawals.find(entry => entry.label === spec.label && Date.now() - entry.atMs < REASK_COOLDOWN_MS) : undefined
+
+    if (withdrawn !== undefined) {
+      say('not queued', false, `Claude withdrew this same ask ${Math.round((Date.now() - withdrawn.atMs) / 1000)} s ago: wait ${REASK_COOLDOWN_MS / 1000} s, or leave it to the person`)
 
       return
     }
@@ -221,7 +314,11 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
 
     asks += 1
 
-    const pending: Pending = { id: asks, view: state.view, ...(kind !== null && { rememberKey: kind }), ...(spec.scope !== undefined && { scope: spec.scope }), label: spec.label, args: spec.args, expect: spec.expect, askedAtMs: Date.now(), source: byModel ? 'claude' : 'you', ...(spec.shows !== undefined && { shows: spec.shows }), ...(spec.note !== undefined && { note: spec.note }), ...(spec.declared !== undefined && { declared: spec.declared }) }
+    // Only an ask raised inside Claude's own console_run call (not one that landed later after a screen, nor a mission follow-up) is Claude's to withdraw.
+    const isDirect = isDirectRun && state.control.viaModel && spec.byModel !== true
+    // The Claude call that started this ask: named by the spec when the ask landed later, else the call whose synchronous start is running now.
+    const byCall = byModel ? (spec.byCall ?? (state.control.viaModel ? (state.control.callTag ?? undefined) : undefined)) : undefined
+    const pending: Pending = { id: asks, view: state.view, ...(isDirect && { origin: 'console_run' as const }), ...(byCall !== undefined && { byCall }), ...(kind !== null && { rememberKey: kind }), ...(spec.scope !== undefined && { scope: spec.scope }), label: spec.label, args: spec.args, expect: spec.expect, askedAtMs: Date.now(), source: byModel ? 'claude' : 'you', ...(spec.shows !== undefined && { shows: spec.shows }), ...(spec.note !== undefined && { note: spec.note }), ...(spec.declared !== undefined && { declared: spec.declared }) }
 
     // Claude's ask that was screened first lands after every tool call of Claude's returned, so no call is left to gate it: the level and Stop are
     // checked now, not as they were when it was raised, and a refused ask is not queued (nothing waits for a Yes the settings no longer allow).
@@ -236,8 +333,13 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
       }
     }
 
+    // Only the person's own press replaces a card here (Claude's ask over a waiting card was dropped above): their typed Yes is for this new card.
+    clear()
     pendingSpec = spec
     state.pending = pending
+    if (isDirect) directCardId = asks
+    // At the window's end the card is cleared on the console's clock, so it never sits past it blocking every other ask.
+    if (typeof host.after === 'function') state.timers.set(EXPIRY_TIMER, host.after(PENDING_TTL_MS + 250, () => void expireStale()))
     host.invalidate()
   }
 
@@ -258,8 +360,7 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
     if (claudes !== null && state.pending !== null) {
       const label = state.pending.label
 
-      pendingSpec = null
-      state.pending = null
+      clear()
       say(label, false, `not run: ${claudes}. Run it from the palette yourself if you want it`)
       record(state.events, [{ atMs: Date.now(), kind: 'tools', text: `Claude's card "${plain(label, 60)}" was not run: ${claudes}` }])
 
@@ -271,8 +372,7 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
 
     const waitedMs = state.pending === null ? 0 : Date.now() - state.pending.askedAtMs
 
-    pendingSpec = null
-    state.pending = null
+    clear()
 
     if (spec === null || !isFresh || state.isActing) {
       if (spec !== null && !isFresh) {
@@ -289,9 +389,41 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
     await execute(spec)
   }
 
+  async function confirmUnbound(card?: number): Promise<void> {
+    const pending = state.pending
+    const nowMs = Date.now()
+
+    if (pending === null) return confirm(card)
+
+    // `/ruflo yes <id>` names its card: it answers that card or nothing (confirm refuses when another card took its place).
+    if (card !== undefined) return confirm(card)
+
+    // A bare Yes names no card, so it answers only the card the person was shown: drawn in a pane they can see, or named in the answer to their
+    // own typed ask. Any other card is a stranger to them, however it got there (Claude's ask, or one that replaced the card they read).
+    if (state.shownCard !== pending.id) {
+      say(pending.label, false, `not run: card ${pending.id ?? '?'} ("${plain(pending.label, 60)}") was not put in front of you, so a bare yes may be meant for another. Read it in the console and press Yes on it, or type /ruflo yes ${pending.id ?? '<id>'}`)
+      record(state.events, [{ atMs: nowMs, kind: 'tools', text: `a typed yes did not run "${plain(pending.label, 60)}": the card had not been shown to the person` }])
+
+      return
+    }
+
+    // A card Claude has only just raised, or one that took the place of a card that left unanswered, is answered on the card itself (its button
+    // or y), or by its id.
+    const isNewClaude = pending.source === 'claude' && nowMs - pending.askedAtMs < UNBOUND_FRESH_MS
+    const isReplacement = nowMs - goneUnansweredAtMs < UNBOUND_REPLACED_MS
+
+    if (isNewClaude || isReplacement) {
+      say(pending.label, false, `not run: ${isNewClaude ? 'Claude raised this card a moment ago' : 'this card replaced one that left unanswered a moment ago'}, so a typed yes may be meant for another. Read it and press Yes on the card itself, or type /ruflo yes ${pending.id ?? '<id>'}`)
+      record(state.events, [{ atMs: nowMs, kind: 'tools', text: `a typed yes did not run "${plain(pending.label, 60)}": the card was new or had just replaced another` }])
+
+      return
+    }
+
+    return confirm(pending.id)
+  }
+
   function cancel(): void {
-    pendingSpec = null
-    state.pending = null
+    clear()
     host.invalidate()
   }
 
@@ -326,7 +458,8 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
         deps.drill(entry.run.agentId)
         break
       case 'command':
-        deps.command(entry.run.name)
+        if (entry.run.name === 'withdraw') withdraw()
+        else deps.command(entry.run.name)
         break
     }
 
@@ -334,16 +467,22 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
   }
 
   /** A palette entry by its id (`/ruflo run <id> [text]`, an approval's button): false when there is none now. */
-  function runById(id: string, text: string, options: { exact?: boolean } = {}): boolean {
+  function runById(id: string, text: string, options: { exact?: boolean; direct?: boolean } = {}): boolean {
     const entries = paletteEntries(state, Date.now())
     const entry = entries.find(candidate => candidate.id === id) ?? (text === '' || options.exact === true ? undefined : filterPalette(entries, `${id} ${text}`, 'all')[0])
 
     if (entry === undefined) return false
 
-    runEntry(entry, entry.run.kind === 'text' ? textOfQuery(`${id} ${text}`, entry.run.keyword) : text)
+    isDirectRun = options.direct === true
+
+    try {
+      runEntry(entry, entry.run.kind === 'text' ? textOfQuery(`${id} ${text}`, entry.run.keyword) : text)
+    } finally {
+      isDirectRun = false
+    }
 
     return true
   }
 
-  return { ask, confirm, cancel, runEntry, runById, settled: () => inflight, finished: () => background }
+  return { ask, confirm, confirmUnbound, cancel, expireStale, withdraw, withdrawRefusal: () => withdrawRefusal(), runEntry, runById, settled: () => inflight, finished: () => background }
 }

@@ -13,10 +13,13 @@
 //
 // CONTRACT (PUBLIC)
 //   projectToVec(input)            → 9-dim numerical feature vector
+//   normalizeCost(usd)             → [0,1] log-band normalization (vector index 8)
 //   cosine(a, b)                   → [0,1]
 //   categoricalAgreement(a, b)     → [0,1] over 4 enum fields
 //   jaccard(a, b)                  → [0,1] over agent_topology[]
-//   similarity(a, b, opts?)        → { overall, components, perDimension? }
+//   verdictFor(overall)            → 'near-identical' | 'minor-drift' | 'moderate-drift' | 'major-drift'
+//   VERDICT_THRESHOLDS             → the bands verdictFor() walks, highest first
+//   similarity(a, b, opts?)        → { overall, verdict, components, perDimension? }
 //
 // WEIGHT DEFAULTS (from ADR-152 §Decision)
 //   overall = 0.60·cosine + 0.25·categorical + 0.15·jaccard
@@ -28,6 +31,59 @@
 const DEFAULT_WEIGHTS = Object.freeze({ cosine: 0.6, categorical: 0.25, jaccard: 0.15 });
 
 const CATEGORICAL_FIELDS = Object.freeze(['repo_type', 'archetype', 'template', 'recommendedMode']);
+
+// ─────────────────────────────────────────────────────────────────────
+// Cost normalization — vector index 8.
+//
+// ADR-152 Table 1 specified `log10(usd + 0.001) / log10(10)` clamped to
+// [0,1]. `Math.log10(10)` is 1, so the division was a no-op, and the raw
+// log is negative for every cost below $0.999 — the outer clamp then
+// flattened that whole range to 0. Every realistic per-run cost collapsed
+// to the same value, so the documented 9-dim vector was effectively
+// 8-dim and `estCostPerRunUsd` could not influence any score.
+//
+// The replacement is a real log band: costs at or below `min` map to 0,
+// at or above `max` map to 1, log-interpolated in between. It is
+// monotonic and live across the whole realistic range ($0.001–$10), and
+// non-finite or missing input degrades to the band floor rather than NaN.
+// ─────────────────────────────────────────────────────────────────────
+
+export const COST_BAND_USD = Object.freeze({ min: 0.001, max: 10 });
+
+export function normalizeCost(usd) {
+  const lo = Math.log10(COST_BAND_USD.min);
+  const hi = Math.log10(COST_BAND_USD.max);
+  const finite = typeof usd === 'number' && Number.isFinite(usd) ? usd : COST_BAND_USD.min;
+  const clamped = Math.min(COST_BAND_USD.max, Math.max(COST_BAND_USD.min, finite));
+  return (Math.log10(clamped) - lo) / (hi - lo);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Verdict bands — single source of truth.
+//
+// These bands previously lived inline in `audit-trend.mjs` with a
+// `minor-drift` floor of 0.80, while `docs/metaharness-user-guide.md`
+// documented 0.85 for the same band. Two encodings of one policy, and
+// they disagreed. Consumers now import this table instead of re-encoding
+// the bands, so the primitive and its documentation cannot drift apart.
+//
+// Ordered highest-first; `verdictFor` returns the first band whose `min`
+// the score reaches.
+// ─────────────────────────────────────────────────────────────────────
+
+export const VERDICT_THRESHOLDS = Object.freeze([
+  Object.freeze({ min: 0.95, verdict: 'near-identical' }),
+  Object.freeze({ min: 0.85, verdict: 'minor-drift' }),
+  Object.freeze({ min: 0.5, verdict: 'moderate-drift' }),
+  Object.freeze({ min: Number.NEGATIVE_INFINITY, verdict: 'major-drift' }),
+]);
+
+export function verdictFor(overall) {
+  for (const band of VERDICT_THRESHOLDS) {
+    if (overall >= band.min) return band.verdict;
+  }
+  return 'major-drift';
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // 9-dim feature vector. The mapping mirrors ADR-152 §Decision Table 1.
@@ -46,7 +102,7 @@ export function projectToVec(input) {
     g.risk_score ?? 0,
     g.test_confidence ?? 0,
     g.publish_readiness ?? 0,
-    Math.max(0, Math.min(1, Math.log10((s.estCostPerRunUsd ?? 0) + 0.001) / Math.log10(10))),
+    normalizeCost(s.estCostPerRunUsd),
   ];
 }
 
@@ -99,6 +155,10 @@ export function similarity(a, b, opts = {}) {
 
   const result = {
     overall: round4(overall),
+    // The verdict is derived here, next to the score it classifies, so
+    // every consumer (similarity.mjs, audit-trend.mjs) reports the same
+    // band for the same number.
+    verdict: verdictFor(round4(overall)),
     components: {
       cosine: round4(cos),
       categorical: round4(cat),

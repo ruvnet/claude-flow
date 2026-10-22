@@ -147,6 +147,7 @@ function main() {
     console.log(`| jaccard     | ${components.jaccard.toFixed(4)} | ${weights.jaccard}   | ${(components.jaccard * weights.jaccard).toFixed(4)} |`);
     console.log('');
     console.log(`**Overall:** ${payload.overall.toFixed(4)}`);
+    console.log(`**Verdict:** ${payload.verdict}`);
     if (payload.alert) {
       console.log('');
       console.log(payload.alert.triggered ? `⚠ ALERT: ${payload.alert.reason}` : `✓ ${payload.alert.reason}`);
