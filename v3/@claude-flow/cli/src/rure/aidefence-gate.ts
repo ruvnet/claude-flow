@@ -16,10 +16,20 @@ export interface GatedText {
   gated: boolean;
 }
 
+// Memoized: resolving a genuinely-absent optional module repeatedly on every
+// call is wasteful, and a single shared attempt avoids any ambiguity from
+// multiple concurrent dynamic-import resolutions of the same bare specifier
+// (gateAll calls this for every string in a batch).
+let aidefenceModulePromise: Promise<typeof import('@claude-flow/aidefence')> | null = null;
+function loadAIDefenceModule(): Promise<typeof import('@claude-flow/aidefence')> {
+  aidefenceModulePromise ??= import('@claude-flow/aidefence');
+  return aidefenceModulePromise;
+}
+
 export async function gateWithAIDefence(text: string): Promise<GatedText> {
   if (!text) return { text, flagged: false, gated: false };
   try {
-    const mod = await import('@claude-flow/aidefence');
+    const mod = await loadAIDefenceModule();
     const defender = mod.createAIDefence({ enableLearning: false });
     let flagged = false;
     try {
@@ -44,7 +54,11 @@ export async function gateWithAIDefence(text: string): Promise<GatedText> {
   }
 }
 
-/** Gate every string in an array, preserving order and length. */
+/** Gate every string in an array, preserving order and length. Sequential —
+ * gating is cheap, and this avoids firing the first-ever (memoized) module
+ * resolution attempt from several calls at once. */
 export async function gateAll(texts: string[]): Promise<GatedText[]> {
-  return Promise.all(texts.map((t) => gateWithAIDefence(t)));
+  const results: GatedText[] = [];
+  for (const t of texts) results.push(await gateWithAIDefence(t));
+  return results;
 }
