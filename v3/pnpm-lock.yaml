@@ -206,8 +206,8 @@ importers:
         version: 3.25.76
     optionalDependencies:
       '@agntcy/slim-bindings':
-        specifier: 2.0.0-alpha.5
-        version: 2.0.0-alpha.5
+        specifier: 2.1.1
+        version: 2.1.1
       '@claude-flow/memory':
         specifier: 3.0.8
         version: link:../memory
@@ -706,9 +706,11 @@ packages:
   /@actions/io@2.0.0:
     resolution: {integrity: sha512-Jv33IN09XLO+0HS79aaODsvIRyduiF7NY/F6LYeK5oeUmrsz7aFdRphQjFoESF4jS7lMauDOttKALcpapVDIAg==}
 
-  /@agntcy/slim-bindings-darwin-arm64@2.0.0-alpha.5:
-    resolution: {integrity: sha512-M5DP+SPVn+ReAAK6GxHosxciNMCWZv1vxZziPcxWMt+HIOt4/9w7vlbJPe1dfmdEHegE9iNGQ+AOSKOfQS5rhQ==}
+  /@agntcy/slim-bindings-darwin-arm64@2.1.1:
+    resolution: {integrity: sha512-YbUsO1bWdgxHIQP/I7L+1NG27+mnpW/WueT/1n68NC8n5KedQPAV3TuUU5NAQlUN4uxpbGaZQ6Yi8Yk0qVn88g==}
     engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [darwin]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -716,9 +718,11 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-darwin-x64@2.0.0-alpha.5:
-    resolution: {integrity: sha512-xWbywk8ZNABApjKiUe8E6umkGXYTNQBKAO1ZFPQfOP1OrSf3oupJTv/pkzsRifh+/dOFaojpZFvcZJfeM1L/jA==}
+  /@agntcy/slim-bindings-darwin-x64@2.1.1:
+    resolution: {integrity: sha512-ZVwatO2K7/xxKZVBY7gwP4Zg3KZHPOsm4mdoU7c0UUyoCMQbwjGFTdx9IhTicIE4efv5mSJymJgScchZTfE6Kw==}
     engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [darwin]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -726,9 +730,11 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-linux-arm64-gnu@2.0.0-alpha.5:
-    resolution: {integrity: sha512-+3YZRrVNYpY4eD4Wn9aza6rsiGwB/hz/ojxyCPgeK9/4QFYVvUMnVq4H4sN+k5ckJP7lrR6ncfEqp7BJyOwKQA==}
+  /@agntcy/slim-bindings-linux-arm64-gnu@2.1.1:
+    resolution: {integrity: sha512-m71qi2nWBpR/8ti7vmOInfg1PMbUAg/Cbqt2LeirI0M3wf9lbleOKAhlsiLAqsT7uYU6wRw9uZ2dXibcdVtWUQ==}
     engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [linux]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -736,9 +742,11 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-linux-x64-gnu@2.0.0-alpha.5:
-    resolution: {integrity: sha512-BYGtMWtJJTd+z6eioFvbGbg/oq0DwjhHRJtTYvNpHQ6CFhja3PhuxcUPrW53xKVLTD3saeZq8MVOGq2tuF+PRQ==}
+  /@agntcy/slim-bindings-linux-arm64-musl@2.1.1:
+    resolution: {integrity: sha512-OdSRSqMgkwhfuerdZqKgzFisbgsBi3ELHUBsPiBqGdsyq59ze9UFMW3Rr582Dug+LJKS+tH9pr9QO5EoLKTjfw==}
     engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [linux]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -746,9 +754,11 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-win32-arm64-msvc@2.0.0-alpha.5:
-    resolution: {integrity: sha512-dO6/JdvE2ANVujXMTSxSMqb94YN9+ox7HbNaSzQt8shERB/5XFgWKYDCrwEJC26ux8FzQcvaq8mnlePGueDq7g==}
+  /@agntcy/slim-bindings-linux-x64-gnu@2.1.1:
+    resolution: {integrity: sha512-mzxYLUVvWwAsHDKiSF6Q2eGepRMwRZzOVCwby9rNDalFwR/NFtThUD9EZ85OB7mp2fQN+xPph8DZRC726/WkSw==}
     engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [linux]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -756,9 +766,11 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings-win32-x64-msvc@2.0.0-alpha.5:
-    resolution: {integrity: sha512-w0mKFPKKkhwfQzaC/p1Ke3ogNL4AyxC9jt0LY0LsBHNIJaPPBvAbLMLVslZBgn2ghrMRS/nxdacdQrAcFQQzXg==}
+  /@agntcy/slim-bindings-linux-x64-musl@2.1.1:
+    resolution: {integrity: sha512-P8Iw0LOHADAOB4ZAdhMheMcI2okKo8duarP4QYe+zGw5l64r2IQ/7s4r/GkahJ8mRjdABz5S9TPlt+FSKNilYA==}
     engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [linux]
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
@@ -766,20 +778,46 @@ packages:
     dev: false
     optional: true
 
-  /@agntcy/slim-bindings@2.0.0-alpha.5:
-    resolution: {integrity: sha512-QBpln5ubYbJ7nMY2SUWJJfUsl5qmezqWNwcatdjuaZaK2dDIj2RHAvgNKNmuf8Exg+kuI/88SFrAZMNxLJolNQ==}
+  /@agntcy/slim-bindings-win32-arm64-msvc@2.1.1:
+    resolution: {integrity: sha512-a/cUWk25jOKxZYNrSz5t+Vv2JjTuOqNpdNkpLUMkFRS7M/ZF64OMr98u7CadnmTILD6OKDz/XM7Hz8snXdKFMw==}
+    engines: {node: '>=18.0.0'}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dependencies:
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings-win32-x64-msvc@2.1.1:
+    resolution: {integrity: sha512-osqXoMa05vbj/SsgUWBFrj3alBH9zlgGvOY+fTklcNHkIpgRh3NopuJ30FhCmFeuwHQUYHVXQu8PIN/QkMJIQQ==}
+    engines: {node: '>=18.0.0'}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dependencies:
+      '@ubjs/core': 0.31.0-3
+      '@ubjs/node': 0.31.0-3
+    dev: false
+    optional: true
+
+  /@agntcy/slim-bindings@2.1.1:
+    resolution: {integrity: sha512-ku1lRTF73Vx8qqKUuuiXnbE/9TR33NQSYB61xe7M+hjgvr6Qx8NmBsb0dtgMbsGEiOL2WCbCeckKT487oKynuA==}
     engines: {node: '>=18.0.0'}
     requiresBuild: true
     dependencies:
       '@ubjs/core': 0.31.0-3
       '@ubjs/node': 0.31.0-3
     optionalDependencies:
-      '@agntcy/slim-bindings-darwin-arm64': 2.0.0-alpha.5
-      '@agntcy/slim-bindings-darwin-x64': 2.0.0-alpha.5
-      '@agntcy/slim-bindings-linux-arm64-gnu': 2.0.0-alpha.5
-      '@agntcy/slim-bindings-linux-x64-gnu': 2.0.0-alpha.5
-      '@agntcy/slim-bindings-win32-arm64-msvc': 2.0.0-alpha.5
-      '@agntcy/slim-bindings-win32-x64-msvc': 2.0.0-alpha.5
+      '@agntcy/slim-bindings-darwin-arm64': 2.1.1
+      '@agntcy/slim-bindings-darwin-x64': 2.1.1
+      '@agntcy/slim-bindings-linux-arm64-gnu': 2.1.1
+      '@agntcy/slim-bindings-linux-arm64-musl': 2.1.1
+      '@agntcy/slim-bindings-linux-x64-gnu': 2.1.1
+      '@agntcy/slim-bindings-linux-x64-musl': 2.1.1
+      '@agntcy/slim-bindings-win32-arm64-msvc': 2.1.1
+      '@agntcy/slim-bindings-win32-x64-msvc': 2.1.1
     dev: false
     optional: true
 
