@@ -403,6 +403,7 @@ export class AgentFederationPlugin implements ClaudeFlowPlugin {
           `Federation send → ${address} (envelope=${envelope.envelopeId}, type=${envelope.messageType}, signed)`,
         );
       },
+      getPeerTrustLevel: (targetNodeId) => discovery.getPeer(targetNodeId)?.trustLevel,
       getActiveSessions: () => Array.from(sessions.values()).filter(s => s.active),
       getLocalNodeId: () => nodeId,
     });

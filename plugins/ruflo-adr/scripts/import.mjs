@@ -15,12 +15,14 @@
 //   IMPORT_FORMAT=json node scripts/import.mjs       # JSON summary
 //   IMPORT_DRY_RUN=1 node scripts/import.mjs         # parse + summarize, skip memory_store
 //   ADR_ROOT=/path/to/repo node scripts/import.mjs   # override scan root (default: cwd)
+//   ADR_DB_ROOT=/path/to/repo node scripts/import.mjs # override inferred memory project root
 //
 // Why a script, not raw MCP calls: 70+ ADRs × multiple memory_store calls each
 // is hundreds of MCP round-trips. spawnSync over the CLI is materially faster
 // and avoids shell-quoting pitfalls in the ADR titles.
 
-import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { findAdrs, parseAdr } from './lib/parse-adrs.mjs';
 import {
   adrRecordKey,
@@ -30,6 +32,7 @@ import {
   memoryStoreArgs,
   uniqueEdges,
 } from './lib/index-records.mjs';
+import { spawnCliSync } from './lib/ruflo-cli.mjs';
 
 // #2781 (Jordi-Izquierdo-DDS): CLI_CORE=1 previously routed writes through
 // `@claude-flow/cli-core@alpha`, whose JsonMemoryBackend lives in a different
@@ -47,7 +50,25 @@ if (process.env.CLI_CORE === '1') {
   );
 }
 
-const ROOT = process.env.ADR_ROOT || process.cwd();
+const ROOT = resolve(process.env.ADR_ROOT || process.cwd());
+
+// ADR_ROOT limits which files are scanned; it is not necessarily the project
+// root from which the memory CLI resolves .swarm/memory.db. Prefer the nearest
+// repository/runtime marker, then a package root for projects without Git.
+function projectRoot(scanRoot) {
+  if (process.env.ADR_DB_ROOT) return resolve(process.env.ADR_DB_ROOT);
+  let dir = scanRoot;
+  let packageRoot;
+  while (true) {
+    if (existsSync(join(dir, '.git')) || existsSync(join(dir, '.swarm'))) return dir;
+    if (!packageRoot && existsSync(join(dir, 'package.json'))) packageRoot = dir;
+    const parent = dirname(dir);
+    if (parent === dir) return packageRoot || scanRoot;
+    dir = parent;
+  }
+}
+
+const DB_ROOT = projectRoot(ROOT);
 
 function memoryStore(namespace, key, value) {
   // #2474 Bug 1 (fatal): ADR titles like "ADR-005 — Repository …" contain
@@ -61,19 +82,20 @@ function memoryStore(namespace, key, value) {
   // and doesn't try to interpret the leading character of the value.
   // This works on both legacy and current npm; the underlying CLI accepts
   // \`--flag=value\` and \`--flag value\` equivalently.
-  // #2666 point 2: without `cwd: ROOT`, this subprocess inherits THIS
+  // #2666 point 2: without an explicit cwd, this subprocess inherits THIS
   // process's own cwd, so `ADR_ROOT=/other/repo node import.mjs` run from
   // anywhere else scans the right files but writes to the wrong
   // `.swarm/memory.db` (the CLI resolves the db path relative to the
-  // subprocess's cwd, not ADR_ROOT). Every memory subprocess call in this
-  // plugin must pass `cwd: ROOT` so the scan root and the db root agree.
+  // subprocess's cwd, not ADR_ROOT). Use the project root, which may be an
+  // ancestor of ADR_ROOT when only docs/adr is scanned (#3097).
   // #2660: pass --upsert explicitly. The importer owns stable logical keys,
   // so re-running it must refresh changed ADRs and relationships in place.
   // Do not depend on a CLI parser default for this data-integrity contract.
-  const r = spawnSync('npx', memoryStoreArgs(namespace, key, value),
-    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: ROOT });
+  // #3558: an installed ruflo CLI is preferred over npx (lib/ruflo-cli.mjs).
+  const r = spawnCliSync(memoryStoreArgs(namespace, key, value),
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', cwd: DB_ROOT });
   if (r.status !== 0) {
-    return 'error: ' + (r.stderr || r.stdout || '').slice(0, 100);
+    return 'error: ' + (r.error?.message || r.stderr || r.stdout || `exit status ${r.status}`).slice(0, 100);
   }
   return 'ok';
 }
@@ -129,6 +151,7 @@ for (const a of adrs) {
 
 const result = {
   scannedRoot: ROOT,
+  dbRoot: DB_ROOT,
   total: adrs.length,
   sourceDirs: Object.keys(bySource).length,
   storedRecords, storedEdges, dryRun,
@@ -139,28 +162,28 @@ const result = {
 
 if (fmt === 'json') {
   console.log(JSON.stringify(result, null, 2));
-  process.exit(0);
+} else {
+  console.log('## ADR Index Summary');
+  console.log('');
+  console.log(`Total ADRs: **${result.total}** across ${result.sourceDirs} source dirs (root: ${ROOT})`);
+  console.log(`Records stored to \`adr-patterns\`: ${result.storedRecords}/${result.total}${dryRun ? ' (dry-run, skipped)' : ''}`);
+  console.log(`Edges stored to \`adr-edges\`: ${result.storedEdges}/${result.edges}${dryRun ? ' (dry-run, skipped)' : ''}`);
+  console.log('');
+  console.log('### By status');
+  for (const [k, n] of Object.entries(byStatus).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
+  console.log('');
+  console.log(`### Relationships: **${result.edges}** edges`);
+  for (const [k, n] of Object.entries(byRelation).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
+  console.log('');
+  console.log('### Issues found');
+  console.log(`- Dangling refs (edge → non-existent ADR): ${danglingRefs.length}`);
+  for (const d of danglingRefs.slice(0, 10)) console.log(`  - ${d.relation} ${d.from} → ${d.to} (missing)`);
+  console.log(`- Status mismatches (superseded but not marked): ${statusMismatches.length}`);
+  for (const m of statusMismatches.slice(0, 10)) console.log(`  - ${m.id} status='${m.status}' (${m.file})`);
+  console.log(`- Storage errors: ${errors.length}`);
+  for (const e of errors.slice(0, 5)) console.log(`  - ${e}`);
+  console.log('');
+  console.log('### Source breakdown');
+  for (const [s, n] of Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`- ${s}: ${n}`);
 }
-
-console.log('## ADR Index Summary');
-console.log('');
-console.log(`Total ADRs: **${result.total}** across ${result.sourceDirs} source dirs (root: ${ROOT})`);
-console.log(`Records stored to \`adr-patterns\`: ${result.storedRecords}/${result.total}${dryRun ? ' (dry-run, skipped)' : ''}`);
-console.log(`Edges stored to \`adr-edges\`: ${result.storedEdges}/${result.edges}${dryRun ? ' (dry-run, skipped)' : ''}`);
-console.log('');
-console.log('### By status');
-for (const [k, n] of Object.entries(byStatus).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
-console.log('');
-console.log(`### Relationships: **${result.edges}** edges`);
-for (const [k, n] of Object.entries(byRelation).sort((a, b) => b[1] - a[1])) console.log(`- ${k}: ${n}`);
-console.log('');
-console.log('### Issues found');
-console.log(`- Dangling refs (edge → non-existent ADR): ${danglingRefs.length}`);
-for (const d of danglingRefs.slice(0, 10)) console.log(`  - ${d.relation} ${d.from} → ${d.to} (missing)`);
-console.log(`- Status mismatches (superseded but not marked): ${statusMismatches.length}`);
-for (const m of statusMismatches.slice(0, 10)) console.log(`  - ${m.id} status='${m.status}' (${m.file})`);
-console.log(`- Storage errors: ${errors.length}`);
-for (const e of errors.slice(0, 5)) console.log(`  - ${e}`);
-console.log('');
-console.log('### Source breakdown');
-for (const [s, n] of Object.entries(bySource).sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`- ${s}: ${n}`);
+process.exitCode = errors.length ? 1 : 0;

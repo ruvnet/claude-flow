@@ -168,6 +168,61 @@ describe('#2226 — pattern store and search share a backend', () => {
   }, 60_000);
 });
 
+describe('#3288 — pattern store/search surface degraded:true on every non-reasoningBank path', () => {
+  // `controller: 'reasoningBank'` is the ONLY label that means the healthy
+  // path ran. Every other label (`bridge-fallback`, `memory-store-fallback`,
+  // and any future addition) is a degraded response — assert the invariant
+  // by controller identity, not by enumerating specific fallback labels, so
+  // a new label can't silently reopen this gap the way `bridge-fallback` did
+  // (bridgeStorePattern/bridgeSearchPatterns return it non-null, which used
+  // to skip the fallback blocks entirely and return undegraded).
+  const HEALTHY_CONTROLLER = 'reasoningBank';
+
+  it('agentdb_pattern-store sets degraded:true on every path except controller=reasoningBank', async () => {
+    const marker = `degraded-flag-store-${process.pid}-${process.hrtime.bigint()}`;
+    const stored = await agentdbPatternStore.handler({
+      pattern: `Use ${marker} for secure session renewal`,
+      type: 'auth-pattern',
+      confidence: 0.9,
+    });
+    if (!stored || stored.success !== true) return; // both bridge and fallback unavailable — skip
+
+    if (stored.controller === HEALTHY_CONTROLLER) {
+      expect(stored.degraded).toBeUndefined();
+    } else {
+      // The whole point of #3288: a caller must be able to detect degradation
+      // from response SHAPE, not by parsing a free-text `note` string —
+      // covers bridge-fallback (registry present, reasoningBank unusable)
+      // and memory-store-fallback (registry entirely absent) alike.
+      expect(stored.degraded).toBe(true);
+      expect(typeof stored.reason).toBe('string');
+    }
+  }, 60_000);
+
+  it('agentdb_pattern-search sets degraded:true on every path except controller=reasoningBank', async () => {
+    const marker = `degraded-flag-search-${process.pid}-${process.hrtime.bigint()}`;
+    await agentdbPatternStore.handler({
+      pattern: `Use ${marker} for secure session renewal`,
+      type: 'auth-pattern',
+      confidence: 0.9,
+    });
+
+    const found = await agentdbPatternSearch.handler({
+      query: marker,
+      topK: 5,
+      minConfidence: 0.1,
+    });
+    if (!found || !Array.isArray(found.results)) return; // backend unavailable in isolation — skip
+
+    if (found.controller === HEALTHY_CONTROLLER) {
+      expect(found.degraded).toBeUndefined();
+    } else {
+      expect(found.degraded).toBe(true);
+      expect(typeof found.reason).toBe('string');
+    }
+  }, 60_000);
+});
+
 /**
  * 3.10.8 routing-learning fixes (follow-ups to the intelligence audit):
  *   Bug B — Q-router cached a stale route decision and only invalidated the
@@ -212,4 +267,28 @@ describe('3.10.8 #bugC — boolean flags accept an explicit space-form value', (
     expect(parse(['--explore'])).toBe(true);
     expect(parse(['--no-explore'])).toBe(false);
   });
+});
+
+describe('#3325 — agentdb_pattern-search surfaces why tier=substring fired', () => {
+  it('when tier is substring, semanticError (if present) is a diagnosable string, not silently swallowed', async () => {
+    const marker = `semantic-error-3325-${process.pid}-${process.hrtime.bigint()}`;
+    await agentdbPatternStore.handler({
+      pattern: `Use ${marker} for secure session renewal`,
+      type: 'auth-pattern',
+      confidence: 0.9,
+    });
+    const found = await agentdbPatternSearch.handler({ query: marker, topK: 5, minConfidence: 0.1 });
+    if (!found || !Array.isArray(found.results)) return; // backend unavailable in isolation — skip
+
+    if (found.tier === 'substring' && 'semanticError' in found) {
+      // The exact bug: a thrown error or {success:false} used to be
+      // indistinguishable from an honest zero-match. If tier 1 did fail,
+      // that reason must now be a non-empty, human-readable string.
+      expect(typeof found.semanticError).toBe('string');
+      expect((found.semanticError as string).length).toBeGreaterThan(0);
+    }
+    // tier === 'semantic', or substring with no semanticError (an honest
+    // zero-match) are both fine — this test only guards against a swallowed
+    // failure being indistinguishable from "nothing found".
+  }, 60_000);
 });

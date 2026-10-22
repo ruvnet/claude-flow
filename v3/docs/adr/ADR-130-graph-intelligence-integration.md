@@ -2,6 +2,7 @@
 
 **Status**: Proposed (2026-05-24)
 **Date**: 2026-05-24
+**Updated**: 2026-09-26 — k-hop implementation reads retained SQL relationships (#3315); the broader ADR remains Proposed.
 **Authors**: claude (drafted with rUv)
 **Related**: ADR-087 (graph-node native backend), ADR-123 (sublinear integration / graph intelligence engine), ADR-053 (AgentDB MCP tools), ADR-097 (federation budget circuit breaker), ADR-103 (witness temporal history), ADR-121 (embeddings RuVector upgrade), issues #2047 (witness manifest drift), #1872 (integration test bugs), #1907 (ADR-113 strategic gaps)
 **Supersedes**: nothing — consolidates graph surfaces established by ADR-087 and ADR-123
@@ -155,8 +156,8 @@ agentdb_graph-query({
 ```
 
 Dispatch logic (in order of capability):
-1. If `mode === "k-hop"` and graph-node native is available: call `db.kHopNeighbors(nodeId, depth)`.
-2. If `mode === "k-hop"` and graph-node unavailable: SQL `SELECT target_id FROM graph_edges WHERE source_id = ?` recursively (CTE up to depth 3).
+1. If `mode === "k-hop"`: read committed `graph_edges` recursively through the managed SQL accessor (CTE up to depth 3), regardless of native graph availability. A separate native graph may be empty or only partially populated (#3315).
+2. If the retained SQL source is missing or unreadable, return an explicit failure. Report requested/applied depth and returned-row truncation. The row limit is not a work, elapsed-time, or memory bound; pending writes and native-only edges are outside this retained-SQL contract.
 3. If `mode === "semantic"`: cosine search over `graph_edges.embedding` column via the HNSW index.
 4. If `mode === "pagerank"`: load edges from `graph_edges` into a `SparseMatrix`, call `runPageRank` from `ruflo-graph-intelligence`'s `solver-bridge.ts`. This is the integration point where the sublinear solver reads from the unified schema.
 
@@ -164,12 +165,12 @@ The `KnowledgeGraphSource` interface in `plugins/ruflo-graph-intelligence/src/ad
 
 **Acceptance criteria**
 
-1. `agentdb_graph-query({ nodeId: "agent:abc", mode: "k-hop", depth: 2 })` returns neighbor IDs without error when graph-node is available.
-2. Same call with graph-node unavailable returns results from SQL CTE fallback.
+1. `agentdb_graph-query({ nodeId: "agent:abc", mode: "k-hop", depth: 2 })` returns retained SQL neighbor IDs even when the native graph is empty or partially populated.
+2. The same call with graph-node unavailable returns identical retained SQL results; SQL failures never become empty native success.
 3. `agentdb_graph-query({ nodeId: "entity:xyz", mode: "pagerank", topK: 5 })` returns ranked node list using ruflo-graph-intelligence's `runPageRank`. Requires `ruflo-graph-intelligence` to be importable (optional dependency; graceful error if absent).
 4. `mode === "semantic"` returns nodes ranked by embedding cosine similarity.
 
-**CI smoke**: `scripts/smoke-graph-query-dispatch.mjs` — tests all three modes against a seeded `graph_edges` table. Native-backend mode tests are guarded by `isGraphBackendAvailable()` and skipped if unavailable.
+**CI smoke**: `scripts/smoke-graph-query-dispatch.mjs` — tests all three modes against a seeded `graph_edges` table. K-hop regression tests cover retained SQL while native availability and contents vary.
 
 ---
 
@@ -337,7 +338,7 @@ For the comparator angle: target graph query latency < 10ms at 1,000 nodes, whic
 
 ### 1. Schema migration of existing causal-edge data (HIGH)
 
-Existing `agentdb_causal-edge` data lives in three places: graph-node native `.claude-flow/graph/agents.db`, AgentDB bridge SQL tables, and the pilot "double-write" rows added by `agentdb-tools.ts:351–353`. Phase 1 adds a fourth table (`graph_edges`). Without a migration, data is split across all four locations and the unified query in Phase 2 will miss historical edges. Mitigation: Phase 1 must include a one-time migration that reads existing bridge rows and inserts them into `graph_edges`. The graph-node native database lacks an enumeration API (no `listAllEdges()` confirmed in `graph-backend.ts`), so native-only edges cannot be automatically migrated — this is an acknowledged gap. Users who rely on native-only k-hop queries will not lose data, but those edges will not be queryable via `agentdb_graph-query` mode "semantic" or "pagerank" until Phase 4's adapter registers them.
+Existing `agentdb_causal-edge` data lives in three places: graph-node native `.claude-flow/graph/agents.db`, AgentDB bridge SQL tables, and the pilot "double-write" rows added by `agentdb-tools.ts:351–353`. Phase 1 adds a fourth table (`graph_edges`). Without a migration, data is split across all four locations and the unified query in Phase 2 will miss historical edges. Mitigation: Phase 1 must include a one-time migration that reads existing bridge rows and inserts them into `graph_edges`. The graph-node native database lacks an enumeration API (no `listAllEdges()` confirmed in `graph-backend.ts`), so native-only edges cannot be automatically migrated — this is an acknowledged gap. Native-only edges remain stored, but the retained-SQL `agentdb_graph-query` k-hop contract does not include them; the other query modes also require their own populated sources. No native-edge migration is included in the #3315 read fix.
 
 ### 2. Double-write cost during transition (MEDIUM)
 

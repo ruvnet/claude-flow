@@ -1,14 +1,17 @@
 {
   "name": "@claude-flow/performance",
-  "version": "3.0.0-alpha.6",
+  "version": "3.0.0",
   "type": "module",
   "description": "Performance module - benchmarking, Flash Attention validation, optimization",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./benchmarks/*": "./benchmarks/*.js"
+    ".": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "bench": "vitest bench",
     "bench:attention": "vitest bench benchmarks/attention/",
@@ -23,7 +26,6 @@
     "vitest": "^4.1.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

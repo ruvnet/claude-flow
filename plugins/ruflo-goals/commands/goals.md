@@ -10,3 +10,4 @@ Show goal and research status:
 2. For each horizon, show: objective, current milestone, progress %, target date, drift status
 3. Call `mcp__plugin_ruflo-core_ruflo__memory_list` with namespace `research-synthesis` to list completed research reports
 4. Show a summary table of horizons and research state
+5. For research records, run `node plugins/ruflo-goals/scripts/research-list.mjs --limit 10` (prints `{version:1,records:[...]}`, newest first) and show question, status (`done`/`truncated`/`failed`), finding count and spend (`null` = unknown)

@@ -96,10 +96,13 @@ EOF
 }
 
 # Check if server is running
+# #3364: the CLI writes the bare PID on line 1 and a durable identity record
+# on line 2, so read the first line only. A file this script wrote itself is a
+# single line and reads the same way.
 is_running() {
     if [ -f "$PID_FILE" ]; then
         local pid
-        pid=$(cat "$PID_FILE")
+        pid=$(head -n 1 "$PID_FILE")
         if kill -0 "$pid" 2>/dev/null; then
             return 0
         fi
@@ -110,7 +113,7 @@ is_running() {
 # Get server PID
 get_pid() {
     if [ -f "$PID_FILE" ]; then
-        cat "$PID_FILE"
+        head -n 1 "$PID_FILE"
     fi
 }
 

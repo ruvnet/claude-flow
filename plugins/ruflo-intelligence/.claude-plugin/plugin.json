@@ -1,7 +1,7 @@
 {
   "name": "ruflo-intelligence",
   "description": "User-facing surface for Ruflo's self-learning system: 6 neural_* + 10 hooks_intelligence_* + 6 routing/meta hooks + 3 hooks_model-* + 4 SONA/MicroLoRA tools (29 total). Implements the 4-step pipeline (RETRIEVE → JUDGE → DISTILL → CONSOLIDATE) and IPFS-based cross-project pattern transfer.",
-  "version": "0.3.1",
+  "version": "0.4.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -21,6 +21,33 @@
     "moe",
     "pattern-transfer",
     "model-routing",
-    "mcp"
-  ]
+    "mcp",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Write guard",
+      "description": "Refuse writes and commands on this plugin's own tools that hold a key, token or password.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    },
+    "confirmReset": {
+      "type": "string",
+      "title": "Confirm intelligence reset",
+      "description": "Refuse hooks_intelligence-reset unless the call carries confirm: true.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

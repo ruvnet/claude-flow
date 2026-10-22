@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -81,6 +81,34 @@ describe('#2661 — git workspace identity', () => {
     const after = resolveGitWorkspaceIdentity(repo);
     expect(after.repositoryId).toBe(before.repositoryId);
     expect(after.head).not.toBe(before.head);
+  });
+
+  it('preserves valid trailing whitespace in repository and linked worktree paths (#3863)', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'gwi-ws-'));
+    try {
+      const spaced = join(parent, 'owned repo ');
+      const linked = join(parent, 'linked leaf ');
+      mkdirSync(spaced);
+      git(spaced, 'init', '-q');
+      git(spaced, 'config', 'user.email', 'test@test.local');
+      git(spaced, 'config', 'user.name', 'Test');
+      writeFileSync(join(spaced, 'a.txt'), 'hello');
+      git(spaced, 'add', 'a.txt');
+      git(spaced, 'commit', '-q', '-m', 'init');
+      git(spaced, 'worktree', 'add', '-q', linked, '-b', 'spaced-wt');
+
+      const a = resolveGitWorkspaceIdentity(spaced);
+      const b = resolveGitWorkspaceIdentity(linked);
+      expect(a.isGit).toBe(true);
+      expect(a.worktreeRoot).toBe(realpathSync(spaced));
+      expect(b.worktreeRoot).toBe(realpathSync(linked));
+      expect(a.head).toMatch(/^[0-9a-f]{40}$/);
+      expect(b.head).toBe(a.head);
+      expect(b.commonGitDir).toBe(a.commonGitDir);
+      expect(b.repositoryId).toBe(a.repositoryId);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
   });
 
   it('degrades gracefully for non-git directories', () => {

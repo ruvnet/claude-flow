@@ -1,7 +1,7 @@
 {
   "name": "ruflo-market-data",
-  "description": "Market data ingestion — feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching",
-  "version": "0.2.1",
+  "description": "Market data ingestion — feed normalization, OHLCV vectorization, and HNSW-indexed pattern matching. As a mod (ADR-445): keeps credentials and credentialed feed URLs out of market memory, /market-mod, and a status file the console shows",
+  "version": "0.3.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,22 @@
     "patterns",
     "mcp",
     "candlestick-patterns",
-    "namespace-routing"
-  ]
+    "namespace-routing",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse tool calls that are clearly harmful in this plugin's domain (see README, As a mod).",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

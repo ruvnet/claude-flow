@@ -10,7 +10,7 @@ Embedding engine commands:
 3. If not initialized, suggest calling `mcp__plugin_ruflo-core_ruflo__embeddings_init`.
 4. For search, use `mcp__plugin_ruflo-core_ruflo__embeddings_search` with the user's query (namespace-filtered).
 5. For large-corpus search with memory pressure, use the RaBitQ quantized path (32× memory reduction):
-   - `mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_build` (one-time, after corpus is loaded)
+   - the index builds itself on first use and rebuilds when the corpus drifts >20%; call `mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_build` to force one now
    - `mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_search` (Hamming-prefilter to top-N candidates)
    - `mcp__plugin_ruflo-core_ruflo__embeddings_rabitq_status` for index health
 6. For hierarchical data (taxonomies, code trees), use `mcp__plugin_ruflo-core_ruflo__embeddings_hyperbolic` (Poincare ball model).

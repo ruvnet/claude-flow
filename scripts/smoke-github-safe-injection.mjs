@@ -15,11 +15,14 @@
  *   2. The temp-file content is verbatim (not shell-expanded).
  *   3. A body >256KB triggers a rejection BEFORE gh is invoked (Phase 2 target;
  *      Phase 1 documents the expected red→green without failing the build).
- *   4. An empty body skips the temp-file path entirely (no-op, helper exits 0).
+ *   4. A benign whitespace-bearing non-body argument reaches `gh` as one exact
+ *      argv item, which fails on the historical shell-joined implementation.
+ *   5. An empty body skips the temp-file path entirely (no-op, helper exits 0).
  *
- * Runs against BOTH copies:
+ * Runs against every shipped copy:
  *   1. .claude/helpers/github-safe.js                       (dogfood)
  *   2. v3/@claude-flow/cli/.claude/helpers/github-safe.js   (init-template)
+ *   3. v3/@claude-flow/mcp/.claude/helpers/github-safe.js   (published package)
  */
 
 import { spawnSync, execFileSync } from 'node:child_process';
@@ -32,6 +35,7 @@ const REPO_ROOT = process.cwd();
 const HELPERS = [
   join(REPO_ROOT, '.claude', 'helpers', 'github-safe.js'),
   join(REPO_ROOT, 'v3', '@claude-flow', 'cli', '.claude', 'helpers', 'github-safe.js'),
+  join(REPO_ROOT, 'v3', '@claude-flow', 'mcp', '.claude', 'helpers', 'github-safe.js'),
 ];
 
 // 256 KB — the GitHub API body field limit documented in ADR-127.
@@ -71,6 +75,11 @@ const cases = [
     args: ['issue', 'create', '--title', 'test', '--body', 'a; b; c'],
     expectBodyVerbatim: 'a; b; c',
     expectBodyFileFlagInArgv: true,
+  },
+  {
+    name: 'non-body argv preserves whitespace without shell splitting',
+    args: ['repo', 'view', 'owner/repo with space'],
+    expectArgv: ['repo', 'view', 'owner/repo with space'],
   },
   {
     // Phase 2: github-safe.js now enforces the 256KB cap (GITHUB_SAFE_VERSION=1.0.0).
@@ -124,7 +133,7 @@ function runOne(helperPath, c) {
     }
   }
 
-  if (c.expectBodyFileFlagInArgv || c.expectBodyVerbatim) {
+  if (c.expectBodyFileFlagInArgv || c.expectBodyVerbatim || c.expectArgv) {
     // Read the argv captured by the fake gh script.
     let argv = [];
     if (existsSync(captureFile)) {
@@ -135,6 +144,10 @@ function runOne(helperPath, c) {
       }
     } else {
       fails.push('fake gh was not invoked (capture file missing) — helper may have crashed before calling gh');
+    }
+
+    if (c.expectArgv && JSON.stringify(argv) !== JSON.stringify(c.expectArgv)) {
+      fails.push(`argv mismatch: expected ${JSON.stringify(c.expectArgv)}, got ${JSON.stringify(argv)}`);
     }
 
     if (c.expectBodyFileFlagInArgv) {
@@ -202,4 +215,4 @@ if (failed > 0) {
   console.error(`\n${failed} github-safe injection smoke case(s) failed — regression of #2089`);
   process.exit(1);
 }
-console.log('\nok: github-safe injection smoke passed both helper copies');
+console.log('\nok: github-safe injection smoke passed all shipped helper copies');

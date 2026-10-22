@@ -1,0 +1,7 @@
+[
+  {"key":"research-old-202610010900","value":"{\"version\":1,\"question\":\"older\",\"depth\":\"quick\",\"capUsd\":1,\"spentUsd\":0.4,\"status\":\"done\",\"at\":\"2026-10-01T09:00:00Z\",\"findings\":[{\"claim\":\"a\",\"grade\":\"High\",\"sources\":[\"https://example.com\"]}],\"screened\":true}"},
+  {"key":"research-new-202610031200","value":{"version":1,"question":"newer","depth":"deep","capUsd":3,"spentUsd":null,"status":"truncated","at":"2026-10-03T12:00:00Z","findings":[],"screened":true}},
+  {"key":"research-bad-1","value":"not json"},
+  {"key":"research-v2-1","value":{"version":2,"question":"x","status":"done","at":"2026-10-04T00:00:00Z","findings":[]}},
+  {"key":"research-nostatus","value":{"version":1,"question":"x","status":"weird","at":"2026-10-04T00:00:00Z","findings":[]}}
+]

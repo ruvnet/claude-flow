@@ -196,6 +196,19 @@ describe('CommandParser', () => {
       const result = parser.parse(['--', 'a', 'b']);
       expect(result.positional).toEqual(['a', 'b']);
     });
+
+    it('should treat a literal "--" after the first marker as positional, not a second marker (#4310)', () => {
+      const result = parser.parse(['--', '--', 'needle']);
+      expect(result.positional).toEqual(['--', 'needle']);
+    });
+
+    it('should preserve a literal "--" positional following a recognized command (#4310)', () => {
+      const cmd: Command = { name: 'task', description: 'Task mgmt' };
+      parser.registerCommand(cmd);
+
+      const result = parser.parse(['task', '--', '--', 'needle']);
+      expect(result.positional).toEqual(['--', 'needle']);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -359,7 +372,7 @@ describe('CommandParser', () => {
       parser.registerCommand(cmd);
 
       const result = parser.parse(['task', 'run', '-t', '5000']);
-      expect(result.flags.timeout).toBe(5000);
+      expect(result.flags.timeout).toBe('5000');
     });
   });
 

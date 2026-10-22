@@ -1,0 +1,15 @@
+  Parameters: {"requestId":"cap-6","missionId":"msn_694db5dfd982c67fd44f4dfc","expectedRevision":2,"action":"cancel","reason":"capture"}
+
+[OK] Tool executed in 38.50ms
+
+Result:
+{
+  "ok": true,
+  "data": {
+    "missionId": "msn_694db5dfd982c67fd44f4dfc",
+    "revision": 4,
+    "state": "cancelled",
+    "deduplicated": false,
+    "sequence": 4
+  }
+}

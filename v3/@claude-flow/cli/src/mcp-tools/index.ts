@@ -60,7 +60,15 @@ export { agenticowTools } from './agenticow-tools.js';
 export { agenticowSpeculateTools } from './agenticow-speculate-tools.js';
 // ADR-164 — AgentBBS federated business-domain BBS rooms (Phase 1)
 export { agentbbsTools } from './agentbbs-tools.js';
+export { xFederationTools } from './x-federation-tools.js';
+export { seraphinaTools } from './seraphina-tools.js';
+export { xFederationJoinTools } from './x-federation-join.js';
+export { xFederationChannelTools } from './x-federation-channels.js';
 // ADR-164 Phase 2 — Business-pod template validation
 export { businessPodTools } from './business-pod-tools.js';
 // ADR-164 Phase 4 §5.1.8 — http_fetch (secure-by-default HTTP probe)
 export { httpFetchTools } from './http-fetch-tools.js';
+// ADR-406 — mission semantic operations
+export { missionTools, createMissionTools } from './mission-tools.js';
+// ADR-402 — host-agnostic Agent Teams bus
+export { teamTools } from './team-tools.js';

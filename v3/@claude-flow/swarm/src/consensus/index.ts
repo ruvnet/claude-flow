@@ -169,12 +169,16 @@ export class ConsensusEngine extends EventEmitter implements IConsensusEngine {
     }
   }
 
-  async propose(value: unknown, proposerId?: string): Promise<ConsensusProposal> {
+  async propose(
+    value: unknown,
+    proposerId?: string,
+    weights?: Map<string, number>
+  ): Promise<ConsensusProposal> {
     if (!this.implementation) {
       throw new Error('Consensus engine not initialized');
     }
 
-    const proposal = await this.implementation.propose(value);
+    const proposal = await this.implementation.propose(value, weights);
     this.proposals.set(proposal.id, proposal);
     return proposal;
   }

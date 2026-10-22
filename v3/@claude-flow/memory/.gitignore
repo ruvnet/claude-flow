@@ -28,3 +28,4 @@ benchmarks/longmemeval/results/*.md
 
 # Node modules (defensive — should never appear here in a workspace)
 node_modules/
+agentdb.rvf.idmap.json

@@ -1,0 +1,4 @@
+{
+  "description": "DAA as a mod: a guard that keeps secrets out of daa_* tool calls, /daa-mod, and a status file.",
+  "modules": ["./register.ts"]
+}

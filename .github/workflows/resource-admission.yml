@@ -1,0 +1,40 @@
+name: Resource admission
+
+on:
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/performance/**'
+      - 'v3/docs/adr/ADR-400-task-conditioned-resource-admission.md'
+      - '.github/workflows/resource-admission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: resource-admission-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22.22.3, 24.19.0]
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install exact repository dependencies
+        run: npm ci --ignore-scripts --no-audit --fund=false
+      - name: Type check and build performance package
+        run: npx tsc -p v3/@claude-flow/performance/tsconfig.json
+      - name: Run resource admission tests and structural benchmarks
+        run: npx vitest run v3/@claude-flow/performance/__tests__/resource-admission.test.ts v3/@claude-flow/performance/__tests__/resource-admission-report.test.ts

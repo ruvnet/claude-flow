@@ -5,6 +5,8 @@
  */
 
 import { existsSync, readFileSync, readdirSync, unlinkSync, statSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 import { join } from 'node:path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import {
@@ -13,6 +15,32 @@ import {
   writeFileRestricted,
 } from '../fs-secure.js';
 import { validateIdentifier, validateText } from './validate-input.js';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+// Imported snapshots become live stores on restore. Validate their containers
+// before registering them, while allowing older metadata-only snapshots.
+function validateImportedSession(value: unknown): string | undefined {
+  if (!isRecord(value) || (typeof value.name !== 'string' && !isSessionRecordLike(value))) {
+    return 'Invalid session: Not a session record; expected a named snapshot or snapshot data';
+  }
+  if (value.name !== undefined && typeof value.name !== 'string') {
+    return 'Invalid session: name must be a string';
+  }
+  if (value.data === undefined) return undefined;
+  if (!isRecord(value.data)) return 'Invalid session: data must be an object';
+  for (const [component, collection] of [['tasks', 'tasks'], ['agents', 'agents'], ['memory', 'entries']]) {
+    const store = value.data[component];
+    if (store === undefined) continue;
+    if (!isRecord(store) || !isRecord(store[collection]) ||
+        Object.values(store[collection]).some(record => !isRecord(record))) {
+      return `Invalid session: data.${component}.${collection} must be a record map`;
+    }
+  }
+  return undefined;
+}
 
 // Storage paths
 const STORAGE_DIR = '.claude-flow';
@@ -103,17 +131,149 @@ function listSessions(): SessionRecord[] {
   return sessions;
 }
 
+/** Snapshot format written by session_save since #3573. */
+const MEMORY_SNAPSHOT_FORMAT = 'ruflo-session-memory/2';
+const MEMORY_PAGE_SIZE = 500;
+
+interface MemorySnapshotEntry {
+  key: string;
+  value: string;
+  namespace: string;
+  provenanceType?: string;
+  source: 'memory-db' | 'agentdb' | 'legacy-json';
+}
+
+/**
+ * #3573: what session_save learned about memory, so callers can say
+ * "not included" or "no store" instead of printing an invented 0.
+ */
+export interface MemoryCaptureReport {
+  requested: boolean;
+  status: 'not-requested' | 'captured' | 'no-store' | 'error';
+  entries: number;
+  sources: { memoryDb: number; agentdb: number; legacyJson: number };
+  error?: string;
+}
+
+async function readLiveEntries(
+  listEntries: typeof import('../memory/memory-initializer.js').listEntries,
+  dbPath: string,
+  encryptWrites?: boolean,
+): Promise<Array<{ key: string; namespace: string; content?: string; provenanceType?: string }>> {
+  const rows: Array<{ key: string; namespace: string; content?: string; provenanceType?: string }> = [];
+  // Bounded: stop on a short page, once `total` rows are in hand, or after a
+  // hard cap, so a backend that ignores `offset` cannot loop forever.
+  for (let page = 0, offset = 0; page < 10_000; page++, offset += MEMORY_PAGE_SIZE) {
+    const result = await listEntries({
+      dbPath, includeContent: true, limit: MEMORY_PAGE_SIZE, offset,
+      ...(encryptWrites === undefined ? {} : { encryptWrites }),
+    });
+    if (!result.success) throw new Error(result.error || `could not list ${dbPath}`);
+    rows.push(...result.entries);
+    if (result.entries.length < MEMORY_PAGE_SIZE || rows.length >= result.total) break;
+  }
+  return rows;
+}
+
+/**
+ * #3573: capture the memory the user actually has.
+ *
+ * Before this, session_save read only the pre-SQLite `.claude-flow/memory/store.json`,
+ * which a current install never writes, so `--include-memory` saved nothing and
+ * reported "Memory Entries: 0". The snapshot now covers the same store `memory
+ * list` reads (resolveDbPath), plus rows that exist only in the sibling AgentDB
+ * store written by the MCP path, de-duplicated by namespace+key (default CLI
+ * writes are mirrored into AgentDB, so most rows are in both). A legacy
+ * store.json is still captured for backward compatibility.
+ */
+async function captureMemorySnapshot(): Promise<{ memory?: Record<string, unknown>; report: MemoryCaptureReport }> {
+  const report: MemoryCaptureReport = {
+    requested: true, status: 'captured', entries: 0,
+    sources: { memoryDb: 0, agentdb: 0, legacyJson: 0 },
+  };
+  const entries: Record<string, MemorySnapshotEntry | Record<string, unknown>> = {};
+  let legacy: unknown;
+
+  const legacyPath = join(getProjectCwd(), STORAGE_DIR, 'memory', 'store.json');
+  if (existsSync(legacyPath)) {
+    try {
+      legacy = JSON.parse(readFileSync(legacyPath, 'utf-8'));
+      const legacyEntries = (legacy as { entries?: Record<string, Record<string, unknown>> }).entries || {};
+      for (const [id, entry] of Object.entries(legacyEntries)) {
+        entries[id] = entry;
+        report.sources.legacyJson++;
+      }
+    } catch { /* unreadable legacy file is not memory we can restore */ }
+  }
+
+  let sawStore = legacy !== undefined;
+  try {
+    const { listEntries, resolveDbPath } = await import('../memory/memory-initializer.js');
+    const primary = resolveDbPath();
+    const seen = new Set<string>();
+    if (existsSync(primary)) {
+      sawStore = true;
+      for (const row of await readLiveEntries(listEntries, primary)) {
+        const id = `${row.namespace}::${row.key}`;
+        seen.add(id);
+        entries[id] = {
+          key: row.key, value: row.content ?? '', namespace: row.namespace,
+          provenanceType: row.provenanceType, source: 'memory-db',
+        };
+        report.sources.memoryDb++;
+      }
+    }
+    let sibling: string | null = null;
+    try {
+      const { siblingAgentDbPath } = await import('../memory/memory-bridge.js');
+      sibling = siblingAgentDbPath(primary);
+    } catch { /* no bridge, no sibling store */ }
+    if (sibling && existsSync(sibling)) {
+      sawStore = true;
+      // The AgentDB store is read by native SQLite and must stay plaintext.
+      for (const row of await readLiveEntries(listEntries, sibling, false)) {
+        const id = `${row.namespace}::${row.key}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        entries[id] = {
+          key: row.key, value: row.content ?? '', namespace: row.namespace,
+          provenanceType: row.provenanceType, source: 'agentdb',
+        };
+        report.sources.agentdb++;
+      }
+    }
+  } catch (e) {
+    report.status = 'error';
+    report.error = (e as Error).message;
+  }
+
+  report.entries = Object.keys(entries).length;
+  if (report.status !== 'error' && !sawStore) report.status = 'no-store';
+  if (report.entries === 0 && legacy === undefined) {
+    return { report };
+  }
+  return {
+    memory: {
+      format: MEMORY_SNAPSHOT_FORMAT,
+      entries,
+      ...(legacy !== undefined ? { legacy } : {}),
+    },
+    report,
+  };
+}
+
 // Load related stores for session data
-function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: boolean; includeAgents?: boolean }) {
+async function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: boolean; includeAgents?: boolean }) {
   const data: SessionRecord['data'] = {};
+  let memoryCapture: MemoryCaptureReport = {
+    requested: false, status: 'not-requested', entries: 0,
+    sources: { memoryDb: 0, agentdb: 0, legacyJson: 0 },
+  };
 
   if (options.includeMemory) {
-    try {
-      const memoryPath = join(getProjectCwd(), STORAGE_DIR, 'memory', 'store.json');
-      if (existsSync(memoryPath)) {
-        data.memory = JSON.parse(readFileSync(memoryPath, 'utf-8'));
-      }
-    } catch { /* ignore */ }
+    const captured = await captureMemorySnapshot();
+    memoryCapture = captured.report;
+    if (captured.memory) data.memory = captured.memory;
   }
 
   if (options.includeTasks) {
@@ -134,7 +294,86 @@ function loadRelatedStores(options: { includeMemory?: boolean; includeTasks?: bo
     } catch { /* ignore */ }
   }
 
-  return data;
+  return { data, memoryCapture };
+}
+
+/** Count entries in a memory snapshot of either format. */
+function countMemoryEntries(memory: unknown): number {
+  if (!memory || typeof memory !== 'object') return 0;
+  return Object.keys((memory as { entries?: object }).entries || {}).length;
+}
+
+/**
+ * Restore a memory snapshot into the live store and report what was actually
+ * written. #3573: the previous restore swallowed every write failure and then
+ * echoed the count recorded at save time.
+ */
+async function restoreMemorySnapshot(memory: Record<string, unknown>): Promise<{
+  restored: number; failed: number; errors: string[];
+}> {
+  const outcome = { restored: 0, failed: 0, errors: [] as string[] };
+  const isV2 = memory.format === MEMORY_SNAPSHOT_FORMAT;
+  // Legacy snapshots are the old store.json itself; v2 snapshots carry it
+  // under `legacy` only when one existed at save time.
+  const legacyJson = isV2 ? memory.legacy : memory;
+  if (legacyJson !== undefined) {
+    const memoryDir = join(getProjectCwd(), STORAGE_DIR, 'memory');
+    if (!existsSync(memoryDir)) mkdirRestricted(memoryDir);
+    writeFileRestricted(join(memoryDir, 'store.json'), JSON.stringify(legacyJson, null, 2));
+  }
+
+  const entries = (memory as {
+    entries?: Record<string, { key?: string; id?: string; value?: string; content?: string; namespace?: string; provenanceType?: string }>;
+  }).entries;
+  if (!entries) return outcome;
+
+  let storeEntry: typeof import('../memory/memory-initializer.js').storeEntry;
+  let isValidProvenanceType: (value: unknown) => boolean = () => false;
+  try {
+    const mod = await import('../memory/memory-initializer.js');
+    storeEntry = mod.storeEntry;
+    try { if (typeof mod.isValidProvenanceType === 'function') isValidProvenanceType = mod.isValidProvenanceType; }
+    catch { /* optional: without it, provenance is simply not carried over */ }
+  } catch (e) {
+    outcome.failed = Object.keys(entries).length;
+    outcome.errors.push(`memory store unavailable: ${(e as Error).message}`);
+    return outcome;
+  }
+  for (const entry of Object.values(entries)) {
+    const key = entry.key || entry.id || '';
+    const value = entry.value || entry.content || '';
+    if (!key || !value) { outcome.failed++; continue; }
+    try {
+      // A snapshot from another version may carry a provenance value this one
+      // rejects; drop it rather than fail an otherwise-good row.
+      const provenance = entry.provenanceType && entry.provenanceType !== 'unknown'
+        && isValidProvenanceType(entry.provenanceType) ? entry.provenanceType : undefined;
+      const result = await storeEntry({
+        key,
+        value,
+        namespace: entry.namespace || 'restored',
+        upsert: true,
+        ...(provenance ? { provenanceType: provenance } : {}),
+      });
+      if (result && result.success === false) {
+        outcome.failed++;
+        if (result.error && outcome.errors.length < 5) outcome.errors.push(`${key}: ${result.error}`);
+      } else {
+        outcome.restored++;
+      }
+    } catch (e) {
+      outcome.failed++;
+      if (outcome.errors.length < 5) outcome.errors.push(`${key}: ${(e as Error).message}`);
+    }
+  }
+  return outcome;
+}
+
+/** A session record is an object that carries at least one of its defining fields. */
+function isSessionRecordLike(value: unknown): value is Partial<SessionRecord> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return 'data' in v || 'stats' in v || 'sessionId' in v || 'savedAt' in v;
 }
 
 export const sessionTools: MCPTool[] = [
@@ -147,9 +386,9 @@ export const sessionTools: MCPTool[] = [
       properties: {
         name: { type: 'string', description: 'Session name' },
         description: { type: 'string', description: 'Session description' },
-        includeMemory: { type: 'boolean', description: 'Include memory in session' },
-        includeTasks: { type: 'boolean', description: 'Include tasks in session' },
-        includeAgents: { type: 'boolean', description: 'Include agents in session' },
+        includeMemory: { type: 'boolean', default: true, description: 'Include memory in session' },
+        includeTasks: { type: 'boolean', default: true, description: 'Include tasks in session' },
+        includeAgents: { type: 'boolean', default: true, description: 'Include agents in session' },
       },
       required: ['name'],
     },
@@ -162,20 +401,20 @@ export const sessionTools: MCPTool[] = [
         if (!v.valid) return { success: false, error: v.error };
       }
 
-      const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const sessionId = `session-${Date.now()}-${randomUUID().slice(0, 8)}`;
 
       // Load related data based on options
-      const data = loadRelatedStores({
-        includeMemory: input.includeMemory as boolean,
-        includeTasks: input.includeTasks as boolean,
-        includeAgents: input.includeAgents as boolean,
+      const { data, memoryCapture } = await loadRelatedStores({
+        includeMemory: input.includeMemory !== false,
+        includeTasks: input.includeTasks !== false,
+        includeAgents: input.includeAgents !== false,
       });
 
       // Calculate stats
       const stats = {
         tasks: data.tasks ? Object.keys((data.tasks as { tasks?: object }).tasks || {}).length : 0,
         agents: data.agents ? Object.keys((data.agents as { agents?: object }).agents || {}).length : 0,
-        memoryEntries: data.memory ? Object.keys((data.memory as { entries?: object }).entries || {}).length : 0,
+        memoryEntries: countMemoryEntries(data.memory),
         totalSize: 0,
       };
 
@@ -199,6 +438,7 @@ export const sessionTools: MCPTool[] = [
         name: session.name,
         savedAt: session.savedAt,
         stats: session.stats,
+        memoryCapture,
         path: getSessionPath(sessionId),
       };
     },
@@ -212,6 +452,9 @@ export const sessionTools: MCPTool[] = [
       properties: {
         sessionId: { type: 'string', description: 'Session ID to restore' },
         name: { type: 'string', description: 'Session name to restore' },
+        restoreMemory: { type: 'boolean', description: 'Restore memory (default true)' },
+        restoreTasks: { type: 'boolean', description: 'Restore tasks (default true)' },
+        restoreAgents: { type: 'boolean', description: 'Restore agents (default true)' },
       },
     },
     handler: async (input) => {
@@ -248,41 +491,18 @@ export const sessionTools: MCPTool[] = [
       }
 
       if (session) {
-        // Restore data to respective stores (legacy JSON for backward compat).
-        // audit_1776853149979: tighten perms on the restored stores too.
-        if (session.data?.memory) {
-          const memoryDir = join(getProjectCwd(), STORAGE_DIR, 'memory');
-          if (!existsSync(memoryDir)) mkdirRestricted(memoryDir);
-          writeFileRestricted(join(memoryDir, 'store.json'), JSON.stringify(session.data.memory, null, 2));
-
-          // Also populate active sql.js SQLite database so memory-tools can find entries
-          try {
-            const { storeEntry } = await import('../memory/memory-initializer.js');
-            const memoryData = session.data.memory as { entries?: Record<string, { key?: string; id?: string; value?: string; content?: string; namespace?: string }> };
-            if (memoryData.entries) {
-              for (const entry of Object.values(memoryData.entries)) {
-                const key = entry.key || entry.id || '';
-                const value = entry.value || entry.content || '';
-                if (key && value) {
-                  await storeEntry({
-                    key,
-                    value,
-                    namespace: entry.namespace || 'restored',
-                    upsert: true,
-                  });
-                }
-              }
-            }
-          } catch {
-            // Legacy JSON restore is the fallback -- sql.js import may not be available
-          }
+        // Restore data to respective stores. audit_1776853149979: tighten
+        // perms on the restored stores too.
+        let memoryRestore: { restored: number; failed: number; errors: string[] } | undefined;
+        if (input.restoreMemory !== false && session.data?.memory) {
+          memoryRestore = await restoreMemorySnapshot(session.data.memory as Record<string, unknown>);
         }
-        if (session.data?.tasks) {
+        if (input.restoreTasks !== false && session.data?.tasks) {
           const taskDir = join(getProjectCwd(), STORAGE_DIR, 'tasks');
           if (!existsSync(taskDir)) mkdirRestricted(taskDir);
           writeFileRestricted(join(taskDir, 'store.json'), JSON.stringify(session.data.tasks, null, 2));
         }
-        if (session.data?.agents) {
+        if (input.restoreAgents !== false && session.data?.agents) {
           const agentDir = join(getProjectCwd(), STORAGE_DIR, 'agents');
           if (!existsSync(agentDir)) mkdirRestricted(agentDir);
           writeFileRestricted(join(agentDir, 'store.json'), JSON.stringify(session.data.agents, null, 2));
@@ -292,8 +512,18 @@ export const sessionTools: MCPTool[] = [
           sessionId: session.sessionId,
           name: session.name,
           restored: true,
+          restoredComponents: {
+            memory: input.restoreMemory !== false && !!session.data?.memory,
+            tasks: input.restoreTasks !== false && !!session.data?.tasks,
+            agents: input.restoreAgents !== false && !!session.data?.agents,
+          },
           restoredAt: new Date().toISOString(),
           stats: session.stats,
+          // #3573: counts actually written, not the count recorded at save time.
+          ...(memoryRestore ? {
+            memoryRestore,
+            stats: { ...session.stats, memoryEntriesRestored: memoryRestore.restored },
+          } : {}),
         };
       }
 
@@ -348,6 +578,9 @@ export const sessionTools: MCPTool[] = [
         sessions.sort((a, b) => (b.stats?.totalSize ?? 0) - (a.stats?.totalSize ?? 0));
       }
 
+      // Count every session before applying the limit so callers can tell when the list was truncated
+      const total = sessions.length;
+
       // Apply limit
       const limit = (input.limit as number) || 10;
       sessions = sessions.slice(0, limit);
@@ -367,7 +600,7 @@ export const sessionTools: MCPTool[] = [
           if ((s as Record<string, unknown>).metrics) projection.metrics = (s as Record<string, unknown>).metrics;
           return projection;
         }),
-        total: sessions.length,
+        total,
         limit,
       };
     },
@@ -493,7 +726,7 @@ export const sessionTools: MCPTool[] = [
       properties: {
         sessionId: { type: 'string', description: 'Session ID to export' },
         outputPath: { type: 'string', description: 'File path to write the export to (optional)' },
-        includeMemory: { type: 'boolean', description: 'Include the memory snapshot (advisory — already in the saved record)' },
+        includeMemory: { type: 'boolean', description: 'Include the memory snapshot (default true)' },
       },
       required: ['sessionId'],
     },
@@ -503,6 +736,13 @@ export const sessionTools: MCPTool[] = [
       const sessionId = input.sessionId as string;
       const session = loadSession(sessionId);
       if (!session) return { sessionId, error: 'Session not found' };
+      // Apply the explicit exclusion before either returning or writing the
+      // snapshot. The saved source remains intact for a later full restore.
+      if (input.includeMemory === false) {
+        if (session.data) delete session.data.memory;
+        session.stats = { ...session.stats, memoryEntries: 0, totalSize: 0 };
+        session.stats.totalSize = Buffer.byteLength(JSON.stringify(session), 'utf-8');
+      }
       let path: string | null = null;
       const outputPath = input.outputPath ? String(input.outputPath) : null;
       if (outputPath) {
@@ -516,34 +756,61 @@ export const sessionTools: MCPTool[] = [
     // #1916: `ruflo session import <file>` referenced an unregistered
     // `session_import` tool. Reads a session JSON and re-saves it locally.
     name: 'session_import',
-    description: 'Import a session JSON file (produced by session_export) into the local session store and optionally activate it. Use when native Read is wrong because the file is a structured session record that must be re-registered (new id, stats recomputed) rather than just read. For reading the file, native Read is fine. Pair with session_export on the source.',
+    description: 'Import a session (produced by session_export) into the local session store and optionally activate it. Pass either inputPath (a session JSON file) or data (the session record itself). Use when native Read is wrong because the file is a structured session record that must be re-registered (new id, stats recomputed) rather than just read. For reading the file, native Read is fine. Pair with session_export on the source.',
     category: 'session',
     inputSchema: {
       type: 'object',
       properties: {
-        inputPath: { type: 'string', description: 'Path to the session JSON file to import' },
+        inputPath: { type: 'string', description: 'Path to the session JSON file to import (or pass data)' },
+        data: { type: 'object', description: 'The session record itself, as written by session_export (or pass inputPath)' },
         name: { type: 'string', description: 'Override the imported session name' },
-        activate: { type: 'boolean', description: 'Make the imported session the current one (advisory)' },
+        activate: { type: 'boolean', description: 'Restore the imported session into the active stores' },
       },
-      required: ['inputPath'],
     },
     handler: async (input) => {
-      const inputPath = String(input.inputPath ?? '');
-      if (!inputPath || !existsSync(inputPath)) return { error: `File not found: ${inputPath || '(empty)'}` };
-      let parsed: SessionRecord;
-      try { parsed = JSON.parse(readFileSync(inputPath, 'utf-8')); }
-      catch (e) { return { error: `Invalid session JSON: ${(e as Error).message}` }; }
-      const newId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const stats = parsed.stats || { tasks: 0, agents: 0, memoryEntries: 0, totalSize: 0 };
+      let parsed: unknown;
+      if (input.data !== undefined && input.data !== null) {
+        parsed = input.data;
+      } else {
+        const inputPath = String(input.inputPath ?? '');
+        if (!inputPath) return { error: 'Provide inputPath (a session JSON file) or data (a session record)' };
+        if (!existsSync(inputPath)) return { error: `File not found: ${inputPath}` };
+        try {
+          const bytes = readFileSync(inputPath);
+          const content = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+          parsed = JSON.parse(content.toString('utf-8'));
+        }
+        catch (e) { return { error: `Invalid session JSON: ${(e as Error).message}` }; }
+      }
+      const validationError = validateImportedSession(parsed);
+      if (validationError) return { error: validationError };
+      const record = parsed as Partial<SessionRecord>;
+      const newId = `session-${Date.now()}-${randomUUID().slice(0, 8)}`;
+      const stats = {
+        tasks: Object.keys((record.data?.tasks?.tasks as object) || {}).length,
+        agents: Object.keys((record.data?.agents?.agents as object) || {}).length,
+        memoryEntries: countMemoryEntries(record.data?.memory),
+        totalSize: 0,
+      };
       const session: SessionRecord = {
         sessionId: newId,
-        name: input.name ? String(input.name) : (parsed.name || 'imported-session'),
-        description: parsed.description,
+        name: input.name ? String(input.name) : (record.name || 'imported-session'),
+        description: record.description,
         savedAt: new Date().toISOString(),
         stats,
-        data: parsed.data,
+        data: record.data,
       };
+      session.stats.totalSize = Buffer.byteLength(JSON.stringify(session), 'utf-8');
       saveSession(session);
+      let activated = false;
+      if (input.activate === true) {
+        const restore = sessionTools.find(tool => tool.name === 'session_restore')!;
+        const result = await restore.handler({ sessionId: newId }) as { restored?: boolean; error?: string };
+        if (result.restored !== true) {
+          return { sessionId: newId, activated: false, error: result.error || 'Imported session could not be restored' };
+        }
+        activated = true;
+      }
       return {
         sessionId: newId,
         name: session.name,
@@ -553,7 +820,7 @@ export const sessionTools: MCPTool[] = [
           tasksImported: stats.tasks,
           memoryEntriesImported: stats.memoryEntries,
         },
-        activated: input.activate === true,
+        activated,
       };
     },
   },

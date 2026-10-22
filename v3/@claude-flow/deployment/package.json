@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/deployment",
-  "version": "3.0.0-alpha.7",
+  "version": "3.0.0",
   "type": "module",
   "description": "Deployment module - Release management, CI/CD, versioning",
   "main": "dist/index.js",
@@ -8,20 +8,23 @@
   "exports": {
     ".": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "release": "semantic-release"
   },
   "dependencies": {
-    "@claude-flow/shared": "^3.0.0-alpha.1"
+    "@claude-flow/shared": "^3.0.0"
   },
   "devDependencies": {
     "semantic-release": "^25.0.2",
     "vitest": "^4.1.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

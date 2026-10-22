@@ -516,6 +516,12 @@ export class FederationHub extends EventEmitter {
   completeAgent(agentId: EphemeralAgentId, result?: unknown): boolean {
     const agent = this.ephemeralAgents.get(agentId);
     if (!agent) return false;
+    // Completion is a terminal accounting event. A repeated call (e.g. a
+    // retried MCP request or unregisterSwarm racing the completion timeout)
+    // must not count the same agent twice.
+    if (agent.status === 'completing' || agent.status === 'terminated') {
+      return true;
+    }
 
     const oldStatus = agent.status;
     agent.status = 'completing';
@@ -546,11 +552,23 @@ export class FederationHub extends EventEmitter {
   async terminateAgent(agentId: EphemeralAgentId, error?: Error): Promise<boolean> {
     const agent = this.ephemeralAgents.get(agentId);
     if (!agent) return false;
+    // Repeated termination (shutdown, unregisterSwarm, TTL cleanup, or a
+    // duplicate caller) must be idempotent: statistics and lifecycle events
+    // describe the agent once, not once per call.
+    if (agent.status === 'terminated') return true;
 
     const oldStatus = agent.status;
+    const completionAlreadyCounted = agent.status === 'completing' || agent.completedAt !== undefined;
+
     agent.status = 'terminated';
     this.updateAgentStatusIndex(agent, oldStatus);
-    agent.completedAt = new Date();
+    agent.completedAt = agent.completedAt ?? new Date();
+
+    if (completionAlreadyCounted) {
+      // completeAgent() already counted the successful completion and may
+      // still have its own delayed agent_completed notification pending.
+      return true;
+    }
 
     if (error) {
       agent.error = error;

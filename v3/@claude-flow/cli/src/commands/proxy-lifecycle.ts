@@ -9,7 +9,8 @@
 import type { Command, CommandResult } from '../types.js';
 import { output } from '../output.js';
 import { hasConsent, recordConsent, revokeConsent } from '../funnel/index.js';
-import { installProxy, uninstallProxy } from '../proxy/install.js';
+import { uninstallProxy } from '../proxy/install.js';
+import { installAndActivateProxy } from '../proxy/activation.js';
 import {
   startForeground,
   startBackground,
@@ -159,8 +160,8 @@ const installSub: Command = {
     try {
       const spinner = output.createSpinner({ text: `Installing meta-proxy ${version}...`, spinner: 'dots' });
       spinner.start();
-      const result = await installProxy({ version, log: (line) => spinner.setText(line) });
-      spinner.succeed(`meta-proxy ${version} installed`);
+      const result = await installAndActivateProxy(version, (line) => spinner.setText(line));
+      spinner.succeed(`meta-proxy ${version} installed and verified effective`);
       output.writeln(`  binary: ${result.binaryPath}`);
       output.writeln(`  sha256: ${result.sha256}`);
       return { success: true, data: result };
@@ -196,8 +197,8 @@ const updateSub: Command = {
     try {
       const spinner = output.createSpinner({ text: `Updating meta-proxy to ${version}...`, spinner: 'dots' });
       spinner.start();
-      const result = await installProxy({ version, log: (line) => spinner.setText(line) });
-      spinner.succeed(`meta-proxy updated to ${version}`);
+      const result = await installAndActivateProxy(version, (line) => spinner.setText(line));
+      spinner.succeed(`meta-proxy updated to ${version} and verified effective`);
       output.writeln(`  binary: ${result.binaryPath}`);
       return { success: true, data: result };
     } catch (e) {

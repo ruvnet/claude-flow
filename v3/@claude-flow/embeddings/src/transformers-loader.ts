@@ -14,6 +14,10 @@
  * users can see which package satisfied the runtime.
  */
 
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+
 export type PipelineFn = (
   task: string,
   model?: string,
@@ -28,6 +32,24 @@ export interface TransformersHandle {
 
 let cached: TransformersHandle | null = null;
 let cacheChecked = false;
+
+/**
+ * Resolve a writable cache directory for ONNX model downloads.
+ *
+ * ADR-454: a system-prefix global install's package directory is
+ * root-owned, so defaulting the loader's cache into
+ * `node_modules/@huggingface/transformers/.cache` fails with EACCES
+ * for the runtime user. Honor an explicit env override first, then
+ * fall back to the repo's existing `~/.cache/ruflo/<subpath>`
+ * convention (see `gaia-loader.ts`, `gaia-judge.ts`).
+ */
+export function resolveModelCacheDir(): string {
+  return (
+    process.env.TRANSFORMERS_CACHE ||
+    process.env.HF_HOME ||
+    path.join(os.homedir(), '.cache', 'ruflo', 'models')
+  );
+}
 
 /**
  * Load a working transformers pipeline. Returns null if neither
@@ -57,6 +79,9 @@ export async function loadTransformersPipeline(): Promise<TransformersHandle | n
   // Prefer the maintained successor.
   const hf = await tryLoad('@huggingface/transformers');
   if (hf && typeof hf.pipeline === 'function') {
+    const cacheDir = resolveModelCacheDir();
+    fs.mkdirSync(cacheDir, { recursive: true });
+    if (hf.env) (hf.env as { cacheDir: string }).cacheDir = cacheDir;
     cached = {
       pipeline: hf.pipeline as PipelineFn,
       source: '@huggingface/transformers',
@@ -68,6 +93,9 @@ export async function loadTransformersPipeline(): Promise<TransformersHandle | n
   // Fall back to the legacy package so existing installs keep working.
   const xen = await tryLoad('@xenova/transformers');
   if (xen && typeof xen.pipeline === 'function') {
+    const cacheDir = resolveModelCacheDir();
+    fs.mkdirSync(cacheDir, { recursive: true });
+    if (xen.env) (xen.env as { cacheDir: string }).cacheDir = cacheDir;
     cached = {
       pipeline: xen.pipeline as PipelineFn,
       source: '@xenova/transformers',

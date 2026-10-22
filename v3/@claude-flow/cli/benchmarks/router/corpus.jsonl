@@ -1,0 +1,197 @@
+{"id":"r001","prompt":"the secret-scanner regex misses common real key formats, which patterns should it catch?","label":"security-architect","split":"dev","trap":false,"source":"issue","note":"secret detection coverage"}
+{"id":"r002","prompt":"catch me up on what changed in 3.43.0","label":"researcher","split":"dev","trap":false,"source":"pr","note":"summarise changes"}
+{"id":"r003","prompt":"native builds fail on the windows-latest runner, pin the runner image","label":"devops","split":"dev","trap":false,"source":"issue","note":"CI"}
+{"id":"r004","prompt":"set up RaBitQ quantization for the vector index","label":"memory-specialist","split":"dev","trap":false,"source":"synthetic","note":"vector quantization"}
+{"id":"r005","prompt":"cut allocations in the JSONL parser, it is dominating GC","label":"performance-engineer","split":"dev","trap":false,"source":"synthetic","note":"optimisation"}
+{"id":"r006","prompt":"memory_import_claude cuts sections off at 4096 chars","label":"memory-specialist","split":"test","trap":false,"source":"issue","note":"memory import"}
+{"id":"r007","prompt":"fix teh off-by-one in the date bucketing of cost-burn","label":"coder","split":"dev","trap":false,"source":"synthetic","note":"bug fix (typo intentional)"}
+{"id":"r008","prompt":"add a regression test that pins statusline --json stdout purity","label":"tester","split":"dev","trap":false,"source":"pr","note":"write a regression test"}
+{"id":"r009","prompt":"make `ruflo doctor` print a hint when node is older than 20","label":"coder","split":"test","trap":false,"source":"synthetic","note":"small feature"}
+{"id":"r010","prompt":"the author field is missing in the prefix list","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"a data/code omission to fix; \"prefix list\" is not a memory/search task"}
+{"id":"r011","prompt":"run a security scan on the new plugin before we publish it","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"security scan"}
+{"id":"r012","prompt":"how do plugins get registered with the MCP server?","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"how does X work"}
+{"id":"r013","prompt":"do the thing","label":"none","split":"dev","trap":false,"source":"synthetic","note":"vague, no identifiable task"}
+{"id":"r014","prompt":"good morning","label":"none","split":"test","trap":false,"source":"synthetic","note":"greeting"}
+{"id":"r015","prompt":"pnpm-lock.yaml drifted and every frozen-lockfile CI job fails","label":"devops","split":"test","trap":false,"source":"issue","note":"CI/lockfile"}
+{"id":"r016","prompt":"summarise the open Dream Cycle issues from this week","label":"researcher","split":"dev","trap":false,"source":"issue","note":"summarise"}
+{"id":"r017","prompt":"is this patch idiomatic TypeScript? pasting it below","label":"reviewer","split":"dev","trap":false,"source":"synthetic","note":"code quality review"}
+{"id":"r018","prompt":"launch a multi-agent team to triage all open issues in parallel","label":"swarm-specialist","split":"dev","trap":true,"source":"synthetic","note":"the ask is launching the team"}
+{"id":"r019","prompt":"import my Claude Code memories into AgentDB","label":"memory-specialist","split":"dev","trap":false,"source":"synthetic","note":"AgentDB import"}
+{"id":"r020","prompt":"consolidate duplicate memory entries across namespaces","label":"memory-specialist","split":"test","trap":false,"source":"synthetic","note":"memory consolidation"}
+{"id":"r021","prompt":"write up an ADR on versioning policy for MCP tool signatures","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"ADR"}
+{"id":"r022","prompt":"can you look over my diff before I push? mainly correctness","label":"reviewer","split":"test","trap":false,"source":"synthetic","note":"diff review"}
+{"id":"r023","prompt":"review the swarm topology PR before we merge it","label":"reviewer","split":"dev","trap":true,"source":"synthetic","note":"PR review; swarm is the subject"}
+{"id":"r024","prompt":"lol","label":"none","split":"dev","trap":false,"source":"synthetic","note":"chit-chat"}
+{"id":"r025","prompt":"remind me to call mom at 5","label":"none","split":"test","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r026","prompt":"run a byzantine consensus vote among the reviewer agents","label":"swarm-specialist","split":"test","trap":true,"source":"synthetic","note":"consensus orchestration, not code review"}
+{"id":"r027","prompt":"plan the refactor of commands/ into bounded contexts","label":"architect","split":"test","trap":false,"source":"synthetic","note":"refactor planning"}
+{"id":"r028","prompt":"add london-school mocks for the AgentDB controller in the hooks tests","label":"tester","split":"test","trap":true,"source":"synthetic","note":"mocking in tests, not AgentDB work"}
+{"id":"r029","prompt":"design the REST API for the gateway invites endpoint","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"API design"}
+{"id":"r030","prompt":"design the data model for the swarm state store","label":"architect","split":"test","trap":true,"source":"synthetic","note":"data model design; swarm is the subject"}
+{"id":"r031","prompt":"autopilot accepts task sources that are not valid, reject them","label":"coder","split":"test","trap":false,"source":"pr","note":"input handling fix"}
+{"id":"r032","prompt":"give me a review of the diff on the feat/adr-390-minilm-router branch","label":"reviewer","split":"test","trap":false,"source":"synthetic","note":"branch diff review"}
+{"id":"r033","prompt":"config_set writes under a `values` envelope that the daemon reader never unwraps. make the reader handle it","label":"coder","split":"test","trap":false,"source":"issue","note":"bug fix in config reader"}
+{"id":"r034","prompt":"bump node in CI to 24","label":"devops","split":"dev","trap":false,"source":"synthetic","note":"CI"}
+{"id":"r035","prompt":"list every place the CLI calls process.exit","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"code search"}
+{"id":"r036","prompt":"review the PR for security problems, it touches token handling","label":"security-architect","split":"dev","trap":true,"source":"synthetic","note":"security review is primary, not general code review"}
+{"id":"r037","prompt":"entries from one tenant might be readable by another in the memory store, investigate the isolation","label":"security-architect","split":"test","trap":true,"source":"synthetic","note":"cross-tenant exposure is a security question"}
+{"id":"r038","prompt":"npm audit flags a critical protobufjs issue through agentdb, figure out the remediation path","label":"security-architect","split":"test","trap":true,"source":"issue","note":"CVE remediation; agentdb is only the dependency chain"}
+{"id":"r039","prompt":"the loadEd25519 error message mentions an env var the function never reads — fix the message","label":"coder","split":"dev","trap":false,"source":"issue","note":"fix an incorrect error string"}
+{"id":"r040","prompt":"write a failing test that reproduces the secret-scanner false negative before anyone fixes it","label":"tester","split":"dev","trap":true,"source":"synthetic","note":"reproduction test; the security fix is someone else's task"}
+{"id":"r041","prompt":"profile ruflo cold start, it takes 2s","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"profiling"}
+{"id":"r042","prompt":"why does swarm status always say 0 agents? figure out which stores spawn and list use — just report, no fix","label":"researcher","split":"test","trap":true,"source":"issue","note":"investigation only"}
+{"id":"r043","prompt":"MMR reranking re-tokenizes every candidate on each call, optimise that","label":"performance-engineer","split":"dev","trap":false,"source":"pr","note":"optimisation"}
+{"id":"r044","prompt":"check my refactor did not change behaviour, diff attached","label":"reviewer","split":"test","trap":false,"source":"synthetic","note":"behaviour-preservation review"}
+{"id":"r045","prompt":"agents can inject instructions into each other — threat model cross-agent contagion","label":"security-architect","split":"dev","trap":true,"source":"issue","note":"threat model; swarm is the setting"}
+{"id":"r046","prompt":"optimise the hot loop in the cosine similarity function","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"optimisation"}
+{"id":"r047","prompt":"spin up a swarm of 5 agents to refactor the hooks package","label":"swarm-specialist","split":"dev","trap":true,"source":"synthetic","note":"the ask is to set up the multi-agent run"}
+{"id":"r048","prompt":"what does embeddings init actually download?","label":"researcher","split":"dev","trap":true,"source":"issue","note":"understand existing behaviour"}
+{"id":"r049","prompt":"check recall@10 of the vector index after re-embedding everything","label":"memory-specialist","split":"test","trap":true,"source":"synthetic","note":"index quality, not a test suite or latency task"}
+{"id":"r050","prompt":"fix the failing vitest snapshot in the doctor command tests","label":"tester","split":"test","trap":false,"source":"synthetic","note":"test maintenance"}
+{"id":"r051","prompt":"harden the MCP server against prompt injection coming back in tool results","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"hardening"}
+{"id":"r052","prompt":"increase test coverage for the memory bridge search path","label":"tester","split":"test","trap":true,"source":"synthetic","note":"coverage work; memory is only the subject under test"}
+{"id":"r053","prompt":"code review the memory bridge PR — is the WAL handle release right?","label":"reviewer","split":"dev","trap":true,"source":"pr","note":"reviewing a PR; memory is the subject"}
+{"id":"r054","prompt":"review the latest issues","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"reading and triaging issues, not a code review"}
+{"id":"r055","prompt":"review this change to the policy lock handling for correctness under concurrent callers","label":"reviewer","split":"test","trap":false,"source":"issue","note":"code review for correctness"}
+{"id":"r056","prompt":"go through the stale issues and tell me which are already fixed on main","label":"researcher","split":"dev","trap":false,"source":"issue","note":"triage"}
+{"id":"r057","prompt":"fast-uri has a CVE, are we affected?","label":"security-architect","split":"dev","trap":false,"source":"pr","note":"CVE triage"}
+{"id":"r058","prompt":"codex exec hangs forever because the dual-mode orchestrator never closes the worker stdin","label":"coder","split":"test","trap":true,"source":"issue","note":"process-handling bug; \"orchestrator\" is a class name, not swarm work"}
+{"id":"r059","prompt":"review PR #3406","label":"reviewer","split":"dev","trap":false,"source":"pr","note":"PR review"}
+{"id":"r060","prompt":"design a namespace scheme for storing agent patterns in AgentDB","label":"memory-specialist","split":"dev","trap":true,"source":"synthetic","note":"memory layout within AgentDB, not system architecture"}
+{"id":"r061","prompt":"memory_search takes 900ms on 50k entries, profile it and find where the time goes","label":"performance-engineer","split":"test","trap":true,"source":"synthetic","note":"latency profiling; memory is the subject"}
+{"id":"r062","prompt":"find where the daemon reads config.json","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"locate code"}
+{"id":"r063","prompt":"tune HNSW efSearch and M for our 20k-entry memory","label":"memory-specialist","split":"test","trap":false,"source":"synthetic","note":"HNSW tuning"}
+{"id":"r064","prompt":"write me a haiku about autumn","label":"none","split":"test","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r065","prompt":"write a function that parses ADR front-matter into a typed object","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"write code; ADR is the input format, not an architecture task"}
+{"id":"r066","prompt":"plan the migration from the v2 config format to v3 without breaking existing users","label":"architect","split":"test","trap":false,"source":"synthetic","note":"migration design"}
+{"id":"r067","prompt":"design the event schema for task lifecycle event sourcing","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"schema design"}
+{"id":"r068","prompt":"the smoke job times out during npm install behind the proxy","label":"devops","split":"test","trap":false,"source":"issue","note":"CI infrastructure"}
+{"id":"r069","prompt":"--provider and --model on agent spawn are ignored at execution time, wire them through","label":"coder","split":"test","trap":true,"source":"issue","note":"plumbing bug; \"agent spawn\" does not make it coordination work"}
+{"id":"r070","prompt":"how do the deploy paths for the api, website and meta-llm repos differ?","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"explain; not performing a deploy"}
+{"id":"r071","prompt":"the swarm lifecycle test runs against source instead of the built CLI, guard it on dist","label":"tester","split":"dev","trap":true,"source":"pr","note":"test harness fix"}
+{"id":"r072","prompt":"compare sql.js and better-sqlite3 — tradeoffs for a CLI that runs on Windows and Android","label":"researcher","split":"dev","trap":false,"source":"issue","note":"compare options"}
+{"id":"r073","prompt":"set up a staging environment on fly","label":"devops","split":"test","trap":false,"source":"synthetic","note":"infrastructure"}
+{"id":"r074","prompt":"do a code review pass on src/commands/doctor.ts","label":"reviewer","split":"test","trap":false,"source":"synthetic","note":"code review"}
+{"id":"r075","prompt":"hooks statusline --json writes [WARN] lines to stdout and breaks JSON parsers, send them to stderr","label":"coder","split":"test","trap":false,"source":"issue","note":"output-stream bug fix"}
+{"id":"r076","prompt":"implement the scaffold-drift fix described in ADR-382 in the init command","label":"coder","split":"dev","trap":true,"source":"pr","note":"implementation of an already-decided ADR"}
+{"id":"r077","prompt":"review the test changes in #3403 — are the assertions actually meaningful?","label":"reviewer","split":"test","trap":true,"source":"pr","note":"reviewing test code, not writing tests"}
+{"id":"r078","prompt":"check the plugin installer for path traversal","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"vulnerability check"}
+{"id":"r079","prompt":"second pair of eyes on the typesafe router integration PR please","label":"reviewer","split":"dev","trap":false,"source":"pr","note":"PR review"}
+{"id":"r080","prompt":"config.instructions is not being passed as the system prompt fallback in agent-execute-core","label":"coder","split":"test","trap":false,"source":"issue","note":"bug fix"}
+{"id":"r081","prompt":"tell me a joke","label":"none","split":"dev","trap":false,"source":"synthetic","note":"chit-chat"}
+{"id":"r082","prompt":"why is the MCP server at 1.2GB RSS after an hour?","label":"performance-engineer","split":"dev","trap":true,"source":"synthetic","note":"process memory/leak profiling, not the memory store"}
+{"id":"r083","prompt":"thanks, that fixed the test","label":"none","split":"test","trap":true,"source":"synthetic","note":"acknowledgement containing engineering words"}
+{"id":"r084","prompt":"throughput drops when 8 agents write at once, find where the time is spent","label":"performance-engineer","split":"test","trap":true,"source":"synthetic","note":"throughput profiling, not coordination"}
+{"id":"r085","prompt":"audit the auth middleware for session fixation","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"auth security audit"}
+{"id":"r086","prompt":"there are no tests for the percentile math in the benchmark harness, add some","label":"tester","split":"test","trap":true,"source":"synthetic","note":"write tests; not a performance measurement"}
+{"id":"r087","prompt":"running the CLI test suite edits my real ~/.claude/CLAUDE.md — isolate HOME in those tests","label":"tester","split":"dev","trap":false,"source":"issue","note":"test isolation fix"}
+{"id":"r088","prompt":"test whether the deploy works","label":"devops","split":"dev","trap":true,"source":"synthetic","note":"deployment verification, not test authoring"}
+{"id":"r089","prompt":"propose module boundaries for the hooks package, it has turned into a grab bag","label":"architect","split":"test","trap":false,"source":"synthetic","note":"module boundaries"}
+{"id":"r090","prompt":"?","label":"none","split":"dev","trap":false,"source":"synthetic","note":"no content"}
+{"id":"r091","prompt":"explain the ADR-150 AND-gate to me","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"explain an existing decision"}
+{"id":"r092","prompt":"migrate the entries in memory.db into agentdb-memory.db","label":"memory-specialist","split":"dev","trap":false,"source":"issue","note":"memory store migration"}
+{"id":"r093","prompt":"the swarm drifts off task after 20 minutes, tune the coordination so agents stay on track","label":"swarm-specialist","split":"test","trap":false,"source":"synthetic","note":"anti-drift coordination"}
+{"id":"r094","prompt":"the performance tab crashes when there are no metrics yet, pls add the null check","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"null-check crash fix; not an optimisation task"}
+{"id":"r095","prompt":"read issue #3327 and explain Finding A to me","label":"researcher","split":"dev","trap":false,"source":"issue","note":"read and explain an issue"}
+{"id":"r096","prompt":"add property-based tests for the semver range checker","label":"tester","split":"test","trap":false,"source":"synthetic","note":"write tests"}
+{"id":"r097","prompt":"never mind","label":"none","split":"test","trap":false,"source":"synthetic","note":"no task"}
+{"id":"r098","prompt":"threat model the x-gateway relay","label":"security-architect","split":"dev","trap":false,"source":"pr","note":"threat modelling"}
+{"id":"r099","prompt":"how does hooks post-task decide what to record?","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"how does X work"}
+{"id":"r100","prompt":"compare cold and warm latency of the four router candidates","label":"performance-engineer","split":"dev","trap":false,"source":"synthetic","note":"latency benchmarking"}
+{"id":"r101","prompt":"mock the embeddings provider so the unit tests stop downloading a model","label":"tester","split":"test","trap":true,"source":"synthetic","note":"test isolation; not embedding work"}
+{"id":"r102","prompt":"does init carry untrusted hooks and allow-rules forward on upgrade? security review it","label":"security-architect","split":"test","trap":false,"source":"issue","note":"security review"}
+{"id":"r103","prompt":"review what is in the patterns namespace and dedupe it","label":"memory-specialist","split":"test","trap":true,"source":"synthetic","note":"memory curation, not code review"}
+{"id":"r104","prompt":"who won the game last night","label":"none","split":"test","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r105","prompt":"great review, cheers","label":"none","split":"dev","trap":true,"source":"synthetic","note":"acknowledgement containing \"review\""}
+{"id":"r106","prompt":"stuff","label":"none","split":"test","trap":false,"source":"synthetic","note":"vague one-word"}
+{"id":"r107","prompt":"the quantization recall test is flaky on unseeded random vectors, seed it so it is deterministic","label":"tester","split":"dev","trap":true,"source":"issue","note":"fixing a flaky test, not tuning quantization"}
+{"id":"r108","prompt":"can you recommend a good pizza place in toronto","label":"none","split":"dev","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r109","prompt":"how should the plugin manifest v2 be structured so it stays backwards compatible?","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"format/API design"}
+{"id":"r110","prompt":"can u write tests for the new parser","label":"tester","split":"test","trap":false,"source":"synthetic","note":"write tests"}
+{"id":"r111","prompt":"what is NIP-98 and how does the relay use it? short summary pls","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"explain a spec"}
+{"id":"r112","prompt":"draft an ADR: typesafe as a tie-break second opinion behind the default router","label":"architect","split":"test","trap":false,"source":"synthetic","note":"ADR"}
+{"id":"r113","prompt":"init reads kebab-case flag keys but the parser gives camelCase, so --all-agents is always undefined. fix it","label":"coder","split":"test","trap":false,"source":"issue","note":"straightforward bug fix"}
+{"id":"r114","prompt":"what methodology does the intelligence-system audit doc use for its benchmark numbers?","label":"researcher","split":"dev","trap":true,"source":"synthetic","note":"read and explain a doc; not running a benchmark"}
+{"id":"r115","prompt":"add a config option uing camelCase for the daemon idle timeout","label":"coder","split":"test","trap":false,"source":"synthetic","note":"small feature (typo intentional)"}
+{"id":"r116","prompt":"thanks!","label":"none","split":"test","trap":false,"source":"synthetic","note":"acknowledgement"}
+{"id":"r117","prompt":"refactor the parseArgs helper to get rid of the duplicated switch statement","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"local code change, not refactor planning"}
+{"id":"r118","prompt":"configure dependabot to group minor bumps","label":"devops","split":"test","trap":false,"source":"pr","note":"repo automation"}
+{"id":"r119","prompt":"add a GitHub Actions job that re-runs the router bench when hooks_route changes","label":"devops","split":"dev","trap":true,"source":"synthetic","note":"CI job setup; the bench already exists"}
+{"id":"r120","prompt":"implement retry for transient rename failures in writeJsonAtomic and never leave the temp file behind","label":"coder","split":"test","trap":false,"source":"pr","note":"implement a behaviour change"}
+{"id":"r121","prompt":"add test cases for the ADR index rebuild when a source file was deleted","label":"tester","split":"dev","trap":true,"source":"issue","note":"test cases; ADR is the subject"}
+{"id":"r122","prompt":"design the schema for the router benchmark receipts","label":"architect","split":"test","trap":false,"source":"synthetic","note":"schema design"}
+{"id":"r123","prompt":"docker build cache is filling the disk on the build box, prune it safely","label":"devops","split":"test","trap":false,"source":"synthetic","note":"infrastructure"}
+{"id":"r124","prompt":"add e2e tests for `ruflo init --dual`","label":"tester","split":"test","trap":false,"source":"synthetic","note":"write tests"}
+{"id":"r125","prompt":"run three researchers in parallel and merge their findings","label":"swarm-specialist","split":"test","trap":true,"source":"synthetic","note":"orchestrating agents, not doing research"}
+{"id":"r126","prompt":"our cold-start benchmark measured setTimeout, not the CLI — fix the measurement so the numbers are real","label":"performance-engineer","split":"test","trap":false,"source":"issue","note":"benchmark correctness"}
+{"id":"r127","prompt":"add a --json flag to `ruflo swarm status`","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"small CLI feature; swarm is only the command name"}
+{"id":"r128","prompt":"benchmark the three kernel backends and compare throughput","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"benchmarking"}
+{"id":"r129","prompt":"sketch an architecture for an embeddings cache — design only, no code yet","label":"architect","split":"dev","trap":true,"source":"synthetic","note":"design, not memory tuning or perf work"}
+{"id":"r130","prompt":"run the benchmark","label":"performance-engineer","split":"dev","trap":true,"source":"synthetic","note":"running a benchmark is perf work, not CI/devops"}
+{"id":"r131","prompt":"set up a pipeline where the architect agent hands to the coder agent, which hands to the tester agent","label":"swarm-specialist","split":"dev","trap":true,"source":"synthetic","note":"multi-agent pipeline wiring"}
+{"id":"r132","prompt":"two agents are idle and one is overloaded, rebalance the swarm","label":"swarm-specialist","split":"test","trap":false,"source":"synthetic","note":"load balancing across agents"}
+{"id":"r133","prompt":"publish 3.43.1 to npm and update the dist-tags","label":"devops","split":"test","trap":false,"source":"synthetic","note":"release"}
+{"id":"r134","prompt":"the deploy script has zero test coverage — write tests for its argument parsing","label":"tester","split":"test","trap":true,"source":"synthetic","note":"unit tests for a script, not deployment"}
+{"id":"r135","prompt":"set up a mesh of agents across two machines over federation","label":"swarm-specialist","split":"dev","trap":false,"source":"synthetic","note":"cross-machine agent coordination"}
+{"id":"r136","prompt":"test whether the executor endpoint can be reached without auth","label":"security-architect","split":"dev","trap":true,"source":"synthetic","note":"probing an auth boundary, not writing tests"}
+{"id":"r137","prompt":"memory delete leaves the vector in the search index — clean up the orphaned vectors","label":"memory-specialist","split":"test","trap":false,"source":"issue","note":"vector index maintenance"}
+{"id":"r138","prompt":"which topology fits 12 agents doing independent benchmark runs?","label":"swarm-specialist","split":"test","trap":true,"source":"synthetic","note":"topology choice, not benchmarking"}
+{"id":"r139","prompt":"update the test fixtures for the auth API","label":"tester","split":"dev","trap":true,"source":"synthetic","note":"fixture maintenance is test work, not security"}
+{"id":"r140","prompt":"the design doc says the audit-list tool takes --since but it does not, add it","label":"coder","split":"test","trap":true,"source":"synthetic","note":"implement a missing flag; the design already exists"}
+{"id":"r141","prompt":"tag v3.43.0 and create the GitHub release","label":"devops","split":"dev","trap":false,"source":"synthetic","note":"release"}
+{"id":"r142","prompt":"policy_evaluate throws on a malformed request, make it return a validation error instead","label":"coder","split":"test","trap":false,"source":"pr","note":"bug fix"}
+{"id":"r143","prompt":"reduce CLI startup time","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"optimisation"}
+{"id":"r144","prompt":"the test suite takes 14 minutes, find out what is slow","label":"performance-engineer","split":"dev","trap":true,"source":"synthetic","note":"profiling runtime, not writing tests"}
+{"id":"r145","prompt":"build the UI component for the agent status panel","label":"coder","split":"dev","trap":true,"source":"synthetic","note":"\"build\" means write the component, not a CI build"}
+{"id":"r146","prompt":"write an ADR for splitting the memory bridge into separate read and write paths","label":"architect","split":"test","trap":true,"source":"synthetic","note":"ADR/boundary decision; memory is the subject"}
+{"id":"r147","prompt":"could the helpers signing key leak into tool output during publish? assess it","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"secret exposure assessment"}
+{"id":"r148","prompt":"hello","label":"none","split":"test","trap":false,"source":"synthetic","note":"greeting"}
+{"id":"r149","prompt":"configure a hierarchical topology with a queen and 6 workers","label":"swarm-specialist","split":"test","trap":false,"source":"synthetic","note":"topology"}
+{"id":"r150","prompt":"memory store reports success but nothing is persisted after the better-sqlite3 to sql.js fallback","label":"memory-specialist","split":"dev","trap":false,"source":"issue","note":"memory backend persistence"}
+{"id":"r151","prompt":"write unit tests for writeJsonAtomic covering the rename-retry path","label":"tester","split":"test","trap":false,"source":"pr","note":"write tests"}
+{"id":"r152","prompt":"configure the RRF weights in the hybrid memory backend","label":"memory-specialist","split":"test","trap":false,"source":"pr","note":"hybrid retrieval tuning"}
+{"id":"r153","prompt":"is there prior art for semantic agent routing? papers or open-source projects","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"literature search"}
+{"id":"r154","prompt":"coordinate a hive-mind with raft consensus for this release","label":"swarm-specialist","split":"dev","trap":false,"source":"synthetic","note":"hive-mind coordination"}
+{"id":"r155","prompt":"our agents keep editing the same files — set up ownership and handoff between them","label":"swarm-specialist","split":"test","trap":false,"source":"issue","note":"agent coordination"}
+{"id":"r156","prompt":"post-task drops the routing outcome when --agent has a colon in it, handle plugin-qualified agent names","label":"coder","split":"test","trap":false,"source":"issue","note":"parsing bug fix"}
+{"id":"r157","prompt":"statusline shows the baked-in version when run from a git worktree; resolve the package from the main repo node_modules instead","label":"coder","split":"dev","trap":false,"source":"issue","note":"path-resolution bug fix"}
+{"id":"r158","prompt":"our session tokens never expire — what is the risk and what should we do","label":"security-architect","split":"test","trap":false,"source":"synthetic","note":"auth hardening"}
+{"id":"r159","prompt":"`memory <unknown-subcommand>` prints usage and exits 0 — make it exit non-zero","label":"coder","split":"test","trap":true,"source":"issue","note":"CLI exit-code bug; no memory-store expertise involved"}
+{"id":"r160","prompt":"look into how other CLIs handle update notifications","label":"researcher","split":"dev","trap":false,"source":"synthetic","note":"external research"}
+{"id":"r161","prompt":"decide which packages may import which, and draw the allowed dependency graph","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"module boundaries"}
+{"id":"r162","prompt":"p95 of hooks_route got worse after 3.42 — measure it","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"latency measurement"}
+{"id":"r163","prompt":"what time is it","label":"none","split":"dev","trap":false,"source":"synthetic","note":"not an engineering task"}
+{"id":"r164","prompt":"pls review my PR, its the one fixing the kebab flags","label":"reviewer","split":"test","trap":false,"source":"pr","note":"PR review"}
+{"id":"r165","prompt":"add a CD workflow for the website repo","label":"devops","split":"test","trap":false,"source":"synthetic","note":"CD"}
+{"id":"r166","prompt":"shut the swarm down cleanly and hand off the unclaimed tasks","label":"swarm-specialist","split":"dev","trap":false,"source":"synthetic","note":"swarm lifecycle"}
+{"id":"r167","prompt":"design the public interface for a pluggable router","label":"architect","split":"test","trap":false,"source":"synthetic","note":"API design"}
+{"id":"r168","prompt":"critique the error handling in this function","label":"reviewer","split":"dev","trap":false,"source":"synthetic","note":"code quality review"}
+{"id":"r169","prompt":"translate \"good night\" into french","label":"none","split":"test","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r170","prompt":"the daemon sits at 100% CPU when idle","label":"performance-engineer","split":"test","trap":false,"source":"synthetic","note":"CPU profiling"}
+{"id":"r171","prompt":"flame graph the statusline render","label":"performance-engineer","split":"dev","trap":false,"source":"synthetic","note":"profiling"}
+{"id":"r172","prompt":"add pagination to the list output of the claims command","label":"coder","split":"test","trap":false,"source":"synthetic","note":"feature work"}
+{"id":"r173","prompt":"deploy the gateway to Cloud Run and confirm traffic moved to the new revision","label":"devops","split":"dev","trap":false,"source":"synthetic","note":"deploy"}
+{"id":"r174","prompt":"add a CI check that the packed tarball actually contains dist/","label":"devops","split":"test","trap":true,"source":"synthetic","note":"release pipeline gate, not a unit test"}
+{"id":"r175","prompt":"hive-mind init generates a hiveId but never saves it, so status shows a different id — fix that","label":"coder","split":"dev","trap":true,"source":"pr","note":"persistence bug in a CLI command, no coordination design needed"}
+{"id":"r176","prompt":"summarize the discussion on issue 2399","label":"researcher","split":"test","trap":false,"source":"issue","note":"summarise"}
+{"id":"r177","prompt":"which packages depend on @claude-flow/memory?","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"dependency lookup"}
+{"id":"r178","prompt":"switch memory search from hash embeddings to MiniLM","label":"memory-specialist","split":"dev","trap":false,"source":"synthetic","note":"embedding backend"}
+{"id":"r179","prompt":"memory search only sees the oldest rows because the candidate scan uses LIMIT 1000 without ORDER BY","label":"memory-specialist","split":"test","trap":false,"source":"issue","note":"retrieval correctness"}
+{"id":"r180","prompt":"write a Dockerfile for the MCP server","label":"devops","split":"test","trap":false,"source":"synthetic","note":"Docker"}
+{"id":"r181","prompt":"validateEnv() denylist is missing PATH and friends — assess the CWE-427 exposure","label":"security-architect","split":"dev","trap":false,"source":"issue","note":"vulnerability assessment"}
+{"id":"r182","prompt":"what is the weather like tomorrow","label":"none","split":"dev","trap":false,"source":"synthetic","note":"non-software"}
+{"id":"r183","prompt":"the CD workflow goes green without deploy credentials, make it fail loudly","label":"devops","split":"dev","trap":false,"source":"issue","note":"CD pipeline"}
+{"id":"r184","prompt":"what is the difference between hive-mind and swarm in ruflo?","label":"researcher","split":"dev","trap":true,"source":"synthetic","note":"conceptual question, not orchestration"}
+{"id":"r185","prompt":"we need a contract between the daemon and the MCP server — define it","label":"architect","split":"test","trap":false,"source":"synthetic","note":"interface definition"}
+{"id":"r186","prompt":"what should our test strategy be for the MCP tools — which parts unit vs integration?","label":"tester","split":"dev","trap":false,"source":"synthetic","note":"test strategy"}
+{"id":"r187","prompt":"review the changelog and tell me which releases touched hooks","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"reading history, not code review"}
+{"id":"r188","prompt":"what does the memory module do","label":"researcher","split":"dev","trap":true,"source":"synthetic","note":"explain existing code"}
+{"id":"r189","prompt":"add a --dry-run flag to the cleanup command","label":"coder","split":"test","trap":false,"source":"synthetic","note":"small feature"}
+{"id":"r190","prompt":"look at the benchmark script PR and tell me if the code is clean","label":"reviewer","split":"test","trap":true,"source":"synthetic","note":"code quality review, not benchmarking"}
+{"id":"r191","prompt":"LGTM or not? PR #3398, the rename retry logic","label":"reviewer","split":"test","trap":false,"source":"pr","note":"PR review"}
+{"id":"r192","prompt":"triage the new bug reports and group them by component","label":"researcher","split":"test","trap":false,"source":"synthetic","note":"triage"}
+{"id":"r193","prompt":"ok","label":"none","split":"test","trap":false,"source":"synthetic","note":"acknowledgement"}
+{"id":"r194","prompt":"how does the test runner find its fixtures?","label":"researcher","split":"test","trap":true,"source":"synthetic","note":"how does X work"}
+{"id":"r195","prompt":"Float32Array embeddings are not recognised and memory falls back to hash vectors","label":"memory-specialist","split":"test","trap":false,"source":"issue","note":"embedding handling"}
+{"id":"r196","prompt":"write a small CLI command that prints the ruflo version and the node version","label":"coder","split":"dev","trap":false,"source":"synthetic","note":"write code"}
+{"id":"r197","prompt":"should claims be one service or stay as four separate systems? sketch the options","label":"architect","split":"dev","trap":false,"source":"synthetic","note":"architecture options"}

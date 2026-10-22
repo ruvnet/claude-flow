@@ -29,6 +29,7 @@ import { tmpdir } from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import Module from 'module';
 
 import {
   MEMORY_SIDECAR_REL,
@@ -39,6 +40,29 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const HOOK_SRC = path.resolve(__dirname, '../.claude/helpers/auto-memory-hook.mjs');
+
+// pnpm's Vitest shim exposes workspace packages through NODE_PATH. Node copies
+// that path into Module.globalPaths at startup, so changing the env alone does
+// not make an "unresolvable" project isolated inside this test worker.
+function withoutNodePath<T>(run: () => T): T {
+  const saved = process.env.NODE_PATH;
+  const initPaths = () => (Module as typeof Module & { _initPaths(): void })._initPaths();
+  delete process.env.NODE_PATH;
+  initPaths();
+  try {
+    return run();
+  } finally {
+    if (saved === undefined) delete process.env.NODE_PATH;
+    else process.env.NODE_PATH = saved;
+    initPaths();
+  }
+}
+
+function envWithoutNodePath(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  delete env.NODE_PATH;
+  return env;
+}
 
 /** Deploy the real init-copied hook into a temp project, like `ruflo init` does. */
 function scaffoldProject(root: string): string {
@@ -54,7 +78,7 @@ function scaffoldProject(root: string): string {
 
 function runHook(hookPath: string, cwd: string, cmd: string): { stdout: string; ok: boolean } {
   try {
-    const stdout = execFileSync('node', [hookPath, cmd], { cwd, encoding: 'utf-8' });
+    const stdout = execFileSync('node', [hookPath, cmd], { cwd, encoding: 'utf-8', env: envWithoutNodePath() });
     return { stdout, ok: true };
   } catch (err) {
     // The hook must never crash Claude Code (exit 0); a throw here is a failure.
@@ -98,7 +122,7 @@ describe('#2545 memory package resolver', () => {
   it('returns null for an isolated project with no package and no sidecar', () => {
     const nowhere = path.join(tmp, 'isolated', 'deep');
     mkdirSync(nowhere, { recursive: true });
-    expect(resolveMemoryPackageFromProject(nowhere)).toBeNull();
+    expect(withoutNodePath(() => resolveMemoryPackageFromProject(nowhere))).toBeNull();
   });
 
   it('deployed hook ACTIVATES self-learning when init has recorded the sidecar', () => {

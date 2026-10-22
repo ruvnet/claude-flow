@@ -207,8 +207,8 @@ const configCommand: Command = {
   name: 'config',
   description: 'Configure max iterations, timeout, and task sources',
   options: [
-    { name: 'max-iterations', type: 'string', description: 'Max re-engagement iterations (1-1000)' },
-    { name: 'timeout', type: 'string', description: 'Timeout in minutes (1-1440)' },
+    { name: 'max-iterations', type: 'number', description: 'Max re-engagement iterations (1-1000)' },
+    { name: 'timeout', type: 'number', description: 'Timeout in minutes (1-1440)' },
     { name: 'task-sources', type: 'string', description: `Comma-separated task sources: ${[...VALID_TASK_SOURCES].join(', ')}` },
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
@@ -216,7 +216,7 @@ const configCommand: Command = {
     // CommandParser canonicalizes kebab-case flags to camelCase.
     // Retain kebab-case reads for direct/legacy action callers.
     const maxIter = (ctx.flags?.maxIterations ?? ctx.flags?.['max-iterations']) as string | number | undefined;
-    const timeout = ctx.flags?.timeout as string | undefined;
+    const timeout = ctx.flags?.timeout as string | number | undefined;
     const sources = (ctx.flags?.taskSources ?? ctx.flags?.['task-sources']) as string | undefined;
 
     if (maxIter) state.maxIterations = validateNumber(maxIter, 1, 1000, state.maxIterations);

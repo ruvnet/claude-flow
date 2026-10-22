@@ -383,10 +383,46 @@ describe('CLI', () => {
       expect(flagsPassed).toBe(true);
     });
 
+    it.each(['--no-update', '--update=false', '--no-update=true'])(
+      'should skip startup update checks with %s',
+      async (flag) => {
+        const updateCheck = vi.spyOn(
+          cli as unknown as { checkForUpdatesOnStartup(): Promise<void> },
+          'checkForUpdatesOnStartup'
+        ).mockResolvedValue(undefined);
+
+        await cli.run([flag, '--help']);
+
+        expect(updateCheck).not.toHaveBeenCalled();
+      }
+    );
+
+    it('should retain startup update checks without an opt-out', async () => {
+      const updateCheck = vi.spyOn(
+        cli as unknown as { checkForUpdatesOnStartup(): Promise<void> },
+        'checkForUpdatesOnStartup'
+      ).mockResolvedValue(undefined);
+
+      await cli.run(['--help']);
+
+      expect(updateCheck).toHaveBeenCalledOnce();
+    });
+
     it('should disable color with --no-color', async () => {
-      await cli.run(['--no-color', '--help']);
-      // Color should be disabled - check output formatter state
-      expect(cli['output']['colorEnabled']).toBe(false);
+      const originalColorEnabled = cli['output']['colorEnabled'];
+      try {
+        for (const flag of ['--help', '--version', '-V']) {
+          // CI starts without a TTY; explicitly enable colors so this cannot
+          // pass merely because the formatter already has colors disabled.
+          cli['output'].setColorEnabled(true);
+          consoleOutput.length = 0;
+          await cli.run(['--no-color', flag]);
+          expect(cli['output']['colorEnabled']).toBe(false);
+          expect(consoleOutput.join('')).not.toMatch(/\u001b\[/);
+        }
+      } finally {
+        cli['output'].setColorEnabled(originalColorEnabled);
+      }
     });
   });
 

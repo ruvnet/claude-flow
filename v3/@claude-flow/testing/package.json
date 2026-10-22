@@ -1,32 +1,36 @@
 {
   "name": "@claude-flow/testing",
-  "version": "3.0.0-alpha.6",
+  "version": "3.0.0",
   "type": "module",
   "description": "Testing module - TDD London School framework, test utilities, fixtures, and mock services for V3 Claude-Flow",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.js",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./helpers": {
-      "types": "./dist/helpers/index.d.js",
+      "types": "./dist/helpers/index.d.ts",
       "import": "./dist/helpers/index.js"
     },
     "./fixtures": {
-      "types": "./dist/fixtures/index.d.js",
+      "types": "./dist/fixtures/index.d.ts",
       "import": "./dist/fixtures/index.js"
     },
     "./mocks": {
-      "types": "./dist/mocks/index.d.js",
+      "types": "./dist/mocks/index.d.ts",
       "import": "./dist/mocks/index.js"
     },
     "./setup": {
-      "types": "./dist/setup.d.js",
+      "types": "./dist/setup.d.ts",
       "import": "./dist/setup.js"
     }
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
@@ -42,20 +46,19 @@
     "fixtures"
   ],
   "peerDependencies": {
-    "@claude-flow/memory": "^3.0.0-alpha.2",
-    "@claude-flow/shared": "^3.0.0-alpha.1",
-    "@claude-flow/swarm": "^3.0.0-alpha.1",
+    "@claude-flow/memory": "^3.0.0",
+    "@claude-flow/shared": "^3.0.0",
+    "@claude-flow/swarm": "^3.0.0",
     "vitest": ">=4.0.16"
   },
   "devDependencies": {
-    "@claude-flow/memory": "^3.0.0-alpha.2",
-    "@claude-flow/shared": "^3.0.0-alpha.1",
-    "@claude-flow/swarm": "^3.0.0-alpha.1",
+    "@claude-flow/memory": "^3.0.0",
+    "@claude-flow/shared": "^3.0.0",
+    "@claude-flow/swarm": "^3.0.0",
     "typescript": "^5.3.0",
     "vitest": "^4.1.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

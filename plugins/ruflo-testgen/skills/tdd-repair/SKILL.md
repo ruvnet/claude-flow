@@ -17,7 +17,7 @@ Surfaces the **Test-Driven Repair** loop as a ruflo skill. Use when you have a f
 
 - **No failing test exists.** Conformant mode (`--no-test-oracle`) is scoped for a follow-up ADR — needs MCTS over repro generation. For now, write a failing test first.
 - **Architectural changes.** This skill is for tactical "make red green" fixes. Cross-module refactors that incidentally break tests should be done by a human or a swarm.
-- **Untrusted code.** The headless `claude -p` runs with `--allowedTools Read,Edit,Bash` — no MCP, no network, no arbitrary file writes — but Bash can still touch the filesystem. Don't point this at code you wouldn't `git checkout .` after.
+- **Untrusted code.** The headless `claude -p` runs with `--allowedTools Read,Edit,Bash` — no MCP, no network, no arbitrary file writes — but Bash can still read and write the filesystem and reach the network, so allowing it is not a sandbox. Don't point this at code you wouldn't `git checkout .` after, and run it on a clean git tree.
 
 ## Algorithm
 
@@ -70,8 +70,8 @@ Implementation: [`scripts/tdd-repair/tdd-repair.mjs`](../../scripts/tdd-repair/t
 | Layer | Mechanism |
 |---|---|
 | Cost cap | `--max-budget-usd` default $5, divided across `--max-attempts`. Hard ceiling — claude exits when reached. |
-| Capability cap | `--allowedTools Read,Edit,Bash` — no MCP, no network, no arbitrary writes. |
-| Scope cap | Prompt forbids modifying the test or adding dependencies. |
+| Capability cap | `--allowedTools Read,Edit,Bash` — no MCP tools. Bash can still write files and use the network, so this narrows the tool set, it is not a sandbox. |
+| Scope cap | The prompt forbids adding dependencies. The test file is enforced, not just requested: if an attempt changes it, the original bytes are restored and the attempt is scored failed (`reason: test-file-modified`). |
 | Confirmation gate | `--confirm` REQUIRED — without it, returns dry-run plan (mirrors `harness-evolve` / `harness-mint` convention). |
 | Hard timeout | 15 min total wall-clock; per-attempt budget of `timeoutMs / maxAttempts`. |
 | Pre-flight | Refuses to run if the test already passes (catches `--test-command` typos). |

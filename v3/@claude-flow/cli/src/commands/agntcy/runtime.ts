@@ -27,6 +27,28 @@
  * pre-release channel, pin deliberately rather than floating) until the fix
  * is promoted to `latest`, tracked by the same issue.
  *
+ * UPDATE (2026-10-22, #4371): `2.0.0-alpha.5`'s own `optionalDependencies`
+ * claimed `@agntcy/slim-bindings-linux-arm64-musl@2.0.0-alpha.5`, but that
+ * platform package was never published upstream (its own first version is
+ * `2.1.1-rc.2` — confirmed via `npm view @agntcy/slim-bindings-linux-arm64-musl
+ * versions`, which is also true of every other `2.0.0-alpha.*`/`2.0.0`/`2.1.0`
+ * release). npm tolerates an unresolvable optional dependency and silently
+ * skips it, so this never surfaced in this repo's own npm-based CI, but
+ * strict resolvers (`mise`'s `aube` backend, pnpm in some modes) fail the
+ * whole install. `package.json` now pins `2.1.1` — the earliest release where
+ * every platform's optional package actually exists at that exact version
+ * (verified against the live registry for all 8 platforms). Re-verified live
+ * under plain Node against the real installed `2.1.1` package: the dynamic
+ * `import()` resolves with zero errors (same module shape — a `Session`/
+ * `Channel`/`App`-class-based SDK, not the `joinGroup`/`createSlimTransport`/
+ * `publishAgentRecord` flat functions `transport.ts`/`swarm-join.ts`/
+ * `publish.ts` call. Confirmed this mismatch predates this pin change — it
+ * was equally absent from `2.0.0-alpha.5` — so it's a pre-existing gap this
+ * version bump does not introduce or worsen; tracked separately in #4376),
+ * and the full
+ * `__tests__/agntcy/agntcy-commands.test.ts` suite (19 tests, including the
+ * real-resolution "configured: true" case) passes against this version.
+ *
  * This module's existing graceful-degradation design already handled this
  * correctly without any change to its logic: `detectAgntcyRuntime()`'s
  * catch-all branch (anything other than MODULE_NOT_FOUND) reports the real

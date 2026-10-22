@@ -1,0 +1,192 @@
+/**
+ * x.ruv.io open swarm federation — ruflo-native MCP tools.
+ *
+ * Bridges ruflo to the open, membership-gated, signed Nostr federation behind
+ * https://x.ruv.io. Reads are open; writes made with the GATEWAY identity need
+ * the gateway admin token (RUFLO_X_ADMIN_TOKEN). Users who want to publish as
+ * themselves should join with their own key via invite→claim (see the
+ * `ruv://federation/registry` resource), not through these gateway-identity tools.
+ */
+import type { MCPTool } from './types.js';
+import { configuredServiceUrl } from './service-url.js';
+
+// Service destinations are trusted operator configuration, not MCP caller data.
+const GATEWAY = (override?: unknown): string => configuredServiceUrl(
+  process.env.RUFLO_X_GATEWAY_URL || 'https://x.ruv.io', override, 'RUFLO_X_GATEWAY_URL');
+const gatewayArg = { gatewayUrl: { type: 'string', description: 'Compatibility assertion: must match RUFLO_X_GATEWAY_URL (default https://x.ruv.io). Change the server environment to select another gateway.' } } as const;
+const TIMEOUT_MS = 25_000;
+
+/** Minimal MCP-over-Streamable-HTTP client: POST JSON-RPC, parse the SSE `data:` frame. */
+async function gatewayRpc(method: string, params: Record<string, unknown>, gatewayUrl?: unknown): Promise<unknown> {
+  const res = await fetch(`${GATEWAY(gatewayUrl)}/mcp`, {
+    method: 'POST',
+    redirect: 'error',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  const text = await res.text();
+  const line = text.split('\n').find((l) => l.startsWith('data:'));
+  const payload = JSON.parse(line ? line.slice(5) : text) as { result?: unknown; error?: { message?: string } };
+  if (payload.error) throw new Error(`x.ruv.io: ${payload.error.message ?? 'rpc error'}`);
+  return payload.result;
+}
+/**
+ * Relay-sourced gateway responses are not bare JSON. Since #3300 the gateway
+ * wraps anything published by other federation members in a provenance envelope
+ * (plugins/ruflo-x-gateway/src/untrusted.mjs): several lines of gateway-authored
+ * prose, then the JSON body between a matched
+ * `<<<UNTRUSTED_RELAY_DATA <uuid>>>>` / `<<<END_UNTRUSTED_RELAY_DATA <uuid>>>>`
+ * pair. `JSON.parse` on the whole string fails on the first prose word, which is
+ * the `Unexpected token 'T', "The block "...` seen from every federation read.
+ *
+ * Three things keep a publisher from closing the block early, and it is worth
+ * being precise about which one is doing the work today:
+ *   1. The body is JSON.stringify'd, so it is a SINGLE line — a publisher's text
+ *      cannot contain a raw newline, and the markers below are newline-anchored.
+ *      This is what actually neutralises forged markers in relay content today.
+ *   2. The token backreference: a forged END carrying any other token does not
+ *      terminate the region. This is the defence that survives (1) — if the body
+ *      is ever pretty-printed, it becomes the only one left. It is tested
+ *      directly rather than incidentally, so it cannot be refactored away quietly.
+ *   3. Exactly one opening marker is permitted. `fenceUntrusted` splices its
+ *      `note` verbatim BEFORE the fence, so a caller that ever interpolates
+ *      relay-derived text into a note could otherwise smuggle in a complete
+ *      earlier envelope; first-match-wins would return it, with untrusted:false.
+ *
+ * We deliberately return the WHOLE envelope (`untrusted`, `provenance`, `relay`,
+ * `retrievedAt`, `data`) rather than lifting `data` out of it. The point of the
+ * envelope is that a caller can tell whose words these are; quietly unwrapping to
+ * the payload would restore valid JSON by discarding the labelling that made it
+ * safe to read. Unfenced responses (the registry resource, gateway-authored
+ * errors) parse unchanged.
+ */
+const UNTRUSTED_FENCE =
+  /<<<UNTRUSTED_RELAY_DATA ([0-9a-fA-F-]{36})>>>\n([\s\S]*?)\n<<<END_UNTRUSTED_RELAY_DATA \1>>>/;
+
+// Count only NEWLINE-ANCHORED opening markers. A marker inside the body is just
+// characters — the body is one JSON line, so it can never be preceded by a raw
+// newline and can never open a fence. Counting raw occurrences instead would make
+// a publisher able to hard-fail every read simply by typing the marker into a
+// message, which trades a parse bug for a denial of service.
+const OPEN_MARKER_ANCHORED = /(?:^|\n)<<<UNTRUSTED_RELAY_DATA /g;
+
+export function parseGatewayText(text: string): Record<string, unknown> {
+  // One response carries exactly one envelope. More than one means something
+  // upstream spliced an envelope-shaped string into the response, and picking
+  // either is a guess — refuse rather than choose.
+  const opens = (text.match(OPEN_MARKER_ANCHORED) ?? []).length;
+  if (opens > 1) {
+    throw new Error('x.ruv.io: response carries more than one untrusted-data envelope (tampered response)');
+  }
+  const fenced = UNTRUSTED_FENCE.exec(text);
+  if (fenced) return JSON.parse(fenced[2]) as Record<string, unknown>;
+  // An opening marker with no matching close is a truncated or tampered response.
+  // Fail loudly: parsing the remainder would silently drop relay content.
+  if (opens === 1) {
+    throw new Error('x.ruv.io: untrusted-data envelope is unterminated (truncated or tampered response)');
+  }
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+/**
+ * The payload, for consumers INSIDE this package that immediately index the
+ * value (`recent.messages`, `Object.keys(roster)`).
+ *
+ * At the MCP boundary we return the whole envelope so the caller can see whose
+ * words these are. Internally that shape is a hazard: reading `.messages` off an
+ * envelope yields undefined and `Object.keys()` yields the envelope's own five
+ * keys, so a miscount looks like a real answer. Never do a bare property read on
+ * a parseGatewayText result — come through here.
+ */
+export function relayPayload(text: string): Record<string, unknown> {
+  const parsed = parseGatewayText(text);
+  return (parsed.untrusted === true && parsed.data !== undefined
+    ? (parsed.data as Record<string, unknown>)
+    : parsed);
+}
+
+async function gatewayTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+  const { gatewayUrl, ...rest } = args;
+  const r = (await gatewayRpc('tools/call', { name, arguments: rest }, gatewayUrl)) as { content?: Array<{ text?: string }>; isError?: boolean };
+  const raw = r.content?.[0]?.text ?? '{}';
+  // An isError result is the SDK's createToolError, whose message is raw text and
+  // not JSON. Parsing first turns "private channels cannot be published…" into
+  // "Unexpected token 'p'" — the same class of bug this parser exists to fix.
+  if (r.isError) {
+    let msg = raw;
+    try { msg = String((parseGatewayText(raw) as { error?: unknown }).error ?? raw); } catch { /* raw text: use as-is */ }
+    throw new Error(msg || 'gateway tool error');
+  }
+  const parsed = parseGatewayText(raw);
+  if (parsed.error) throw new Error(String(parsed.error));
+  return parsed;
+}
+async function gatewayResource(uri: string, gatewayUrl?: unknown): Promise<unknown> {
+  const r = (await gatewayRpc('resources/read', { uri }, gatewayUrl)) as { contents?: Array<{ text?: string }> };
+  return parseGatewayText(r.contents?.[0]?.text ?? '{}');
+}
+// Credential: intentionally env-only (a secret must never be a CLI flag — it would land in
+// shell history / process lists). Registered in scripts/audit-env-var-precedence.mjs.
+const adminToken = (): string | undefined => process.env.RUFLO_X_ADMIN_TOKEN;
+
+export const xFederationTools: MCPTool[] = [
+  {
+    name: 'x_federation_sync',
+    description:
+      'Fetch recent signature-verified coordination messages from the open x.ruv.io swarm federation (Nostr, #t=ruflo-swarm). Use when you need to see what other ruflo nodes across the internet have posted (PeerHello/Status/Task/Result/Claim*). Reading the relay directly is wrong because you would have to do NIP-42 auth yourself; the gateway does it and only returns events whose signatures verify.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg, sinceSeconds: { type: 'number', description: 'Look-back window (default 3600).' }, limit: { type: 'number', description: 'Max messages (default 100).' }, type: { type: 'string', description: 'Optional message type filter, e.g. Task.' } } },
+    handler: async (input) => gatewayTool('federation_sync', input as Record<string, unknown>),
+  },
+  {
+    name: 'x_federation_roster',
+    description:
+      'List nodes currently announcing themselves on the open swarm (recent PeerHello events) via the ruv://swarm/roster resource. Use when you need to know who is online across the federation before assigning work. Grepping sync output by hand is wrong because the roster resource already de-duplicates by pubkey and carries lastSeen.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg } },
+    handler: async (input) => gatewayResource('ruv://swarm/roster', (input as Record<string, unknown>).gatewayUrl),
+  },
+  {
+    name: 'x_federation_claims',
+    description:
+      'Return the current owner-per-resource work-claims ledger for the open swarm (ruv://claims/board). Use when you are about to start shared work and need to know whether a resourceId is already owned. Inferring ownership from raw ClaimIssued events is wrong because releases, TTL expiry and handoffs change the answer; the board applies those rules.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg } },
+    handler: async (input) => gatewayResource('ruv://claims/board', (input as Record<string, unknown>).gatewayUrl),
+  },
+  {
+    name: 'x_federation_registry',
+    description:
+      'Read the federation registry resource (ruv://federation/registry): relay URL, canonical relay tag for NIP-42, gateway pubkey, and the exact self-join steps. Use when onboarding a new node or user to the open federation. Hard-coding the relay URL is wrong because the relay verifies the NIP-42 relay tag strictly against its canonical host, which this resource states.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg } },
+    handler: async (input) => gatewayResource('ruv://federation/registry', (input as Record<string, unknown>).gatewayUrl),
+  },
+  {
+    name: 'x_federation_publish',
+    description:
+      'Publish a signed coordination message to the open swarm AS THE GATEWAY identity (Status/Task/Result/…). Requires RUFLO_X_ADMIN_TOKEN. Use when a trusted operator needs a hub-level broadcast. Using this to post on behalf of an individual node is wrong because it attributes the message to the gateway, not the node — nodes should join with their own key via invite→claim and publish themselves.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg, msgType: { type: 'string' }, payload: { type: 'object' } }, required: ['msgType', 'payload'] },
+    handler: async (input) => {
+      const t = adminToken(); if (!t) throw new Error('RUFLO_X_ADMIN_TOKEN is not set (gateway-identity writes are admin-gated)');
+      return gatewayTool('federation_publish', { ...(input as Record<string, unknown>), adminToken: t });
+    },
+  },
+  {
+    name: 'x_federation_invite_mint',
+    description:
+      'Mint a use-limited, expiring invite code so a new ruflo user can self-join the open federation with THEIR OWN key. Requires RUFLO_X_ADMIN_TOKEN. Use when onboarding someone. Sharing the relay owner key instead is wrong because invites are revocable, hashed at rest, and bind membership to the claimant\'s key; the code is a bearer secret — hand it over privately.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg, ttlSecs: { type: 'number', description: 'Validity (default 7 days).' }, maxUses: { type: 'number', description: 'Redemptions (default 25).' } } },
+    handler: async (input) => {
+      const t = adminToken(); if (!t) throw new Error('RUFLO_X_ADMIN_TOKEN is not set (invite minting is admin-gated)');
+      return gatewayTool('federation_invite_mint', { ...(input as Record<string, unknown>), adminToken: t });
+    },
+  },
+  {
+    name: 'x_federation_admit',
+    description:
+      'Admit a Nostr pubkey as a relay member directly (NIP-43 kind 9030). Requires RUFLO_X_ADMIN_TOKEN. Use when a known node reports its 64-hex pubkey and you want to skip the invite step. Padding or hand-editing a reported pubkey is wrong because it is a cryptographic identity; a malformed key must be re-reported, never fixed up.',
+    inputSchema: { type: 'object', properties: { ...gatewayArg, pubkey: { type: 'string', description: '64-hex secp256k1 x-only pubkey.' }, role: { type: 'string', enum: ['member', 'admin'] } }, required: ['pubkey'] },
+    handler: async (input) => {
+      const t = adminToken(); if (!t) throw new Error('RUFLO_X_ADMIN_TOKEN is not set (admission is admin-gated)');
+      return gatewayTool('federation_admit', { ...(input as Record<string, unknown>), adminToken: t });
+    },
+  },
+];

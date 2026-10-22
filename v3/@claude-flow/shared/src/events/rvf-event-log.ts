@@ -16,7 +16,7 @@
  */
 
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync, truncateSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { DomainEvent } from './domain-events.js';
 
@@ -39,12 +39,19 @@ export interface RvfEventLogConfig {
   verbose?: boolean;
   /** Maximum events before snapshot recommendation */
   snapshotThreshold?: number;
+  /**
+   * When replay stops at a length prefix larger than the safety limit, truncate the file at that
+   * prefix (discarding it and everything after it) instead of refusing further appends. Default
+   * false: the bytes are kept and append() rejects explicitly until the file is repaired.
+   */
+  repairOversizedTail?: boolean;
 }
 
 const DEFAULT_CONFIG: Required<RvfEventLogConfig> = {
   logPath: 'events.rvf',
   verbose: false,
   snapshotThreshold: 100,
+  repairOversizedTail: false,
 };
 
 // =============================================================================
@@ -55,6 +62,8 @@ const DEFAULT_CONFIG: Required<RvfEventLogConfig> = {
 const MAGIC = Buffer.from('RVFL');
 const MAGIC_LENGTH = 4;
 const LENGTH_PREFIX_BYTES = 4;
+/** Largest record replayFile() will read; appendRecord() refuses anything bigger so no accepted append is unreadable. */
+const MAX_PAYLOAD_SIZE = 100 * 1024 * 1024; // 100MB safety limit
 
 // =============================================================================
 // RvfEventLog Implementation
@@ -63,6 +72,10 @@ const LENGTH_PREFIX_BYTES = 4;
 export class RvfEventLog extends EventEmitter {
   private config: Required<RvfEventLogConfig>;
   private initialized = false;
+
+  /** Files whose incomplete tails could not be repaired because they are read-only. */
+  /** Files that hold bytes we could not repair; appends to them are refused (value: why). */
+  private readOnlyFiles = new Map<string, string>();
 
   /**
    * All events kept in insertion order.
@@ -99,6 +112,13 @@ export class RvfEventLog extends EventEmitter {
   /** Create / open the log file and rebuild in-memory indexes. */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    // A failed prior replay may have populated only part of the indexes.
+    // Every initialization attempt must rebuild from an empty state.
+    this.events = [];
+    this.aggregateIndex.clear();
+    this.aggregateVersions.clear();
+    this.snapshots.clear();
 
     this.ensureDirectory(this.config.logPath);
 
@@ -146,6 +166,7 @@ export class RvfEventLog extends EventEmitter {
     this.aggregateIndex.clear();
     this.aggregateVersions.clear();
     this.snapshots.clear();
+    this.readOnlyFiles.clear();
     this.initialized = false;
 
     this.emit('shutdown');
@@ -172,12 +193,12 @@ export class RvfEventLog extends EventEmitter {
     event.version = nextVersion;
 
     // Persist to disk first (crash-safe ordering)
-    this.appendRecord(this.config.logPath, event);
+    const persisted = this.appendRecord(this.config.logPath, event);
 
     // Update in-memory state
-    this.indexEvent(event);
+    this.indexEvent(persisted);
 
-    this.emit('event:appended', event);
+    this.emit('event:appended', structuredClone(persisted));
 
     if (nextVersion % this.config.snapshotThreshold === 0) {
       this.emit('snapshot:recommended', {
@@ -191,10 +212,10 @@ export class RvfEventLog extends EventEmitter {
   async saveSnapshot(snapshot: EventSnapshot): Promise<void> {
     this.ensureInitialized();
 
-    this.appendRecord(this.snapshotPath, snapshot);
-    this.snapshots.set(snapshot.aggregateId, snapshot);
+    const persisted = this.appendRecord(this.snapshotPath, snapshot);
+    this.snapshots.set(persisted.aggregateId, persisted);
 
-    this.emit('snapshot:saved', snapshot);
+    this.emit('snapshot:saved', structuredClone(persisted));
   }
 
   // ===========================================================================
@@ -208,7 +229,7 @@ export class RvfEventLog extends EventEmitter {
     const indices = this.aggregateIndex.get(aggregateId);
     if (!indices || indices.length === 0) return [];
 
-    let result = indices.map((i) => this.events[i]);
+    let result = indices.map((i) => structuredClone(this.events[i]));
 
     if (fromVersion !== undefined) {
       result = result.filter((e) => e.version >= fromVersion);
@@ -224,10 +245,10 @@ export class RvfEventLog extends EventEmitter {
     this.ensureInitialized();
 
     if (!filter) {
-      return [...this.events].sort((a, b) => a.timestamp - b.timestamp);
+      return structuredClone(this.events).sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    let result: DomainEvent[] = [...this.events];
+    let result: DomainEvent[] = structuredClone(this.events);
 
     // Aggregate ID filter
     if (filter.aggregateIds && filter.aggregateIds.length > 0) {
@@ -267,7 +288,7 @@ export class RvfEventLog extends EventEmitter {
     if (filter.offset) {
       result = result.slice(filter.offset);
     }
-    if (filter.limit) {
+    if (filter.limit !== undefined) {
       result = result.slice(0, filter.limit);
     }
 
@@ -277,7 +298,7 @@ export class RvfEventLog extends EventEmitter {
   /** Get latest snapshot for an aggregate. */
   async getSnapshot(aggregateId: string): Promise<EventSnapshot | null> {
     this.ensureInitialized();
-    return this.snapshots.get(aggregateId) ?? null;
+    return structuredClone(this.snapshots.get(aggregateId) ?? null);
   }
 
   /** Return event store statistics. */
@@ -342,13 +363,14 @@ export class RvfEventLog extends EventEmitter {
     }
 
     let offset = MAGIC_LENGTH;
+    let oversizedAt = -1;
 
-    const MAX_PAYLOAD_SIZE = 100 * 1024 * 1024; // 100MB safety limit
     while (offset + LENGTH_PREFIX_BYTES <= buf.length) {
       const payloadLength = buf.readUInt32BE(offset);
       offset += LENGTH_PREFIX_BYTES;
 
       if (payloadLength > MAX_PAYLOAD_SIZE) {
+        oversizedAt = offset - LENGTH_PREFIX_BYTES;
         if (this.config.verbose) {
           console.warn(`[RvfEventLog] Payload size ${payloadLength} exceeds safety limit`);
         }
@@ -356,13 +378,14 @@ export class RvfEventLog extends EventEmitter {
       }
 
       if (offset + payloadLength > buf.length) {
-        // Truncated record — stop reading (crash recovery).
+        // Remove only the incomplete record before accepting future appends.
         if (this.config.verbose) {
           console.warn(
             `[RvfEventLog] Truncated record at offset ${offset - LENGTH_PREFIX_BYTES} — ` +
               `expected ${payloadLength} bytes, have ${buf.length - offset}`
           );
         }
+        offset -= LENGTH_PREFIX_BYTES;
         break;
       }
 
@@ -378,16 +401,50 @@ export class RvfEventLog extends EventEmitter {
         }
       }
     }
+
+    // An oversized length prefix is not a torn write: keep the bytes unless the caller opted in to repair.
+    let keepUntil = offset;
+    if (oversizedAt >= 0) {
+      if (!this.config.repairOversizedTail) {
+        this.readOnlyFiles.set(filePath, 'a record length prefix exceeds the safety limit');
+        return;
+      }
+      keepUntil = oversizedAt;
+    }
+
+    if (keepUntil < buf.length) {
+      try {
+        truncateSync(filePath, keepUntil);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EACCES' && code !== 'EROFS' && code !== 'EPERM') throw error;
+        // Preserve readable history but never append behind an unreadable tail.
+        this.readOnlyFiles.set(filePath, 'the file is not writable, so its damaged tail could not be repaired');
+        if (this.config.verbose) {
+          console.warn(`[RvfEventLog] Read-only log has an unrepaired tail: ${filePath}`);
+        }
+      }
+    }
   }
 
   /** Append a single record to an RVF file. */
-  private appendRecord(filePath: string, record: unknown): void {
+  private appendRecord<T>(filePath: string, record: T): T {
+    const refused = this.readOnlyFiles.get(filePath);
+    if (refused !== undefined) {
+      throw new Error(`[RvfEventLog] Read-only until repaired: unrepaired tail (${refused}); append refused: ${filePath}`);
+    }
     const json = JSON.stringify(record);
+    const persisted = JSON.parse(json) as T;
     const payload = Buffer.from(json, 'utf8');
+    if (payload.length > MAX_PAYLOAD_SIZE) {
+      // replayFile() refuses records this large, so writing one would be an append that can never be read back.
+      throw new Error(`[RvfEventLog] Record of ${payload.length} bytes exceeds the ${MAX_PAYLOAD_SIZE} byte limit; append refused`);
+    }
     const lengthBuf = Buffer.allocUnsafe(LENGTH_PREFIX_BYTES);
     lengthBuf.writeUInt32BE(payload.length, 0);
 
     appendFileSync(filePath, Buffer.concat([lengthBuf, payload]));
+    return persisted;
   }
 
   /** Add an event to the in-memory indexes. */

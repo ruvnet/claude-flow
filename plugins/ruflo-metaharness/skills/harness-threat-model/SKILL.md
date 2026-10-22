@@ -1,6 +1,6 @@
 ---
 name: harness-threat-model
-description: Enterprise-review-grade threat model from `harness threat-model <path>`. Categorizes MCP-surface threats; emits `worst: 'clean'|'low'|'medium'|'high'` + per-threat findings. Pure-read.
+description: Enterprise-review-grade threat model from `harness threat-model {path}`. Categorizes MCP-surface threats; emits `worst: 'clean'|'low'|'medium'|'high'` + per-threat findings. Pure-read.
 argument-hint: "[--path .] [--fail-on clean|low|medium|high] [--format table|json]"
 allowed-tools: Bash
 ---
@@ -13,7 +13,7 @@ categorized report suitable for sharing with an InfoSec team.
 
 Implementation: [`scripts/threat-model.mjs`](../../scripts/threat-model.mjs).
 
-1. Invoke the pinned `harness` binary (`metaharness@~0.3.0`, resolved from a
+1. Invoke the pinned `harness` binary (`metaharness@~0.4.1`, resolved from a
    local install or the one-time `~/.ruflo/metaharness-cache-<pin>` cache —
    never `@latest`): `harness threat-model <path> --json`.
 2. Parse `{ worst, findings[] }`.

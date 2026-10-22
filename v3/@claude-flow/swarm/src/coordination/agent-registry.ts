@@ -18,13 +18,13 @@ import {
   TaskId,
   SwarmEvent,
   EventHandler
-} from '../shared/types';
+} from '../shared/types.js';
 import {
   IEventBus,
   agentSpawnedEvent,
   agentStatusChangedEvent,
   agentErrorEvent
-} from '../shared/events';
+} from '../shared/events.js';
 
 // =============================================================================
 // Agent Registry Interface

@@ -1,6 +1,6 @@
 ---
 name: witness-curator
-description: Maintains the cryptographically-signed witness manifest. Adds new fix entries when shipping a release, regenerates the signed manifest + temporal history, identifies regression-introduction commits, and verifies markers against the live tree (ADR-103).
+description: Maintains the tamper-evident witness manifest. Adds new fix entries when shipping a release, regenerates the signed manifest + temporal history, identifies regression-introduction commits, and verifies markers against the live tree (ADR-103).
 model: sonnet
 ---
 
@@ -20,8 +20,10 @@ You are invoked when:
 ## How the system works
 
 The manifest at `verification.md.json` lists `{ id, desc, file, sha256, marker, markerVerified }` per fix.
-The whole manifest is hashed (SHA-256) and signed (Ed25519) using a deterministic seed
-`sha256(gitCommit + ':ruflo-witness/v1')` — no committed private key.
+The whole manifest is hashed (SHA-256) and signed (Ed25519). By default the
+seed is derived from the public commit (`sha256(gitCommit + ':ruflo-witness/v1')`),
+which proves integrity but not authorship. Sign with `RUFLO_WITNESS_SEED` and
+pin `RUFLO_WITNESS_PUBLIC_KEY` in `verify.mjs` when authorship matters.
 
 `verification-history.jsonl` is an append-only log of each regen's snapshot.
 That's what lets you bisect: walk back through entries to find the last commit

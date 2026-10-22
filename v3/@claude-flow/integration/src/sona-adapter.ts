@@ -96,6 +96,21 @@ const MODE_CONFIGS: Record<SONALearningMode, Partial<SONAConfiguration>> = {
 };
 
 /**
+ * The default SONA learning mode from the environment, if the operator set one.
+ *
+ * A deployment (e.g. a managed desktop fleet) may want every session to learn in
+ * a specific profile — `research` for +55% quality, `edge` for constrained hosts —
+ * without threading `mode` through every call site. `RUFLO_INTELLIGENCE_MODE`
+ * sets that fleet-wide default. An unset or unrecognised value returns undefined,
+ * so the caller falls through to its own default: a typo can never silently pick
+ * a profile nobody asked for.
+ */
+export function sonaModeFromEnv(): SONALearningMode | undefined {
+  const raw = process.env.RUFLO_INTELLIGENCE_MODE?.trim();
+  return raw && Object.hasOwn(MODE_CONFIGS, raw) ? (raw as SONALearningMode) : undefined;
+}
+
+/**
  * SONAAdapter - SONA Learning System Integration
  *
  * This adapter provides a clean interface to agentic-flow's SONA
@@ -615,7 +630,7 @@ export class SONAAdapter extends EventEmitter {
 
   private mergeConfig(config: Partial<SONAConfiguration>): SONAConfiguration {
     return {
-      mode: config.mode || 'balanced',
+      mode: config.mode || sonaModeFromEnv() || 'balanced',
       learningRate: config.learningRate ?? 0.001,
       similarityThreshold: config.similarityThreshold ?? 0.7,
       maxPatterns: config.maxPatterns ?? 10000,

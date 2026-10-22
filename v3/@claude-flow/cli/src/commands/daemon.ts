@@ -5,7 +5,7 @@
 
 import type { Command, CommandContext, CommandResult } from '../types.js';
 import { output } from '../output.js';
-import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig } from '../services/worker-daemon.js';
+import { WorkerDaemon, getDaemon, startDaemon, stopDaemon, type WorkerType, type DaemonConfig, parseEnabledWorkers } from '../services/worker-daemon.js';
 import { resolveDaemonProjectRoot } from '../services/daemon-autostart.js';
 import { spawn, execFile, fork } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -13,12 +13,16 @@ import { dirname, join, resolve, isAbsolute } from 'path';
 import { homedir } from 'os';
 import * as fs from 'fs';
 
+// Syntax guard for worker-name flags forwarded to a background child.
+// The start action validates the names against the daemon's supported workers.
+const WORKERS_RE = /^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$/;
+
 // Start daemon subcommand
 const startCommand: Command = {
   name: 'start',
   description: 'Start the worker daemon with all enabled background workers',
   options: [
-    { name: 'workers', short: 'w', type: 'string', description: 'Comma-separated list of workers to enable (default: map,audit,optimize,consolidate,testgaps)' },
+    { name: 'workers', short: 'w', type: 'string', description: 'Comma-separated list of workers to enable (default: saved selection or map,audit,optimize,consolidate,testgaps,backup,harness)' },
     // ADR-174 M3: consolidate now runs a real memory-distillation pass
     // (memory_entries -> episodes/reasoning_patterns/causal_edges) instead of
     // a no-op stub. This opt-out skips just that pass for the life of this
@@ -55,7 +59,8 @@ const startCommand: Command = {
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const quiet = ctx.flags.quiet as boolean;
     const foreground = ctx.flags.foreground as boolean;
-    const noDistill = ctx.flags['no-distill'] as boolean | undefined;
+    // The CLI parser stores `--no-distill` as `distill: false`.
+    const noDistill = ctx.flags['no-distill'] === true || ctx.flags.distill === false;
     // ADR-174 M3: honored by WorkerDaemon's consolidate worker directly via
     // process.env — set it now so the foreground path (which runs in this
     // same process) picks it up too; the background path forwards it to the
@@ -83,8 +88,8 @@ const startCommand: Command = {
     if (ctx.flags.headless === true) {
       config.aiWorkersEnabled = true;
     }
-    const rawMaxCpu = ctx.flags['max-cpu-load'] as string | undefined;
-    const rawMinMem = ctx.flags['min-free-memory'] as string | undefined;
+    const rawMaxCpu = ctx.flags.maxCpuLoad as string | undefined;
+    const rawMinMem = ctx.flags.minFreeMemory as string | undefined;
 
     // Strict numeric pattern to prevent command injection when forwarding to subprocess (S1)
     const NUMERIC_RE = /^\d+(\.\d+)?$/;
@@ -125,6 +130,15 @@ const startCommand: Command = {
       }
     }
 
+    if (ctx.flags.workers !== undefined) {
+      try {
+        config.enabledWorkers = parseEnabledWorkers(ctx.flags.workers as string);
+      } catch (error) {
+        if (!quiet) output.printError((error as Error).message);
+        return { success: false, exitCode: 1 };
+      }
+    }
+
     // Check if background daemon already running (skip if we ARE the daemon process)
     //
     // #2407 — without an atomic lockfile, N concurrent `daemon start` calls
@@ -154,32 +168,41 @@ const startCommand: Command = {
       const stateDir = join(resolve(projectRoot), '.claude-flow');
       lockFile = join(stateDir, 'daemon.lock');
       try { fs.mkdirSync(stateDir, { recursive: true }); } catch { /* exists */ }
-      try {
-        lockFd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
-        fs.writeSync(lockFd, String(process.pid));
-      } catch (e) {
-        if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
-          // Another `daemon start` is mid-spawn. Wait up to 5s for it to
-          // finish, then re-check the PID file. If the holder crashed
-          // mid-spawn, fall through and reset; killStaleDaemons + a fresh
-          // attempt will recover.
-          const deadline = Date.now() + 5000;
-          while (Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 100));
-            const winnerPid = getBackgroundDaemonPid(projectRoot);
-            if (winnerPid && isProcessRunning(winnerPid)) {
-              if (!quiet) {
-                output.printWarning(`Daemon already running in background (PID: ${winnerPid}). Stop it first with: daemon stop`);
-              }
-              return { success: true };
+      lockFd = tryAcquireDaemonLock(lockFile);
+      if (lockFd === null) {
+        // Another `daemon start` is mid-spawn. Wait for it while its holder
+        // is alive; only a lock whose holder is DEAD is stale and may be
+        // retaken — atomically, via O_EXCL again, never by proceeding
+        // lockless. The old fixed 5s timeout + unlink let every waiter
+        // through on Windows, where the holder's killStaleDaemons
+        // (`tasklist /v`) routinely takes longer than that, and each waiter
+        // then forked its own daemon (3 per workspace observed).
+        const waitMs = Number(process.env.RUFLO_DAEMON_LOCK_WAIT_MS) > 0
+          ? Number(process.env.RUFLO_DAEMON_LOCK_WAIT_MS)
+          : 60_000;
+        const deadline = Date.now() + waitMs;
+        while (lockFd === null) {
+          const winnerPid = getBackgroundDaemonPid(projectRoot);
+          if (winnerPid && isProcessRunning(winnerPid)) {
+            if (!quiet) {
+              output.printWarning(`Daemon already running in background (PID: ${winnerPid}). Stop it first with: daemon stop`);
             }
+            return { success: true };
           }
-          // Stale lockfile from a crashed prior attempt — clear it and
-          // proceed without a held lock. Worst case we double-spawn ONCE
-          // and the killStaleDaemons sweep below cleans up.
-          try { fs.unlinkSync(lockFile); } catch { /* ignore */ }
-        } else {
-          throw e;
+          if (daemonLockIsStale(lockFile)) {
+            try { fs.unlinkSync(lockFile); } catch { /* raced with another taker */ }
+            lockFd = tryAcquireDaemonLock(lockFile);
+            continue;
+          }
+          if (Date.now() >= deadline) {
+            // A live process is still starting the daemon. Spawning another
+            // would be the duplicate this lock exists to prevent.
+            if (!quiet) {
+              output.printWarning('Another `daemon start` is still in progress for this workspace; not starting a second daemon.');
+            }
+            return { success: true };
+          }
+          await new Promise((r) => setTimeout(r, 100));
         }
       }
       // Dedup check while holding the lock.
@@ -263,14 +286,21 @@ const startCommand: Command = {
       // Writing it before startDaemon() causes checkExistingDaemon() to detect
       // our own PID and return early, leaving no workers scheduled (#1478 Bug 1).
 
-      // Clean up PID file on exit
+      // Clean up PID file on exit — only if it is OURS. A process that lost
+      // the singleton race must never delete the winner's PID file, or the
+      // next auto-start sees "no daemon" and forks yet another one.
       const cleanup = () => {
         try {
-          if (fs.existsSync(pidFile)) {
+          if (fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf-8').trim() === String(process.pid)) {
             fs.unlinkSync(pidFile);
           }
         } catch { /* ignore */ }
       };
+      // WorkerDaemon.start() declines (returns without running) when another
+      // live daemon already owns daemon.pid. Such a process must exit rather
+      // than park on the keep-alive below: it has no workers and no TTL, so
+      // it would linger as an idle duplicate forever.
+      const declined = (d: WorkerDaemon) => !d.getStatus().running;
       process.on('exit', cleanup);
       process.on('SIGINT', () => { cleanup(); process.exit(0); });
       process.on('SIGTERM', () => { cleanup(); process.exit(0); });
@@ -285,6 +315,11 @@ const startCommand: Command = {
 
         const daemon = await startDaemon(projectRoot, config);
         const status = daemon.getStatus();
+        if (declined(daemon)) {
+          spinner.stop();
+          output.printWarning(`Daemon already running (PID: ${getBackgroundDaemonPid(projectRoot) ?? 'unknown'}); not starting a second one.`);
+          return { success: true };
+        }
 
         spinner.succeed('Worker daemon started (foreground mode)');
 
@@ -347,7 +382,8 @@ const startCommand: Command = {
         setInterval(() => {}, 60_000);
         await new Promise(() => {}); // Never resolves - daemon runs until killed
       } else {
-        await startDaemon(projectRoot, config);
+        const daemon = await startDaemon(projectRoot, config);
+        if (declined(daemon)) return { success: true };
         setInterval(() => {}, 60_000); // Keep alive with ref'd handle (#1478)
         await new Promise(() => {}); // Keep alive
       }
@@ -532,7 +568,6 @@ async function startBackgroundDaemon(projectRoot: string, quiet: boolean, forwar
   // through — argv goes straight to a forked process so reject anything
   // that doesn't look like a comma-separated worker-name list or one of
   // the allowed sandbox modes.
-  const WORKERS_RE = /^[a-z][a-z0-9_-]*(,[a-z][a-z0-9_-]*)*$/;
   if (typeof workers === 'string' && workers.length > 0 && WORKERS_RE.test(workers)) {
     forkArgs.push('--workers', workers);
   }
@@ -926,6 +961,39 @@ function getBackgroundDaemonPid(projectRoot: string): number | null {
 }
 
 /**
+ * Atomically create the launcher lock and stamp it with our PID.
+ * Returns the fd, or null when another process holds the lock.
+ */
+function tryAcquireDaemonLock(lockFile: string): number | null {
+  try {
+    const fd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+    fs.writeSync(fd, String(process.pid));
+    return fd;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') return null;
+    throw e;
+  }
+}
+
+/**
+ * A lock is stale only when its holder is gone. An empty lock is the brief
+ * window between O_EXCL create and the PID write, so it counts as held
+ * unless it has been empty for a while (holder crashed in that window).
+ */
+function daemonLockIsStale(lockFile: string): boolean {
+  try {
+    const raw = fs.readFileSync(lockFile, 'utf-8').trim();
+    const pid = parseInt(raw, 10);
+    if (!raw || Number.isNaN(pid)) {
+      return Date.now() - fs.statSync(lockFile).mtimeMs > 10_000;
+    }
+    return pid !== process.pid && !isProcessRunning(pid);
+  } catch {
+    return false; // vanished: the next O_EXCL attempt decides
+  }
+}
+
+/**
  * Check if a process is running
  */
 function isProcessRunning(pid: number): boolean {
@@ -1227,11 +1295,17 @@ const statusCommand: Command = {
       // its real consent state into daemon-state.json — prefer that when it
       // is the one running.
       let aiWorkersEnabled = status.config.aiWorkersEnabled;
+      // #4238: same for the TTL — a daemon started with `--ttl 0` must not be
+      // reported with this process's 12h default.
+      let ttlMs = status.config.ttlMs;
       if (bgRunning) {
         try {
           const st = JSON.parse(fs.readFileSync(join(projectRoot, '.claude-flow', 'daemon-state.json'), 'utf-8'));
           if (typeof st?.config?.aiWorkersEnabled === 'boolean') {
             aiWorkersEnabled = st.config.aiWorkersEnabled;
+          }
+          if (typeof st?.config?.ttlMs === 'number' && Number.isFinite(st.config.ttlMs)) {
+            ttlMs = st.config.ttlMs;
           }
         } catch { /* no/partial state — fall back to in-process config */ }
       }
@@ -1248,8 +1322,8 @@ const statusCommand: Command = {
           `Status: ${statusIcon} ${statusText}${mode}`,
           `PID: ${displayPid}`,
           status.startedAt ? `Started: ${status.startedAt.toISOString()}` : '',
-          status.config.ttlMs > 0
-            ? `TTL: ${Math.round(status.config.ttlMs / 3600000)}h (self-shutdown)`
+          ttlMs > 0
+            ? `TTL: ${Math.round(ttlMs / 3600000)}h (self-shutdown)`
             : `TTL: ${output.dim('off (runs until stopped)')}`,
           // #2661: surface the AI-consent gate so "why is audit local-only?"
           // is answerable from `daemon status` alone.

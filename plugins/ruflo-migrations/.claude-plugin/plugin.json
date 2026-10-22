@@ -1,7 +1,7 @@
 {
   "name": "ruflo-migrations",
-  "description": "Schema migration management — generate, validate, dry-run, and rollback database migrations",
-  "version": "0.2.1",
+  "description": "Schema migration management — generate, validate, dry-run, and rollback database migrations. As a mod (ADR-445): a tighten-only guard on its tools, /migrations-mod, and a status file the console shows",
+  "version": "0.3.5",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -16,6 +16,22 @@
     "rollback",
     "mcp",
     "dry-run",
-    "up-down-pairs"
-  ]
+    "up-down-pairs",
+    "mod",
+    "function-hooks",
+    "guard"
+  ],
+  "userConfig": {
+    "guard": {
+      "type": "string",
+      "title": "Guard",
+      "description": "Refuse calls and memory writes that hold a secret or a database URL with a password. On by default.",
+      "required": false,
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
 }

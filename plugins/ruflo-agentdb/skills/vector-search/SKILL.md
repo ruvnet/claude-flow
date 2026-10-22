@@ -11,10 +11,10 @@ Two distinct vector-search paths live in this plugin. Pick the right one — the
 
 | Path | Tool family | Backing | Capacity | Latency |
 |------|-------------|---------|----------|---------|
-| **Large-scale corpus** | `embeddings_*` | `@claude-flow/memory` HNSW (Rust/Native) | up to millions of vectors | ~1.9× at N=20k, ~3.2×–4.7× at N=5k vs brute-force (measured; recall@10 ≈ 0.99). ANN wins above the crossover |
+| **Large-scale corpus** | `embeddings_*` | `@claude-flow/memory` HNSW (Rust/Native) | large corpora (measured here only at N=5k and N=20k) | ~1.9× at N=20k, ~3.2×–4.7× at N=5k vs brute-force (measured; recall@10 ≈ 0.99). ANN wins above the crossover |
 | **Hot-path router** | `ruvllm_hnsw_*` | WASM-backed router (v2.0.1) | **~11 patterns max** (`ruvllm-tools.ts:58`) | sub-ms; designed for high-priority routing, not corpus search |
 
-The "12,500×" headline applies to the large-scale `embeddings_search` path. The WASM router is **not** that path.
+The speedups in the Performance section apply to the large-scale `embeddings_search` path (the older "12,500×" headline was a brute-force-fallback artifact and is retired). The WASM router is **not** that path.
 
 ## When to use
 
@@ -52,7 +52,7 @@ For corpora ≥5,000 vectors and/or memory-constrained environments, use the RaB
 
 ## Tuning
 
-HNSW exposes three knobs that trade recall against latency. The "12,500×" headline assumes **defaults**; tune deliberately for your workload:
+HNSW exposes three knobs that trade recall against latency. The Performance numbers below were measured at default settings; tune deliberately for your workload and re-measure:
 
 | Profile | `efSearch` | `M` | When to use |
 |---------|-----------|-----|-------------|

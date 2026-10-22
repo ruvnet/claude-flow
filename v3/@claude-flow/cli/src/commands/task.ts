@@ -177,7 +177,7 @@ const createCommand: Command = {
         type: taskType,
         description,
         priority: priority || 'normal',
-        assignedTo: ctx.flags.assign ? [ctx.flags.assign] : undefined,
+        assignTo: ctx.flags.assign ? String(ctx.flags.assign).split(',').map(id => id.trim()).filter(Boolean) : undefined,
         parentId: ctx.flags.parent,
         dependencies,
         tags,
@@ -271,13 +271,14 @@ const listCommand: Command = {
     }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const status = ctx.flags.all ? 'all' : (ctx.flags.status as string) || 'pending,running';
+    const requestedStatus = ctx.flags.all ? 'all' : (ctx.flags.status as string) || 'pending,in_progress';
+    const status = requestedStatus === 'all' ? undefined : requestedStatus.replace(/\brunning\b/g, 'in_progress');
     const limit = ctx.flags.limit as number;
 
     try {
       const result = await callMCPTool<{
         tasks: Array<{
-          id: string;
+          taskId: string;
           type: string;
           description: string;
           priority: string;
@@ -291,7 +292,7 @@ const listCommand: Command = {
         status,
         type: ctx.flags.type,
         priority: ctx.flags.priority,
-        agentId: ctx.flags.agent,
+        assignedTo: ctx.flags.agent,
         limit,
         offset: 0
       });
@@ -320,7 +321,7 @@ const listCommand: Command = {
           { key: 'progress', header: 'Progress', width: 10 }
         ],
         data: result.tasks.map(t => ({
-          id: t.id,
+          id: t.taskId,
           type: t.type,
           description: t.description.length > 27
             ? t.description.slice(0, 27) + '...'
@@ -381,7 +382,7 @@ const statusCommand: Command = {
 
     try {
       const result = await callMCPTool<{
-        id: string;
+        taskId: string;
         type: string;
         description: string;
         priority: string;
@@ -409,6 +410,18 @@ const statusCommand: Command = {
         includeMetrics: true
       });
 
+      // The MCP tool answers an unknown id with status "not_found" and no other fields.
+      // Rendering that as a record printed "Task: undefined", "Invalid Date" and
+      // "undefined%" and exited 0, so scripts and agents took it as success.
+      if (((result as { status?: string }).status) === 'not_found') {
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        } else {
+          output.printError(`Task not found: ${taskId}`);
+        }
+        return { success: false, exitCode: 1 };
+      }
+
       if (ctx.flags.format === 'json') {
         output.printJson(result);
         return { success: true, data: result };
@@ -424,7 +437,7 @@ const statusCommand: Command = {
           '',
           `Description: ${result.description}`
         ].join('\n'),
-        `Task: ${result.id}`
+        `Task: ${result.taskId}`
       );
 
       // Assignment info
@@ -555,14 +568,28 @@ const cancelCommand: Command = {
 
     try {
       const result = await callMCPTool<{
+        success: boolean;
         taskId: string;
-        cancelled: boolean;
-        previousStatus: string;
-        cancelledAt: string;
+        status?: string;
+        previousStatus?: string;
+        cancelledAt?: string;
+        error?: string;
       }>('task_cancel', {
         taskId,
         reason: reason || 'Cancelled by user via CLI'
       });
+
+      // task_cancel answers an unknown or already-finished task with
+      // success: false instead of throwing; report it instead of printing
+      // "Task ... cancelled" and exiting 0.
+      if (result.success === false) {
+        if (ctx.flags.format === 'json') {
+          output.printJson(result);
+        } else {
+          output.printError(`Failed to cancel task ${taskId}: ${result.error || 'unknown error'}`);
+        }
+        return { success: false, exitCode: 1, data: result };
+      }
 
       output.writeln();
       output.printSuccess(`Task ${taskId} cancelled`);

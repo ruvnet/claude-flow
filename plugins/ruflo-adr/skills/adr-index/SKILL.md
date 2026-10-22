@@ -56,7 +56,7 @@ date: <ISO date>
 tags: <comma-separated>
 ```
 
-`adr-edges` namespace, deterministic key `<relation>:<FROM>-><TO>`, value:
+`adr-edges` namespace, deterministic key `<relation>:<FROM>__<TO>`, value:
 
 ```json
 { "from": "ADR-097", "to": "ADR-086", "relation": "related", "capturedAt": "<ISO>" }

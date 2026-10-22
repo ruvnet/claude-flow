@@ -306,14 +306,12 @@ describe('TokenGenerator', () => {
       expect(generator.compare('short', 'longer-token')).toBe(false);
     });
 
-    it('should use timing-safe comparison', () => {
-      // This test verifies the comparison takes consistent time
-      // regardless of where the mismatch occurs
-      const token = generator.generate();
-      const mismatchEarly = 'X' + token.slice(1);
-      const mismatchLate = token.slice(0, -1) + 'X';
+    it.each(['X' + 'a'.repeat(41) + 'X', 'Y' + 'a'.repeat(41) + 'Y'])(
+      'should reject early and late byte mismatches for %s', (token) => {
+      const mismatchEarly = (token[0] === 'X' ? 'Y' : 'X') + token.slice(1);
+      const mismatchLate = token.slice(0, -1) + (token.at(-1) === 'X' ? 'Y' : 'X');
 
-      // Both comparisons should work (timing consistency is internal)
+      // Change a byte even when the original already begins or ends with X.
       expect(generator.compare(token, mismatchEarly)).toBe(false);
       expect(generator.compare(token, mismatchLate)).toBe(false);
     });

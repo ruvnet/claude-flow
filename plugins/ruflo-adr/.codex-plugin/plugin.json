@@ -1,0 +1,12 @@
+{
+  "name": "ruflo-adr",
+  "description": "ADR lifecycle management \u2014 create, index, reconcile, supersede, check compliance, and link Architecture Decision Records to code via AgentDB hierarchical store + causal edges (supersedes/amends/depends-on/related)",
+  "version": "0.5.8",
+  "author": {
+    "name": "ruvnet",
+    "url": "https://github.com/ruvnet"
+  },
+  "homepage": "https://github.com/ruvnet/ruflo",
+  "license": "MIT",
+  "hooks": "./hooks/codex-hooks.json"
+}
