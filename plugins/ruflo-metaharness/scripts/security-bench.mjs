@@ -30,7 +30,18 @@
 //   1  --alert-on-fail and any acceptance gate failed
 //   2  config error or bench infrastructure failure
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runDarwinAsync, emitDarwinDegradedJsonAndExit } from './_darwin.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--population': 'value',
+  '--cycles': 'value',
+  '--seed': 'value',
+  '--alert-on-fail': null,
+  '--format': 'value',
+  '--timeout-ms': 'value',
+}, "Runs the security benchmark. This command has no plan-only mode.");
 
 const ARGS = (() => {
   const a = {

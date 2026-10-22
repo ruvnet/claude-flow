@@ -7,9 +7,9 @@ step() { printf "→ %s ... " "$1"; }
 ok()   { printf "PASS\n"; PASS=$((PASS+1)); }
 bad()  { printf "FAIL: %s\n" "$1"; FAIL=$((FAIL+1)); }
 
-step "1. plugin.json declares 0.2.1 with new keywords"
+step "1. plugin.json declares 0.3.5 with new keywords"
 v=$(grep -E '"version"' "$ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-if [[ "$v" != "0.2.1" ]]; then bad "expected 0.2.1, got '$v'"; else
+if [[ "$v" != "0.3.5" ]]; then bad "expected 0.3.5, got '$v'"; else
   miss=""
   for k in mcp candlestick-patterns namespace-routing; do
     grep -q "\"$k\"" "$ROOT/.claude-plugin/plugin.json" || miss="$miss $k"
@@ -83,6 +83,25 @@ step "11. ADR-0001 exists with status Accepted"
 ADR="$ROOT/docs/adrs/0001-market-data-contract.md"
 [[ -f "$ADR" ]] && grep -qE "^status:[[:space:]]*Accepted" "$ADR" \
   && ok || bad "ADR missing or status != Accepted"
+
+# M1-M3. The mod (ADR-445): hooks module registered, files within the 500-line rule, no network or process access in the hooks
+step "M1. mod: hooks.json names register.ts, every hook file is present and under 500 lines"
+mod_ok=1
+grep -q '"./register.ts"' "$ROOT/hooks/hooks.json" || mod_ok=0
+for f in options screen guard register; do
+  [[ -f "$ROOT/hooks/$f.ts" ]] || mod_ok=0
+  [[ $(wc -l < "$ROOT/hooks/$f.ts" 2>/dev/null || echo 9999) -le 500 ]] || mod_ok=0
+done
+[[ $mod_ok -eq 1 ]] && ok || bad "mod hooks incomplete or too long"
+
+step "M2. mod: guard defaults on (userConfig), the command name is market-mod"
+node -e '
+const c = require(process.argv[1]).userConfig || {}
+process.exit(c.guard && c.guard.default === "on" ? 0 : 1)
+' "$ROOT/.claude-plugin/plugin.json" && grep -q "'market-mod'" "$ROOT/hooks/register.ts" && ok || bad "userConfig defaults or command name wrong"
+
+step "M3. mod: hooks never touch the network or spawn a process"
+if grep -nE '\$\.(http|process)\.|child_process|fetch\(' "$ROOT"/hooks/*.ts >/dev/null; then bad "network or process call in hooks"; else ok; fi
 
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1

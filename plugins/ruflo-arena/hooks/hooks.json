@@ -1,0 +1,6 @@
+{
+  "description": "Arena as a mod (ADR-445 pattern): /arena-mod, and a status file the console reads.",
+  "modules": [
+    "./register.ts"
+  ]
+}

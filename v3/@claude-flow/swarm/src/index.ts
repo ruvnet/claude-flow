@@ -198,6 +198,32 @@ export type {
   GossipConfig,
 } from './consensus/index.js';
 
+// ADR-095 G2.2 — pluggable consensus transport. Re-export so consumers
+// don't have to deep-import from ./consensus/*. These were on the root
+// entry in the published 3.0.0-alpha.8 tarball; keep them there.
+export {
+  LocalTransport,
+  LocalTransportRegistry,
+  defaultLocalRegistry,
+  FederationTransport,
+  generateNodeKeyPair,
+  signMessage,
+  verifyMessage,
+  canonicalizeForSigning,
+  messageDigest,
+} from './consensus/index.js';
+
+export type {
+  ConsensusTransport,
+  ConsensusMessage,
+  ConsensusReply,
+  ConsensusMessageHandler,
+  NodeKeyPair,
+  LocalTransportOptions,
+  AgenticFlowTransportLike,
+  FederationTransportOptions,
+} from './consensus/index.js';
+
 // =============================================================================
 // Coordination Components
 // =============================================================================

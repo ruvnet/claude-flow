@@ -103,6 +103,9 @@ function calculateDelay(
     delay += (Math.random() - 0.5) * 2 * jitterRange;
   }
 
+  // Enforce the configured maximum on the final (jittered) delay
+  delay = Math.min(delay, config.maxDelayMs);
+
   return Math.round(Math.max(0, delay));
 }
 
@@ -126,6 +129,9 @@ function shouldRetryError(
   attempt: number,
   config: RetryConfig
 ): boolean {
+  // Exhaustion always takes precedence over custom retry policies.
+  if (attempt >= config.maxAttempts) return false;
+
   // Check custom retry function
   if (config.shouldRetry) {
     return config.shouldRetry(error, attempt);
@@ -178,7 +184,7 @@ export async function withRetry<T>(
         retryHistory,
       };
     } catch (error) {
-      lastError = error as Error;
+      lastError = error instanceof Error ? error : new Error(String(error));
 
       // Check if we should retry
       if (!shouldRetryError(lastError, attempt, finalConfig)) {

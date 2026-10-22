@@ -34,8 +34,11 @@ describe('TokenOptimizer', () => {
     });
 
     async function canLoadAgenticFlow(): Promise<boolean> {
-      try { await import('agentic-flow'); return true; }
-      catch { return false; }
+      for (const subpath of ['agentic-flow/reasoningbank', 'agentic-flow/agent-booster']) {
+        try { await import(subpath); return true; }
+        catch { /* try the next one */ }
+      }
+      return false;
     }
   });
 
@@ -57,6 +60,116 @@ describe('TokenOptimizer', () => {
 
       // Should increase (or stay same if no memories found)
       expect(after).toBeGreaterThanOrEqual(before);
+    });
+  });
+
+  describe('getCompactContext savings baseline (#3289)', () => {
+    // The compact prompt is what is RETRIEVED; the baseline is what it
+    // REPLACED. Those are different numbers and only the caller has the
+    // second one, which is the whole reason the old comparison -- against the
+    // query string -- could not be a measurement.
+    //
+    // The retrieval is stubbed rather than left to whatever ReasoningBank this
+    // machine has: with agentic-flow absent the real bank returns an empty
+    // prompt, and every assertion below about `baseline - compactTokens`
+    // would hold for the trivial reason that compactTokens is 0.
+    const PROMPT_CHARS = 400; // -> 100 tokens at the module's 4-chars heuristic
+    const COMPACT_TOKENS = PROMPT_CHARS / 4;
+
+    async function optimizerWithRetrieval(): Promise<TokenOptimizer> {
+      const fresh = new TokenOptimizer();
+      await fresh.initialize();
+      (fresh as unknown as { reasoningBank: unknown }).reasoningBank = {
+        retrieveMemories: async () => [{ content: 'memory', score: 0.9 }],
+        formatMemoriesForPrompt: () => 'x'.repeat(PROMPT_CHARS),
+      };
+      return fresh;
+    }
+
+    it('reports unmeasured rather than zero when no baseline is given', async () => {
+      const fresh = await optimizerWithRetrieval();
+
+      const ctx = await fresh.getCompactContext('authentication patterns');
+
+      expect(ctx.tokensSaved).toBeNull();
+      expect(fresh.getStats().contextsMeasured).toBe(0);
+    });
+
+    it('does not move the running total on an unmeasured call', async () => {
+      const fresh = await optimizerWithRetrieval();
+
+      const before = fresh.getStats().totalTokensSaved;
+      // A long query is the shape that used to manufacture a saving: it beat
+      // the retrieved prompt on length with no replaced context behind it.
+      await fresh.getCompactContext('authentication patterns '.repeat(200));
+
+      expect(fresh.getStats().totalTokensSaved).toBe(before);
+    });
+
+    it('measures against the baseline the caller supplies', async () => {
+      const fresh = await optimizerWithRetrieval();
+
+      const ctx = await fresh.getCompactContext('authentication patterns', {
+        baselineTokens: 8000,
+      });
+
+      expect(ctx.tokensSaved).toBe(8000 - COMPACT_TOKENS);
+      expect(fresh.getStats().totalTokensSaved).toBe(8000 - COMPACT_TOKENS);
+      expect(fresh.getStats().contextsMeasured).toBe(1);
+    });
+
+    it('floors at zero when the compact prompt outgrows the baseline', async () => {
+      const fresh = await optimizerWithRetrieval();
+
+      const ctx = await fresh.getCompactContext('authentication patterns', {
+        baselineTokens: 10,
+      });
+
+      // 10 replaced tokens against a 100-token prompt is not a saving of -90.
+      // It is also not a missing measurement: 10 is a baseline, so the call
+      // counts as measured.
+      expect(ctx.tokensSaved).toBe(0);
+      expect(fresh.getStats().contextsMeasured).toBe(1);
+    });
+
+    it('rejects a baseline that is not a usable count', async () => {
+      const fresh = await optimizerWithRetrieval();
+
+      for (const baselineTokens of [NaN, Infinity, -1]) {
+        const ctx = await fresh.getCompactContext('authentication patterns', {
+          baselineTokens,
+        });
+        expect(ctx.tokensSaved).toBeNull();
+      }
+      expect(fresh.getStats().contextsMeasured).toBe(0);
+    });
+
+    it('the query length is no longer part of the answer', async () => {
+      // Same baseline, same retrieval, queries of wildly different lengths:
+      // the reported saving must not move. This is exactly the property the
+      // old implementation violated.
+      const short = await optimizerWithRetrieval();
+      const long = await optimizerWithRetrieval();
+
+      const a = await short.getCompactContext('auth', { baselineTokens: 5000 });
+      const b = await long.getCompactContext('auth '.repeat(500), {
+        baselineTokens: 5000,
+      });
+
+      expect(a.tokensSaved).toBe(b.tokensSaved);
+    });
+
+    it('a run with no ReasoningBank at all is unmeasured, not a zero saving', async () => {
+      const fresh = new TokenOptimizer();
+      await fresh.initialize();
+      (fresh as unknown as { reasoningBank: unknown }).reasoningBank = null;
+
+      const ctx = await fresh.getCompactContext('authentication patterns', {
+        baselineTokens: 8000,
+      });
+
+      expect(ctx.tokensSaved).toBeNull();
+      expect(fresh.getStats().contextsMeasured).toBe(0);
     });
   });
 

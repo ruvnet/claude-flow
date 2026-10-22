@@ -24,9 +24,12 @@ import {
   type CircularDependency,
   type GraphAnalysisResult,
 } from '../../src/ruvector/graph-analyzer.js';
-import { mkdir, writeFile, rm } from 'fs/promises';
+import { mkdir, mkdtemp, writeFile, rm } from 'fs/promises';
+import { spawnSync } from 'child_process';
+import { createRequire } from 'module';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { fileURLToPath } from 'url';
 
 // Mock the @ruvector/wasm module
 vi.mock('@ruvector/wasm', () => ({
@@ -38,8 +41,9 @@ describe('Graph Analyzer', () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = join(tmpdir(), `graph-test-${Date.now()}`);
-    await mkdir(testDir, { recursive: true });
+    // Graphs are cached by path. Date.now() can repeat for adjacent tests,
+    // causing a fixture to receive the preceding test's cached graph.
+    testDir = await mkdtemp(join(tmpdir(), 'graph-test-'));
   });
 
   afterEach(async () => {
@@ -91,6 +95,38 @@ export const b = 'value';
 
       expect(nodeA).toBeDefined();
       expect(nodeA?.imports.length).toBeGreaterThan(0);
+    });
+
+    it('does not spend seconds backtracking on prose containing import', async () => {
+      await writeFile(join(testDir, 'source.ts'), `
+// A plain sentence: import apple berry cherry delta echo foxtrot golf.
+import main, { helper } from './helper';
+export { main, helper };
+`);
+      await writeFile(join(testDir, 'helper.ts'), 'export const helper = 1; export default helper;\n');
+
+      // Run the parser in a child: a regex regression can block the event loop,
+      // so a normal Vitest timeout cannot interrupt it.
+      // CI installs dependencies at the repository root, while package-local
+      // installs place tsx under this package. Resolve either layout.
+      const tsx = createRequire(import.meta.url).resolve('tsx/cli');
+      const source = fileURLToPath(new URL('../../src/ruvector/graph-analyzer.ts', import.meta.url));
+      const probe = `import(${JSON.stringify(source)}).then(async ({ buildDependencyGraph }) => {
+        const graph = await buildDependencyGraph(${JSON.stringify(testDir)}, { skipCache: true });
+        console.log(JSON.stringify({ imports: graph.nodes.get('source.ts')?.imports,
+          edges: graph.edges.map(edge => [edge.source, edge.target]) }));
+      }).catch(error => { console.error(error); process.exitCode = 1; });`;
+      const result = spawnSync(process.execPath, [tsx, '--eval', probe], {
+        cwd: testDir,
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+
+      expect(result.error).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      const graph = JSON.parse(result.stdout);
+      expect(graph.imports).toContain('./helper');
+      expect(graph.edges).toContainEqual(['source.ts', 'helper.ts']);
     });
 
     it('should handle empty directory', async () => {
@@ -405,19 +441,27 @@ export const valid = 'valid';
 import defaultExport from './default';
 import { named } from './named';
 import * as namespace from './namespace';
+import type { Widget } from './types';
+import mixedDefault, { mixed } from './mixed';
+import './side-effect';
 const dynamic = import('./dynamic');
 export { defaultExport, named, namespace };
 `);
       await writeFile(join(testDir, 'default.ts'), `export default 'default';`);
       await writeFile(join(testDir, 'named.ts'), `export const named = 'named';`);
       await writeFile(join(testDir, 'namespace.ts'), `export const ns = 'ns';`);
+      await writeFile(join(testDir, 'types.ts'), `export type Widget = object;`);
+      await writeFile(join(testDir, 'mixed.ts'), `export const mixed = 1; export default mixed;`);
+      await writeFile(join(testDir, 'side-effect.ts'), `export const loaded = true;`);
       await writeFile(join(testDir, 'dynamic.ts'), `export const dyn = 'dyn';`);
 
       const graph = await buildDependencyGraph(testDir);
       const stylesNode = Array.from(graph.nodes.values()).find(n => n.path.includes('styles.ts'));
 
       expect(stylesNode).toBeDefined();
-      expect(stylesNode?.imports.length).toBeGreaterThan(0);
+      expect(stylesNode?.imports).toEqual(expect.arrayContaining([
+        './default', './named', './namespace', './types', './mixed', './side-effect', './dynamic',
+      ]));
     });
 
     it('should handle re-exports', async () => {

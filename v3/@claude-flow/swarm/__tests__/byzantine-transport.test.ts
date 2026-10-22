@@ -106,8 +106,8 @@ describe('ADR-095 G2 — BFT fault tolerance f derived from cluster size', () =>
   // byzantineF() is private; exercise it through the quorum behavior by
   // observing how many prepare messages are needed before a proposal goes
   // from 'pending' to 'accepted'. With n nodes, f = floor((n-1)/3),
-  // quorum = 2f+1.
-  function fFor(n: number): number { return Math.max(1, Math.floor((n - 1) / 3)); }
+  // quorum = floor((n+f)/2)+1.
+  function fFor(n: number): number { return Math.floor((n - 1) / 3); }
 
   it('4-node cluster → f=1 (need 3 prepares)', () => {
     expect(fFor(4)).toBe(1);
@@ -124,7 +124,7 @@ describe('ADR-095 G2 — BFT fault tolerance f derived from cluster size', () =>
     // Add 9 peers → derived f would be floor(9/3)=3, but cap=1.
     for (let i = 2; i <= 10; i++) bft.addNode(`n${i}`, false);
     // We can't read byzantineF() directly; assert via the documented contract:
-    // a cap of 1 means quorum stays 2*1+1=3 even in a 10-node cluster.
+    // a cap of 1 lowers f, while the 10-node quorum remains an intersecting majority.
     // (Behavioral assertion proxy — the cap is honored in the f computation.)
     expect((bft as unknown as { byzantineF: () => number }).byzantineF()).toBe(1);
   });
@@ -137,11 +137,12 @@ describe('ADR-095 G2 — BFT fault tolerance f derived from cluster size', () =>
     expect((bft as unknown as { byzantineF: () => number }).byzantineF()).toBe(3);
   });
 
-  it('a 3-node cluster still gets f=1 (clamp floor)', () => {
+  it('a 3-node cluster has f=0, matching its public fault bound', () => {
     const bft = new ByzantineConsensus('n1');
     bft.addNode('n2', false);
     bft.addNode('n3', false);
-    // floor((3-1)/3) = 0, clamped to 1 — degenerate but keeps the math sane.
-    expect((bft as unknown as { byzantineF: () => number }).byzantineF()).toBe(1);
+    // No Byzantine fault is tolerable with fewer than four nodes.
+    expect((bft as unknown as { byzantineF: () => number }).byzantineF()).toBe(0);
+    expect(bft.getMaxFaultyNodes()).toBe(0);
   });
 });

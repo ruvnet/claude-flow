@@ -1,0 +1,25 @@
+TAP version 13
+# Subtest: \#4086 status enumerates all keys and retrieves exact current values
+ok 1 - \#4086 status enumerates all keys and retrieves exact current values
+  ---
+  duration_ms: 1.839651
+  ...
+# Subtest: \#4087 every explicit phase agent resolves to a shipped plugin agent
+ok 2 - \#4087 every explicit phase agent resolves to a shipped plugin agent
+  ---
+  duration_ms: 1.769331
+  ...
+# Subtest: \#4088 SPARC command references resolve to the shipped command filename
+ok 3 - \#4088 SPARC command references resolve to the shipped command filename
+  ---
+  duration_ms: 3.271131
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18.665419

@@ -1,0 +1,35 @@
+{
+  "asOf": "2026-10-06",
+  "note": "List prices per 1M tokens. Estimates, not bills: subscriptions, batch, priority tiers and BYOK are not modelled. Edit this file (or point COST_PRICES at your own copy) when a provider changes prices; nothing else hard-codes a rate.",
+  "models": [
+    { "id": "claude-fable-5-1", "provider": "claude", "match": "fable", "unit": "usd", "input": 10, "output": 50, "cache_write_5m": 12.5, "cache_write_1h": 20, "cache_read": 0.25, "source": "https://platform.claude.com/docs/en/about-claude/pricing" },
+    { "id": "claude-opus-5-5", "provider": "claude", "match": "opus-5", "unit": "usd", "input": 4, "output": 20, "cache_write_5m": 5, "cache_write_1h": 8, "cache_read": 0.2, "source": "https://platform.claude.com/docs/en/about-claude/pricing" },
+    { "id": "claude-sonnet-5-5", "provider": "claude", "match": "sonnet-5", "unit": "usd", "input": 2, "output": 10, "cache_write_5m": 2.5, "cache_write_1h": 4, "cache_read": 0.2, "source": "https://platform.claude.com/docs/en/about-claude/pricing" },
+    { "id": "claude-haiku-4-5", "provider": "claude", "match": "haiku-4", "unit": "usd", "input": 1, "output": 5, "cache_write_5m": 1.25, "cache_write_1h": 2, "cache_read": 0.1, "source": "https://platform.claude.com/docs/en/about-claude/pricing" },
+    { "id": "claude-opus-legacy", "provider": "claude", "match": "opus", "unit": "usd", "input": 15, "output": 75, "cache_write_5m": 18.75, "cache_write_1h": 30, "cache_read": 1.5, "approx": true, "source": "family fallback: pre-5 Opus list price" },
+    { "id": "claude-sonnet-legacy", "provider": "claude", "match": "sonnet", "unit": "usd", "input": 3, "output": 15, "cache_write_5m": 3.75, "cache_write_1h": 6, "cache_read": 0.3, "approx": true, "source": "family fallback: pre-5 Sonnet list price" },
+    { "id": "claude-haiku-legacy", "provider": "claude", "match": "haiku", "unit": "usd", "input": 0.25, "output": 1.25, "cache_write_5m": 0.3, "cache_write_1h": 0.5, "cache_read": 0.03, "approx": true, "source": "family fallback: pre-4.5 Haiku list price" },
+
+    { "id": "gpt-5-nano", "provider": "codex", "match": "gpt-5-nano", "unit": "usd", "input": 0.05, "output": 0.4, "cache_read": 0.005, "source": "https://developers.openai.com/api/docs/pricing" },
+    { "id": "gpt-5-mini", "provider": "codex", "match": "gpt-5-mini", "unit": "usd", "input": 0.25, "output": 2, "cache_read": 0.025, "source": "https://developers.openai.com/api/docs/pricing" },
+    { "id": "gpt-5.3-codex", "provider": "codex", "match": "gpt-5.3", "unit": "usd", "input": 1.75, "output": 14, "cache_read": 0.175, "source": "https://developers.openai.com/api/docs/pricing" },
+    { "id": "gpt-5.2", "provider": "codex", "match": "gpt-5.2", "unit": "usd", "input": 1.75, "output": 14, "cache_read": 0.175, "source": "https://developers.openai.com/api/docs/pricing" },
+    { "id": "gpt-5", "provider": "codex", "match": "gpt-5", "re": "^gpt-5(\\.1)?(-codex)?$", "unit": "usd", "input": 1.25, "output": 10, "cache_read": 0.125, "source": "https://developers.openai.com/api/docs/pricing" },
+
+    { "id": "gpt-6-luna", "provider": "codex", "match": "gpt-6-luna", "unit": "credits", "input": 2.5, "output": 12.5, "cache_read": null, "source": "https://learn.chatgpt.com/docs/pricing (Codex credits per 1M tokens; cached rate not published, so cached input is billed at the input rate: an upper bound)" },
+    { "id": "gpt-6-sol", "provider": "codex", "match": "gpt-6-sol", "unit": "credits", "input": 50, "output": 250, "cache_read": null, "source": "https://learn.chatgpt.com/docs/pricing (Codex credits per 1M tokens; cached rate not published)" },
+    { "id": "gpt-6-astra", "provider": "codex", "match": "gpt-6-astra", "unit": "credits", "input": 250, "output": 1250, "cache_read": null, "source": "https://learn.chatgpt.com/docs/pricing (Codex credits per 1M tokens; cached rate not published)" },
+
+    { "id": "grok-4.7-build", "provider": "grok", "match": "grok-4.7-build", "unit": "usd", "input": 4, "output": 12, "cache_read": 1, "approx": true, "source": "https://docs.x.ai/developers/pricing — Grok 4.7 Fast (Cursor/Grok Build only), <200k prompt; subscription billing may differ from API list" },
+    { "id": "grok-4.6-build", "provider": "grok", "match": "grok-4.6-build", "unit": "usd", "input": 4, "output": 12, "cache_read": 1, "approx": true, "source": "https://docs.x.ai/developers/pricing — Grok Build Fast rates aligned with Grok 4.7 Fast (<200k); subscription billing may differ" },
+    { "id": "grok-4.7", "provider": "grok", "match": "grok-4.7", "unit": "usd", "input": 2, "output": 6, "cache_read": 0.5, "approx": true, "source": "https://docs.x.ai/developers/pricing — grok-4.7 <200k prompt tokens" },
+    { "id": "grok-4.6", "provider": "grok", "match": "grok-4.6", "unit": "usd", "input": 2, "output": 6, "cache_read": 0.5, "approx": true, "source": "https://docs.x.ai/developers/pricing — grok-4.6 <200k prompt tokens" },
+    { "id": "grok", "provider": "grok", "match": "grok", "unit": "usd", "input": 2, "output": 6, "cache_read": 0.5, "approx": true, "source": "family fallback: grok-4.7 <200k list price from https://docs.x.ai/developers/pricing" }
+  ],
+  "tiers": {
+    "note": "Cheaper model that could take over a low-effort turn, per provider; used only for what-if savings in the advisor.",
+    "claude": { "downshift": { "claude-fable-5-1": "claude-opus-5-5", "claude-opus-5-5": "claude-sonnet-5-5", "claude-sonnet-5-5": "claude-haiku-4-5" } },
+    "codex": { "downshift": { "gpt-6-astra": "gpt-6-sol", "gpt-6-sol": "gpt-6-luna" } },
+    "grok": { "downshift": {} }
+  }
+}

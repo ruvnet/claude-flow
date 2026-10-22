@@ -1,0 +1,144 @@
+TAP version 13
+# Subtest: \#4082 empty instrumented file is fully covered, not a gap
+not ok 1 - \#4082 empty instrumented file is fully covered, not a gap
+  ---
+  duration_ms: 2.797531
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:18:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    0 !== 100
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 100
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:20:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    node:internal/test_runner/harness:255:12
+    node:internal/process/task_queues:140:7
+    AsyncResource.runInAsyncScope (node:async_hooks:206:9)
+    AsyncResource.runMicrotask (node:internal/process/task_queues:137:8)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+  ...
+# Subtest: \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+not ok 2 - \#4082 pct-only summaries preserve explicit zero and nonzero percentages
+  ---
+  duration_ms: 0.32945
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:23:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    0 !== 75
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 75
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:25:10)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4083 LCOV aggregates counts for every metric, including unterminated last record
+not ok 3 - \#4083 LCOV aggregates counts for every metric, including unterminated last record
+  ---
+  duration_ms: 0.659871
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:28:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    overallLineCoverage
+    + actual - expected
+
+    + 55
+    - 10.891089108910892
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 10.891089108910892
+  actual: 55
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:31:130)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+not ok 4 - \#4084 Istanbul final and NYC counters count unique lines and individual branch arms
+  ---
+  duration_ms: 3.514771
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:33:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+
+    false !== true
+
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:41:14)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+# Subtest: empty or malformed reports do not hide a valid fallback
+not ok 5 - empty or malformed reports do not hide a valid fallback
+  ---
+  duration_ms: 1.672041
+  location: '<repo>/tests/regression/oct12-coverage.test.cjs:48:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+
+    + 'coverage/coverage-summary.json'
+    - 'coverage/lcov.info'
+                ^
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'coverage/lcov.info'
+  actual: 'coverage/coverage-summary.json'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (<repo>/tests/regression/oct12-coverage.test.cjs:55:12)
+    Test.runInAsyncScope (node:async_hooks:206:9)
+    Test.run (node:internal/test_runner/test:796:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:526:18)
+    Test.postRun (node:internal/test_runner/test:889:19)
+    Test.run (node:internal/test_runner/test:835:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    async Test.processPendingSubtests (node:internal/test_runner/test:526:7)
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 0
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 22.939821

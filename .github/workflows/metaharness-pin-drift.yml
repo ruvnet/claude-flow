@@ -14,6 +14,10 @@ on:
     paths:
       - 'v3/@claude-flow/cli/package.json'
       - 'v3/@claude-flow/cli/src/services/distill-oracle.ts'
+      # plugin helper pins — what the metaharness_* MCP tools actually resolve
+      - 'plugins/ruflo-metaharness/scripts/_harness.mjs'
+      - 'plugins/ruflo-metaharness/scripts/_darwin.mjs'
+      - 'plugins/ruflo-metaharness/scripts/_redblue.mjs'
       - 'scripts/check-metaharness-pins.mjs'
 
 permissions:
@@ -65,7 +69,8 @@ jobs:
             echo "The metaharness pin-drift watcher found a pin whose range no longer"
             echo "admits the current npm release. Bump the range in"
             echo "\`v3/@claude-flow/cli/package.json\` (and \`MH_DARWIN_PIN\` in"
-            echo "\`distill-oracle.ts\` if darwin moved), then re-run the guard."
+            echo "\`distill-oracle.ts\` if darwin moved, and the \`*_PIN_VERSION\`"
+            echo "constants in \`plugins/ruflo-metaharness/scripts/\`), then re-run the guard."
             echo ""
             echo '```json'
             cat /tmp/pins.json

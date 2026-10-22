@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 
-const INTERNAL_RUNTIME_PACKAGES = [
+export const INTERNAL_RUNTIME_PACKAGES = [
   {
     directory: 'security',
     name: '@claude-flow/security',
@@ -47,11 +47,21 @@ const INTERNAL_RUNTIME_PACKAGES = [
 const BUILD_PREREQUISITES = ['shared'];
 
 function runBuild(packageDirectory) {
-  const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(command, ['run', 'build'], {
-    cwd: packageDirectory,
-    stdio: 'inherit',
-  });
+  // CreateProcess cannot launch a .cmd directly, and Node has refused to
+  // since CVE-2024-27980 — spawnSync('npm.cmd', ...) without shell:true
+  // throws EINVAL on Windows. `command`/args here are constant literals,
+  // never hook-derived or user-controlled, so shell:true carries no
+  // injection risk (contrast plugins/ruflo-core/scripts/ruflo-hook.cjs,
+  // which resolves a real .js entrypoint instead because its argv IS
+  // externally derived).
+  // Node's DEP0190 warns when shell:true is combined with an args array
+  // (args are concatenated, not escaped) — harmless here since nothing is
+  // interpolated, but the single-string form below is what Node itself
+  // recommends to avoid the warning while keeping shell:true.
+  const win32 = process.platform === 'win32';
+  const result = win32
+    ? spawnSync('npm.cmd run build', { cwd: packageDirectory, stdio: 'inherit', shell: true })
+    : spawnSync('npm', ['run', 'build'], { cwd: packageDirectory, stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(

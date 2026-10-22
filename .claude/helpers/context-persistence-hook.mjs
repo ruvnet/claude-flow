@@ -288,7 +288,7 @@ class SQLiteBackend {
   }
 
   /**
-   * Store embedding blob for an entry (768-dim Float32Array → Buffer).
+   * Store embedding blob for an entry (Float32Array → Buffer; 384-dim ONNX today, 768-dim legacy hash blobs still readable).
    */
   storeEmbedding(id, embedding) {
     const buf = Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);

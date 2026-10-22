@@ -15,6 +15,7 @@ const {
   resolveBackend,
   getRuVectorConfig,
   createHashEmbedding,
+  EMBEDDING_DIM,
   hashContent,
   parseTranscript,
   extractTextContent,
@@ -292,9 +293,14 @@ describe('resolveBackend', () => {
 // ============================================================================
 
 describe('createHashEmbedding', () => {
-  it('should produce 768-dimensional embedding', () => {
+  it('should produce an EMBEDDING_DIM-dimensional embedding (384, matching the ONNX vectors it substitutes for)', () => {
+    // The hook moved to 384-dim ONNX embeddings (all-MiniLM-L6-v2) and the
+    // hash fallback defaults to the same width so blobs stay comparable; this
+    // test still said 768 (the legacy hash width) and only surfaced once the
+    // Test Suite job ran again after the ETARGET fix (#3203).
     const emb = createHashEmbedding('hello world');
-    assert.equal(emb.length, 768);
+    assert.equal(emb.length, EMBEDDING_DIM);
+    assert.equal(EMBEDDING_DIM, 384);
     assert.ok(emb instanceof Float32Array);
   });
 

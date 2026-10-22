@@ -7,7 +7,7 @@ allowed-tools: mcp__plugin_ruflo-core_ruflo__agentdb_semantic-route mcp__plugin_
 
 # AgentDB Query
 
-Query and manage AgentDB through the controller bridge. AgentDB exposes 15 `agentdb_*` MCP tools; this skill enumerates the standard usage path.
+Query and manage AgentDB through the controller bridge. AgentDB exposes 20 `agentdb_*` MCP tools; this skill enumerates the standard usage path.
 
 ## When to use
 
@@ -25,7 +25,7 @@ When you need to store, retrieve, or search knowledge across agent sessions. Age
 
 ## Available controller groups
 
-Call `mcp__plugin_ruflo-core_ruflo__agentdb_controllers` to list the runtime registry. Functional categories surfaced via the 15 MCP tools:
+Call `mcp__plugin_ruflo-core_ruflo__agentdb_controllers` to list the runtime registry. Functional categories surfaced via the 20 MCP tools:
 
 - **Hierarchical** — `agentdb_hierarchical-store`, `_recall` (tier-routed)
 - **Pattern** — `agentdb_pattern-store`, `_search` (ReasoningBank-routed)
@@ -34,6 +34,8 @@ Call `mcp__plugin_ruflo-core_ruflo__agentdb_controllers` to list the runtime reg
 - **Lifecycle** — `agentdb_health`, `_controllers`, `_session-start`, `_session-end`
 - **Bulk** — `agentdb_batch` (≤500 entries), `_consolidate`
 - **Quality** — `agentdb_feedback`
+- **Graph reads** — `agentdb_graph-query` (k-hop / semantic / pagerank from a domain-prefixed node id such as `entity:xyz`; SQL k-hop is bounded at 3 hops, check `appliedDepth` and `truncated`) and `agentdb_graph-pathfinder`
+- **Deletes (destructive)** — `agentdb_hierarchical-delete`, `agentdb_causal-edge-delete`, `agentdb_causal-node-delete`. Confirm the exact ids with the user before calling; they are not undoable from this plugin.
 
 ## Important: namespace handling
 

@@ -41,7 +41,7 @@ import {
   MessageHandler,
   EventHandler,
   V3_PERFORMANCE_TARGETS
-} from '../shared/types';
+} from '../shared/types.js';
 import {
   IEventBus,
   EventBus,
@@ -49,10 +49,10 @@ import {
   swarmPhaseChangedEvent,
   swarmMilestoneReachedEvent,
   swarmErrorEvent
-} from '../shared/events';
-import { IAgentRegistry, AgentRegistry, createAgentRegistry } from './agent-registry';
-import { ITaskOrchestrator, TaskOrchestrator, TaskSpec, createTaskOrchestrator } from './task-orchestrator';
-import { UnifiedSwarmCoordinator, createUnifiedSwarmCoordinator } from '../unified-coordinator';
+} from '../shared/events.js';
+import { IAgentRegistry, AgentRegistry, createAgentRegistry } from './agent-registry.js';
+import { ITaskOrchestrator, TaskOrchestrator, TaskSpec, createTaskOrchestrator } from './task-orchestrator.js';
+import { UnifiedSwarmCoordinator, createUnifiedSwarmCoordinator } from '../unified-coordinator.js';
 
 // =============================================================================
 // Swarm Hub Interface

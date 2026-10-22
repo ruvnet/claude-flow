@@ -53,30 +53,32 @@ describe('proxy install - pinned release default', () => {
   });
 
   it('uses the pinned release when confirmed without a release override', async () => {
-    const installProxy = vi.fn();
+    const installAndActivateProxy = vi.fn();
     // Register the mock BEFORE importing proxy-lifecycle.js — that module
     // imports the installer at load time, so importing it first binds the
     // real one and the test performs an actual download.
-    vi.doMock('../src/proxy/install.js', () => ({ installProxy, uninstallProxy: vi.fn() }));
+    vi.doMock('../src/proxy/install.js', () => ({ uninstallProxy: vi.fn() }));
+    vi.doMock('../src/proxy/activation.js', () => ({ installAndActivateProxy }));
 
     const { DEFAULT_PROXY_RELEASE } = await import('../src/commands/proxy-lifecycle.js');
-    installProxy.mockResolvedValue({ version: DEFAULT_PROXY_RELEASE, binaryPath: '/tmp/meta-proxy', sha256: 'abc' });
+    installAndActivateProxy.mockResolvedValue({ version: DEFAULT_PROXY_RELEASE, binaryPath: '/tmp/meta-proxy', sha256: 'abc', pid: 123 });
 
     const installSub = await getInstallSub();
     const result = await installSub.action!(ctxWithFlags({ yes: true }));
 
     expect(result?.success).toBe(true);
-    expect(installProxy).toHaveBeenCalledWith(expect.objectContaining({ version: DEFAULT_PROXY_RELEASE }));
+    expect(installAndActivateProxy).toHaveBeenCalledWith(DEFAULT_PROXY_RELEASE, expect.any(Function));
   });
 
   it('honors an explicit release override', async () => {
-    const installProxy = vi.fn().mockResolvedValue({ version: '9.9.9', binaryPath: '/tmp/meta-proxy', sha256: 'abc' });
-    vi.doMock('../src/proxy/install.js', () => ({ installProxy, uninstallProxy: vi.fn() }));
+    const installAndActivateProxy = vi.fn().mockResolvedValue({ version: '9.9.9', binaryPath: '/tmp/meta-proxy', sha256: 'abc', pid: 123 });
+    vi.doMock('../src/proxy/install.js', () => ({ uninstallProxy: vi.fn() }));
+    vi.doMock('../src/proxy/activation.js', () => ({ installAndActivateProxy }));
 
     const installSub = await getInstallSub();
     const result = await installSub.action!(ctxWithFlags({ release: '9.9.9', yes: true }));
 
     expect(result?.success).toBe(true);
-    expect(installProxy).toHaveBeenCalledWith(expect.objectContaining({ version: '9.9.9' }));
+    expect(installAndActivateProxy).toHaveBeenCalledWith('9.9.9', expect.any(Function));
   });
 });

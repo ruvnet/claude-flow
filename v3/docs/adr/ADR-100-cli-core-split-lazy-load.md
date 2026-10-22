@@ -1,8 +1,8 @@
 # ADR-100: Split `@claude-flow/cli` into `cli-core` + lazy-loaded extras
 
-**Status**: Accepted — Partially Implemented (foundation + backend abstraction + MCP tool defs shipped as alpha.0–alpha.5; full memory/hooks handler split and `latest` promotion deferred)
-**Date**: 2026-05-05 · **Updated**: 2026-05-09
-**Version**: `@claude-flow/cli-core@3.7.0-alpha.5` published; `@claude-flow/cli@3.7.0-alpha.1` metapackage released
+**Status**: Accepted — Partially Implemented (foundation + backend abstraction + MCP tool defs shipped as alpha.0–alpha.5; full memory/hooks handler split deferred). `cli-core` left the alpha line on 2026-09-28 (see §4).
+**Date**: 2026-05-05 · **Updated**: 2026-09-28
+**Version**: `@claude-flow/cli-core@3.7.0` (stable, `latest`), pinned exactly by `@claude-flow/cli@3.48.0`
 **Supersedes**: nothing
 **Related**: ADR-098 (plugin capability sync and optimization), issue [#1748](https://github.com/ruvnet/ruflo/issues/1748) Issue 3 (cold-cache 30s MCP-startup race), [#1747](https://github.com/ruvnet/ruflo/issues/1747) (hooks shell injection — fixed in 3.6.28; orthogonal to this ADR)
 
@@ -96,6 +96,13 @@ Alpha promotion to `latest` requires:
 1. Cold-cache benchmark showing ≥80% reduction in first-call wall-time
 2. At least one external integrator (the #1748 reporter is a candidate) confirms MCP startup succeeds within 30s on a cold cache
 3. No regression in the existing 21 Tier 1 / 7 adversarial cost-tracker bench corpus
+
+**2026-09-28 update.** `cli-core` moved to **3.7.0** on `latest` / `alpha` / `v3alpha` as part of
+ADR-403, which puts every internal leaf package on stable semver. That was a
+versioning-policy change, not the promotion gate above: criteria 1 and 2 were **not**
+re-measured for it. What was checked is regression parity. The published tarball's API matches `main`, every
+consumer resolves one copy, and `ruflo@3.48.0` passes the full CI matrix. The cold-cache
+performance claim of this ADR therefore remains unverified by an external integrator.
 
 ## Consequences
 
@@ -243,3 +250,4 @@ This is more work than fire 1 anticipated — likely 4-6 additional fires to lan
 - **2026-05-05**: Proposed (this commit)
 - **TBD**: Accepted after cold-cache benchmark proves <5s on typical connection
 - **TBD**: Promoted alpha → latest after external validator (Liberation of Bajor team or equivalent) confirms MCP startup succeeds on cold cache
+- **2026-09-28**: `cli-core@3.7.0` published as stable under ADR-403's leaf versioning policy. The external cold-cache validation above is still outstanding.

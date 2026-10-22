@@ -1,0 +1,149 @@
+{
+  "affordances": {
+    "processRun": true,
+    "promptFill": true
+  },
+  "collisions": [
+    {
+      "builtin": false,
+      "name": "ruflo",
+      "repoCommand": true,
+      "verdict": "taken"
+    },
+    {
+      "builtin": false,
+      "name": "ruflo-workbench",
+      "repoCommand": false,
+      "verdict": "free"
+    },
+    {
+      "builtin": false,
+      "name": "ruflo-console",
+      "repoCommand": true,
+      "verdict": "taken"
+    }
+  ],
+  "engine": {
+    "binarySha256": "3920489a5109cff5786a1a392c25277408ff22bc796d5edb9c16a60e5a1718f0",
+    "executable": "/home/ruvultra/.local/share/claude/versions/2.1.287",
+    "version": "2.1.287 (Claude Code)"
+  },
+  "limits": [
+    "a static validate scan proves an affordance is accepted by the scanner, not that it behaves as expected at runtime",
+    "builtin detection searches the engine binary for name:\"<cmd>\"; absence is evidence, not proof"
+  ],
+  "schemaVersion": 1,
+  "typeGeneration": "none-in-engine-cli",
+  "validations": [
+    {
+      "commandHooks": [
+        "ruflo",
+        "ruflo-console"
+      ],
+      "hostCalls": [
+        "clock.after",
+        "clock.every",
+        "command.register",
+        "env.get",
+        "fs.list",
+        "fs.read",
+        "fs.stat",
+        "process.run",
+        "ruflo.lastRoute",
+        "ruflo.segment",
+        "ruflo.snapshot",
+        "session.usage",
+        "settings.read",
+        "store.get",
+        "store.set",
+        "tool.list",
+        "ui.blit",
+        "ui.close",
+        "ui.invalidate",
+        "ui.open",
+        "ui.panes",
+        "ui.resolve"
+      ],
+      "passed": true,
+      "plugin": "ruflo-console"
+    },
+    {
+      "commandHooks": [
+        "ruflo",
+        "ruflo-console",
+        "ruflo-mods"
+      ],
+      "hostCalls": [
+        "command.register",
+        "env.get",
+        "env.set",
+        "fs.exists",
+        "fs.read",
+        "fs.stat",
+        "fs.write",
+        "session.root",
+        "settings.read",
+        "ui.log",
+        "ui.status",
+        "ui.toast"
+      ],
+      "passed": true,
+      "plugin": "ruflo-mods"
+    },
+    {
+      "commandHooks": [],
+      "hostCalls": [
+        "clock.every",
+        "fs.read",
+        "ruflo.segment",
+        "session.root"
+      ],
+      "passed": true,
+      "plugin": "ruflo-ruos"
+    },
+    {
+      "commandHooks": [
+        "ruflo",
+        "ruflo-console",
+        "ruflo-swarm:watch"
+      ],
+      "dynamicCommandHook": true,
+      "hostCalls": [
+        "agent.list",
+        "clock.after",
+        "clock.every",
+        "clock.now",
+        "command.register",
+        "fs.read",
+        "fs.stat",
+        "process.run",
+        "prompt.fill",
+        "session.usage",
+        "store.get",
+        "store.set",
+        "ui.close",
+        "ui.invalidate",
+        "ui.log",
+        "ui.open",
+        "ui.resolve",
+        "ui.toast"
+      ],
+      "passed": true,
+      "plugin": "ruflo-swarm"
+    }
+  ],
+  "vendoredTypes": [
+    {
+      "path": "plugins/ruflo-console/types/index.d.ts",
+      "sha256": "eecfa69c120ee84b99455fa46bf5f75a9ed5345ae33c5404ad6bf8a14aa230f7"
+    },
+    {
+      "path": "plugins/ruflo-mods/types/index.d.ts",
+      "sha256": "91ea45bc0d650c56bd9274299220fd83c47136d47759eeca81ecce33a1c68149"
+    },
+    {
+      "path": "plugins/ruflo-ruos/types/index.d.ts",
+      "sha256": "a1ac16667e4481f6440907a82b2c0f6d7e68f8250c2074db632313bf58289d14"
+    }
+  ]
+}

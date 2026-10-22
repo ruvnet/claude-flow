@@ -1,17 +1,20 @@
 /**
- * AgentDB Backend - Integration with agentdb@2.0.0-alpha.3.4
+ * AgentDB Backend - Integration with agentdb@3.0.0-alpha.20
  *
  * Provides IMemoryBackend implementation using AgentDB with:
- * - HNSW vector search (150x-12,500x faster than brute-force)
- * - Native or WASM backend support with graceful fallback
+ * - Optional native HNSW vector search through the real HNSWIndex export
+ * - Exact cosine fallback when native search is unavailable
  * - Optional dependency handling (works without hnswlib-node)
  * - Seamless integration with HybridBackend
  *
  * @module v3/memory/agentdb-backend
  */
 
+import { withAgentdbLockRecovery, closeWithAgentdbLockRecovery } from './agentdb-lock-guard.js';
 import { EventEmitter } from 'node:events';
+import { AgentDBHnswAdapter } from './agentdb-hnsw-adapter.js';
 import { safeJsonParse } from './json-security.js';
+import { useHostSqliteDriver } from './agentdb-native-driver.js';
 import {
   IMemoryBackend,
   MemoryEntry,
@@ -28,7 +31,6 @@ import {
   generateMemoryId,
   createDefaultEntry,
   CacheStats,
-  HNSWStats,
 } from './types.js';
 import {
   AgentDbRetrievalGuard,
@@ -76,7 +78,7 @@ export interface AgentDBBackendConfig {
   /** Force WASM backend (skip native hnswlib) */
   forceWasm?: boolean;
 
-  /** Vector backend: 'auto', 'ruvector', 'hnswlib' */
+  /** AgentDB controller backend. Native memory search uses hnswlib in auto/hnswlib mode. */
   vectorBackend?: 'auto' | 'ruvector' | 'hnswlib';
 
   /** Vector dimensions (default: 1536) */
@@ -132,11 +134,11 @@ const DEFAULT_CONFIG: Required<
  * AgentDB Backend
  *
  * Integrates AgentDB for vector search with the V3 memory system.
- * Provides 150x-12,500x faster search compared to brute-force approaches.
+ * Native HNSW is an approximate search optimization, not a persistence layer.
  *
  * Features:
  * - HNSW indexing for fast approximate nearest neighbor search
- * - Automatic fallback: native hnswlib → ruvector → WASM
+ * - Exact cosine fallback without native hnswlib, in forceWasm mode, or for filters
  * - Graceful handling of optional native dependencies
  * - Semantic search with filtering
  * - Compatible with HybridBackend for combined SQLite+AgentDB queries
@@ -151,16 +153,14 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   private agentdb: any;
   private initialized: boolean = false;
   private available: boolean = false;
+  private hnsw?: AgentDBHnswAdapter;
   private readonly retrievalGuard: AgentDbRetrievalGuard | null;
 
   // In-memory storage for compatibility
   private entries: Map<string, MemoryEntry> = new Map();
   private namespaceIndex: Map<string, Set<string>> = new Map();
   private keyIndex: Map<string, string> = new Map();
-
-  // O(1) bidirectional lookup for numeric ID <-> string ID (fixes O(n) linear scan)
-  private numericToStringIdMap: Map<number, string> = new Map();
-  private stringToNumericIdMap: Map<string, number> = new Map();
+  private expiringEntryIds: Set<string> = new Set();
 
   // Performance tracking
   private stats = {
@@ -199,14 +199,6 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     try {
       // Initialize AgentDB with config
-      this.agentdb = new AgentDB({
-        dbPath: this.config.dbPath || ':memory:',
-        namespace: this.config.namespace,
-        forceWasm: this.config.forceWasm,
-        vectorBackend: this.config.vectorBackend,
-        vectorDimension: this.config.vectorDimension,
-      });
-
       // Suppress agentdb's noisy console.log during init
       // (EmbeddingService, AgentDB core emit info-level logs we don't need)
       const origLog = console.log;
@@ -219,13 +211,38 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         origLog.apply(console, args);
       };
       try {
-        await this.agentdb.initialize();
+        // A stale `<db>.agentdb.lock` left by a dead writer is cleared (only
+        // when provably stale) and init retried once with a fresh instance.
+        await withAgentdbLockRecovery(this.config.dbPath, async () => {
+          this.agentdb = new AgentDB({
+            dbPath: this.config.dbPath || ':memory:',
+            namespace: this.config.namespace,
+            forceWasm: this.config.forceWasm,
+            vectorBackend: this.config.vectorBackend,
+            vectorDimension: this.config.vectorDimension,
+          });
+          // Keep agentdb's nested better-sqlite3 11.x out of the process (Node 24 abort).
+          useHostSqliteDriver(this.agentdb);
+          await this.agentdb.initialize();
+        });
       } finally {
         console.log = origLog;
       }
 
       // Create memory_entries table if it doesn't exist
       await this.createSchema();
+
+      // agentdb has no getController('hnsw'). Its standalone HNSWIndex must be
+      // built from our own entries; its controller vector backend is unrelated.
+      if (!this.config.forceWasm && this.config.vectorBackend !== 'ruvector' &&
+          HNSWIndex && isHnswlibAvailable && await isHnswlibAvailable()) {
+        this.hnsw = new AgentDBHnswAdapter(HNSWIndex, {
+          dimension: this.config.vectorDimension,
+          M: this.config.hnswM,
+          efConstruction: this.config.hnswEfConstruction,
+          efSearch: this.config.hnswEfSearch,
+        });
+      }
 
       this.initialized = true;
       this.emit('initialized', {
@@ -246,8 +263,21 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   async shutdown(): Promise<void> {
     if (!this.initialized) return;
 
+    this.hnsw?.invalidate();
+    this.hnsw = undefined;
+
     if (this.agentdb) {
-      await this.agentdb.close();
+      // Clears a provably stale lock first; a persist failure is surfaced
+      // (AgentdbLockError), never swallowed.
+      try {
+        await closeWithAgentdbLockRecovery(this.config.dbPath, () => this.agentdb.close());
+      } finally {
+        this.initialized = false;
+        this.agentdb = undefined;
+        this.available = false;
+        this.emit('shutdown');
+      }
+      return;
     }
 
     this.initialized = false;
@@ -258,16 +288,24 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * Store a memory entry
    */
   async store(entry: MemoryEntry): Promise<void> {
+    // Own vectors and index-relevant fields. Callers must not be able to mutate
+    // an indexed snapshot through the original entry or a returned result.
+    entry = this.copyEntry(entry);
     // Generate embedding if needed
     if (entry.content && !entry.embedding && this.config.embeddingGenerator) {
-      entry.embedding = await this.config.embeddingGenerator(entry.content);
+      entry.embedding = new Float32Array(await this.config.embeddingGenerator(entry.content));
     }
 
-    // Store in-memory for quick access
+    // Replacements must not leave old namespace/key or native vector entries.
+    const previous = this.entries.get(entry.id);
+    if (previous) {
+      this.namespaceIndex.get(previous.namespace)?.delete(entry.id);
+      this.keyIndex.delete(`${previous.namespace}:${previous.key}`);
+    }
     this.entries.set(entry.id, entry);
-
-    // Register ID mapping for O(1) reverse lookup
-    this.registerIdMapping(entry.id);
+    if (entry.expiresAt === undefined) this.expiringEntryIds.delete(entry.id);
+    else this.expiringEntryIds.add(entry.id);
+    this.hnsw?.invalidate();
 
     // Update indexes
     this.updateIndexes(entry);
@@ -286,11 +324,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   async get(id: string): Promise<MemoryEntry | null> {
     // Check in-memory first
     const cached = this.entries.get(id);
-    if (cached) return cached;
+    if (cached) return this.copyEntry(cached);
 
     // Query AgentDB if available
     if (this.agentdb) {
-      return this.getFromAgentDB(id);
+      const entry = await this.getFromAgentDB(id);
+      return entry ? this.copyEntry(entry) : null;
     }
 
     return null;
@@ -313,17 +352,19 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     const entry = this.entries.get(id);
     if (!entry) return null;
 
+    this.hnsw?.invalidate();
+
     // Apply updates
     if (update.content !== undefined) {
       entry.content = update.content;
       // Regenerate embedding if needed
       if (this.config.embeddingGenerator) {
-        entry.embedding = await this.config.embeddingGenerator(entry.content);
+        entry.embedding = new Float32Array(await this.config.embeddingGenerator(entry.content));
       }
     }
 
     if (update.tags !== undefined) {
-      entry.tags = update.tags;
+      entry.tags = [...update.tags];
     }
 
     if (update.metadata !== undefined) {
@@ -336,14 +377,16 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     if (update.expiresAt !== undefined) {
       entry.expiresAt = update.expiresAt;
+      this.expiringEntryIds.add(id);
     }
 
     if (update.references !== undefined) {
-      entry.references = update.references;
+      entry.references = [...update.references];
     }
 
     entry.updatedAt = Date.now();
     entry.version++;
+    this.hnsw?.invalidate();
 
     // Update in AgentDB
     if (this.agentdb) {
@@ -351,7 +394,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     }
 
     this.emit('entry:updated', { id });
-    return entry;
+    return this.copyEntry(entry);
   }
 
   /**
@@ -363,7 +406,8 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     // Remove from indexes
     this.entries.delete(id);
-    this.unregisterIdMapping(id); // Clean up reverse lookup map
+    this.expiringEntryIds.delete(id);
+    this.hnsw?.invalidate();
     this.namespaceIndex.get(entry.namespace)?.delete(id);
     const keyIndexKey = `${entry.namespace}:${entry.key}`;
     this.keyIndex.delete(keyIndexKey);
@@ -397,7 +441,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     this.stats.queryCount++;
     this.stats.totalQueryTime += duration;
 
-    return results;
+    return results.map((entry) => this.copyEntry(entry));
   }
 
   /**
@@ -407,6 +451,9 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     embedding: Float32Array,
     options: SearchOptions
   ): Promise<SearchResult[]> {
+    // Keep native validation, search and JS score recomputation on the same
+    // vector even if the caller changes its Float32Array during an await.
+    embedding = new Float32Array(embedding);
     const startTime = performance.now();
 
     if (!this.agentdb) {
@@ -439,6 +486,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * `CLAUDE_FLOW_RETRIEVAL_GUARD_STRICT`).
    */
   private applyRetrievalGuard(results: SearchResult[]): SearchResult[] {
+    results = results.map((result) => ({ ...result, entry: this.copyEntry(result.entry) }));
     if (!this.retrievalGuard || !isRetrievalGuardEnabled() || results.length === 0) {
       return results;
     }
@@ -530,25 +578,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       entriesByType[entry.type]++;
     }
 
-    // Get HNSW stats if available
-    let hnswStats: HNSWStats | undefined;
-    if (this.agentdb && HNSWIndex) {
-      try {
-        const hnsw = this.agentdb.getController('hnsw');
-        if (hnsw) {
-          const stats = hnsw.getStats();
-          hnswStats = {
-            vectorCount: stats.numElements || 0,
-            memoryUsage: 0,
-            avgSearchTime: stats.avgSearchTimeMs || 0,
-            buildTime: stats.lastBuildTime || 0,
-            compressionRatio: 1.0,
-          };
-        }
-      } catch {
-        // HNSW not available
-      }
-    }
+    const hnswStats = this.hnsw?.getStats();
 
     return {
       totalEntries: this.entries.size,
@@ -585,10 +615,9 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
 
     // Check index health
     const indexHealth: ComponentHealth = { status: 'healthy', latency: 0 };
-    if (!this.agentdb) {
+    if (!this.hnsw?.getStats()) {
       indexHealth.status = 'degraded';
-      indexHealth.message = 'HNSW index not available';
-      recommendations.push('Install agentdb for 150x-12,500x faster vector search');
+      indexHealth.message = 'Native HNSW index is not built; exact cosine fallback is available';
     }
 
     // Check cache health
@@ -615,6 +644,16 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
   }
 
   // ===== Private Methods =====
+
+  private copyEntry(entry: MemoryEntry): MemoryEntry {
+    return {
+      ...entry,
+      embedding: entry.embedding ? new Float32Array(entry.embedding) : undefined,
+      tags: [...entry.tags],
+      metadata: { ...entry.metadata },
+      references: [...entry.references],
+    };
+  }
 
   /**
    * Create database schema
@@ -724,19 +763,6 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       // AgentDB storage failed - entry is already in-memory
     }
 
-    // Add to vector index if HNSW is available
-    if (entry.embedding && HNSWIndex) {
-      try {
-        const hnsw = this.agentdb.getController('hnsw');
-        if (hnsw) {
-          // Convert string ID to number for HNSW (use hash)
-          const numericId = this.stringIdToNumeric(entry.id);
-          hnsw.addVector(numericId, entry.embedding);
-        }
-      } catch {
-        // HNSW not available
-      }
-    }
   }
 
   /**
@@ -827,39 +853,27 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     embedding: Float32Array,
     options: SearchOptions
   ): Promise<SearchResult[]> {
-    if (!this.agentdb || !HNSWIndex) {
-      return [];
-    }
-
-    try {
-      const hnsw = this.agentdb.getController('hnsw');
-      if (!hnsw) {
-        return this.bruteForceSearch(embedding, options);
-      }
-
-      const results = await hnsw.search(embedding, options.k, {
-        threshold: options.threshold,
-      });
-
-      const searchResults: SearchResult[] = [];
-
-      for (const result of results) {
-        const id = this.numericIdToString(result.id);
-        const entry = await this.get(id);
-        if (!entry) continue;
-
-        searchResults.push({
-          entry,
-          score: result.similarity,
-          distance: result.distance,
-        });
-      }
-
-      return searchResults;
-    } catch (error) {
-      console.error('HNSW search failed:', error);
+    // Post-filtering native top-k can hide eligible neighbors. Keep filtered
+    // searches exact, and do not pass user filters to HNSWIndex's SQL builder.
+    if (!this.hnsw || this.hasSearchFilters(options.filters)) {
       return this.bruteForceSearch(embedding, options);
     }
+    const ids = await this.hnsw.search(
+      () => Array.from(this.entries.values()), embedding, options.k, options.ef,
+    );
+    if (!ids) return this.bruteForceSearch(embedding, options);
+
+    // Preserve our cosine score/threshold contract (including zero vectors)
+    // instead of exposing native floating-point rounding as a different score.
+    const results: SearchResult[] = [];
+    for (const id of ids) {
+      const entry = this.entries.get(id);
+      if (!entry?.embedding) continue;
+      const score = this.cosineSimilarity(embedding, entry.embedding);
+      if (options.threshold !== undefined && score < options.threshold) continue;
+      results.push({ entry, score, distance: 1 - score });
+    }
+    return results.sort((a, b) => b.score - a.score);
   }
 
   /**
@@ -872,12 +886,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     const results: SearchResult[] = [];
 
     for (const entry of this.entries.values()) {
-      if (!entry.embedding) continue;
+      if (!entry.embedding || !this.matchesFilters(entry, options.filters)) continue;
 
       const score = this.cosineSimilarity(embedding, entry.embedding);
       const distance = 1 - score;
 
-      if (options.threshold && score < options.threshold) continue;
+      if (options.threshold !== undefined && score < options.threshold) continue;
 
       results.push({ entry, score, distance });
     }
@@ -979,91 +993,45 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     };
   }
 
-  /**
-   * Convert string ID to numeric for HNSW
-   */
-  private stringIdToNumeric(id: string): number {
-    // Check reverse map first — if this ID was collision-probed, the map has the actual numeric ID
-    const mapped = this.stringToNumericIdMap.get(id);
-    if (mapped !== undefined) return mapped;
+  private hasSearchFilters(filters?: MemoryQuery): boolean {
+    if (!filters) return false;
+    // MemoryQuery excludes expired entries by default. Time can change
+    // eligibility without a write, so keep TTL-bearing semantic queries exact.
+    // Track presence on writes rather than scanning every native read.
+    if (!filters.includeExpired && this.expiringEntryIds.size > 0) return true;
+    // Semantic queries carry type/content/embedding/limit/threshold even when
+    // there are no filtering constraints. Do not disable native search for them.
+    return [
+      filters.namespace, filters.key, filters.keyPrefix, filters.memoryType,
+      filters.accessLevel, filters.ownerId, filters.createdAfter, filters.createdBefore,
+      filters.updatedAfter, filters.updatedBefore, filters.includeExpired,
+    ].some((value) => value !== undefined) ||
+      !!filters.tags?.length || !!(filters.metadata && Object.keys(filters.metadata).length);
+  }
 
-    // HIGH-05: Dual hash (djb2 + sdbm) for 53-bit space, ~94M entries before collision
-    return this.hashStringId(id);
+  /** Apply semantic-search filters before selecting top-k, not after. */
+  private matchesFilters(entry: MemoryEntry, filters?: MemoryQuery): boolean {
+    if (!filters) return true;
+    if (filters.namespace !== undefined && entry.namespace !== filters.namespace) return false;
+    if (filters.key !== undefined && entry.key !== filters.key) return false;
+    if (filters.keyPrefix !== undefined && !entry.key.startsWith(filters.keyPrefix)) return false;
+    if (filters.tags?.some((tag) => !entry.tags.includes(tag))) return false;
+    if (filters.memoryType !== undefined && entry.type !== filters.memoryType) return false;
+    if (filters.accessLevel !== undefined && entry.accessLevel !== filters.accessLevel) return false;
+    if (filters.ownerId !== undefined && entry.ownerId !== filters.ownerId) return false;
+    if (filters.createdAfter !== undefined && entry.createdAt <= filters.createdAfter) return false;
+    if (filters.createdBefore !== undefined && entry.createdAt >= filters.createdBefore) return false;
+    if (filters.updatedAfter !== undefined && entry.updatedAt <= filters.updatedAfter) return false;
+    if (filters.updatedBefore !== undefined && entry.updatedAt >= filters.updatedBefore) return false;
+    if (!filters.includeExpired && entry.expiresAt !== undefined && entry.expiresAt <= Date.now()) return false;
+    if (filters.metadata && Object.entries(filters.metadata).some(
+      ([key, value]) => entry.metadata[key] !== value,
+    )) return false;
+    return true;
   }
 
   /**
-   * Pure hash function for string ID (no map lookup).
-   * Used by registerIdMapping for initial hash before collision probing.
-   */
-  private hashStringId(id: string): number {
-    // Hash A: djb2
-    let hashA = 5381;
-    for (let i = 0; i < id.length; i++) {
-      hashA = ((hashA << 5) + hashA + id.charCodeAt(i)) | 0;
-    }
-
-    // Hash B: sdbm (independent seed/algorithm)
-    let hashB = 0;
-    for (let i = 0; i < id.length; i++) {
-      hashB = id.charCodeAt(i) + ((hashB << 6) + (hashB << 16) - hashB) | 0;
-    }
-
-    // Combine into a 53-bit safe integer:
-    // Use 26 bits from hashA and 27 bits from hashB
-    const upper = (Math.abs(hashA) & 0x3FFFFFF); // 26 bits
-    const lower = (Math.abs(hashB) & 0x7FFFFFF); // 27 bits
-    return upper * 0x8000000 + lower;
-  }
-
-  /**
-   * Convert numeric ID back to string using O(1) reverse lookup
-   * PERFORMANCE FIX: Uses pre-built reverse map instead of O(n) linear scan
-   */
-  private numericIdToString(numericId: number): string {
-    // Use O(1) reverse lookup map
-    const stringId = this.numericToStringIdMap.get(numericId);
-    if (stringId) {
-      return stringId;
-    }
-    // Fallback for unmapped IDs
-    return String(numericId);
-  }
-
-  /**
-   * Register string ID in reverse lookup map
-   * Called when storing entries to maintain bidirectional mapping
-   */
-  private registerIdMapping(stringId: string): void {
-    const numericId = this.hashStringId(stringId);
-    const existing = this.numericToStringIdMap.get(numericId);
-    if (existing && existing !== stringId) {
-      // HIGH-05: Collision detected — use linear probing fallback
-      console.warn(`[HNSW] Hash collision detected: "${stringId}" collides with "${existing}" (numeric: ${numericId})`);
-      let fallbackId = numericId + 1;
-      while (this.numericToStringIdMap.has(fallbackId)) {
-        fallbackId++;
-      }
-      this.numericToStringIdMap.set(fallbackId, stringId);
-      this.stringToNumericIdMap.set(stringId, fallbackId);
-      return;
-    }
-    this.numericToStringIdMap.set(numericId, stringId);
-    this.stringToNumericIdMap.set(stringId, numericId);
-  }
-
-  /**
-   * Unregister string ID from reverse lookup map
-   * Called when deleting entries
-   */
-  private unregisterIdMapping(stringId: string): void {
-    // Use reverse map for correct numeric ID (may differ from hash due to collision fallback)
-    const numericId = this.stringToNumericIdMap.get(stringId) ?? this.stringIdToNumeric(stringId);
-    this.numericToStringIdMap.delete(numericId);
-    this.stringToNumericIdMap.delete(stringId);
-  }
-
-  /**
-   * Cosine similarity (returns value in range [0, 1] where 1 = identical)
+   * Cosine similarity (returns value in range [-1, 1] where 1 = identical)
    */
   private cosineSimilarity(a: Float32Array, b: Float32Array): number {
     let dotProduct = 0;

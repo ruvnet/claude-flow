@@ -37,16 +37,16 @@ pending → canary → rolling → complete
 
 ### Tools
 
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot fleet create --name "my-fleet"` — create fleet
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot fleet list` — list all fleets
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot fleet add <fleet-id> <device-id>` — add device
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot fleet remove <fleet-id> <device-id>` — remove device
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot fleet delete <fleet-id>` — delete fleet
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot firmware deploy <fleet-id> --version "2.0.0"` — start rollout
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot firmware advance <rollout-id>` — advance to next stage
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot firmware rollback <rollout-id>` — force rollback
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot firmware status <rollout-id>` — rollout status
-- `npx -y -p @claude-flow/plugin-iot-cognitum@latest cognitum-iot firmware list` — list all rollouts
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot fleet create --name "my-fleet"` — create fleet
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot fleet list` — list all fleets
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot fleet add <fleet-id> <device-id>` — add device
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot fleet remove <fleet-id> <device-id>` — remove device
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot fleet delete <fleet-id>` — delete fleet
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot firmware deploy <fleet-id> --version "2.0.0"` — start rollout
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot firmware advance <rollout-id>` — advance to next stage
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot firmware rollback <rollout-id>` — force rollback
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot firmware status <rollout-id>` — rollout status
+- `npx -y -p @claude-flow/plugin-iot-cognitum@1.0.0 cognitum-iot firmware list` — list all rollouts
 
 ### Background Workers & Events
 
@@ -62,6 +62,6 @@ pending → canary → rolling → complete
 
 After completing tasks, store successful patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent fleet-manager
 npx @claude-flow/cli@latest memory search --query "TASK_TYPE patterns" --namespace patterns
 ```

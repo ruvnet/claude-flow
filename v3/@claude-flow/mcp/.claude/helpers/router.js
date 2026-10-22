@@ -30,7 +30,7 @@ const AGENT_CAPABILITIES = {
 const TASK_PATTERNS = [
   // Code patterns
   { tokens: ['implement', 'create', 'build', 'add', 'write code', 'refactor', 'debug'], agent: 'coder' },
-  { tokens: ['test', 'tests', 'spec', 'coverage', 'unit test', 'integration test'], agent: 'tester' },
+  { tokens: ['test', 'tests', 'testing', 'spec', 'specs', 'coverage', 'unit test', 'integration test'], agent: 'tester' },
   { tokens: ['review', 'audit', 'check', 'validate', 'security'], agent: 'reviewer' },
   { tokens: ['research', 'find', 'search', 'documentation', 'explore'], agent: 'researcher' },
   { tokens: ['design', 'architect', 'architecture', 'structure', 'plan'], agent: 'architect' },

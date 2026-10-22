@@ -136,15 +136,13 @@ const setCommand: Command = {
       name: 'key',
       short: 'k',
       description: 'Configuration key',
-      type: 'string',
-      required: true
+      type: 'string'
     },
     {
       name: 'value',
       short: 'v',
       description: 'Configuration value',
-      type: 'string',
-      required: true
+      type: 'string'
     }
   ],
   examples: [
@@ -152,8 +150,8 @@ const setCommand: Command = {
     { command: 'claude-flow config set -k memory.backend -v agentdb', description: 'Set memory backend' }
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
-    const key = ctx.flags.key as string || ctx.args[0];
-    const value = ctx.flags.value as string || ctx.args[1];
+    const key = (ctx.flags.key ?? ctx.args[0]) as string | undefined;
+    const value = ctx.flags.value ?? ctx.args[1];
 
     if (!key || value === undefined) {
       output.printError('Both key and value are required');
@@ -161,7 +159,7 @@ const setCommand: Command = {
     }
 
     try {
-      const parsedValue = parseConfigValue(value);
+      const parsedValue = parseConfigValue(String(value));
       configManager.set(ctx.cwd, key, parsedValue);
       output.writeln(`Set ${key} = ${value}`);
       return { success: true };
@@ -321,7 +319,7 @@ const resetCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     try {
-      const configPath = configManager.reset(ctx.cwd);
+      const configPath = configManager.reset(ctx.cwd, ctx.flags.section as string | undefined);
       output.writeln(`Configuration reset to defaults: ${configPath}`);
       return { success: true };
     } catch (err: unknown) {

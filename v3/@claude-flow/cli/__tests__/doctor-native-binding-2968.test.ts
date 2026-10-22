@@ -8,13 +8,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-vi.mock('better-sqlite3', () => ({
-  default: class MissingNativeBinding {
-    constructor() {
-      throw new Error('Could not locate the bindings file. Tried:\n → better_sqlite3.node');
-    }
-  },
-}));
+// Automatic module mocks remain consistent across concurrent dynamic imports;
+// a manual factory can be bypassed while doctor's parallel probes resolve it.
+vi.mock('better-sqlite3');
+import Database from 'better-sqlite3';
 
 import { doctorCommand } from '../src/commands/doctor.js';
 import { _resetMemoryRootCache } from '../src/memory/memory-initializer.js';
@@ -40,6 +37,9 @@ function findCheck(results: HealthCheck[], name: string): HealthCheck | undefine
 
 describe('doctor #2968 — missing better-sqlite3 native binding', () => {
   beforeEach(() => {
+    vi.mocked(Database).mockImplementation(function MissingNativeBinding() {
+      throw new Error('Could not locate the bindings file. Tried:\n → better_sqlite3.node');
+    });
     workdir = mkdtempSync(join(tmpdir(), 'doctor-2968-'));
     process.chdir(workdir);
     mkdirSync(join(workdir, '.swarm'), { recursive: true });
@@ -57,6 +57,10 @@ describe('doctor #2968 — missing better-sqlite3 native binding', () => {
     const result = await runDoctor();
     const check = findCheck((result.data as DoctorData).results, 'Memory Structural Integrity');
 
+    // Every concurrent native probe must observe the same missing-binding fixture.
+    expect(findCheck((result.data as DoctorData).results, 'Memory Persistence Driver')?.message)
+      .toMatch(/native better-sqlite3 binding unavailable/i);
+
     expect(check?.status).toBe('warn');
     expect(check?.message).toMatch(/native binding is unavailable/i);
     expect(check?.message).toMatch(/durable WAL-backed persistence unavailable/i);
@@ -67,6 +71,10 @@ describe('doctor #2968 — missing better-sqlite3 native binding', () => {
   it('warns in `doctor --component memory` instead of returning a fallback pass', async () => {
     const result = await runDoctor('memory');
     const check = findCheck((result.data as DoctorData).results, 'Memory Integrity');
+
+    // Every concurrent native probe must observe the same missing-binding fixture.
+    expect(findCheck((result.data as DoctorData).results, 'Memory Persistence Driver')?.message)
+      .toMatch(/native better-sqlite3 binding unavailable/i);
 
     expect(check?.status).toBe('warn');
     expect(check?.message).toMatch(/native binding is unavailable/i);

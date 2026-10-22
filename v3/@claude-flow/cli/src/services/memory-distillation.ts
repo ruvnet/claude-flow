@@ -28,6 +28,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { distillTrajectoryContent, serialiseDistilled } from '../memory/structured-distill.js';
+import { loadBetterSqlite3 } from '../memory/shared-sqlite.js';
+import { resolveMemoryRoot } from '../memory/memory-root.js';
 
 export type DistillProvenance = 'oracle:test-exec' | 'judge:fable' | 'proxy:structural';
 
@@ -150,8 +152,7 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
 
   let Database: any;
   try {
-    const mod: string = 'better-sqlite3';
-    Database = (await import(mod)).default;
+    Database = await loadBetterSqlite3();
   } catch {
     return emptyReport(dryRun, { skipped: 'better-sqlite3 unavailable' });
   }
@@ -424,7 +425,102 @@ export async function runDistillation(options: DistillOptions): Promise<DistillR
   return report;
 }
 
-/** Where the memory DB lives, for daemon/CLI callers. */
+/**
+ * The two stores the CLI/MCP surface can write:
+ *  - memory.db is the sql.js/CLI store (also used with encryption at rest);
+ *  - agentdb-memory.db is the native AgentDB store the MCP bridge writes to.
+ *
+ * #3446: distillation used to default to memory.db only. In an MCP-only
+ * project that file often has no AgentDB target tables, so the daemon's
+ * consolidate worker skipped every tick while the rows accumulated in the
+ * sibling store. Keep both paths here (same root resolution as backup) so
+ * callers can cover every store without guessing which surface wrote.
+ */
+export function projectMemoryDbPaths(cwd: string = process.cwd()): string[] {
+  // An explicit project DB pin stays a single-store operation, matching
+  // memory-backup's precedence.
+  const override = process.env.CLAUDE_FLOW_DB_PATH;
+  if (override && override.trim().length > 0) return [path.resolve(cwd, override)];
+  const root = resolveMemoryRoot(cwd);
+  return [path.join(root, 'memory.db'), path.join(root, 'agentdb-memory.db')];
+}
+
+/** Where the primary memory DB lives, for callers that still need one path. */
 export function defaultMemoryDbPath(cwd: string = process.cwd()): string {
-  return path.join(cwd, '.swarm', 'memory.db');
+  return projectMemoryDbPaths(cwd)[0];
+}
+
+export interface StoreDistillResult {
+  dbPath: string;
+  report: DistillReport;
+}
+
+export interface MultiStoreDistillResult {
+  stores: StoreDistillResult[];
+  report: DistillReport;
+}
+
+/**
+ * Merge per-store reports without hiding a store's outcome. A run over both
+ * stores is only `skipped` when every store skipped; if one store distilled
+ * and the other had no schema/DB, the successful counts remain authoritative
+ * and the per-store skip stays available in `stores`.
+ */
+export function aggregateDistillReports(
+  stores: StoreDistillResult[],
+  dryRun = false,
+): DistillReport {
+  const report = emptyReport(dryRun);
+  const skipped: string[] = [];
+  for (const { report: part } of stores) {
+    report.processed += part.processed;
+    report.episodes += part.episodes;
+    report.episodeEmbeddings += part.episodeEmbeddings;
+    report.patterns += part.patterns;
+    report.patternEmbeddings += part.patternEmbeddings;
+    report.causalEdges += part.causalEdges;
+    report.promoted += part.promoted;
+    report.spendUsd += part.spendUsd;
+    report.namespaces = [...new Set([...report.namespaces, ...part.namespaces])];
+    for (const [tier, count] of Object.entries(part.byProvenance)) {
+      report.byProvenance[tier] = (report.byProvenance[tier] ?? 0) + count;
+    }
+    if (part.corrupt) report.corrupt = true;
+    if (part.skipped) skipped.push(part.skipped);
+  }
+  if (stores.length > 0 && stores.every(store => store.report.skipped)) {
+    report.skipped = [...new Set(skipped)].join('; ');
+  }
+  return report;
+}
+
+/**
+ * Run one distillation pass against each provided store.
+ *
+ * `runner` is injectable so callers/tests can exercise the multi-store
+ * orchestration without a native SQLite build; the default is the real
+ * service. A runner failure is converted to a per-store skip so one bad store
+ * cannot prevent the other from being distilled.
+ */
+export async function runDistillationForStores(
+  dbPaths: string[],
+  options: Omit<DistillOptions, 'dbPath'> = {},
+  runner: (options: DistillOptions) => Promise<DistillReport> = runDistillation,
+): Promise<MultiStoreDistillResult> {
+  const stores: StoreDistillResult[] = [];
+  for (const dbPath of [...new Set(dbPaths.map(p => path.resolve(p)))]) {
+    let report: DistillReport;
+    try {
+      report = await runner({ ...options, dbPath });
+    } catch (error) {
+      report = emptyReport(options.dryRun === true, {
+        skipped: `error: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
+    stores.push({ dbPath, report });
+  }
+  if (stores.length === 0) {
+    return { stores, report: emptyReport(options.dryRun === true, { skipped: 'no-db' }) };
+  }
+  return { stores, report: aggregateDistillReports(stores, options.dryRun === true) };
 }

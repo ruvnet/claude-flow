@@ -39,8 +39,8 @@ export interface PathValidatorConfig {
   blockedExtensions?: string[];
 
   /**
-   * Blocked file names.
-   * Files matching these names are rejected.
+   * Blocked file or directory names.
+   * Matching components beneath an allowed prefix are rejected.
    */
   blockedNames?: string[];
 
@@ -423,8 +423,10 @@ export class PathValidator {
 
     // Check blocked file names
     const basename = path.basename(resolvedPath);
-    if (this.config.blockedNames.includes(basename)) {
-      errors.push(`File name "${basename}" is blocked`);
+    const blockedPart = (relativePath || basename).split(path.sep)
+      .find(part => this.config.blockedNames.includes(part));
+    if (blockedPart) {
+      errors.push(`File name "${blockedPart}" is blocked`);
     }
 
     // Check blocked extensions
@@ -552,13 +554,23 @@ export class PathValidator {
     }
 
     const basename = path.basename(resolvedPath);
-    if (this.config.blockedNames.includes(basename)) {
-      errors.push(`File name "${basename}" is blocked`);
+    const blockedPart = (relativePath || basename).split(path.sep)
+      .find(part => this.config.blockedNames.includes(part));
+    if (blockedPart) {
+      errors.push(`File name "${blockedPart}" is blocked`);
     }
 
     const ext = path.extname(resolvedPath).toLowerCase();
     if (this.config.blockedExtensions.includes(ext)) {
       errors.push(`File extension "${ext}" is blocked`);
+    }
+
+    const fullname = basename.toLowerCase();
+    for (const blockedExt of this.config.blockedExtensions) {
+      if (fullname.endsWith(blockedExt)) {
+        errors.push(`File extension "${blockedExt}" is blocked`);
+        break;
+      }
     }
 
     return {

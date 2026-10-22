@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { CodexWorktreeCoordinator } from '../src/worktrees/index.js';
@@ -59,5 +59,20 @@ describe('CodexWorktreeCoordinator', () => {
     git(record.assignments[0]!.path, 'add', 'uncommitted.txt');
     git(record.assignments[0]!.path, 'commit', '-m', 'preserve');
     expect(coordinator.cleanup('run-3')).toEqual({ removed: ['coder'], retained: [] });
+  });
+
+  it.runIf(process.platform !== 'win32')('does not execute repository core.fsmonitor while checking dirtiness', () => {
+    const root = repo();
+    const sentinel = join(root, '..', 'worktree-fsmonitor-sentinel');
+    const payload = join(root, '..', 'worktree-fsmonitor-payload.sh');
+    writeFileSync(payload, `#!/bin/sh\nprintf triggered > ${JSON.stringify(sentinel)}\nexit 0\n`);
+    chmodSync(payload, 0o700);
+    git(root, 'config', 'core.fsmonitor', payload);
+
+    const coordinator = new CodexWorktreeCoordinator(root);
+    const record = coordinator.prepare('run-fsmonitor', [{ id: 'coder', readOnly: true }]);
+    expect(record.assignments).toHaveLength(1);
+    expect(existsSync(sentinel)).toBe(false);
+    expect(coordinator.cleanup('run-fsmonitor')).toEqual({ removed: ['coder'], retained: [] });
   });
 });

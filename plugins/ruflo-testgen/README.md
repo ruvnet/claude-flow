@@ -72,3 +72,14 @@ bash plugins/ruflo-testgen/scripts/smoke.sh
 - `ruflo-sparc` — Refinement-phase canonical handoff
 - `ruflo-jujutsu` — diff-aware refactor companion in the Refinement gate
 - `ruflo-agentdb` — namespace convention owner
+
+## As a mod
+
+This plugin also loads as a function-hook mod (ADR-445 pattern, `hooks/hooks.json` → `register.ts`). No network, no process spawn, no model call.
+
+- **Guard (default on, tighten-only).** It counts the `hooks_worker-dispatch` and coverage calls made this session. It is observe-only: testgen has no harmful input to guard, so it never denies and has nothing to configure.
+- **Status file.** `.claude-flow/testgen-mod/status.json` (`{version: 1, updatedMs, guard, checked, blocked, seen}`), written at session start and when a counter changes.
+- **`/testgen-mod`** answers locally: `status`, `workers`. (The plugin's own commands are prompt commands, which a hook cannot answer, so the mod has its own name.)
+- **Options.** None.
+
+Test it: `claude plugin validate plugins/ruflo-testgen`, `claude plugin test plugins/ruflo-testgen`, `bash plugins/ruflo-testgen/scripts/smoke.sh`.

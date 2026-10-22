@@ -170,6 +170,9 @@ export async function installProxy(opts: InstallOptions): Promise<InstallResult>
     const tmp = `${finalPath}.tmp`;
     fs.copyFileSync(extractedBinaryPath, tmp);
     fs.chmodSync(tmp, 0o755);
+    // The activation transaction has already stopped and backed up the old
+    // daemon. Windows rename does not replace an existing executable.
+    fs.rmSync(finalPath, { force: true });
     fs.renameSync(tmp, finalPath);
 
     const liveSha = sha256Hex(fs.readFileSync(finalPath));

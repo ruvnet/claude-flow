@@ -24,6 +24,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   renameSync,
   unlinkSync,
   writeSync,
@@ -35,6 +36,7 @@ import {
   getKey,
   isEncryptedBlob,
   isEncryptionEnabled,
+  MAGIC,
 } from './encryption/vault.js';
 
 /**
@@ -164,6 +166,55 @@ export function writeFileRestricted(
 }
 
 /**
+ * The at-rest format of an existing database file: `true` = RFE1-encrypted,
+ * `false` = plaintext, `null` = missing or unreadable (nothing to preserve).
+ * Reads four bytes only.
+ */
+export function existingFileIsEncrypted(path: string): boolean | null {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, 'r');
+    const head = Buffer.alloc(4);
+    const n = readSync(fd, head, 0, 4, 0);
+    if (n < 4) return null;
+    return head.equals(MAGIC);
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) {
+      try { closeSync(fd); } catch { /* best effort */ }
+    }
+  }
+}
+
+/**
+ * Write a whole-file database image back in the format it was read in (#4057).
+ *
+ * A read-modify-write of a database image (sql.js loads the file, mutates it,
+ * exports it) must not change what the file IS. With encryption at rest on, a
+ * plain `{ encrypt: true }` write turned a plaintext native SQLite store into
+ * an RFE1 blob that the native bridge and every SQLite reader then rejected,
+ * while the command reported success. And the reverse, a plain
+ * `writeFileAtomic` of a decrypted image, silently downgraded an encrypted
+ * store to plaintext.
+ *
+ *   existing file RFE1      -> RFE1 (encrypted)
+ *   existing file plaintext -> plaintext
+ *   no existing file        -> `encrypt` (default true: the env gate decides)
+ *   `encrypt: false`        -> plaintext, always (explicit caller choice)
+ */
+export function writeDbImagePreservingFormat(
+  path: string,
+  data: Uint8Array | Buffer,
+  opts: { encrypt?: boolean } = {},
+): void {
+  const requested = opts.encrypt ?? true;
+  const existing = existingFileIsEncrypted(path);
+  const encrypt = requested === false ? false : (existing ?? requested);
+  writeFileRestricted(path, Buffer.isBuffer(data) ? data : Buffer.from(data), { encrypt });
+}
+
+/**
  * Read a file and transparently decrypt if it carries the RFE1 magic.
  *
  * Returns a string when the caller asks for one (default utf-8). Returns
@@ -193,7 +244,9 @@ export function readFileMaybeEncrypted(
   const raw = readFileSync(path);
   let plain: Buffer;
   if (isEncryptedBlob(raw)) {
-    plain = decryptBuffer(raw, getKey());
+    // 'decrypt': the blob on disk is RFE1-encrypted but the enable flag may
+    // be unset (e.g. store restored from another machine) — see #3212.
+    plain = decryptBuffer(raw, getKey('decrypt'));
   } else {
     plain = raw;
   }

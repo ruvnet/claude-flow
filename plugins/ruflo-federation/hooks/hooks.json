@@ -1,0 +1,4 @@
+{
+  "description": "Federation as a mod: a guard that keeps secrets and obvious PII out of federation publishes and sends, /federation-mod, and a status file.",
+  "modules": ["./register.ts"]
+}
