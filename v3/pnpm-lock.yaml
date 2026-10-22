@@ -198,6 +198,9 @@ importers:
       sql.js:
         specifier: ^1.13.0
         version: 1.14.1
+      typescript:
+        specifier: ^5.3.0
+        version: 5.9.3
       ws:
         specifier: ^8.21.0
         version: 8.21.1
@@ -211,6 +214,9 @@ importers:
       '@agntcy/slim-bindings':
         specifier: 2.1.1
         version: 2.1.1
+      '@claude-flow/aidefence':
+        specifier: 3.0.3
+        version: 3.0.3(agentdb@3.0.0-alpha.20)
       '@claude-flow/memory':
         specifier: 3.0.9
         version: link:../memory
@@ -248,9 +254,6 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
-      typescript:
-        specifier: ^5.3.0
-        version: 5.9.3
       vitest:
         specifier: '>=4.1.0'
         version: 4.1.8(@opentelemetry/api@1.9.1)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.9)(vite@7.3.0)
@@ -954,6 +957,20 @@ packages:
   /@borewit/text-codec@0.2.1:
     resolution: {integrity: sha512-k7vvKPbf7J2fZ5klGRD9AeKfUvojuZIQ3BT5u7Jfv+puwXkUBUT5PVyMDfJZpy30CBDXGMgw7fguK/lpOMBvgw==}
     requiresBuild: true
+
+  /@claude-flow/aidefence@3.0.3(agentdb@3.0.0-alpha.20):
+    resolution: {integrity: sha512-KP2kgopV9EeicXtIhxhjZJaALg5arqf8h9fPpFDACBfyM8gI7s+zk6TDoL9VWC9eHWtRB/a/cBnq80rjA79ihA==}
+    engines: {node: '>=18.0.0'}
+    requiresBuild: true
+    peerDependencies:
+      agentdb: '>=2.0.0-alpha.1'
+    peerDependenciesMeta:
+      agentdb:
+        optional: true
+    dependencies:
+      agentdb: 3.0.0-alpha.20(@types/node@20.19.27)(zod@3.25.76)
+    dev: false
+    optional: true
 
   /@cognitum-one/sdk@0.2.1(multicast-dns@7.2.5):
     resolution: {integrity: sha512-ZIYKq6Tqc7zcDQRSrxphm0Uji497Mf1bi7azn2aTM4F0k+IEdPpTmAngGVaXX/hR7DYhOQ5gkUCja0DiOJLOJw==}
