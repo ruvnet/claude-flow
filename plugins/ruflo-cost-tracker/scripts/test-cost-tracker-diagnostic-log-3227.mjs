@@ -43,6 +43,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { encodeProjectPath } from './_encode-project-path.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const TRACK_SCRIPT = join(HERE, 'track.mjs');
@@ -64,8 +65,6 @@ const write = (file, body, mode) => {
 
 // macOS tmpdir() is /var/… while resolved paths come back as /private/var/…
 const TMP = realpathSync(mkdtempSync(join(tmpdir(), 'ruflo-cost-tracker-diag-log-')));
-
-const encodeProjectPath = (cwd) => cwd.replace(/[/\\:]/g, '-');
 
 /** Writes a minimal Stop-hook-sized session jsonl track.mjs can summarize. */
 function seedSession(home, project, sessionId) {

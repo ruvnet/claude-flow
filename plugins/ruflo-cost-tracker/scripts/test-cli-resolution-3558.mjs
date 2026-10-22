@@ -30,6 +30,7 @@ import {
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { encodeProjectPath } from './_encode-project-path.mjs';
 
 const PLUGIN_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -101,7 +102,7 @@ try {
     // A Stop-hook-sized session for track.mjs to persist.
     const PROJECT = join(TMP, 'project');
     mkdirSync(PROJECT);
-    const sessionDir = join(HOME, '.claude', 'projects', PROJECT.replace(/[/\\:]/g, '-'));
+    const sessionDir = join(HOME, '.claude', 'projects', encodeProjectPath(PROJECT));
     write(join(sessionDir, 'sess-tbd.jsonl'), [
       { sessionId: 'sess-tbd', cwd: PROJECT, timestamp: '2026-09-28T16:20:00.000Z', type: 'user' },
       { sessionId: 'sess-tbd', cwd: PROJECT, timestamp: '2026-09-28T16:20:05.000Z', type: 'assistant',
