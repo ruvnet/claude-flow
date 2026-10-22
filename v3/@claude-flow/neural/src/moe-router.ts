@@ -350,6 +350,16 @@ export class MoERouter {
   // in the same statistics block as routingCounts/totalRoutings, so it uses
   // the identical "before this call" timing as `fraction` in
   // computeLoadBalanceLoss() -- see that method for why this matters).
+  //
+  // KNOWN LIMITATION (adversarial critique, 2026-10-22): this is a plain
+  // running sum, not a numerically-stabilized running mean (e.g. Welford's).
+  // At very large totalRoutings (roughly >=1e6, once per-call increments of
+  // ~0-1 fall below the accumulator's float32 ULP), small contributions get
+  // rounded away, biasing avgProb low in computeLoadBalanceLoss() for very
+  // long-lived persisted routers. Only the diagnostic loadBalanceLoss value
+  // is affected -- updateExpertWeights() never reads probSums/avgProb, so
+  // training is unaffected. Not fixed here; flag for a future night if a
+  // long-lived-router deployment is observed to hit this range.
   private probSums: Float32Array = new Float32Array(NUM_EXPERTS);
 
   constructor(config: Partial<MoERouterConfig> = {}) {
