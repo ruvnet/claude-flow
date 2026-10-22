@@ -26,10 +26,10 @@
  */
 
 import { describe, it, expect, afterEach } from 'vitest';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { MoERouter, INPUT_DIM, NUM_EXPERTS } from '../src/moe-router.js';
+import { MoERouter, INPUT_DIM, NUM_EXPERTS, EXPERT_NAMES } from '../src/moe-router.js';
 
 // Fixed, deterministic embedding — small uniform magnitude keeps initial
 // logits near zero (softmax near-uniform), which keeps the discriminating
@@ -226,5 +226,143 @@ describe('MoERouter load-balance gradient wiring', () => {
     const after = router.route(input);
 
     expect(after.allScores[dominantExpert]).toBeLessThan(probBefore);
+  });
+
+  describe('computeLoadBalanceLoss() P_i averaging (2026-10-22 dream cycle)', () => {
+    // Switch-Transformer-style L_balance = N * sum(f_i * P_i) requires f_i and
+    // P_i to be averaged over the SAME historical window. f_i (`fraction`)
+    // always was a cumulative running average (routingCounts/totalRoutings).
+    // Pre-fix, P_i read `this.probs[i]` -- the single most-recent call's
+    // instantaneous probability, not an average of anything -- so the
+    // returned loss tracked whichever query happened to route last rather
+    // than real historical skew, contradicting the method's own docstring
+    // ("P_i = average routing probability to expert i").
+    it('loadBalanceLoss reflects the historical-average probability, not just the latest call\'s', () => {
+      const router = new MoERouter({
+        enableNoise: false,
+        topK: 1,
+        loadBalanceCoef: 1.0,
+        autoSaveInterval: 0,
+      });
+
+      // Warm up on a fixed input with weights unchanged (no updateExpertWeights
+      // calls anywhere in this test) -- probsA is identical and stable across
+      // all 5 of these calls.
+      const inputA = fixedEmbedding();
+      let lastA = router.route(inputA);
+      for (let i = 0; i < 4; i++) {
+        lastA = router.route(inputA);
+      }
+      const probsA = Array.from(lastA.allScores);
+      const balanceAfterA = router.getLoadBalance();
+      const fractions = Array.from({ length: NUM_EXPERTS }, (_, i) =>
+        balanceAfterA.routingCounts[EXPERT_NAMES[i]] / balanceAfterA.totalRoutings
+      );
+
+      // One call on a deliberately very different input (large-magnitude,
+      // opposite-sign embedding) -- regardless of the random Xavier init,
+      // this produces a materially different softmax distribution (probsB)
+      // from the near-uniform probsA.
+      const inputB = new Float32Array(INPUT_DIM).fill(5.0);
+      const callB = router.route(inputB);
+      const probsB = Array.from(callB.allScores);
+
+      // Sanity: the two distributions really do differ (otherwise this test
+      // can't discriminate anything).
+      expect(probsB).not.toEqual(probsA);
+
+      const expectedFixedLoss =
+        NUM_EXPERTS * fractions.reduce((sum, f, i) => sum + f * probsA[i], 0);
+      const wouldBeBaselineLoss =
+        NUM_EXPERTS * fractions.reduce((sum, f, i) => sum + f * probsB[i], 0);
+
+      // Fixed behavior: callB's loss uses the *historical average* probability
+      // (= probsA, since all 5 prior calls were identical), not probsB.
+      expect(callB.loadBalanceLoss).toBeCloseTo(expectedFixedLoss, 5);
+      // Confirms this is a real discriminating assertion, not a coincidence:
+      // the (pre-fix) baseline value is measurably different.
+      expect(Math.abs(callB.loadBalanceLoss - wouldBeBaselineLoss)).toBeGreaterThan(1e-3);
+    });
+
+    it('a single call\'s loss stays stable across repeated identical-input routing (no longer reset by weight noise)', () => {
+      // With fixed weights and identical repeated input, the historical
+      // average AND the latest instantaneous probability happen to coincide
+      // by construction -- this is a non-discriminating control proving the
+      // fix doesn't break the simple, already-tested steady-state case.
+      const router = new MoERouter({
+        enableNoise: false,
+        topK: 1,
+        loadBalanceCoef: 1.0,
+        autoSaveInterval: 0,
+      });
+      const input = fixedEmbedding();
+      const losses: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        losses.push(router.route(input).loadBalanceLoss);
+      }
+      // Loss should be monotonically non-decreasing as fraction concentrates
+      // toward the single dominant expert (probsA is constant throughout).
+      for (let i = 1; i < losses.length; i++) {
+        expect(losses[i]).toBeGreaterThanOrEqual(losses[i - 1] - 1e-6);
+      }
+    });
+  });
+
+  describe('probSums persistence (2026-10-22 dream cycle)', () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir && existsSync(tmpDir)) rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('round-trips probSums so avgProb is preserved across save/load, not reset to 0', async () => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'moe-router-probsums-'));
+      const weightsPath = join(tmpDir, 'weights.json');
+
+      const router = new MoERouter({ enableNoise: false, topK: 1, loadBalanceCoef: 1.0, weightsPath, autoSaveInterval: 0 });
+      const input = fixedEmbedding();
+      for (let i = 0; i < 5; i++) router.route(input);
+      const beforeLoss = router.route(input).loadBalanceLoss;
+
+      expect(await router.saveWeights()).toBe(true);
+      const saved = JSON.parse(readFileSync(weightsPath, 'utf-8'));
+      expect(saved.stats.probSums).toHaveLength(NUM_EXPERTS);
+      expect(saved.stats.probSums.some((v: number) => v > 0)).toBe(true);
+
+      // loadWeights() does not restore config (a pre-existing, separate
+      // fact, not touched here) -- loadBalanceCoef must be passed again
+      // explicitly to match the saving router's, same as the pre-existing
+      // "reload preserves the load-balance loss magnitude" test above.
+      const reloaded = new MoERouter({ enableNoise: false, topK: 1, loadBalanceCoef: 1.0, weightsPath, autoSaveInterval: 0 });
+      expect(await reloaded.loadWeights()).toBe(true);
+      const afterLoss = reloaded.route(input).loadBalanceLoss;
+
+      // If probSums didn't round-trip (reset to 0), avgProb would start from
+      // 0 instead of the saved history and this would diverge sharply.
+      expect(afterLoss).toBeCloseTo(beforeLoss, 5);
+    });
+
+    it('loading an old model file with no probSums field degrades gracefully (zero vector, no crash)', async () => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'moe-router-probsums-compat-'));
+      const weightsPath = join(tmpDir, 'weights.json');
+
+      const router = new MoERouter({ enableNoise: false, topK: 1, weightsPath, autoSaveInterval: 0 });
+      for (let i = 0; i < 3; i++) router.route(fixedEmbedding());
+      await router.saveWeights();
+
+      // Simulate a pre-this-fix model file: strip the new field.
+      const raw = JSON.parse(readFileSync(weightsPath, 'utf-8'));
+      delete raw.stats.probSums;
+      writeFileSync(weightsPath, JSON.stringify(raw));
+
+      const reloaded = new MoERouter({ enableNoise: false, topK: 1, weightsPath, autoSaveInterval: 0 });
+      await expect(reloaded.loadWeights()).resolves.toBe(true);
+
+      // No crash, and avgProb reads as the honest "unknown" (0) rather than
+      // a fabricated value -- loss is purely whatever the next call's own
+      // fraction/probSums contribute.
+      const result = reloaded.route(fixedEmbedding());
+      expect(Number.isFinite(result.loadBalanceLoss)).toBe(true);
+    });
   });
 });
