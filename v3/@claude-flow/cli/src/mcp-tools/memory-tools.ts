@@ -38,6 +38,18 @@ interface LegacyMemoryStore {
 const MEMORY_DIR = '.swarm';
 const LEGACY_MEMORY_FILE = 'store.json';
 const LEGACY_MEMORY_DIR = '.claude-flow/memory';
+
+/**
+ * #3196: allow an MCP caller to select the same explicit store the CLI accepts
+ * via `--path`. No path means the existing MCP default is unchanged; this is
+ * deliberately not an implicit `CLAUDE_FLOW_DB_PATH` override because the
+ * native/encrypted CLI store and the AgentDB sibling are separate backends.
+ */
+function resolveDbPathOption(inputDbPath: unknown): string | undefined {
+  return typeof inputDbPath === 'string' && inputDbPath.trim().length > 0
+    ? resolve(inputDbPath)
+    : undefined;
+}
 const MIGRATION_MARKER = '.migrated-to-sqlite';
 
 function getMemoryDir(): string {
@@ -510,6 +522,7 @@ export const memoryTools: MCPTool[] = [
           enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'],
           description: 'ADR-323: who/what produced this value, so shared-namespace retrieval can filter by trust level instead of conflating a user\'s stated claim with an agent\'s own output. Default: "unknown".',
         },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
       required: ['key', 'value'],
     },
@@ -519,7 +532,8 @@ export const memoryTools: MCPTool[] = [
         return { success: false, key: input.key, stored: false, hasEmbedding: false, ...missingKey };
       }
 
-      await ensureInitialized();
+      const dbPath = resolveDbPathOption(input.dbPath);
+      if (!dbPath) await ensureInitialized();
       const { storeEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
@@ -562,6 +576,7 @@ export const memoryTools: MCPTool[] = [
           ttl,
           upsert,
           provenanceType,
+          dbPath,
         });
 
         const duration = performance.now() - startTime;
@@ -599,6 +614,7 @@ export const memoryTools: MCPTool[] = [
       properties: {
         key: { type: 'string', description: 'Memory key' },
         namespace: { type: 'string', description: 'Namespace (default: "default")' },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
       required: ['key'],
     },
@@ -608,7 +624,8 @@ export const memoryTools: MCPTool[] = [
         return { key: input.key, namespace: input.namespace, value: null, found: false, ...missingKey };
       }
 
-      await ensureInitialized();
+      const dbPath = resolveDbPathOption(input.dbPath);
+      if (!dbPath) await ensureInitialized();
       const { getEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
@@ -617,7 +634,7 @@ export const memoryTools: MCPTool[] = [
       validateMemoryInput(key, undefined, undefined, namespace);
 
       try {
-        const result = await getEntry({ key, namespace });
+        const result = await getEntry({ key, namespace, dbPath });
 
         if (result.found && result.entry) {
           // Try to parse JSON value
@@ -676,6 +693,7 @@ export const memoryTools: MCPTool[] = [
           items: { type: 'string', enum: ['user_claim', 'agent_output', 'system_observation', 'tool_result', 'unknown'] },
           description: 'ADR-323: restrict results to these provenance types (e.g. exclude user_claim when fact-checking). Omit for no filtering. Enforced for standard and SmartRetrieval searches.',
         },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
       required: ['query'],
     },
@@ -685,7 +703,8 @@ export const memoryTools: MCPTool[] = [
         return { query: input.query, results: [], total: 0, ...missingQuery };
       }
 
-      await ensureInitialized();
+      const dbPath = resolveDbPathOption(input.dbPath);
+      if (!dbPath) await ensureInitialized();
       const { searchEntries } = await getMemoryFunctions();
 
       const query = input.query as string;
@@ -736,6 +755,7 @@ export const memoryTools: MCPTool[] = [
                 limit: req.limit || limit * 3,
                 threshold: req.threshold ?? threshold,
                 provenanceFilter,
+                dbPath,
               });
               return {
                 results: r.results.map(e => ({
@@ -781,7 +801,7 @@ export const memoryTools: MCPTool[] = [
             });
 
             const smartNearMisses = results.length === 0 && thresholdWasDefault
-              ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+              ? await nearMisses(searchEntries, { query, namespace, provenanceFilter, dbPath })
               : undefined;
 
             return {
@@ -812,6 +832,7 @@ export const memoryTools: MCPTool[] = [
           limit,
           threshold,
           provenanceFilter,
+          dbPath,
         });
 
         if (!result.success) {
@@ -839,7 +860,7 @@ export const memoryTools: MCPTool[] = [
         });
 
         const nearMissInfo = results.length === 0 && thresholdWasDefault
-          ? await nearMisses(searchEntries, { query, namespace, provenanceFilter })
+          ? await nearMisses(searchEntries, { query, namespace, provenanceFilter, dbPath })
           : undefined;
 
         return {
@@ -870,6 +891,7 @@ export const memoryTools: MCPTool[] = [
       properties: {
         key: { type: 'string', description: 'Memory key' },
         namespace: { type: 'string', description: 'Namespace (default: "default")' },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
       required: ['key'],
     },
@@ -879,7 +901,8 @@ export const memoryTools: MCPTool[] = [
         return { success: false, key: input.key, namespace: input.namespace, deleted: false, ...missingKey };
       }
 
-      await ensureInitialized();
+      const dbPath = resolveDbPathOption(input.dbPath);
+      if (!dbPath) await ensureInitialized();
       const { deleteEntry } = await getMemoryFunctions();
 
       const key = input.key as string;
@@ -888,7 +911,7 @@ export const memoryTools: MCPTool[] = [
       validateMemoryInput(key, undefined, undefined, namespace);
 
       try {
-        const result = await deleteEntry({ key, namespace });
+        const result = await deleteEntry({ key, namespace, dbPath });
 
         return {
           success: result.deleted,
@@ -924,10 +947,12 @@ export const memoryTools: MCPTool[] = [
         },
         limit: { type: 'number', description: 'Maximum results (default: 50)' },
         offset: { type: 'number', description: 'Offset for pagination (default: 0)' },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
     },
     handler: async (input) => {
-      await ensureInitialized();
+      const dbPath = resolveDbPathOption(input.dbPath);
+      if (!dbPath) await ensureInitialized();
       const { listEntries } = await getMemoryFunctions();
 
       const namespace = input.namespace as string | undefined;
@@ -945,6 +970,7 @@ export const memoryTools: MCPTool[] = [
           tags,
           limit,
           offset,
+          dbPath,
         });
 
         const entries = result.entries.map(e => ({
@@ -983,14 +1009,14 @@ export const memoryTools: MCPTool[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        dbPath: { type: 'string', description: 'Database file to inspect; omitted uses the MCP store default' },
+        dbPath: { type: 'string', description: 'Explicit SQLite store to read/write; omit to use the MCP default (the native/AgentDB sibling).' },
       },
     },
     handler: async (input) => {
       if (input.dbPath !== undefined && (typeof input.dbPath !== 'string' || !input.dbPath.trim())) {
         return memoryStatsUnavailable('dbPath must be a non-empty string');
       }
-      const dbPath = typeof input.dbPath === 'string' ? resolve(input.dbPath) : undefined;
+      const dbPath = resolveDbPathOption(input.dbPath);
       // An explicit read must not initialize or migrate the unrelated default store.
       if (!dbPath) await ensureInitialized();
       const { listEntries } = await getMemoryFunctions();
