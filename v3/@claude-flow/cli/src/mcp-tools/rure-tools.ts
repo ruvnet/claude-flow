@@ -16,6 +16,7 @@ import { findFeature } from '../rure/find-feature.js';
 import { gateWithAIDefence } from '../rure/aidefence-gate.js';
 import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-parse.js';
 import { parseDotNet } from '../rure/dotnet-parse.js';
+import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
 import type { ModuleAnalysis } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -229,6 +230,59 @@ export const rureTools: MCPTool[] = [
         });
       } catch (err) {
         return fail(`dotnet analysis failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'rure_analyze_evm',
+    description:
+      'Statically inventory EVM contract bytecode (ADR-0005): instruction and JUMPDEST counts, function selectors recognized from the dispatcher (with names for a small well-known table only), counts and offsets of hazardous opcodes (SELFDESTRUCT, DELEGATECALL, CALLCODE, CREATE/CREATE2, ORIGIN, CALL, STATICCALL), embedded addresses, event topics, EIP-1167 minimal-proxy detection, compiler metadata, and embedded strings such as revert reasons (AIDefence-screened). Pass bytecode inline as hex, or a path to a file of hex text or raw bytes. Aligned disassembly only: there is no EVM interpreter, no RPC, and no network. Use when you need the exposed surface and risky capabilities of a contract before deeper review; a hazardous opcode is an inventory fact, not a vulnerability finding, and dispatcher detection can miss unusual layouts.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'evm', 'smart-contract', 'static-analysis'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        bytecode: { type: 'string', description: 'Contract bytecode as hex (0x prefix optional). Provide this or path, not both.' },
+        path: { type: 'string', description: 'Absolute path to a file containing hex text or raw bytecode' },
+        includeDisassembly: { type: 'boolean', description: 'Also return the first 500 instructions (default false)' },
+      },
+    },
+    handler: async (input): Promise<MCPToolResult> => {
+      const hasInline = typeof input.bytecode === 'string' && input.bytecode.length > 0;
+      const hasPath = typeof input.path === 'string' && input.path.length > 0;
+      if (hasInline === hasPath) return fail('provide exactly one of bytecode or path');
+      try {
+        let bytes: Buffer;
+        if (hasInline) {
+          const text = input.bytecode as string;
+          if (text.length > MAX_EVM_BYTES * 2 + 2) return fail(`bytecode exceeds the ${MAX_EVM_BYTES}-byte cap`);
+          const parsed = parseHex(text);
+          if (!parsed.ok) return fail(parsed.error);
+          bytes = parsed.bytes;
+        } else {
+          const v = validatePath(input.path, 'path');
+          if (!v.valid) return fail(v.error!);
+          const st = statSync(v.sanitized);
+          if (!st.isFile()) return fail('path is not a regular file');
+          if (st.size > MAX_EVM_BYTES * 2 + 64) return fail(`file exceeds the ${MAX_EVM_BYTES}-byte bytecode cap`);
+          const raw = readFileSync(v.sanitized);
+          const asText = raw.toString('latin1');
+          if (/^\s*(0x)?[0-9a-fA-F\s]+$/.test(asText)) {
+            const parsed = parseHex(asText.replace(/\s/g, ''));
+            if (!parsed.ok) return fail(parsed.error);
+            bytes = parsed.bytes;
+          } else if (raw.length <= MAX_EVM_BYTES) {
+            bytes = raw;
+          } else {
+            return fail(`file exceeds the ${MAX_EVM_BYTES}-byte bytecode cap`);
+          }
+        }
+        const info = analyzeEvm(bytes, input.includeDisassembly === true);
+        const sc = new Screener();
+        const strings = await sc.screen(info.strings);
+        return ok({ ...info, strings, redactedCount: sc.redacted });
+      } catch (err) {
+        return fail(`evm analysis failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
   },

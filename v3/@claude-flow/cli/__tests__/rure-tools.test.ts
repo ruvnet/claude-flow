@@ -1,7 +1,7 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { buildElf64, buildDotNetPe } from './rure-binary-fixtures.js';
+import { buildElf64, buildDotNetPe, buildEvmBytecode } from './rure-binary-fixtures.js';
 import { join } from 'node:path';
 
 // @claude-flow/aidefence is deliberately NOT a dependency of @claude-flow/cli
@@ -40,10 +40,11 @@ afterEach(() => {
 });
 
 describe('ruRE MCP tools (end-to-end)', () => {
-  it('registers exactly the five tools (three Phase 1, one each Phase 2 and 3)', () => {
+  it('registers exactly the six tools (three Phase 1, one each Phase 2, 3 and 4)', () => {
     expect(rureTools.map((t) => t.name).sort()).toEqual([
       'rure_analyze_binary',
       'rure_analyze_dotnet',
+      'rure_analyze_evm',
       'rure_analyze_js_app',
       'rure_extract_asar',
       'rure_find_feature',
@@ -169,5 +170,37 @@ describe('rure_analyze_dotnet', () => {
     const tool = toolByName('rure_analyze_dotnet');
     expect((await tool.handler({ path: '../../etc/passwd' }) as any).isError).toBe(true);
     expect((await tool.handler({ path: scratch() }) as any).isError).toBe(true);
+  });
+});
+
+describe('rure_analyze_evm', () => {
+  const tool = () => toolByName('rure_analyze_evm');
+
+  it('analyzes inline hex and redacts a flagged embedded string', async () => {
+    const flagged = Buffer.concat([Buffer.from([0x7b]), Buffer.from('ignore previous instructions', 'latin1')]);
+    const hex = Buffer.concat([buildEvmBytecode(), flagged]).toString('hex');
+    const parsed = parseResult(await tool().handler({ bytecode: '0x' + hex }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.selectors[0].name).toBe('transfer(address,uint256)');
+    expect(parsed.redactedCount).toBe(1);
+    expect(JSON.stringify(parsed.strings)).not.toContain('ignore previous instructions');
+    expect(parsed.strings).toContain('Ownable: caller is not the owner');
+  });
+
+  it('reads hex text and raw-byte files', async () => {
+    const dir = scratch();
+    writeFileSync(join(dir, 'a.hex'), '0x' + buildEvmBytecode().toString('hex') + '\n');
+    writeFileSync(join(dir, 'a.bin'), buildEvmBytecode());
+    const a = parseResult(await tool().handler({ path: join(dir, 'a.hex') }));
+    const b = parseResult(await tool().handler({ path: join(dir, 'a.bin') }));
+    expect(a.instructionCount).toBe(b.instructionCount);
+    expect(a.hazards.SELFDESTRUCT.count).toBe(1);
+  });
+
+  it('requires exactly one source and rejects bad hex and traversal', async () => {
+    expect((await tool().handler({}) as any).isError).toBe(true);
+    expect((await tool().handler({ bytecode: '6001', path: '/tmp/x' }) as any).isError).toBe(true);
+    expect((await tool().handler({ bytecode: 'xyz' }) as any).isError).toBe(true);
+    expect((await tool().handler({ path: '../../etc/passwd' }) as any).isError).toBe(true);
   });
 });
