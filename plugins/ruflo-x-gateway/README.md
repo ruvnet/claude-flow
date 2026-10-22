@@ -68,6 +68,21 @@ when the limit is hit the tool returns a structured `github_rate_limited` error 
 - `RUFLO_GITHUB_HOURLY_BUDGET` (default 45 unauthenticated, 1500 with a token) and `RUFLO_GITHUB_IP_HOURLY_CAP` (default 60) — upstream and per-client call caps
 - `RUFLO_NPM_MAINTAINERS` (default `ruvnet`) — npm accounts whose packages `ruv_registry_latest` will report
 
+## Self-hosting a custom federation gateway
+
+`x.ruv.io` is this plugin's default deployment, not the only one it can talk to. Two independent layers are already client-configurable — the Claude plugin directory submission (`.mcp.json`, below) is deliberately pinned to the production endpoint and is the one piece that stays fixed.
+
+**Client side** — the CLI's `x_federation_*` MCP tools (`v3/@claude-flow/cli/src/mcp-tools/x-federation-{tools,join,channels}.ts`) already read these before falling back to the `x.ruv.io`/`relay.ruv.io` defaults, set in the environment Claude Code starts with:
+- `RUFLO_X_GATEWAY_URL` (default `https://x.ruv.io`) — the HTTP registration/admin gateway origin
+- `RUFLO_X_RELAY_WS` (default `wss://relay.ruv.io`) — the Nostr relay WebSocket used for membership checks, channel reads/writes and the swarm feed
+- `RUFLO_X_RELAY_HTTP` (default `https://relay.ruv.io`) — the relay's HTTPS base, used for the same checks over HTTP
+
+Point every `x_federation_*` call at your own deployment by setting all three before starting Claude Code; no plugin file needs editing, and the ruflo-console `x.ruv.io` board picks up the change automatically (its help text under "Use the x.ruv.io board" names these three variables).
+
+**Server side** — deploy your own copy of this gateway (the `## Config (env)` vars above: `RUFLO_RELAY_URL`, `RUFLO_NOSTR_KEY`, `PORT`, etc.) pointed at your own relay, then set the three client-side vars above to that deployment's URLs.
+
+**What stays fixed**: `.mcp.json` (and `directory/.mcp.json`, the Claude plugin directory submission bundle) hardcodes `https://x.ruv.io/claude/mcp` on purpose — `test/claude-directory.test.mjs` guards this, because the directory listing is reviewed and vetted against that one specific production service. If you want Claude Code itself to register a *different* remote `ruflo-federation` HTTP MCP server (not just redirect the CLI's own tool calls), add your own entry under that name in your project or user `.mcp.json`/`claude mcp add` — a user/project-scoped registration takes precedence over the plugin's, with no file edits to the installed plugin.
+
 ## NIP-42 via the proxy
 `wss://x.ruv.io` transparently proxies the relay. The relay verifies the AUTH `relay` tag
 strictly, so sign it with the **canonical relay URL** (see `canonicalRelay` at `GET /`),
