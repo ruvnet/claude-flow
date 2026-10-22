@@ -1,8 +1,20 @@
-import { describe, expect, it, afterEach } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rureTools } from '../src/mcp-tools/rure-tools.js';
+
+// @claude-flow/aidefence is deliberately NOT a dependency of @claude-flow/cli
+// (forbidden heavy optionalDependency, #2561). Mock it so the redaction
+// assertions below are deterministic regardless of what's actually
+// installed (same pattern as rure-aidefence-gate.test.ts).
+vi.mock('@claude-flow/aidefence', () => ({
+  createAIDefence: () => ({
+    quickScan: (text: string) => ({ threat: text.includes('ignore previous instructions'), confidence: text.includes('ignore previous instructions') ? 0.95 : 0 }),
+    hasPII: () => false,
+  }),
+}));
+
+const { rureTools } = await import('../src/mcp-tools/rure-tools.js');
 
 function toolByName(name: string) {
   const t = rureTools.find((t) => t.name === name);
