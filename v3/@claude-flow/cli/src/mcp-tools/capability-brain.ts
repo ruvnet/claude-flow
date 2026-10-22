@@ -531,6 +531,22 @@ export const CAPABILITY_DOMAINS: readonly CapabilityDomainDefinition[] = [
     verifyBeforeUse: ['Check network target policy, authentication, side effects, and runtime provider health.'],
   },
   {
+    id: 'reverse-engineering',
+    name: 'Reverse Engineering (ruRE)',
+    prefixes: ['rure_'],
+    description: 'Static JS/Electron analysis: evidence-sourced module/import/export graphs and Electron process-boundary detection. Parses only, never executes analyzed code; Phase 1 of ADR-0001 — native binary, .NET, EVM and dynamic-instrumentation analysis are future phases.',
+    taskSignals: ['reverse engineer', 'how does this feature work', 'electron app', 'asar', 'decompile', 'static analysis'],
+    commands: [],
+    skills: ['analyze-app'],
+    agents: ['reverse-engineer'],
+    maturity: 'experimental',
+    authority: 'capability-plane',
+    risk: 'reversible',
+    riskFlags: ['read', 'local-write', 'credential-pii'],
+    useWhen: 'Understanding or reimplementing a feature from a local app you are authorized to study; refuses DRM/license-circumvention requests.',
+    verifyBeforeUse: ['Confirm authorization context (own app, licensed target, or research/CTF). Never trust redacted-content markers as absent data — report them as withheld.'],
+  },
+  {
     id: 'github-delivery',
     name: 'GitHub & Delivery',
     prefixes: ['github_', 'pr_', 'release_'],
@@ -681,6 +697,7 @@ const TOOL_OWNERSHIP: ReadonlyArray<{
   { prefixes: ['guidance_'], packageOwner: '@claude-flow/guidance', pluginOwner: 'ruflo-core' },
   { prefixes: ['seraphina_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-core' },
   { prefixes: ['x_federation_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-x-gateway' },
+  { prefixes: ['rure_'], packageOwner: '@claude-flow/cli', pluginOwner: 'ruflo-rure' },
   { prefixes: ['team_'], packageOwner: '@claude-flow/cli' },
 ] as const;
 

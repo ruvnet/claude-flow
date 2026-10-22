@@ -96,10 +96,10 @@
   },
   "devDependencies": {
     "tsx": "^4.19.0",
-    "typescript": "^5.3.0",
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "@electron/asar": "^4.3.1",
     "@claude-flow/cli-core": "3.7.5",
     "@claude-flow/codex": "3.0.5",
     "@claude-flow/mcp": "3.1.1",
@@ -123,6 +123,7 @@
     "inquirer": "^9.2.0",
     "semver": "7.7.3",
     "sql.js": "^1.13.0",
+    "typescript": "^5.3.0",
     "ws": "^8.21.0",
     "yaml": "^2.8.0",
     "zod": "^3.22.0",

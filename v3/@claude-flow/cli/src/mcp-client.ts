@@ -36,6 +36,9 @@ import { performanceTools } from './mcp-tools/performance-tools.js';
 import { githubTools } from './mcp-tools/github-tools.js';
 import { daaTools } from './mcp-tools/daa-tools.js';
 import { coordinationTools } from './mcp-tools/coordination-tools.js';
+// ruRE Phase 1 (plugins/ruflo-rure ADR-0001/0002) — JS/Electron static
+// analysis. Always registered: pure-TS, no native engine dependency.
+import { rureTools } from './mcp-tools/rure-tools.js';
 import { browserTools } from './mcp-tools/browser-tools.js';
 import { browserSessionTools } from './mcp-tools/browser-session-tools.js';
 // ADR-175 — page-agent natural-language intent layer (browser_act). Always
@@ -161,6 +164,7 @@ registerTools([
   ...githubTools,
   ...daaTools,
   ...coordinationTools,
+  ...rureTools,
   ...getBrowserTools(),
   ...getBrowserSessionTools(),
   ...getBrowserIntentTools(),

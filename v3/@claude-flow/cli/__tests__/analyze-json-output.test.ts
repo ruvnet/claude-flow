@@ -29,6 +29,11 @@ describe.skipIf(process.platform === 'win32')('analyze JSON output', () => {
       semver: requireHere.resolve('semver'),
       bcryptjs: requireHere.resolve('bcryptjs'),
       zod: requireHere.resolve('zod'),
+      // ruRE (plugins/ruflo-rure, ADR-0002) — the TypeScript compiler API and
+      // @electron/asar, real `dependencies` of @claude-flow/cli, reachable
+      // transitively from analyzeCommand via the mcp-tools registry.
+      typescript: requireHere.resolve('typescript'),
+      '@electron/asar': requireHere.resolve('@electron/asar'),
       '@claude-flow/cli-core': join(source, 'cli-core/src'),
       '@claude-flow/security': join(source, 'security/src'),
     };
