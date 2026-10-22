@@ -129,7 +129,7 @@
     "@claude-flow/memory": "3.0.8"
   },
   "optionalDependencies": {
-    "@agntcy/slim-bindings": "2.0.0-alpha.5",
+    "@agntcy/slim-bindings": "2.1.1",
     "@claude-flow/memory": "3.0.8",
     "@metaharness/darwin": "~0.12.0",
     "@metaharness/flywheel": "~0.1.10",
