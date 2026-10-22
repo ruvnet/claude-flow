@@ -113,8 +113,11 @@ done
 
 # 12. The 5 browser_session_* lifecycle tools are present in the CLI source
 step "5 browser_session_* lifecycle tools registered in mcp-tools"
-TOOLS_FILE="$ROOT/../../v3/@claude-flow/cli/src/mcp-tools/browser-session-tools.ts"
-if [[ ! -f "$TOOLS_FILE" ]]; then
+CLI_SRC="$ROOT/../../v3/@claude-flow/cli/src"
+TOOLS_FILE="$CLI_SRC/mcp-tools/browser-session-tools.ts"
+if [[ ! -d "$CLI_SRC" ]]; then
+  printf "SKIP (monorepo CLI source not beside this plugin; lifecycle tools not checked)\n"
+elif [[ ! -f "$TOOLS_FILE" ]]; then
   bad "browser-session-tools.ts not found at $TOOLS_FILE"
 else
   missing=""
@@ -124,7 +127,7 @@ else
   if [[ -n "$missing" ]]; then
     bad "missing tool definitions:$missing"
   else
-    grep -q 'browserSessionTools' "$ROOT/../../v3/@claude-flow/cli/src/mcp-client.ts" \
+    grep -q 'browserSessionTools' "$CLI_SRC/mcp-client.ts" \
       && ok || bad "browserSessionTools not imported in mcp-client.ts"
   fi
 fi
