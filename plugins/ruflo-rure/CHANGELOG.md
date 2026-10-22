@@ -2,6 +2,20 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.4.1 — 2026-10-22
+
+Fixes from an independent security review of 0.1.0-0.4.0. Each finding was reproduced against the real source before fixing, and each fix has a test that fails without it.
+
+- fix: AIDefence gate bypass. `rure_analyze_js_app` computed screened snippet text but returned the raw `imports[].source`, `exports[].name`, boundary `detail` and file paths, so a flagged string reached the output with only a counter incremented. Every attacker-derived string (JS specifiers, names, file paths, ELF section names, .NET runtime version) is now screened, and strings are clipped to 2048 chars before scanning or returning.
+- fix: the gate no longer reports a scanner that throws as clean. Tool results now carry `screened: boolean`; `false` means the scanner was unavailable or failed and the strings are unscreened (still clipped).
+- fix: directory walk followed symlinks (loops and fan-out: a 2-byte file reached 20000 times). It now uses `lstat`, skips symlinks, and enforces a 128 MiB total-byte budget.
+- fix: quadratic regex when sniffing EVM files (a long whitespace run stalled the event loop for seconds). Sniffing is now linear.
+- fix: CPU amplification in ELF dynamic/dynsym and PE import walks (several seconds for a few MB of crafted input). Table walks now share an iteration budget, `entsize` is no longer trusted below the real struct size, and PE section count is capped at the format limit of 96.
+- fix: a garbage ELF `e_entry` demoted the whole file to `unknown`; it is now a warning only. ELF files without section headers now warn that libraries and symbols are unavailable instead of silently returning none.
+- fix: files the JS parser cannot handle (for example pathological nesting) were silently skipped; results now include `skippedFiles`.
+- fix: file reads open once and check size on the same descriptor (no stat-then-read race). `includeStrings` no longer returns strings from files that are not a recognized binary format.
+- chore: not changed. The `.asar` scratch directory is still not deleted after extraction. `validatePath` accepts any absolute path, so a caller can point the tools at any readable file; output is screened and clipped, but this is a read primitive by design.
+
 ## 0.4.0 — 2026-10-22
 
 - feat: Phase 4 per ADR-0005 — `rure_analyze_evm` takes inline hex or a file of hex/raw bytecode and returns an aligned-disassembly inventory: dispatcher function selectors (names only for a small well-known table), hazardous-opcode counts and offsets (`SELFDESTRUCT`, `DELEGATECALL`, `CALLCODE`, `CREATE`/`CREATE2`, `ORIGIN`, `CALL`, `STATICCALL`), embedded `PUSH20` addresses, event topics before `LOG1`-`LOG4`, EIP-1167 minimal-proxy detection, solc/IPFS metadata trailer, and embedded strings such as revert reasons (AIDefence-screened).

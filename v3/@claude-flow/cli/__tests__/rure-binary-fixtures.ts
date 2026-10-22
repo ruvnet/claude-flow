@@ -1,7 +1,8 @@
 /** Synthetic minimal ELF64 / PE32+ / Mach-O64 images for ruRE binary-parse tests. */
 
-export function buildElf64(): Buffer {
-  const shstr = Buffer.from('\0.shstrtab\0.dynstr\0.dynamic\0.dynsym\0', 'latin1');
+export function buildElf64(customSectionName?: string): Buffer {
+  const baseShstr = '\0.shstrtab\0.dynstr\0.dynamic\0.dynsym\0';
+  const shstr = Buffer.from(baseShstr + (customSectionName ? customSectionName + '\0' : ''), 'latin1');
   const dynstr = Buffer.from('\0libc.so.6\0puts\0exported_fn\0', 'latin1');
   const dynamic = Buffer.alloc(32);
   dynamic.writeBigUInt64LE(1n, 0); // DT_NEEDED
@@ -53,7 +54,7 @@ export function buildElf64(): Buffer {
   sh(1, 1, 3, shstrOff, shstr.length, 0, 0);
   sh(2, 11, 3, dynstrOff, dynstr.length, 0, 0);
   sh(3, 19, 6, dynamicOff, dynamic.length, 2, 16);
-  sh(4, 28, 11, dynsymOff, dynsym.length, 2, 24);
+  sh(4, customSectionName ? baseShstr.length : 28, 11, dynsymOff, dynsym.length, 2, 24);
   return buf;
 }
 

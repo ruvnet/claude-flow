@@ -7,17 +7,17 @@
  * AIDefence gate before being returned to the caller.
  */
 
-import { readFileSync, statSync } from 'node:fs';
+import { openSync, fstatSync, readFileSync, closeSync } from 'node:fs';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validatePath, validateText } from './validate-input.js';
 import { extractAsarWithCaps, DEFAULT_ASAR_LIMITS } from '../rure/extract-asar.js';
 import { analyzeJsApp } from '../rure/analyze-js-app.js';
 import { findFeature } from '../rure/find-feature.js';
-import { gateWithAIDefence } from '../rure/aidefence-gate.js';
+import { gateWithAIDefence, type GatedText } from '../rure/aidefence-gate.js';
 import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-parse.js';
 import { parseDotNet } from '../rure/dotnet-parse.js';
 import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
-import type { ModuleAnalysis } from '../rure/ts-walk.js';
+import type { ModuleAnalysis, Evidence } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
   return { content: [{ type: 'text', text: JSON.stringify({ success: false, error }) }], isError: true };
@@ -27,28 +27,67 @@ function ok(data: Record<string, unknown>): MCPToolResult {
   return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }) }] };
 }
 
-/** Gates every rawSnippet on a module's analysis, dropping snippets in favor of a flagged count. */
-async function gateModule(mod: ModuleAnalysis): Promise<{ module: Omit<ModuleAnalysis, 'rawSnippets'>; redactedCount: number }> {
-  let redactedCount = 0;
-  for (const snippet of mod.rawSnippets) {
-    const gated = await gateWithAIDefence(snippet);
-    if (gated.flagged) redactedCount += 1;
-  }
-  const { rawSnippets, ...rest } = mod;
-  return { module: rest, redactedCount };
-}
-
-/** Screens untrusted extracted text through AIDefence, counting what was redacted. */
+/**
+ * Screens untrusted extracted text through AIDefence. Every attacker-derived string in a
+ * tool result goes through here (paths, names, literals), results are cached per call, and
+ * `screened` reports honestly whether the scanner actually ran on everything.
+ */
 class Screener {
   redacted = 0;
+  unscreened = 0;
+  private cache = new Map<string, GatedText>();
+
+  async one(item: string): Promise<string> {
+    let g = this.cache.get(item);
+    if (!g) {
+      g = await gateWithAIDefence(item);
+      this.cache.set(item, g);
+      if (g.flagged) this.redacted += 1;
+      if (!g.gated && item) this.unscreened += 1;
+    }
+    return g.text;
+  }
+
   async screen(items: string[]): Promise<string[]> {
     const out: string[] = [];
-    for (const item of items) {
-      const g = await gateWithAIDefence(item);
-      if (g.flagged) this.redacted += 1;
-      out.push(g.text);
-    }
+    for (const item of items) out.push(await this.one(item));
     return out;
+  }
+
+  get screened(): boolean {
+    return this.unscreened === 0;
+  }
+}
+
+async function screenEvidence(sc: Screener, e: Evidence): Promise<Evidence> {
+  return { ...e, file: await sc.one(e.file) };
+}
+
+/** Returns a module analysis with every attacker-derived string screened and clipped; raw snippets are dropped. */
+async function screenModule(sc: Screener, mod: ModuleAnalysis): Promise<Omit<ModuleAnalysis, 'rawSnippets'>> {
+  const imports: ModuleAnalysis['imports'] = [];
+  for (const i of mod.imports) {
+    imports.push({ source: await sc.one(i.source), names: await sc.screen(i.names), evidence: await screenEvidence(sc, i.evidence) });
+  }
+  const exports: ModuleAnalysis['exports'] = [];
+  for (const e of mod.exports) exports.push({ name: await sc.one(e.name), evidence: await screenEvidence(sc, e.evidence) });
+  const electronBoundaries: ModuleAnalysis['electronBoundaries'] = [];
+  for (const b of mod.electronBoundaries) {
+    electronBoundaries.push({ kind: b.kind, detail: await sc.one(b.detail), evidence: await screenEvidence(sc, b.evidence) });
+  }
+  return { file: await sc.one(mod.file), imports, exports, electronBoundaries };
+}
+
+/** Opens once and checks the size on the same descriptor, so a file swapped after a stat cannot bypass the cap. */
+function readCapped(path: string, cap: number): { ok: true; bytes: Buffer } | { ok: false; error: string } {
+  const fd = openSync(path, 'r');
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { ok: false, error: 'path is not a regular file' };
+    if (st.size > cap) return { ok: false, error: `file exceeds the ${cap}-byte analysis cap` };
+    return { ok: true, bytes: readFileSync(fd) };
+  } finally {
+    closeSync(fd);
   }
 }
 
@@ -103,13 +142,17 @@ export const rureTools: MCPTool[] = [
       if (!v.valid) return fail(v.error!);
       try {
         const analysis = await analyzeJsApp(v.sanitized);
-        const gatedModules = await Promise.all(analysis.modules.map(gateModule));
+        const sc = new Screener();
+        const modules: Omit<ModuleAnalysis, 'rawSnippets'>[] = [];
+        for (const m of analysis.modules) modules.push(await screenModule(sc, m));
         return ok({
           filesScanned: analysis.filesScanned,
           truncated: analysis.truncated,
+          skippedFiles: analysis.skippedFiles,
           isElectron: analysis.isElectron,
-          modules: gatedModules.map((g) => g.module),
-          redactedSnippetCount: gatedModules.reduce((sum, g) => sum + g.redactedCount, 0),
+          modules,
+          redactedSnippetCount: sc.redacted,
+          screened: sc.screened,
         });
       } catch (err) {
         return fail(`analysis failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -137,13 +180,20 @@ export const rureTools: MCPTool[] = [
       if (!q.valid) return fail(q.error!);
       try {
         const result = await findFeature(v.sanitized, q.sanitized);
-        const gated = await Promise.all(
-          result.matches.map(async (m) => {
-            const g = await gateWithAIDefence(m.snippet);
-            return { ...m, snippet: g.text, redacted: g.flagged };
-          }),
-        );
-        return ok({ matches: gated, filesScanned: result.filesScanned, truncated: result.truncated });
+        const sc = new Screener();
+        const gated: Array<Record<string, unknown>> = [];
+        for (const m of result.matches) {
+          const before = sc.redacted;
+          const snippet = await sc.one(m.snippet);
+          gated.push({ ...m, file: await sc.one(m.file), snippet, redacted: sc.redacted > before });
+        }
+        return ok({
+          matches: gated,
+          filesScanned: result.filesScanned,
+          truncated: result.truncated,
+          skippedFiles: result.skippedFiles,
+          screened: sc.screened,
+        });
       } catch (err) {
         return fail(`feature search failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -167,25 +217,30 @@ export const rureTools: MCPTool[] = [
       const v = validatePath(input.path, 'path');
       if (!v.valid) return fail(v.error!);
       try {
-        const st = statSync(v.sanitized);
-        if (!st.isFile()) return fail('path is not a regular file');
-        if (st.size > MAX_BINARY_BYTES) return fail(`file exceeds the ${MAX_BINARY_BYTES}-byte analysis cap`);
-        const buf = readFileSync(v.sanitized);
+        const r = readCapped(v.sanitized, MAX_BINARY_BYTES);
+        if (!r.ok) return fail(r.error);
+        const buf = r.bytes;
         const info = parseBinary(buf);
         const sc = new Screener();
-        const screen = (items: string[]) => sc.screen(items);
-        const libraries = await screen(info.libraries);
-        const imports = await screen(info.imports);
-        const exports = await screen(info.exports);
+        const libraries = await sc.screen(info.libraries);
+        const imports = await sc.screen(info.imports);
+        const exports = await sc.screen(info.exports);
+        const sectionNames = await sc.screen(info.sections.map((x) => x.name));
+        const sections = info.sections.map((x, i) => ({ ...x, name: sectionNames[i] }));
         let strings: { value: string; offset: number }[] | undefined;
         let stringsTruncated = false;
+        const warnings = [...info.warnings];
         if (input.includeStrings === true) {
-          const ex = extractStrings(buf);
-          stringsTruncated = ex.truncated;
-          const gated = await screen(ex.strings.map((s) => s.value));
-          strings = ex.strings.map((s, i) => ({ value: gated[i], offset: s.offset }));
+          if (info.format === 'unknown') {
+            warnings.push('strings not extracted: file is not a recognized binary format');
+          } else {
+            const ex = extractStrings(buf);
+            stringsTruncated = ex.truncated;
+            const gated = await sc.screen(ex.strings.map((x) => x.value));
+            strings = ex.strings.map((x, i) => ({ value: gated[i], offset: x.offset }));
+          }
         }
-        return ok({ ...info, libraries, imports, exports, ...(strings ? { strings, stringsTruncated } : {}), redactedCount: sc.redacted });
+        return ok({ ...info, warnings, sections, libraries, imports, exports, ...(strings ? { strings, stringsTruncated } : {}), redactedCount: sc.redacted, screened: sc.screened });
       } catch (err) {
         return fail(`binary analysis failed: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -208,25 +263,27 @@ export const rureTools: MCPTool[] = [
       const v = validatePath(input.path, 'path');
       if (!v.valid) return fail(v.error!);
       try {
-        const st = statSync(v.sanitized);
-        if (!st.isFile()) return fail('path is not a regular file');
-        if (st.size > MAX_BINARY_BYTES) return fail(`file exceeds the ${MAX_BINARY_BYTES}-byte analysis cap`);
-        const info = parseDotNet(readFileSync(v.sanitized));
+        const r = readCapped(v.sanitized, MAX_BINARY_BYTES);
+        if (!r.ok) return fail(r.error);
+        const info = parseDotNet(r.bytes);
         const sc = new Screener();
-        const assembly = info.assembly ? { ...info.assembly, name: (await sc.screen([info.assembly.name]))[0] } : null;
-        const refNames = await sc.screen(info.assemblyRefs.map((r) => r.name));
+        const assembly = info.assembly ? { ...info.assembly, name: await sc.one(info.assembly.name) } : null;
+        const refNames = await sc.screen(info.assemblyRefs.map((x) => x.name));
         const types = await sc.screen(info.types);
         const pmods = await sc.screen(info.pinvokes.map((x) => x.module));
         const pfuncs = await sc.screen(info.pinvokes.map((x) => x.function));
         const userStrings = await sc.screen(info.userStrings);
+        const runtimeVersion = info.runtimeVersion === null ? null : await sc.one(info.runtimeVersion);
         return ok({
           ...info,
+          runtimeVersion,
           assembly,
-          assemblyRefs: info.assemblyRefs.map((r, i) => ({ ...r, name: refNames[i] })),
+          assemblyRefs: info.assemblyRefs.map((x, i) => ({ ...x, name: refNames[i] })),
           types,
           pinvokes: info.pinvokes.map((_, i) => ({ module: pmods[i], function: pfuncs[i] })),
           userStrings,
           redactedCount: sc.redacted,
+          screened: sc.screened,
         });
       } catch (err) {
         return fail(`dotnet analysis failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -262,12 +319,11 @@ export const rureTools: MCPTool[] = [
         } else {
           const v = validatePath(input.path, 'path');
           if (!v.valid) return fail(v.error!);
-          const st = statSync(v.sanitized);
-          if (!st.isFile()) return fail('path is not a regular file');
-          if (st.size > MAX_EVM_BYTES * 2 + 64) return fail(`file exceeds the ${MAX_EVM_BYTES}-byte bytecode cap`);
-          const raw = readFileSync(v.sanitized);
-          const asText = raw.toString('latin1');
-          if (/^\s*(0x)?[0-9a-fA-F\s]+$/.test(asText)) {
+          const r = readCapped(v.sanitized, MAX_EVM_BYTES * 2 + 64);
+          if (!r.ok) return fail(r.error);
+          const raw = r.bytes;
+          const asText = raw.toString('latin1').trim();
+          if (/^(0x)?[0-9a-fA-F\s]+$/.test(asText)) {
             const parsed = parseHex(asText.replace(/\s/g, ''));
             if (!parsed.ok) return fail(parsed.error);
             bytes = parsed.bytes;
@@ -280,7 +336,7 @@ export const rureTools: MCPTool[] = [
         const info = analyzeEvm(bytes, input.includeDisassembly === true);
         const sc = new Screener();
         const strings = await sc.screen(info.strings);
-        return ok({ ...info, strings, redactedCount: sc.redacted });
+        return ok({ ...info, strings, redactedCount: sc.redacted, screened: sc.screened });
       } catch (err) {
         return fail(`evm analysis failed: ${err instanceof Error ? err.message : String(err)}`);
       }

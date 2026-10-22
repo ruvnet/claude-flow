@@ -20,6 +20,7 @@ export interface FindFeatureResult {
   matches: FeatureMatch[];
   filesScanned: number;
   truncated: boolean;
+  skippedFiles: number;
 }
 
 function tokenize(text: string): string[] {
@@ -42,6 +43,7 @@ export async function findFeature(root: string, query: string, maxMatches = 10):
   const { files, truncated } = walkAnalyzableFiles(root);
 
   const candidates: FeatureMatch[] = [];
+  let skippedFiles = 0;
 
   for (const f of files) {
     const lines = f.text.split('\n');
@@ -56,7 +58,7 @@ export async function findFeature(root: string, query: string, maxMatches = 10):
       ].join(' ').toLowerCase();
       structuralBoost = scoreLine(names, queryTerms) * 0.5;
     } catch {
-      /* unparseable file — lexical score alone still applies */
+      skippedFiles += 1; // unparseable: lexical score alone still applies
     }
 
     let bestLine = -1;
@@ -82,7 +84,7 @@ export async function findFeature(root: string, query: string, maxMatches = 10):
   }
 
   candidates.sort((a, b) => b.score - a.score);
-  return { matches: candidates.slice(0, maxMatches), filesScanned: files.length, truncated };
+  return { matches: candidates.slice(0, maxMatches), filesScanned: files.length, truncated, skippedFiles };
 }
 
 export type { Evidence };
