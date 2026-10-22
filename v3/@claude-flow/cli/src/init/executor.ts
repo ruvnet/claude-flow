@@ -1587,7 +1587,8 @@ swarm:
 memory:
   backend: ${options.runtime.memoryBackend}
   enableHNSW: ${options.runtime.enableHNSW}
-  persistPath: .claude-flow/data
+  # Store location is read from claude-flow.config.json (memory.persistPath);
+  # this YAML file is runtime/daemon configuration only.
   cacheSize: 100
   # ADR-049: Self-Learning Memory
   learningBridge:
