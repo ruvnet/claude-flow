@@ -93,8 +93,9 @@ const loginCommand: Command = {
     const profileName = typeof ctx.flags.profile === 'string' ? ctx.flags.profile : DEFAULT_PROFILE;
     // Parser camelCases kebab-case flag names — read via tokenStdin/noBrowser,
     // not ['token-stdin']/['no-browser'] (see doctor.ts's fixHandles comment).
+    // `--no-browser` itself arrives as `browser: false`.
     const tokenStdin = Boolean(ctx.flags.tokenStdin ?? ctx.flags['token-stdin']);
-    const noBrowser = Boolean(ctx.flags.noBrowser ?? ctx.flags['no-browser']);
+    const noBrowser = Boolean(ctx.flags.noBrowser || ctx.flags['no-browser'] || ctx.flags.browser === false);
 
     const refusal = refuseNonInteractive(tokenStdin);
     if (refusal) return refusal;
