@@ -8,6 +8,7 @@
 [![npm version (ruflo)](https://img.shields.io/npm/v/ruflo?label=npx%20ruflo&style=for-the-badge&logo=npm&color=cb3837)](https://www.npmjs.com/package/ruflo)
 [![MIT License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Star on GitHub](https://img.shields.io/github/stars/ruvnet/claude-flow?style=for-the-badge&logo=github&color=gold)](https://github.com/ruvnet/claude-flow)
+[![Follow @rUv on X](https://img.shields.io/badge/Follow-@rUv-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/rUv)
 
 <p align="center">
 <a href="docs/harness-origins.md"><img src="https://raw.githubusercontent.com/ruvnet/ruflo/e69e4b95aa08d65ea0f7715489bbf8e62a83a0d2/docs/assets/readme/badges/first-commit.svg" width="300" height="76" alt="Claude Flow lineage: first commit June 2, 2025 by rUv; inspect the evidence"></a>
