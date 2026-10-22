@@ -63,4 +63,26 @@ describe('ruRE aidefence-gate', () => {
     vi.doUnmock('@claude-flow/aidefence');
     vi.resetModules();
   });
+
+  it('clips very long input before scanning or returning it', async () => {
+    const result = await gateWithAIDefence('a'.repeat(100_000));
+    expect(result.text.length).toBeLessThan(2200);
+    expect(result.text).toContain('truncated');
+  });
+
+  it('reports gated:false (not clean) when the scanner throws', async () => {
+    vi.doMock('@claude-flow/aidefence', () => ({
+      createAIDefence: () => ({
+        quickScan: () => { throw new Error('scanner exploded'); },
+        hasPII: () => false,
+      }),
+    }));
+    vi.resetModules();
+    const { gateWithAIDefence: gateBroken } = await import('../src/rure/aidefence-gate.js');
+    const result = await gateBroken('anything at all');
+    expect(result.gated).toBe(false);
+    expect(result.flagged).toBe(false);
+    vi.doUnmock('@claude-flow/aidefence');
+    vi.resetModules();
+  });
 });

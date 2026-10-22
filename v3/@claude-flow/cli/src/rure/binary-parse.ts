@@ -7,6 +7,15 @@
 export const MAX_BINARY_BYTES = 128 * 1024 * 1024;
 const MAX_SECTIONS = 4096;
 const MAX_SYMBOLS = 2000;
+const MAX_PE_SECTIONS = 96; // PE format limit
+const ITERATION_BUDGET = 200_000;
+
+// Total table-walk steps allowed per parseBinary call. Header-declared counts and
+// overlapping regions can multiply work far beyond file size; this bounds it.
+let budget = ITERATION_BUDGET;
+function tick(): void {
+  if (--budget < 0) throw new RangeError('iteration budget exhausted');
+}
 
 export interface SectionInfo {
   name: string;
@@ -37,12 +46,17 @@ function empty(format: BinaryInfo['format']): BinaryInfo {
   };
 }
 
+function describeError(err: unknown): string {
+  if (err instanceof RangeError) return err.message === 'iteration budget exhausted' ? err.message : 'out-of-bounds read';
+  return String(err);
+}
+
 /** Runs one structure parse; a failure becomes a warning, not an abort. */
 function guarded(info: BinaryInfo, label: string, fn: () => void): void {
   try {
     fn();
   } catch (err) {
-    info.warnings.push(`${label}: ${err instanceof RangeError ? 'out-of-bounds read' : String(err)}`);
+    info.warnings.push(`${label}: ${describeError(err)}`);
   }
 }
 
@@ -86,7 +100,7 @@ function parseElf(b: Buffer): BinaryInfo {
   info.arch = ELF_MACHINE[u16(18)] ?? `machine-${u16(18)}`;
   const type = u16(16);
   info.kind = type === 2 ? 'executable' : type === 3 ? 'shared-or-pie' : type === 1 ? 'object' : type === 4 ? 'core' : 'unknown';
-  info.entryPoint = word(24);
+  guarded(info, 'entry point', () => { info.entryPoint = word(24); });
 
   interface Sh { name: number; type: number; offset: number; size: number; link: number; entsize: number }
   const shdrs: Sh[] = [];
@@ -94,7 +108,10 @@ function parseElf(b: Buffer): BinaryInfo {
     const shoff = word(is64 ? 40 : 32);
     const shentsize = u16(is64 ? 58 : 46);
     let shnum = u16(is64 ? 60 : 48);
-    if (shoff === 0 || shentsize === 0) return;
+    if (shoff === 0 || shentsize === 0) {
+      info.warnings.push('no section headers: libraries and symbols are unavailable');
+      return;
+    }
     if (shnum > MAX_SECTIONS) {
       shnum = MAX_SECTIONS;
       info.truncated = true;
@@ -122,6 +139,7 @@ function parseElf(b: Buffer): BinaryInfo {
       if (!dynstr) continue;
       const step = is64 ? 16 : 8;
       for (let o = d.offset; o + step <= d.offset + d.size && o + step <= b.length; o += step) {
+        tick();
         const tag = word(o);
         if (tag === 0) break;
         if (tag === 1) pushCapped(info, info.libraries, cstr(b, dynstr.offset + word(o + (is64 ? 8 : 4))));
@@ -132,9 +150,11 @@ function parseElf(b: Buffer): BinaryInfo {
   guarded(info, 'dynamic symbols', () => {
     for (const d of shdrs.filter((s) => s.type === 11)) {
       const strs = shdrs[d.link];
-      const step = d.entsize || (is64 ? 24 : 16);
+      const minSym = is64 ? 24 : 16;
+      const step = d.entsize >= minSym ? d.entsize : minSym;
       if (!strs) continue;
       for (let o = d.offset; o + step <= d.offset + d.size && o + step <= b.length; o += step) {
+        tick();
         const nameOff = u32(o);
         const shndx = u16(o + (is64 ? 6 : 14));
         const bind = b[o + (is64 ? 4 : 12)] >> 4;
@@ -171,7 +191,7 @@ function parsePe(b: Buffer): BinaryInfo {
 
   const secs: { va: number; span: number; raw: number }[] = [];
   guarded(info, 'sections', () => {
-    const n = Math.min(nSections, MAX_SECTIONS);
+    const n = Math.min(nSections, MAX_PE_SECTIONS);
     if (n < nSections) info.truncated = true;
     for (let i = 0; i < n; i++) {
       const o = opt + optSize + i * 40;
@@ -196,6 +216,7 @@ function parsePe(b: Buffer): BinaryInfo {
     if (!imp.rva) return;
     const step = plus ? 8 : 4;
     for (let o = toOff(imp.rva), n = 0; n < MAX_SYMBOLS; o += 20, n++) {
+      tick();
       const origThunk = b.readUInt32LE(o);
       const nameRva = b.readUInt32LE(o + 12);
       const firstThunk = b.readUInt32LE(o + 16);
@@ -204,6 +225,7 @@ function parsePe(b: Buffer): BinaryInfo {
       pushCapped(info, info.libraries, lib);
       let t = toOff(origThunk || firstThunk);
       for (let k = 0; k < MAX_SYMBOLS; k++, t += step) {
+        tick();
         const entry = plus ? b.readBigUInt64LE(t) : BigInt(b.readUInt32LE(t));
         if (entry === 0n) break;
         const byOrdinal = entry >> BigInt(plus ? 63 : 31);
@@ -219,7 +241,10 @@ function parsePe(b: Buffer): BinaryInfo {
     const base = toOff(exp.rva);
     const count = Math.min(b.readUInt32LE(base + 24), MAX_SYMBOLS);
     const names = toOff(b.readUInt32LE(base + 32));
-    for (let i = 0; i < count; i++) pushCapped(info, info.exports, cstr(b, toOff(b.readUInt32LE(names + i * 4)), 256));
+    for (let i = 0; i < count; i++) {
+      tick();
+      pushCapped(info, info.exports, cstr(b, toOff(b.readUInt32LE(names + i * 4)), 256));
+    }
   });
   return info;
 }
@@ -292,6 +317,7 @@ function parseFat(b: Buffer): BinaryInfo {
 
 /** Detects the container format from magic bytes and parses it. Never throws on hostile input. */
 export function parseBinary(b: Buffer): BinaryInfo {
+  budget = ITERATION_BUDGET;
   try {
     if (b.length >= 20 && b[0] === 0x7f && b.toString('latin1', 1, 4) === 'ELF') return parseElf(b);
     if (b.length >= 0x40 && b[0] === 0x4d && b[1] === 0x5a) return parsePe(b);
@@ -302,7 +328,7 @@ export function parseBinary(b: Buffer): BinaryInfo {
     }
   } catch (err) {
     const info = empty('unknown');
-    info.warnings.push(`header parse failed: ${err instanceof RangeError ? 'out-of-bounds read' : String(err)}`);
+    info.warnings.push(`header parse failed: ${describeError(err)}`);
     return info;
   }
   const info = empty('unknown');

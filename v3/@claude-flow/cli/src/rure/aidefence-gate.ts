@@ -10,6 +10,13 @@
  * rather than blocking analysis.
  */
 
+/** Longest attacker-derived string returned or scanned; anything longer is clipped first. */
+export const MAX_GATED_CHARS = 2048;
+
+export function clipText(text: string): string {
+  return text.length > MAX_GATED_CHARS ? `${text.slice(0, MAX_GATED_CHARS)}…[truncated ${text.length - MAX_GATED_CHARS} chars]` : text;
+}
+
 export interface GatedText {
   text: string;
   flagged: boolean;
@@ -26,30 +33,30 @@ function loadAIDefenceModule(): Promise<typeof import('@claude-flow/aidefence')>
   return aidefenceModulePromise;
 }
 
-export async function gateWithAIDefence(text: string): Promise<GatedText> {
-  if (!text) return { text, flagged: false, gated: false };
+type Defender = ReturnType<typeof import('@claude-flow/aidefence')['createAIDefence']>;
+let defenderPromise: Promise<Defender> | null = null;
+function loadDefender(): Promise<Defender> {
+  defenderPromise ??= loadAIDefenceModule().then((mod) => mod.createAIDefence({ enableLearning: false }));
+  return defenderPromise;
+}
+
+export async function gateWithAIDefence(input: string): Promise<GatedText> {
+  if (!input) return { text: input, flagged: false, gated: false };
+  const text = clipText(input);
   try {
-    const mod = await loadAIDefenceModule();
-    const defender = mod.createAIDefence({ enableLearning: false });
+    const defender = await loadDefender();
     let flagged = false;
-    try {
-      const quick = defender.quickScan(text);
-      flagged = !!quick?.threat;
-    } catch {
-      /* quickScan unavailable on this build */
-    }
-    try {
-      if (!flagged && defender.hasPII(text)) flagged = true;
-    } catch {
-      /* hasPII unavailable */
-    }
+    // A scan that throws is NOT a clean result: report gated:false so callers can disclose it.
+    const quick = defender.quickScan(text);
+    flagged = !!quick?.threat;
+    if (!flagged && defender.hasPII(text)) flagged = true;
     if (flagged) {
       return { text: '[content redacted by AIDefence — threat or PII detected]', flagged: true, gated: true };
     }
     return { text, flagged: false, gated: true };
   } catch {
-    // @claude-flow/aidefence is itself optional — pass through rather than
-    // block the caller when it isn't installed.
+    // @claude-flow/aidefence is optional, or its scan failed: pass the clipped text through
+    // but say so (gated:false). Tool outputs surface this as screened:false.
     return { text, flagged: false, gated: false };
   }
 }

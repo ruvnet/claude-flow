@@ -110,7 +110,7 @@ function readPeLayout(b: Buffer): { toOff: (rva: number) => number; clrRva: numb
   const pe = b.readUInt32LE(0x3c);
   if (b.toString('latin1', pe, pe + 4) !== 'PE\0\0') return null;
   const coff = pe + 4;
-  const nSections = Math.min(b.readUInt16LE(coff + 2), 4096);
+  const nSections = Math.min(b.readUInt16LE(coff + 2), 96); // PE format limit
   const optSize = b.readUInt16LE(coff + 16);
   const opt = coff + 20;
   const plus = b.readUInt16LE(opt) === 0x20b;
