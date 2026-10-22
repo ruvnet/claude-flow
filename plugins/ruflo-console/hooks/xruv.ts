@@ -221,6 +221,10 @@ export type XEntry = {
 
 const ADMIN_OFF = 'admin-only: RUFLO_X_ADMIN_TOKEN is not set in the environment Claude Code started with (set it there to enable)'
 export const UNREGISTER_WHY = 'unregister: not offered by the x.ruv.io gateway yet (no leave endpoint); your key stays in ~/.ruflo/nostr.key'
+// The default relay these preview strings name — not the only one the CLI's x_federation_*
+// tools can reach. This file is pure (no `$`, no process.env), so it can't show a
+// self-hoster's actual configured relay here; see "Self-hosting a custom federation
+// gateway" in plugins/ruflo-x-gateway/README.md for RUFLO_X_RELAY_WS and friends.
 const RELAY = 'wss://relay.ruv.io'
 
 /** A spec bound for the board's result panel, with its pubkey capture and its probe fill. */

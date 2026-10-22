@@ -138,8 +138,9 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
       { text: 'See who is on now.', go: { run: 'x-roster' } },
       { text: 'List the channels, then read one. Publishing asks first.', go: { run: 'x-channels' } },
     ],
+    tips: ['x.ruv.io is the default gateway, not the only one it can reach. Set RUFLO_X_GATEWAY_URL, RUFLO_X_RELAY_WS and RUFLO_X_RELAY_HTTP in the environment Claude Code starts with to point every x_federation_* tool at your own gateway/relay instead — see the self-hosting section of ruflo-x-gateway/README.md.'],
     related: ['federation'],
-    keywords: ['board', 'agentbbs', 'channels', 'roster', 'registry', 'bbs'],
+    keywords: ['board', 'agentbbs', 'channels', 'roster', 'registry', 'bbs', 'self-host', 'custom gateway'],
   },
   {
     id: 'plugins',
