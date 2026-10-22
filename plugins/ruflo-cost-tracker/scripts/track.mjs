@@ -24,17 +24,9 @@ import { spawnNpxSync } from './_npx.mjs';
 import { logFailure } from './_diagnostic-log.cjs';
 // iter 68 — shared PRICING table (was duplicated in counterfactual.mjs too).
 import { modelTier, costForUsage } from './_prices.mjs';
+import { encodeProjectPath } from './_encode-project-path.mjs';
 
 const PROJECTS_DIR = join(homedir(), '.claude', 'projects');
-
-function encodeProjectPath(cwd) {
-  // #1927: Claude Code encodes an absolute path by replacing path separators
-  // AND the Windows drive colon with `-`. So:
-  //   POSIX:   /home/user/proj      -> -home-user-proj
-  //   Windows: D:\project\Subcloudy -> D--project-Subcloudy   (`:` -> `-`, `\` -> `-`)
-  // The old code only replaced `/`, a no-op on Windows paths.
-  return cwd.replace(/[/\\:]/g, '-');
-}
 
 function findProjectDir(cwd) {
   const candidate = join(PROJECTS_DIR, encodeProjectPath(cwd));
