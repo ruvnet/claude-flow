@@ -127,7 +127,7 @@ importers:
         specifier: 3.1.1
         version: link:../mcp
       '@claude-flow/neural':
-        specifier: 3.0.0
+        specifier: 3.0.1
         version: link:../neural
       '@claude-flow/plugin-agent-federation':
         specifier: 1.0.1
