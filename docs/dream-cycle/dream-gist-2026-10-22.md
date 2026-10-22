@@ -1,6 +1,6 @@
 # Intelligence SOTA Report — 2026-10-22
 
-**TL;DR**: Tonight's rotation is `DEEP=intelligence`, `SCAN=capabilities,memory` (slot 2, `DAYINT=20261022`, no bonus deep-dive). Five-role parallel research fan-out confirmed, via direct source inspection (not just the subagent's claim), a genuine, previously-unreported statistical defect in `MoERouter.computeLoadBalanceLoss()` (`v3/@claude-flow/neural/src/moe-router.ts`): the auxiliary load-balance loss mixes a long-run historical routing fraction with a single most-recent query's instantaneous gate probability, contradicting its own docstring ("P_i = average routing probability to expert i"). Fixed by adding a proper running average. Two other viable candidates (a confirmed-dead `AgentDB` integration in `reasoning-bank.ts`, and a stale hardcoded perf claim actively served to Claude at session start) were scored lower and deferred.
+**TL;DR**: Tonight's rotation is `DEEP=intelligence`, `SCAN=capabilities,memory` (slot 2, no bonus deep-dive). Five-role research fan-out confirmed, via direct source inspection, a genuine statistical defect in `MoERouter.computeLoadBalanceLoss()` (`v3/@claude-flow/neural/src/moe-router.ts`): the load-balance loss mixes a historical routing fraction with one query's instantaneous gate probability, contradicting its own docstring ("P_i = average routing probability to expert i"). Fixed with a proper running average. Two other candidates (a confirmed-dead `AgentDB` path in `reasoning-bank.ts`; a stale perf claim served to Claude at session start) scored lower and were deferred.
 
 ## What's New in 2026
 
@@ -16,7 +16,7 @@
 
 ## Ruflo Current Capability
 
-`v3/@claude-flow/neural/src/moe-router.ts` (882 lines) is a real, from-scratch 384→128→8 gating network (matmul/softmax/REINFORCE backprop, no stub). A prior, already-merged fix (visible in-source, pre-dating tonight, not a dream-cycle ledger row found in the last 14) wired the load-balance auxiliary loss into `updateExpertWeights()`'s gradient — that mechanism is correct and untouched tonight. What remained broken: `computeLoadBalanceLoss()` itself, the diagnostic value returned in every `RoutingResult`, used `this.probs[i]` — literally commented `// Current routing prob` — as if it were `P_i = average routing probability to expert i` (the method's own docstring). Confirmed via direct read (not assumed): `fraction` is a cumulative average since start; the paired `avgProb` was never averaged at all, so the reported loss swings on single-query noise instead of reflecting real historical skew. Zero consumers outside the file itself (grepped whole repo) — purely a monitoring-correctness gap, zero risk to actual routing or the already-correct gradient.
+`v3/@claude-flow/neural/src/moe-router.ts` (882 lines) is a real, from-scratch 384→128→8 gating network (matmul/softmax/REINFORCE backprop). A prior, already-merged fix (visible in-source, not in the last 14 ledger rows) wired the load-balance auxiliary loss into `updateExpertWeights()`'s gradient — correct, untouched tonight. What remained broken: `computeLoadBalanceLoss()`'s diagnostic value, returned in every `RoutingResult`, used `this.probs[i]` — commented `// Current routing prob` — as if it were `P_i = average routing probability to expert i`. Confirmed via direct read: `fraction` is a cumulative average since start; the paired `avgProb` was never averaged, so the reported loss swings on single-query noise. Zero consumers outside the file (grepped whole repo) — a monitoring-correctness gap, zero risk to routing or the gradient.
 
 ## Competitor Comparison
 
@@ -31,7 +31,7 @@
 | Mem0 | benchmark | vendor self-report 94.4% LongMemEval vs. independent third-party 49.0%, non-comparable harnesses | C |
 | EWC on Gemma2-2B continual pretraining | continual-learning | full-param EWC mitigated forgetting across 7 NLU benchmarks | B |
 
-Ruflo's SONA (0.0043ms/adapt) and MoE convergence numbers sit ahead of a field where almost nobody publishes in-loop-adaptation numbers at all (no apples-to-apples baseline exists — grade that comparison itself C). The HNSW 1.9x–4.7x figure is modest but credible against the churn literature above, which documents the exact orphan/tombstone tradeoff Ruflo already fixed once (#4270/#4271).
+Ruflo's SONA/MoE convergence numbers sit ahead of a field where almost nobody publishes in-loop-adaptation numbers (no apples-to-apples baseline exists — grade C). HNSW 1.9x–4.7x is modest but credible against the churn literature above, matching the orphan/tombstone tradeoff Ruflo already fixed once (#4270/#4271).
 
 ## Candidate Generation (STEP 3.2, scored 1–5 per axis; score = 0.25·fit + 0.20·testability + 0.20·measurability + 0.15·production + 0.10·novelty + 0.10·reviewability)
 
@@ -43,7 +43,7 @@ Ruflo's SONA (0.0043ms/adapt) and MoE convergence numbers sit ahead of a field w
 | 4 | `claims check/grant/revoke` RBAC surface — advisory-only, zero enforcement consumer in MCP/CLI dispatch | 3 | 3 | 2 | 3 | 4 | 3 | 2.95 |
 | 5 | HNSW tombstone-threshold hardening inspired by Qdrant/arXiv:2512.18060 | 2 | 2 | 2 | 2 | 3 | 2 | 2.10 |
 
-#1 wins on every axis-pair except reviewability (a pure-deletion fix is marginally easier to review) and is the only candidate with both high novelty (fresh, zero prior ledger history) and high measurability (hand-computable expected loss value). #2's low score is driven by novelty (4th instance of the "dead native-integration" bug class: diskann-backend.ts 08-30, graph-analyzer.ts 10-10, agentdb-backend.ts 10-17/#4322) and the architecture reviewer's finding that it's currently cosmetic (the AgentDB path is never reached in production today — a live landmine, not an active bug). #3 is compelling and arguably higher-urgency (actively-served false claims) but is `memory`-surface SCAN territory tonight, not `intelligence`-surface DEEP — deferred with full detail to a future `memory` night. #4/#5 deferred as `capabilities`/future-`intelligence` scan findings.
+#1 wins on novelty and measurability, the two axes separating it from #2, whose score is held down by being the 4th instance of the "dead native-integration" bug class (diskann-backend.ts 08-30, graph-analyzer.ts 10-10, agentdb-backend.ts 10-17/#4322) and by being currently cosmetic in production (confirmed: `initialize()` is never called today). #3 is compelling and arguably higher-urgency (actively-served false claims) but is `memory`-surface SCAN territory tonight — deferred to a future `memory` night. #4/#5 deferred as `capabilities`/future-`intelligence` scan findings.
 
 ## Hypothesis (frozen before evaluation)
 
@@ -51,19 +51,28 @@ Ruflo's SONA (0.0043ms/adapt) and MoE convergence numbers sit ahead of a field w
 
 ## Benchmarks / Evaluation
 
-PENDING — see PR for the full evaluation receipt (stash-isolated baseline-vs-candidate, `tsc --noEmit`, full `@claude-flow/neural` suite, persistence round-trip).
+**evaluated: accepted.** Real evaluator: Vitest 4.1.8, `@claude-flow/neural`, after a fresh `pnpm install --filter @claude-flow/neural...`. 4 new tests (2 discriminating, 2 persistence/compat). Stash-isolated baseline: **2/2 discriminating tests fail exactly as predicted** — loss `7.993` vs. hand-computed-expected `1.020` on a deliberately-divergent input; `saved.stats.probSums` undefined pre-fix. Candidate: **11/11 pass**. Independently reproduced from scratch by an adversarial-critic subagent (own stash/pop cycle, hand-traced the averaging timing, verified `route()`'s selection output and `updateExpertWeights()`'s gradient are both unaffected): same result (`7.914` vs. `1.018` — small numeric difference from a separate random init, same qualitative gap). Full `@claude-flow/neural` suite: **143/143 both ways**, zero regressions, independently reproduced. `tsc --noEmit`: clean both ways.
 
 ## Darwin Results
 
-PENDING — see PR.
+Skipped — binary diagnostic-correctness fix, no continuous/categorical parameter for Darwin's real interface (`npx ruvector harness darwin <config> --execute`, confirmed available v0.9.2) to search over. Same skip class as nearly every accepted fix in this repo's history.
 
 ## SOTA Proof & Witness
 
-PENDING — witness computed after this report is finalized (STEP 16).
+```
+Session commit:   5d99b57e7862c0623cf26e0c152dff60e3b50346
+Report SHA-256:   6d784e25a52a2428c418d1866244eac8eb078f084b1c0f450e09591e74bc9c88
+Witness stamp:    c2d961941a3a88676ad7aec4c1298cd83ee8aaaf473641e6b2832957fccbe945
+```
+Verifier: fetch this file from `dream/2026-10-22-intelligence`, strip the Witness block back to the two `PENDING` placeholders above, SHA-256 the file, concatenate that hash with the session commit, SHA-256 again — must equal the witness stamp.
+
+**Reward hack check**: clean, independently re-verified by the adversarial critic from a fresh context — no test weakened, no gold data touched, no cherry-picking (full suite disclosed both ways), no evaluator exploitation, $0 cost, no seed/RNG manipulation, both new discriminating tests confirmed to actually discriminate rather than being vacuous. No standalone reward-hack CLI reachable this session (same disclosed gap as every recent night).
+
+**Security review**: not security-sensitive — pure in-memory `Float32Array` arithmetic plus one new field in a JSON model file the module already owns. Independent critic: **CONFIRMED-WITH-CAVEATS, no blocking issues.** Two non-blocking caveats: (1) `probSums` is a plain running sum, not numerically-stabilized — disclosed in-source as a KNOWN LIMITATION comment, affects only the diagnostic value at very large (>=1e6) `totalRoutings`, never training; (2) `loadWeights()`'s fallback has no array-length validation, mirroring the pre-existing, unchanged `routingCounts` fallback — not a new gap.
 
 ## Recommended Next Steps
 
-1. **Fix `guidance-provider.ts:84-85`** (memory scan, this session): hardcoded `150x-12,500x`/`2.49x-7.47x` strings are still actively served to Claude via the `session`/`guidance` CLI's `generateSessionContext()` — the exact SessionStart hook injection path — contradicting every corrected doc site in the repo. Add a regression test asserting the output never contains those retracted substrings.
-2. **Wire real enforcement for `claims check/grant/revoke`** (capabilities scan, this session) or stop documenting it as "authorization" — it is pure advisory JSON CRUD with zero consumer in `mcp-server.ts`/`server.ts`'s real `tools/call` dispatch, unlike `.harness/mcp-policy.json`'s PolicyEnforcer, which *is* wired in.
-3. **Revisit `reasoning-bank.ts`'s dead `AgentDB` integration** before anyone wires `initialize()` into production (easy, "obviously correct" change someone will eventually make) — today it's cosmetic; the moment it's wired, it opens a real SQLite-backed AgentDB for zero benefit since the controller calls still throw/no-op. Mirror #4322's real-fix shape (import `HNSWIndex` directly) rather than pure deletion, if production value is wanted.
-4. **Correct `v3/@claude-flow/cli/src/commands/neural.ts:1993`**: tells users `npm install @metaharness/router@^0.4.0` (caret), contradicting ADR-150's explicit tilde-pin mandate (`~0.3.2`) for this exact upstream package's documented rapid-breaking-0.x-release risk.
+1. **Fix `guidance-provider.ts:84-85`** (memory scan): hardcoded `150x-12,500x`/`2.49x-7.47x` strings are still actively served to Claude via `generateSessionContext()` — the SessionStart hook injection path — contradicting every corrected doc site in the repo. Add a regression test asserting the output never contains those retracted substrings.
+2. **Wire real enforcement for `claims check/grant/revoke`** (capabilities scan) or stop documenting it as "authorization" — pure advisory JSON CRUD with zero consumer in `mcp-server.ts`/`server.ts`'s real `tools/call` dispatch, unlike `.harness/mcp-policy.json`'s PolicyEnforcer, which *is* wired in.
+3. **Revisit `reasoning-bank.ts`'s dead `AgentDB` integration** before anyone wires `initialize()` into production — today it's cosmetic; once wired it opens a real SQLite-backed AgentDB for zero benefit since the controller calls still throw/no-op. Mirror #4322's real-fix shape (import `HNSWIndex` directly) rather than pure deletion, if production value is wanted.
+4. **Correct `v3/@claude-flow/cli/src/commands/neural.ts:1993`**: tells users `npm install @metaharness/router@^0.4.0` (caret), contradicting ADR-150's tilde-pin mandate (`~0.3.2`) for this exact package's documented rapid-breaking-release risk.
