@@ -4451,7 +4451,8 @@ const statuslineCommand: Command = {
     }
 
     // Full colored output
-    const noColor = ctx.flags['no-color'] || ctx.flags.noColor;
+    // The parser stores `--no-color` as `color: false`.
+    const noColor = ctx.flags['no-color'] || ctx.flags.noColor || ctx.flags.color === false;
     const c = noColor ? {
       reset: '', bold: '', dim: '', red: '', green: '', yellow: '', blue: '',
       purple: '', cyan: '', brightRed: '', brightGreen: '', brightYellow: '',
