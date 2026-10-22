@@ -81,7 +81,7 @@ async function main() {
     for (const featureModuleCount of [50, 200, 500]) {
       const { fileCount, totalBytes } = buildSyntheticApp(join(root, `size-${featureModuleCount}`), featureModuleCount);
       const start = process.hrtime.bigint();
-      const result = analyzeJsApp(join(root, `size-${featureModuleCount}`));
+      const result = await analyzeJsApp(join(root, `size-${featureModuleCount}`));
       const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
       const filesPerSec = (fileCount / elapsedMs) * 1000;
       const mbPerSec = (totalBytes / (1024 * 1024)) / (elapsedMs / 1000);

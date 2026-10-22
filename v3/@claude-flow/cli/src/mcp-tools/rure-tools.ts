@@ -84,7 +84,7 @@ export const rureTools: MCPTool[] = [
       const v = validatePath(input.path, 'path');
       if (!v.valid) return fail(v.error!);
       try {
-        const analysis = analyzeJsApp(v.sanitized);
+        const analysis = await analyzeJsApp(v.sanitized);
         const gatedModules = await Promise.all(analysis.modules.map(gateModule));
         return ok({
           filesScanned: analysis.filesScanned,
@@ -118,7 +118,7 @@ export const rureTools: MCPTool[] = [
       const q = validateText(input.query, 'query', 2000);
       if (!q.valid) return fail(q.error!);
       try {
-        const result = findFeature(v.sanitized, q.sanitized);
+        const result = await findFeature(v.sanitized, q.sanitized);
         const gated = await Promise.all(
           result.matches.map(async (m) => {
             const g = await gateWithAIDefence(m.snippet);

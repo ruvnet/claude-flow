@@ -15,13 +15,13 @@ export interface AppAnalysis {
   isElectron: boolean;
 }
 
-export function analyzeJsApp(root: string): AppAnalysis {
+export async function analyzeJsApp(root: string): Promise<AppAnalysis> {
   const { files, truncated } = walkAnalyzableFiles(root);
   const modules: ModuleAnalysis[] = [];
 
   for (const f of files) {
     try {
-      modules.push(analyzeModuleSource(f.path, f.text));
+      modules.push(await analyzeModuleSource(f.path, f.text));
     } catch {
       // Unparseable file (e.g. truncated/corrupt source) — skip it rather
       // than fail the whole analysis; it simply contributes no findings.

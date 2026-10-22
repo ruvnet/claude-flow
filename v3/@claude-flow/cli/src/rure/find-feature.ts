@@ -37,7 +37,7 @@ function scoreLine(lineLower: string, queryTerms: string[]): number {
   return score;
 }
 
-export function findFeature(root: string, query: string, maxMatches = 10): FindFeatureResult {
+export async function findFeature(root: string, query: string, maxMatches = 10): Promise<FindFeatureResult> {
   const queryTerms = Array.from(new Set(tokenize(query)));
   const { files, truncated } = walkAnalyzableFiles(root);
 
@@ -49,7 +49,7 @@ export function findFeature(root: string, query: string, maxMatches = 10): FindF
     // boundaries contribute to relevance) without executing anything.
     let structuralBoost = 0;
     try {
-      const analysis = analyzeModuleSource(f.path, f.text);
+      const analysis = await analyzeModuleSource(f.path, f.text);
       const names = [
         ...analysis.imports.flatMap((i) => [i.source, ...i.names]),
         ...analysis.exports.map((e) => e.name),
