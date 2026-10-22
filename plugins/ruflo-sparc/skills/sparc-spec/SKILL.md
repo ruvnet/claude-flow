@@ -17,7 +17,7 @@ When starting a new feature or project that needs structured requirements gather
 
 1. **Initialize phase tracking** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-start` with metadata `{ "phase": "specification", "feature": "$ARGUMENTS" }`
 
-2. **Check for prior work** — call `mcp__plugin_ruflo-core_ruflo__memory_search` with namespace `sparc-state` and query for the feature to see if a SPARC workflow already exists. If it does, retrieve existing artifacts. If not, initialize state with phase 1.
+2. **Check for prior work** — call `mcp__plugin_ruflo-core_ruflo__memory_retrieve` with namespace `sparc-state` and exact key `current-phase-{feature-slug}` to see if this workflow exists. If it does, retrieve existing artifacts. If not, initialize state at that exact key with phase 1, `status: "active"`, and `startedAt` and `updatedAt` set to the current ISO timestamp.
 
 3. **Search for similar patterns** — call `mcp__plugin_ruflo-core_ruflo__neural_predict` with the feature description to find relevant past specifications and learned patterns
 
@@ -53,11 +53,11 @@ When starting a new feature or project that needs structured requirements gather
 9. **Update phase state** — call `mcp__plugin_ruflo-core_ruflo__memory_store` with:
    - Namespace: `sparc-state`
    - Key: `current-phase-{feature-slug}`
-   - Value: updated state with artifacts list including the spec key
+   - Value: preserve existing state fields, update artifacts list to include the spec key, and set `updatedAt` to the current ISO timestamp
 
 10. **Record trajectory step** — call `mcp__plugin_ruflo-core_ruflo__hooks_intelligence_trajectory-step` with the specification summary
 
-11. **Present specification** — display the full specification document to the user with a summary table and suggest running `/sparc advance` to pass the gate and move to the Pseudocode phase
+11. **Present specification** — display the full specification document to the user with a summary table and suggest running `/ruflo-sparc:ruflo-sparc advance` to pass the gate and move to the Pseudocode phase
 
 ## Output format
 
@@ -91,5 +91,5 @@ When starting a new feature or project that needs structured requirements gather
 - IP-1: ...
 
 ---
-Phase 1 complete. Run `/sparc advance` to pass the gate check.
+Phase 1 complete. Run `/ruflo-sparc:ruflo-sparc advance` to pass the gate check.
 ```

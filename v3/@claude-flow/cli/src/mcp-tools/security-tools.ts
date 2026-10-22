@@ -14,6 +14,7 @@ import type { MCPTool, MCPToolResult } from './types.js';
 import { validateText, validateIdentifier } from './validate-input.js';
 import { autoInstallPackage } from './auto-install.js';
 import { createRequire } from 'module';
+import { findKnownMiss, recordKnownMiss } from './aidefence-known-misses.js';
 
 // Create require for resolving module paths
 const require = createRequire(import.meta.url);
@@ -164,7 +165,8 @@ const aidefenceScanTool: MCPTool = {
         // PII check so quick mode catches both threat classes.
         let piiPresent = false;
         try { piiPresent = !!defender.hasPII(input); } catch { /* hasPII unavailable */ }
-        const threatDetected = result.threat || piiPresent;
+        const knownMiss = findKnownMiss(input);
+        const threatDetected = result.threat || piiPresent || !!knownMiss;
         wrapperStats.quickScanCalls++;
         if (threatDetected) wrapperStats.quickScanThreats++;
         return {
@@ -175,7 +177,8 @@ const aidefenceScanTool: MCPTool = {
               threatDetected,
               confidence: result.confidence,
               piiDetected: piiPresent,
-              promptInjectionDetected: result.threat,
+              promptInjectionDetected: result.threat || !!knownMiss,
+              ...(knownMiss ? { knownMiss: { threatType: knownMiss.threatType, reportedAt: knownMiss.reportedAt } } : {}),
               mode: 'quick',
             }, null, 2),
           }],
@@ -183,17 +186,21 @@ const aidefenceScanTool: MCPTool = {
       }
 
       const result = await defender.detect(input);
+      const knownMiss = findKnownMiss(input);
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
-            safe: result.safe,
-            threats: result.threats.map(t => ({
-              type: t.type,
-              severity: t.severity,
-              confidence: t.confidence,
-              description: t.description,
-            })),
+            safe: result.safe && !knownMiss,
+            threats: [
+              ...result.threats.map(t => ({
+                type: t.type,
+                severity: t.severity,
+                confidence: t.confidence,
+                description: t.description,
+              })),
+              ...(knownMiss ? [{ type: knownMiss.threatType, severity: 'high', confidence: 1, description: 'Matches an input previously reported as a missed threat (aidefence_learn)' }] : []),
+            ],
             piiFound: result.piiFound,
             detectionTimeMs: result.detectionTimeMs,
           }, null, 2),
@@ -403,11 +410,32 @@ const aidefenceLearnTool: MCPTool = {
       // Re-detect to get result for learning
       const result = await defender.detect(input);
 
-      // Learn from detection
-      await defender.learnFromDetection(input, result, {
-        wasAccurate,
-        userVerdict: verdict,
-      });
+      // A false negative (wasAccurate=false, nothing detected) gives
+      // learnFromDetection() no threat to store, so record the miss itself.
+      const falseNegative = !wasAccurate && result.threats.length === 0;
+      const missType = threatType || 'prompt_injection';
+      let learned = result.threats.length;
+      let newlyRecorded = false;
+      if (falseNegative) {
+        newlyRecorded = recordKnownMiss(input, missType);
+        if (newlyRecorded) {
+          const synthetic = {
+            ...result,
+            safe: false,
+            threats: [{
+              type: missType,
+              severity: 'high',
+              confidence: 1,
+              pattern: 'user-reported-miss',
+              description: verdict || 'Reported by user as a missed threat',
+            }],
+          };
+          await defender.learnFromDetection(input, synthetic as unknown as typeof result, { wasAccurate, userVerdict: verdict });
+        }
+        learned = 1;
+      } else {
+        await defender.learnFromDetection(input, result, { wasAccurate, userVerdict: verdict });
+      }
 
       // Record mitigation if provided
       if (threatType && mitigationStrategy && mitigationSuccess !== undefined) {
@@ -423,7 +451,14 @@ const aidefenceLearnTool: MCPTool = {
           type: 'text',
           text: JSON.stringify({
             success: true,
-            message: 'Feedback recorded for pattern learning',
+            message: falseNegative
+              ? (newlyRecorded
+                ? 'Missed threat recorded: this exact input (normalised for case/whitespace) will now be flagged by aidefence_scan and aidefence_is_safe. Detection is pattern-based and does not generalise from it.'
+                : 'This input was already recorded as a missed threat')
+              : (learned === 0
+                ? 'Feedback noted, but no threat was detected so no pattern was learned. To teach a missed threat, pass wasAccurate=false.'
+                : 'Feedback recorded for pattern learning'),
+            learned,
             learnedFrom: {
               input: input.slice(0, 50) + (input.length > 50 ? '...' : ''),
               wasAccurate,
@@ -473,7 +508,8 @@ const aidefenceIsSafeTool: MCPTool = {
       const promptSafe = isSafe(input);
       let piiPresent = false;
       try { piiPresent = !!defender.hasPII(input); } catch { /* hasPII unavailable */ }
-      const safe = promptSafe && !piiPresent;
+      const knownMiss = findKnownMiss(input);
+      const safe = promptSafe && !piiPresent && !knownMiss;
       wrapperStats.isSafeCalls++;
       if (!safe) wrapperStats.isSafeUnsafeVerdicts++;
 
@@ -482,8 +518,9 @@ const aidefenceIsSafeTool: MCPTool = {
           type: 'text',
           text: JSON.stringify({
             safe,
-            promptSafe,
+            promptSafe: promptSafe && !knownMiss,
             piiPresent,
+            ...(knownMiss ? { knownMiss: { threatType: knownMiss.threatType, reportedAt: knownMiss.reportedAt } } : {}),
           }, null, 2),
         }],
       };

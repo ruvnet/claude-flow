@@ -1,0 +1,4 @@
+{
+  "description": "DeepSeek harness as a mod: a guard that keeps secrets out of prompts sent to the DeepSeek API, /deepseek-mod, and a status file.",
+  "modules": ["./register.ts"]
+}

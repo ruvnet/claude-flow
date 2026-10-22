@@ -74,3 +74,14 @@ bash plugins/ruflo-autopilot/scripts/smoke.sh
 ## Architecture Decisions
 
 - [`ADR-0001` — ruflo-autopilot plugin contract](./docs/adrs/0001-autopilot-contract.md)
+
+## As a mod
+
+Autopilot also ships as a function-hook mod (ADR-445 pattern; hooks in `hooks/`, loaded with the plugin). No network, no process, no model call.
+
+- **Guard (default on)**: refuses an `autopilot_log` or `autopilot_learn` write that holds a key, token or password, and an `autopilot_config` `maxIterations` above `iterationCap`. It only tightens: it never allows anything the session would deny, and the refusal never repeats the secret. Turn it off with the `guard` option.
+- **`/autopilot-mod`**: answered locally. `/autopilot-mod status`, `/autopilot-mod scan <text>`, `/autopilot-mod limits`.
+- **Status file**: `.claude-flow/autopilot-mod/status.json` (`version`, `updatedMs`, counters), written at session start and whenever a call is refused; the console reads it.
+- **Options** (`userConfig`): `guard` (`on` by default), `iterationCap` (1000).
+
+Test: `claude plugin validate plugins/ruflo-autopilot`, `claude plugin test plugins/ruflo-autopilot`, and `bash plugins/ruflo-autopilot/scripts/smoke.sh`.

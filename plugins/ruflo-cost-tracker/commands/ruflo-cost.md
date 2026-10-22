@@ -150,8 +150,8 @@ Cost tracking commands:
 6. Smoke step 23 fails the build if `winRate < 0.80`. See `cost-benchmark` skill for env-var overrides.
 
 **`cost workers`** -- Inspect the `optimize` and `benchmark` background workers consumed from ruflo-loop-workers.
-1. Call `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker optimize` -- report last-run timestamp, outcome, and any pending recommendations
-2. Call `mcp__plugin_ruflo-core_ruflo__hooks_worker-status --worker benchmark` -- report last-run timestamp, outcome, and any pending benchmark deltas
+1. Call `mcp__plugin_ruflo-core_ruflo__hooks_worker-status({ includeCompleted: true })` once (the tool takes `workerId` and `includeCompleted` only; there is no per-worker-name filter) and pick out the `optimize` and `benchmark` entries from the result
+2. For each, report last-run timestamp, outcome, and any pending recommendations or benchmark deltas; if neither worker appears, say so instead of inventing a status
 3. Cross-link [ruflo-loop-workers ADR-0001 §"12-worker trigger map"](../../ruflo-loop-workers/docs/adrs/0001-loop-workers-contract.md) — the contract this command honors
 4. Display: worker name, status, last-run timestamp, outcome, last-summary
 
@@ -160,3 +160,15 @@ Cost tracking commands:
 2. Show daily/weekly totals with trend direction
 3. Highlight days with unusual spending (>2x average)
 4. Display: date, total cost, top agent, top model, budget status
+
+**`cost ledger [--since 7d] [--provider claude|codex|grok|all]`** -- Multi-provider spend from local logs (no network).
+1. Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/ledger.mjs --since 7d`
+2. Report totals per provider/model, cache hit ratio, and any UNPRICED models (never counted as $0). USD and Codex credits are reported separately.
+
+**`cost advise [--since 7d]`** -- Optimisation findings with evidence and what-if savings.
+1. Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/advise.mjs --since 7d`
+2. Present each finding and its action; do not change settings. Savings are same-token repricings, not quality predictions.
+
+**`cost openrouter key|generation <id>|credits`** -- OpenRouter's own billed figures. Ask the user first; run `node ${CLAUDE_PLUGIN_ROOT}/scripts/openrouter.mjs <cmd> --yes`. The key comes from the environment only.
+
+**`cost local --tok-per-s <n> [--compare <model>]`** -- Local-hardware cost per 1M tokens and break-even utilisation: `node ${CLAUDE_PLUGIN_ROOT}/scripts/local-cost.mjs ...`

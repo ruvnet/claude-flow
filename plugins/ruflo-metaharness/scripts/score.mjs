@@ -16,7 +16,15 @@
 //   1  --alert-on-fit-below threshold breached
 //   2  config error or scoring failure
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { runMetaharness, emitDegradedJsonAndExit } from './_harness.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--path': 'value',
+  '--alert-on-fit-below': 'value',
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = { path: '.', format: 'json', alertFitBelow: null };

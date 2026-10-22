@@ -33,9 +33,9 @@ Design: [ADR-115](../../v3/docs/adr/ADR-115-managed-agents-rvagent-backend.md) (
 - `managed-agent` — run an Anthropic Claude Managed Agent (cloud) — create / prompt / status / events / list / terminate
 - `nested-subagents` — spawn nested sub-agent trees (depth ≤ 5) via Claude Code's native `Task` tool for context-managed deep delegation
 
-## MCP surface (16 tools)
+## MCP surface (33 tools: 14 `wasm_agent_*`, 13 `wasm_gallery_*`, 6 `managed_agent_*`)
 
-### WASM runtime — `v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts` (10)
+### WASM runtime — `v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts` (27 in total; the main ones)
 
 | Tool | Purpose |
 |------|---------|
@@ -98,3 +98,14 @@ bash plugins/ruflo-agent/scripts/smoke.sh
 - `ruflo-aidefence` — 3-gate pattern applies to agent output flowing back to the host LLM
 - `ruflo-ruvector` — the ruvector substrate that ships `@ruvector/rvagent-wasm`
 - `ruflo-cost-tracker` — record completed Managed Agent sessions (LM tokens + container time)
+
+## As a mod
+
+Agent also ships as a function-hook mod (ADR-445 pattern; hooks in `hooks/`, loaded with the plugin). No network, no process, no model call.
+
+- **Guard (default on)**: refuses text sent into an agent runtime (`wasm_agent_prompt`, `wasm_agent_tool`, `wasm_agent_create`, `wasm_gallery_create`, `managed_agent_create`, `managed_agent_prompt`) that holds a key, token or password. It only tightens: it never allows anything the session would deny, and the refusal never repeats the secret. Turn it off with the `guard` option.
+- **`/agent-mod`**: answered locally. `/agent-mod status`, `/agent-mod scan <text>`, `/agent-mod guarded`.
+- **Status file**: `.claude-flow/agent-mod/status.json` (`version`, `updatedMs`, counters), written at session start and whenever a call is refused; the console reads it.
+- **Options** (`userConfig`): `guard` (`on` by default).
+
+Test: `claude plugin validate plugins/ruflo-agent`, `claude plugin test plugins/ruflo-agent`, and `bash plugins/ruflo-agent/scripts/smoke.sh`.

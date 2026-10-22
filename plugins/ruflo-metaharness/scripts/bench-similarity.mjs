@@ -25,8 +25,16 @@
 //   0  ok (or --max-mean-us not set / threshold satisfied)
 //   1  --max-mean-us threshold exceeded (regression)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { performance } from 'node:perf_hooks';
 import { similarity } from './_similarity.mjs';
+
+guardCliArgs(import.meta.url, {
+  '--iters': 'value',
+  '--format': 'value',
+  '--max-mean-us': 'value',
+});
 
 const ARGS = (() => {
   const a = {

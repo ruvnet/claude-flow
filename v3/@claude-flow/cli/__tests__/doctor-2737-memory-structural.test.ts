@@ -30,7 +30,7 @@
  * in isolation) is what's under test.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,6 +67,7 @@ describe('doctor #2737 — bare `doctor` actually opens memory.db', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     process.chdir(ORIGINAL_CWD);
     _resetMemoryRootCache();
     try {
@@ -113,6 +114,58 @@ describe('doctor #2737 — bare `doctor` actually opens memory.db', () => {
 
     const presence = findCheck(data.results, 'Memory Database Presence');
     expect(presence?.status).toBe('pass');
+    expect(findCheck(data.results, 'Native AgentDB Structural Integrity')).toBeUndefined();
+  }, 20000);
+
+  it('fails when the native AgentDB file is corrupt even though memory.db is healthy (#3195)', async () => {
+    const Database = (await import('better-sqlite3')).default as any;
+    mkdirSync(join(workdir, '.swarm'), { recursive: true });
+    const db = new Database(join(workdir, '.swarm', 'memory.db'));
+    db.exec('CREATE TABLE memory_entries (id INTEGER PRIMARY KEY, content TEXT)');
+    db.close();
+    const nativePath = join(workdir, '.swarm', 'agentdb-memory.db');
+    writeFileSync(nativePath, Buffer.from('not a SQLite database'.repeat(8)));
+
+    for (const component of [undefined, 'memory']) {
+      const result = await runDoctor(component);
+      const data = result.data as DoctorData;
+      const native = findCheck(data.results, 'Native AgentDB Structural Integrity');
+      expect(native?.status).toBe('fail');
+      expect(native?.message).toContain(nativePath);
+      expect(data.failed).toBeGreaterThan(0);
+      expect(result.success).toBe(false);
+
+      const legacy = findCheck(data.results, component ? 'Memory Integrity' : 'Memory Structural Integrity');
+      expect(legacy?.status).toBe('pass');
+      expect(legacy?.message).toContain('memory.db');
+    }
+  }, 30000);
+
+  it('passes the native check for a healthy AgentDB sibling', async () => {
+    const Database = (await import('better-sqlite3')).default as any;
+    mkdirSync(join(workdir, '.swarm'), { recursive: true });
+    const nativePath = join(workdir, '.swarm', 'agentdb-memory.db');
+    const db = new Database(nativePath);
+    db.exec('CREATE TABLE native_entries (id INTEGER PRIMARY KEY)');
+    db.close();
+
+    const result = await runDoctor('memory');
+    const native = findCheck((result.data as DoctorData).results, 'Native AgentDB Structural Integrity');
+    expect(native?.status).toBe('pass');
+    expect(native?.message).toContain(`${nativePath} — PRAGMA quick_check: ok`);
+  }, 20000);
+
+  it('finds a native sibling next to an explicitly configured database path', async () => {
+    const customDir = join(workdir, 'custom-memory');
+    mkdirSync(customDir, { recursive: true });
+    vi.stubEnv('CLAUDE_FLOW_DB_PATH', join(customDir, 'custom.db'));
+    const nativePath = join(customDir, 'agentdb-memory.db');
+    writeFileSync(nativePath, Buffer.from('not a SQLite database'.repeat(8)));
+
+    const result = await runDoctor('memory');
+    const native = findCheck((result.data as DoctorData).results, 'Native AgentDB Structural Integrity');
+    expect(native?.status).toBe('fail');
+    expect(native?.message).toContain(nativePath);
   }, 20000);
 
   it('malformed/corrupt DB → default `doctor` run FAILS the new structural check and does not report all-healthy', async () => {

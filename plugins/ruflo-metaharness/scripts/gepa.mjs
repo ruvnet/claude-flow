@@ -35,11 +35,23 @@
 //   1  --alert-on-invalid and validate found errors
 //   2  config error (bad op / missing file)
 
+import { guardCliArgs } from './_cli-args.mjs';
+
 import { readFileSync, existsSync } from 'node:fs';
 import { importGepa, DARWIN_VERSION_PIN } from './_darwin.mjs';
 
 // Pin lives in _darwin.mjs (DARWIN_VERSION_PIN) — single source of truth.
 const DARWIN_PIN_VERSION = DARWIN_VERSION_PIN.split('@').pop();
+
+guardCliArgs(import.meta.url, {
+  '--op': 'value',
+  '--path': 'value',
+  '--transcript': 'value',
+  '--ext': 'value',
+  '--glob': 'value',
+  '--alert-on-invalid': null,
+  '--format': 'value',
+});
 
 const ARGS = (() => {
   const a = {

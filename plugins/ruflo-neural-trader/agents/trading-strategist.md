@@ -19,38 +19,40 @@ npm ls neural-trader 2>/dev/null || npm install --ignore-scripts neural-trader
 # Core commands
 npx neural-trader --strategy <type> --symbol <TICKER> [options]
 npx neural-trader --backtest --strategy <type> --symbol <TICKER> --period <range>
-npx neural-trader --model <lstm|transformer|nbeats> --symbol <TICKER> --confidence <0-1>
-npx neural-trader --swarm enabled --broker <name> --strategy adaptive
+npx neural-trader --train --model <lstm|transformer|nbeats> --symbol <TICKER> --epochs <N>
+# (live execution: --broker/--swarm are not recognised by neural-trader 2.8.11)
 ```
 
 ### Strategy Development Workflow
 
 1. **Create strategy** using neural-trader's built-in types:
    ```bash
-   npx neural-trader --strategy momentum --symbol SPY --create
-   npx neural-trader --strategy mean-reversion --symbol AAPL --create
-   npx neural-trader --strategy pairs --symbols "AAPL,MSFT" --create
+   npx neural-trader --strategy-create --name spy-momentum --type momentum --symbol SPY
+   npx neural-trader --strategy-create --name aapl-mr --type mean-reversion --symbol AAPL
+   npx neural-trader --strategy-create --name pair1 --type pairs --symbols "AAPL,MSFT"
    ```
 
 2. **Backtest** with walk-forward validation (Rust/NAPI — 8-19x faster than Python):
    ```bash
-   npx neural-trader --backtest --strategy momentum --symbol SPY --period 2020-2024
-   npx neural-trader --backtest --strategy <name> --data <source> --walk-forward
+   npx neural-trader --backtest --strategy momentum --symbol SPY --period 2020-2024 --live
+   npx neural-trader --backtest --strategy <name> --symbol <TICKER> --walk-forward --live
+   # dataSource must read "yahoo-finance"; "synthetic" (the default without --live) is a demo
    ```
 
 3. **Train neural models** (LSTM, Transformer, N-BEATS):
    ```bash
-   npx neural-trader --model lstm --symbol TSLA --confidence 0.95
-   npx neural-trader --model transformer --symbol BTC-USD --predict
+   npx neural-trader --train --model lstm --symbol TSLA --epochs 50
+   npx neural-trader --predict --model transformer --symbol BTC-USD
+   # 2.8.11 returns upstreamStub: true placeholders; report them as such
    ```
 
 4. **Generate signals** via anomaly detection:
    ```bash
-   npx neural-trader --signal scan --symbol SPY
-   npx neural-trader --signal scan --strategy <name> --symbols "AAPL,MSFT,GOOGL"
+   npx neural-trader --signal scan --symbol SPY --live
+   npx neural-trader --signal scan --strategy <name> --symbols "AAPL,MSFT,GOOGL" --live
    ```
 
-5. **Live execution** with swarm coordination — **GATED on risk-analyst approval (ADR-126 Phase 5):**
+5. **Live execution** — NOT AVAILABLE in neural-trader 2.8.11 (`--broker` and `--swarm` answer "Unknown command", checked). This plugin places no orders. The gate below stays in force for any execution path that is added later — **GATED on risk-analyst approval (ADR-126 Phase 5):**
 
    **REFUSE to invoke `--broker <name>` unless a prior `risk-analyst` SendMessage event for the current `signalId` carries `decision: 'approved'`.** If no approval is present in the current session's SendMessage trace, halt and emit:
 
@@ -58,11 +60,7 @@ npx neural-trader --swarm enabled --broker <name> --strategy adaptive
    [ERROR] trading-strategist: refusing --broker call — no risk-analyst approval RiskDecision event found for signalId=<id>. ADR-126 Phase 5 risk-gate is structural; route the SignalProposal through risk-analyst first.
    ```
 
-   Only when the approval event is present do you invoke:
-   ```bash
-   npx neural-trader --broker alpaca --strategy adaptive --swarm enabled
-   npx neural-trader --broker <name> --swarm enabled --risk-tolerance 0.02
-   ```
+   Only when the approval event is present AND the user explicitly confirms AND a broker-capable build exists do you invoke it. With 2.8.11 the honest outcome is: report that no execution path exists.
 
    If `RiskDecision.adjustedSizePct` is set, use that size (not the proposal's original `sizePct`).
 
@@ -110,7 +108,7 @@ npx @claude-flow/cli@latest memory search --query "momentum strategies Sharpe > 
 
 Feed backtest trajectories to SONA for continuous optimization:
 ```bash
-npx @claude-flow/cli@latest neural train --pattern-type trading-strategy --epochs 20
+npx @claude-flow/cli@latest neural train --pattern prediction --epochs 20
 npx @claude-flow/cli@latest neural predict --input "current market: high volatility, upward drift"
 ```
 
@@ -125,7 +123,7 @@ npx @claude-flow/cli@latest neural predict --input "current market: high volatil
 
 After completing tasks, store successful patterns:
 ```bash
-npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --train-neural true
+npx @claude-flow/cli@latest hooks post-task --task-id "TASK_ID" --success true --quality 0.9 --task "TASK_DESCRIPTION" --agent trading-strategist
 ```
 
 ### Comms protocol (ADR-126 Phase 5 — SendMessage pipeline with risk-gate)

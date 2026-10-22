@@ -45,6 +45,32 @@ describe('#3224 curateIndex must not destroy a user index', () => {
     expect(existsSync(join(dir, 'MEMORY.generated.md')), 'generated view goes beside it').toBe(true);
   });
 
+  it.each([
+    '# Claude Flow V3 Project Memory\n\nKeep the production recovery code in the offline vault.',
+    '# Claude Flow V3 Project Memory\n\n## Project Patterns\n- User-only recovery note\n- See `patterns.md` for details\n',
+    '# Claude Flow V3 Project Memory\n\n## Project Patterns\n    - generated detail\n- See `patterns.md` for details\n',
+  ])('preserves user content even when the generated index is as large or larger', async (before) => {
+    writeFileSync(join(dir, 'MEMORY.md'), before, 'utf-8');
+    writeFileSync(join(dir, 'patterns.md'), '# Patterns\n\n- generated detail\n', 'utf-8');
+    const bridge = new AutoMemoryBridge({} as never, { memoryDir: dir });
+    await bridge.curateIndex();
+    expect(readFileSync(join(dir, 'MEMORY.md'), 'utf-8')).toBe(before);
+    expect(readFileSync(join(dir, 'MEMORY.generated.md'), 'utf-8')).toContain('generated detail');
+  });
+
+  it('allows an existing generated index to grow without losing its content', async () => {
+    const topic = join(dir, 'patterns.md');
+    writeFileSync(topic, '# Patterns\n\n- original detail\n', 'utf-8');
+    const bridge = new AutoMemoryBridge({} as never, { memoryDir: dir });
+    await bridge.curateIndex();
+    writeFileSync(topic, '# Patterns\n\n- original detail\n- new detail\n', 'utf-8');
+    await bridge.curateIndex();
+    const index = readFileSync(join(dir, 'MEMORY.md'), 'utf-8');
+    expect(index).toContain('original detail');
+    expect(index).toContain('new detail');
+    expect(existsSync(join(dir, 'MEMORY.generated.md'))).toBe(false);
+  });
+
   it('still writes the index when there is nothing to lose', async () => {
     writeFileSync(join(dir, 'patterns.md'), '# Patterns\n\n- generated\n', 'utf-8');
     const bridge = new AutoMemoryBridge({} as never, { memoryDir: dir } as never);

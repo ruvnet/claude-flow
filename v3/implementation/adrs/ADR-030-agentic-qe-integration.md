@@ -1,7 +1,9 @@
 # ADR-030: Agentic-QE Plugin Integration
 
 ## Status
-**Accepted** - Architecture Review Complete (2026-01-23)
+**Superseded** (2026-10-09) - the in-repo plugin `v3/plugins/agentic-qe` (`@claude-flow/plugin-agentic-qe`) was removed. It re-implemented the tools behind Zod schemas and never imported the `agentic-qe` package, so it drifted from upstream. Quality engineering is provided by the maintained [`agentic-qe`](https://www.npmjs.com/package/agentic-qe) npm package and its Claude Code plugin `agentic-qe-fleet` ([proffesor-for-testing/agentic-qe](https://github.com/proffesor-for-testing/agentic-qe)). The rest of this ADR is kept for history.
+
+Originally **Accepted** - Architecture Review Complete (2026-01-23)
 
 ### Review Summary
 - Architecture design validated

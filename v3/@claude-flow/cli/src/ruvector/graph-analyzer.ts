@@ -219,7 +219,10 @@ function extractImports(content: string, _filePath: string): Array<{ path: strin
   const imports: Array<{ path: string; type: GraphEdge['type'] }> = [];
 
   // ES6 import statements
-  const esImportRegex = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s*,?\s*)*\s*from\s*['"]([^'"]+)['"]/g;
+  // Keep the import clause's shape finite. Repeating an optional separator
+  // around alternatives lets ordinary prose such as "import one two three ..."
+  // backtrack exponentially when no `from` clause follows.
+  const esImportRegex = /\bimport\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?(?:\{[^}]*\}|\*\s+as\s+[\w$]+|[\w$]+)\s+from\s*['"]([^'"]+)['"]/g;
   let match: RegExpExecArray | null;
 
   while ((match = esImportRegex.exec(content)) !== null) {
@@ -693,6 +696,18 @@ function fallbackLouvain(
   const maxIterations = 10;
   let iteration = 0;
 
+  // Community total weighted degree. Maintained incrementally (±nodeDegree on
+  // each accepted move) rather than rebuilt from a full scan of `community`
+  // inside the per-node loop below — the rebuild was O(n) per node (O(n^2) per
+  // pass), matching neither the reference Louvain implementations (networkx's
+  // `Stot`, python-louvain's `status.degrees`, both updated in O(1) per move)
+  // nor the algorithm's own linear-on-sparse-data design intent.
+  const communityTotal = new Map<number, number>();
+  for (const node of nodes) {
+    const c = community.get(node)!;
+    communityTotal.set(c, (communityTotal.get(c) || 0) + (degree.get(node) || 0));
+  }
+
   while (improved && iteration < maxIterations) {
     improved = false;
     iteration++;
@@ -713,19 +728,17 @@ function fallbackLouvain(
         );
       }
 
-      // Calculate community totals
-      const communityTotal = new Map<number, number>();
-      for (const [n, c] of Array.from(community.entries())) {
-        communityTotal.set(c, (communityTotal.get(c) || 0) + (degree.get(n) || 0));
-      }
-
       let bestCommunity = currentCommunity;
       let bestGain = 0;
 
       for (const [targetCommunity, edgeWeight] of Array.from(communityWeights.entries())) {
         if (targetCommunity === currentCommunity) continue;
 
-        // Calculate modularity gain
+        // Calculate modularity gain. `currentTotal` still includes this
+        // node's own degree (not yet removed) — the `+ nodeDegree` term
+        // below backs it out, so `communityTotal` must stay un-patched for
+        // `node` until after the move decision, matching the pre-existing
+        // formula this complexity fix leaves unchanged.
         const currentTotal = communityTotal.get(currentCommunity) || 0;
         const targetTotal = communityTotal.get(targetCommunity) || 0;
         const currentEdges = communityWeights.get(currentCommunity) || 0;
@@ -742,6 +755,8 @@ function fallbackLouvain(
 
       if (bestCommunity !== currentCommunity) {
         community.set(node, bestCommunity);
+        communityTotal.set(currentCommunity, (communityTotal.get(currentCommunity) || 0) - nodeDegree);
+        communityTotal.set(bestCommunity, (communityTotal.get(bestCommunity) || 0) + nodeDegree);
         improved = true;
       }
     }

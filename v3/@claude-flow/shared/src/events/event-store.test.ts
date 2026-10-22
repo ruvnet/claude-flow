@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { EventStore } from './event-store.js';
+import { StateReconstructor, TaskAggregate } from './state-reconstructor.js';
 import { AgentStateProjection, TaskHistoryProjection, MemoryIndexProjection } from './projections.js';
 import {
   createAgentSpawnedEvent,
@@ -205,6 +206,30 @@ describe('EventStore', () => {
 
       const retrieved = await eventStore.getSnapshot('agent-1');
       expect(retrieved?.version).toBe(10);
+
+    });
+    it('should return null when no snapshot exists for the aggregate', async () => {
+      await expect(eventStore.getSnapshot('missing')).resolves.toBeNull();
+    });
+
+    it('should return null for an unknown aggregate when other snapshots exist', async () => {
+      await eventStore.saveSnapshot({
+        aggregateId: 'agent-1',
+        aggregateType: 'agent' as const,
+        version: 1,
+        state: {},
+        timestamp: Date.now(),
+      });
+      await expect(eventStore.getSnapshot('other')).resolves.toBeNull();
+    });
+
+    it('should reconstruct from the event log when no snapshot exists', async () => {
+      await eventStore.append(
+        createTaskCreatedEvent('task-1', 'impl', 'Write code', 'desc', 'normal', [])
+      );
+      const reconstructor = new StateReconstructor(eventStore);
+      const task = await reconstructor.reconstruct('task-1', (id) => new TaskAggregate(id));
+      expect(task.version).toBe(1);
     });
   });
 

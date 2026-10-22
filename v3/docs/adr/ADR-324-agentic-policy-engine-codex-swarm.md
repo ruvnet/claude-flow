@@ -80,6 +80,13 @@ Unmatched actions allow only in `legacy`; `observe` records default-deny but doe
 
 An envelope may constrain actions, resources, tools, MCP servers, read/write namespaces, environments, network/destructive access, cost, tokens, concurrency, expiry, and delegation depth.
 
+Cost, token, and per-tool concurrency ceilings are opt-in: omit a dimension
+when no trusted dispatch meter is available. An explicitly supplied ceiling
+requires its meter, including in `legacy` and `observe` modes; missing usage
+is not zero. Dual-mode workers do not receive an implicit per-tool concurrency
+ceiling. The orchestrator's `maxConcurrent` scheduler limit still bounds worker
+processes and does not measure concurrent MCP calls across those processes.
+
 Every child envelope must be a monotonic reduction. A child cannot:
 
 - add a pattern not granted by its parent;
@@ -249,8 +256,11 @@ The normative implementation is split across existing package boundaries:
 The policy state lives at `.claude-flow/policy/state.json`. Mutations acquire
 `.claude-flow/policy/state.lock` using exclusive creation and replace state by
 atomic rename. Decision, approval consumption, budget usage, and receipt append
-therefore commit as one transaction. A stale lock may be recovered after 30
-seconds; lock acquisition otherwise fails after five seconds.
+therefore commit as one transaction. The lock records its owner's pid, host,
+platform, and (on Linux) PID namespace and kernel boot id. A lock whose owner
+no longer exists under that same identity, and whose bytes are unchanged since
+they were read, is recovered immediately; any other lock may be recovered after
+30 seconds. Lock acquisition otherwise fails after five seconds.
 
 When enforcement is first enabled, an HMAC key and state authentication record
 are stored outside the workspace under

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>RuFlo AI Team · Workspace</title>
+  <style>
+    :root{color-scheme:dark;--ink:#eafcff;--muted:#96afb5;--aqua:#26e9d5;--pink:#ff3b91;--line:#24454b;--panel:#0a171b;--font:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}html,body{margin:0;min-width:270px}body{padding:16px;background:#050b0e;color:var(--ink);font:13px/1.4 var(--font)}
+    .desktop{max-width:760px;min-height:390px;margin:auto;overflow:hidden;border:1px solid #315158;border-radius:17px;background:radial-gradient(ellipse at 78% 30%,#153841 0,#0a1c22 38%,#050b0e 80%);box-shadow:0 14px 40px #0008,0 0 30px #26e9d512}
+    .topbar{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;background:linear-gradient(105deg,#0c2023,#11161e 55%,#24111e);border-bottom:1px solid #31565d}
+    .mark{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:10px;background:radial-gradient(circle at 35% 27%,#8ffff4,var(--aqua) 37%,#087f86 74%,#071014);box-shadow:0 0 18px #26e9d566;color:#041012;font-weight:900;font-size:20px}
+    .brand{min-width:0;flex:1}.brand strong{display:block;font-size:14px;letter-spacing:.02em}.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+    .connection{white-space:nowrap;font-size:11px;color:#b7edcf}.connection::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:#48e9a2;box-shadow:0 0 10px #48e9a2}
+    .workspace{display:grid;grid-template-columns:75px minmax(0,1fr);min-height:325px;background-image:radial-gradient(#91dce111 1px,transparent 1px);background-size:18px 18px}
+    .rail{display:flex;flex-direction:column;align-items:center;gap:9px;padding:16px 6px;background:#081317d9;border-right:1px solid var(--line)}
+    .rail-item{display:grid;justify-items:center;align-content:center;gap:5px;min-width:56px;min-height:62px;padding:5px 3px;border:1px solid transparent;border-radius:11px;background:none;color:var(--muted);font:10px var(--font);text-align:center;cursor:pointer;touch-action:manipulation}.rail-item:hover{border-color:#315158;background:#173137}.rail-icon{display:grid;place-items:center;width:38px;height:38px;border:1px solid #315158;border-radius:12px;background:#13262a;color:var(--aqua);font:700 17px var(--font)}.rail-item[aria-pressed="true"] .rail-icon{border-color:var(--aqua);box-shadow:0 0 16px #26e9d52a;background:#173337}.rail-item:focus-visible,.row-button:focus-visible,.refresh:focus-visible{outline:2px solid var(--aqua);outline-offset:3px}
+    .window{align-self:start;min-width:0;margin:15px;border:1px solid #33545a;border-radius:13px;overflow:hidden;background:#0b171ddf;box-shadow:0 16px 28px #0007}
+    .windowbar{display:flex;align-items:center;gap:9px;min-height:34px;padding:7px 11px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#142a2f,#18232b)}.refresh{margin-left:auto;padding:3px 7px;border:1px solid #315158;border-radius:6px;background:#102429;color:var(--aqua);font:10px ui-monospace,monospace;cursor:pointer}.refresh:disabled{opacity:.55;cursor:wait}
+    .lights{display:flex;gap:5px}.lights i{display:block;width:7px;height:7px;border-radius:50%;background:#ff567c}.lights i:nth-child(2){background:#ffd16b}.lights i:nth-child(3){background:#43dfa2}.windowbar strong{font-size:11px;font-weight:650;letter-spacing:.04em}.windowbar span{margin-left:auto;color:var(--muted);font:10px ui-monospace,monospace}
+    .content{padding:14px}.eyebrow{margin:0 0 3px;color:var(--aqua);font:10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}.heading h1{margin:0;font-size:19px;line-height:1.15}.heading p{margin:5px 0 0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}
+    .status{flex:none;display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid #3d6b70;border-radius:20px;color:#9bf5e5;font:10px ui-monospace,monospace;text-transform:uppercase}.status[hidden]{display:none}.status::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--aqua)}.status[data-state="complete"]{color:#abf0ca;border-color:#386753}.status[data-state="complete"]::before{background:#4de59a}.status[data-state="blocked"]{color:#ffd17b;border-color:#786038}.status[data-state="blocked"]::before{background:#ffd17b}
+    .metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 15px}.metric{min-width:0;padding:10px;border:1px solid #24434a;border-radius:10px;background:linear-gradient(150deg,#122b30,#101e25)}.metric small{display:block;color:var(--muted);font-size:10px}.metric strong{display:block;margin-top:3px;font:700 18px ui-monospace,monospace;white-space:nowrap}.metric:nth-child(2) strong{color:var(--aqua)}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.section-head h2{margin:0;color:#b9e6e2;font-size:11px;letter-spacing:.12em;text-transform:uppercase}.section-head span{color:var(--muted);font:10px ui-monospace,monospace}
+    .rows{display:grid;gap:7px}.row{display:flex;align-items:center;gap:9px;min-width:0;width:100%;padding:9px 10px;border:1px solid #25444a;border-radius:9px;background:#11242a;color:var(--ink);text-align:left;font:inherit}.row-button{cursor:pointer}.row-button:hover{border-color:var(--aqua);background:#173137}.glyph{display:grid;place-items:center;flex:none;width:27px;height:27px;border-radius:8px;background:#1b3940;color:var(--aqua);font-weight:700}.row-copy{min-width:0;flex:1}.row-copy strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}.row-copy small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}.row .state{color:var(--aqua);font:10px ui-monospace,monospace;text-transform:uppercase;white-space:nowrap}.row .state[data-state="complete"]{color:#73e4a3}.row .state[data-state="blocked"]{color:#ffd17b}
+    .empty{padding:16px;border:1px dashed #315158;border-radius:9px;color:var(--muted);text-align:center}.footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px;border-top:1px solid var(--line);background:#081317;color:var(--muted);font:10px ui-monospace,monospace}.footer b{color:var(--aqua);font-weight:500}
+    @media(max-width:490px){body{padding:10px}.workspace{grid-template-columns:48px minmax(0,1fr)}.rail{gap:7px;padding:12px 3px}.rail-icon{width:32px;height:32px;font-size:14px}.rail-item{min-width:40px;min-height:48px;font-size:0}.window{margin:9px}.content{padding:11px}.metrics{gap:5px}.metric{padding:8px}.metric strong{font-size:15px}.heading h1{font-size:16px}.connection{font-size:0}.connection::before{margin:0}}
+  </style>
+</head>
+<body>
+<div class="desktop" aria-label="RuFlo AI Team workspace">
+  <header class="topbar"><div class="mark" aria-hidden="true">r</div><div class="brand"><strong>RuFlo AI Team</strong><small>Private coordination workspace</small></div><span class="connection">Tenant-scoped</span></header>
+  <div class="workspace">
+    <aside class="rail" aria-label="Workspace sections"><button class="rail-item" type="button" data-view="teams" aria-label="Teams section" aria-pressed="true"><span class="rail-icon" aria-hidden="true">◈</span><span>Teams</span></button><button class="rail-item" type="button" data-view="runs" aria-label="Runs section" aria-pressed="false"><span class="rail-icon" aria-hidden="true">≡</span><span>Runs</span></button><button class="rail-item" type="button" data-view="tasks" aria-label="Tasks section" aria-pressed="false"><span class="rail-icon" aria-hidden="true">✓</span><span>Tasks</span></button><button class="rail-item" type="button" data-view="evidence" aria-label="Evidence section" aria-pressed="false"><span class="rail-icon" aria-hidden="true">▤</span><span>Evidence</span></button></aside>
+    <main class="window"><div class="windowbar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><strong>TEAM CONTROL</strong><button id="refresh" class="refresh" type="button" aria-label="Refresh workspace in this card">↻ Refresh</button><span>READ ONLY</span></div>
+      <div class="content"><p class="eyebrow">Workspace overview</p><div class="heading"><div><h1 id="title">Your teams</h1><p id="subtitle">Live coordination records from your account</p></div><span id="run-status" class="status" hidden></span></div>
+        <div id="metrics" class="metrics"></div><div class="section-head"><h2 id="list-heading">Teams</h2><span id="list-count"></span></div><div id="rows" class="rows" aria-live="polite"><div class="empty">Loading team status…</div></div>
+      </div>
+    </main>
+  </div>
+  <footer class="footer"><span>RUFLO / TEAM WORKSPACE</span><span>OAuth <b>●</b> &nbsp; No external actions</span></footer>
+</div>
+<script type="module">
+  const byId=(id)=>document.getElementById(id);
+  const element=(tag,value,className)=>{const node=document.createElement(tag);node.textContent=String(value??'');if(className)node.className=className;return node};
+  let workspace={teams:[],runs:[],run:null,tasks:[],evidence:null};
+  let view='teams',selectedTeamId=null,selectedRunId=null;
+  function render(){
+    const teams=workspace.teams;
+    const runs=selectedTeamId?workspace.runs.filter(run=>run.teamId===selectedTeamId):workspace.runs;
+    const run=workspace.run;
+    const tasks=workspace.tasks;
+    const evidence=workspace.evidence;
+    for(const button of document.querySelectorAll('[data-view]'))button.setAttribute('aria-pressed',String(button.dataset.view===view));
+    byId('title').textContent=view==='teams'?'Your teams':view==='runs'?'Team runs':view==='tasks'?'Run tasks':'Run evidence';
+    byId('subtitle').textContent=view==='tasks'?(run?.objective??'Choose a run to see its tasks.'):view==='evidence'?(run?.objective??'Choose a run to see its evidence summary.'):view==='runs'?(selectedTeamId?'Runs for the selected team':'Private, budgeted coordination runs'):'Live coordination records from your account';
+    const status=byId('run-status');status.hidden=!['tasks','evidence'].includes(view)||!run;
+    if(run){status.textContent=run.status??'unknown';status.dataset.state=run.status??'';}
+    const metrics=byId('metrics');metrics.replaceChildren();
+    const values=view==='tasks'?[['Tasks',tasks.length],['Complete',tasks.filter(task=>task.status==='complete').length],['Units',`${run?.spentUnits??0} / ${run?.budgetUnits??0}`]]:view==='evidence'?[['Tasks',evidence?.taskCount??0],['Audit events',evidence?.auditEvents??0],['Units',`${run?.spentUnits??0} / ${run?.budgetUnits??0}`]]:view==='runs'?[['Runs',runs.length],['Complete',runs.filter(item=>item.status==='complete').length],['Planned',runs.filter(item=>item.status==='planned').length]]:[['Teams',teams.length],['Active',teams.filter(team=>team.status==='active').length],['Complete',teams.filter(team=>team.status==='complete').length]];
+    for(const [label,value] of values){const card=element('div','', 'metric');card.append(element('small',label),element('strong',value));metrics.append(card);}
+    const items=view==='teams'?teams:view==='runs'?runs:view==='tasks'?tasks:[];
+    byId('list-heading').textContent=view==='teams'?'Teams':view==='runs'?'Runs':view==='tasks'?'Tasks':'Evidence summary';byId('list-count').textContent=view==='evidence'?(evidence?'Private run':'No run selected'):`${items.length} ${items.length===1?'item':'items'}`;
+    const rows=byId('rows');rows.replaceChildren();
+    if(view==='evidence'){
+      if(!evidence){rows.append(element('div','Select a run to see its evidence summary.','empty'));return;}
+      for(const [label,value] of [['Run',evidence.runId],['Team',evidence.teamName],['Generated',evidence.generatedAt]]){
+        const row=element('div','', 'row');const copy=element('div','', 'row-copy');copy.append(element('strong',value),element('small',label));row.append(copy);rows.append(row);
+      }
+      rows.append(element('div','Ask ChatGPT to use evidence_export for the full private bundle.','empty'));
+      return;
+    }
+    if(!items.length){rows.append(element('div',view==='teams'?'No teams yet. Ask ChatGPT to create one.':view==='runs'?'No runs for this team yet.':run?'No tasks recorded for this run.':'Select a run to see tasks.','empty'));return;}
+    for(const item of items){
+      const clickable=view!=='tasks';const row=element(clickable?'button':'div','',clickable?'row row-button':'row');
+      if(clickable)row.type='button';
+      const copy=element('div','', 'row-copy');copy.append(element('strong',view==='teams'?item.name:view==='runs'?item.objective:item.title),element('small',view==='teams'?'AI team':view==='runs'?'Coordination run':'Task'));
+      const state=element('span',item.status??'unknown','state');state.dataset.state=item.status??'';
+      row.append(element('span',item.status==='complete'?'✓':view==='teams'?'◈':'•','glyph'),copy,state);
+      if(view==='teams')row.addEventListener('click',()=>{selectedTeamId=item.id;selectedRunId=null;workspace.run=null;workspace.evidence=null;view='runs';render();});
+      if(view==='runs')row.addEventListener('click',()=>loadRun(item.id));
+      rows.append(row);
+    }
+  }
+  function update(result){const data=result?.structuredContent??result;if(!Array.isArray(data?.teams)||!Array.isArray(data?.runs))return;workspace={teams:data.teams,runs:data.runs,run:data.run??null,tasks:Array.isArray(data.tasks)?data.tasks:[],evidence:data.evidence??null};if(data.run){if(!selectedRunId)view='tasks';selectedRunId=data.run.id;}render();}
+  let id=0;const pending=new Map();
+  window.addEventListener('message',event=>{
+    if(event.source!==window.parent||event.data?.jsonrpc!=='2.0')return;
+    const msg=event.data;
+    if(typeof msg.id==='number'&&pending.has(msg.id)){const request=pending.get(msg.id);pending.delete(msg.id);msg.error?request.reject(msg.error):request.resolve(msg.result);}
+    if(msg.method==='ui/notifications/tool-result')update(msg.params);
+  });
+  const request=(method,params)=>new Promise((resolve,reject)=>{const next=++id;pending.set(next,{resolve,reject});window.parent.postMessage({jsonrpc:'2.0',id:next,method,params},'*')});
+  const bridgeReady=request('ui/initialize',{appInfo:{name:'ruflo-ai-team-board',version:'1.0.4'},appCapabilities:{},protocolVersion:'2026-01-26'})
+    .then(()=>window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*'))
+    .catch(()=>{byId('rows').textContent='The ChatGPT view could not initialize. Team tools remain available in chat.'});
+  async function refresh(runId=selectedRunId){
+    const button=byId('refresh');button.disabled=true;
+    try{await bridgeReady;const result=await request('tools/call',{name:'team_board',arguments:runId?{runId}:{}});update(result);}
+    catch{byId('rows').textContent='Could not refresh this workspace. Ask ChatGPT to check the connection.';}
+    finally{button.disabled=false;}
+  }
+  async function loadRun(runId,nextView='tasks'){selectedRunId=runId;workspace.run=null;workspace.tasks=[];workspace.evidence=null;view=nextView;render();await refresh(runId);}
+  document.querySelector('.rail').addEventListener('click',event=>{
+    const button=event.target.closest('[data-view]');if(!button)return;
+    view=button.dataset.view;
+    if(view==='teams')selectedTeamId=null;
+    if(['tasks','evidence'].includes(view)&&!workspace.run&&workspace.runs.length){loadRun(workspace.runs[0].id,view);return;}
+    render();
+  });
+  byId('refresh').addEventListener('click',()=>refresh());
+  if(window.openai?.toolOutput)update(window.openai.toolOutput);
+</script>
+</body>
+</html>

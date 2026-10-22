@@ -39,7 +39,7 @@ cross a subprocess boundary. Two supported paths instead:
 Implementation: [`scripts/gepa.mjs`](../../scripts/gepa.mjs).
 
 1. `import('@metaharness/darwin/gepa')`; on MODULE_NOT_FOUND fall back to a
-   one-time `npm install --prefix ~/.ruflo/darwin-cache-0.8.0` and import
+   one-time `npm install --prefix ~/.ruflo/darwin-cache-<pin>` and import
    the cached `dist/gepa/index.js` (versioned dir → pin bumps invalidate).
 2. Dispatch `--op`:
    - `genome`  → `loadGenome(fs, path)` or `loadCand6Genome()` + `validateGenome`

@@ -1,0 +1,27 @@
+{
+  "description": "Native Codex DDD secret guard and session status; Claude module hooks remain separate.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/codex-hook.cjs\" SessionStart",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/codex-hook.cjs\" PreToolUse",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

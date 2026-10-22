@@ -32,14 +32,20 @@ Add a **read-only aggregator** that calls all four stores and returns them in on
 
 ```ts
 interface UnifiedLearningStats {
-  global:        { patternsLearned, trajectoriesRecorded, signalsProcessed, lastAdaptation, source };
-  sona:          { trajectoriesTotal, patternsLearned, reasoningBankSize, avgAdaptationTimeMs, source, available };
+  global:        { patternsLearned, trajectoriesRecorded, signalsProcessed, lastAdaptation, source, scope: 'project-persisted' };
+  sona:          { trajectoriesTotal, patternsLearned, reasoningBankSize, avgAdaptationTimeMs, source, available, scope: 'process-local', metric: 'recent-buffered-trajectories' };
   memoryBridge:  { totalEntries, perNamespace, source, reachable };
   neuralPatterns:{ patternCount, byType, modelCount, source };
-  consistency:   { sonaTracksGlobal, sonaTracksGlobalDelta, notes };
+  consistency:   { sonaTracksGlobal: null, sonaTracksGlobalDelta: null, notes };
   generatedAt:   string;
 }
 ```
+
+The two trajectory counters are not an equality check: SONA coordinator
+state resets with each process and retains only a bounded recent buffer,
+while globalStats is restored from disk.
+The historical comparison fields are `null` because a numeric delta or
+pass/fail verdict would misreport normal restarts as drift.
 
 ### MCP surface
 

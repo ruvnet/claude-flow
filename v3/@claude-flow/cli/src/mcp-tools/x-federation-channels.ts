@@ -28,6 +28,7 @@ export const CHANNEL_ID_RE = /^(pub:[a-z0-9][a-z0-9._-]{0,63}|prv:[0-9a-f]{16})$
 type Nt = {
   generateSecretKey: () => Uint8Array; getPublicKey: (sk: Uint8Array) => string;
   finalizeEvent: (t: Record<string, unknown>, sk: Uint8Array) => Record<string, unknown> & { id: string };
+  verifyEvent: (e: Record<string, unknown>) => boolean;
 };
 type Nip44 = { v2: { encrypt: (p: string, k: Uint8Array) => string; decrypt: (c: string, k: Uint8Array) => string; utils: { getConversationKey: (sk: Uint8Array, pk: string) => Uint8Array } } };
 async function loadTools(): Promise<{ nt: Nt; nip44: Nip44 } | null> {
@@ -87,12 +88,17 @@ function publishEvent(ws: WsLike, nt: Nt, sk: Uint8Array, tags: string[][], cont
     ws.send(JSON.stringify(['EVENT', ev]));
   });
 }
-function reqEvents(ws: WsLike, filter: Record<string, unknown>): Promise<Array<Record<string, unknown>>> {
+function reqEvents(ws: WsLike, nt: Nt, filter: Record<string, unknown>): Promise<Array<Record<string, unknown>>> {
   const out: Array<Record<string, unknown>> = [];
   return new Promise((resolve) => {
     const t = setTimeout(() => resolve(out), 12000);
     ws.on('message', (d: Buffer) => { const m = JSON.parse(d.toString());
-      if (m[0] === 'EVENT') out.push(m[2]);
+      // Only a signature-verified event can be trusted as evidence of who sent
+      // it. Without this check an unverified EVENT frame — relay bug, MITM, or
+      // a compromised relay — would reach callers that treat .pubkey/.id as
+      // authenticated (channel_accept's NIP-44 conversation-key derivation,
+      // channel_read's returned identity).
+      if (m[0] === 'EVENT' && nt.verifyEvent(m[2])) out.push(m[2]);
       else if (m[0] === 'EOSE') { clearTimeout(t); resolve(out); } });
     ws.send(JSON.stringify(['REQ', 'ruflo-ch', filter]));
   });
@@ -153,7 +159,7 @@ export const xFederationChannelTools: MCPTool[] = [
       const t = await loadTools(); if (!t) return degraded();
       const { sk, pubkey } = loadOrCreateKey(t.nt as never, KEY_FILE());
       const relay = RELAY_WS(i.relayWs);
-      const evs = await relayCall(relay, sk, t.nt, (ws) => reqEvents(ws, {
+      const evs = await relayCall(relay, sk, t.nt, (ws) => reqEvents(ws, t.nt, {
         kinds: [1], '#t': ['ruflo-swarm'], '#k': ['ChannelGrant'], '#p': [pubkey],
         since: Math.floor(Date.now() / 1000) - (i.sinceSeconds ?? 7 * 86400), limit: 200,
       }));
@@ -216,7 +222,7 @@ export const xFederationChannelTools: MCPTool[] = [
       if (!CHANNEL_ID_RE.test(i.channel)) throw new Error('channel must be pub:<name> or prv:<16 hex>');
       const t = await loadTools(); if (!t) return degraded();
       const { sk } = loadOrCreateKey(t.nt as never, KEY_FILE());
-      const evs = await relayCall(RELAY_WS(i.relayWs), sk, t.nt, (ws) => reqEvents(ws, {
+      const evs = await relayCall(RELAY_WS(i.relayWs), sk, t.nt, (ws) => reqEvents(ws, t.nt, {
         kinds: [1], '#t': ['ruflo-swarm'], '#c': [i.channel],
         since: Math.floor(Date.now() / 1000) - (i.sinceSeconds ?? 3600), limit: i.limit ?? 100,
       }));
@@ -226,9 +232,12 @@ export const xFederationChannelTools: MCPTool[] = [
         const ev = e as { id: string; pubkey: string; created_at: number; content: string; tags: string[][] };
         const k = ev.tags.find((x) => x[0] === 'k')?.[1];
         const base = { id: ev.id, pubkey: ev.pubkey, created_at: ev.created_at };
-        if (k !== 'enc') { try { return { ...base, ...(JSON.parse(ev.content) as object) }; } catch { return { ...base, raw: ev.content }; } }
+        // base's verified id/pubkey/created_at must win over the parsed/decrypted
+        // body — spread body first so a stray id/pubkey/created_at key in the
+        // publisher's own content can't override the authenticated identity.
+        if (k !== 'enc') { try { return { ...(JSON.parse(ev.content) as object), ...base }; } catch { return { ...base, raw: ev.content }; } }
         if (!key) return { ...base, encrypted: true, reason: 'no channel key held' };
-        try { return { ...base, ...(JSON.parse(t.nip44.v2.decrypt(ev.content, key)) as object) }; }
+        try { return { ...(JSON.parse(t.nip44.v2.decrypt(ev.content, key)) as object), ...base }; }
         catch { return { ...base, encrypted: true, reason: 'held key does not open this message' }; }
       });
       return { channel: i.channel, visibility: isPrivateChannel(i.channel) ? 'private' : 'public', count: messages.length, messages };

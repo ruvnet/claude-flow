@@ -1,6 +1,6 @@
 {
   "name": "@claude-flow/mcp",
-  "version": "3.0.0-alpha.10",
+  "version": "3.1.1",
   "type": "module",
   "description": "Standalone MCP (Model Context Protocol) server - stdio/http/websocket transports, connection pooling, tool registry",
   "main": "dist/index.js",
@@ -10,6 +10,10 @@
     ".": "./dist/index.js",
     "./*": "./dist/*.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "test": "vitest run",
     "build": "tsc"
@@ -39,7 +43,6 @@
     "tool-registry"
   ],
   "publishConfig": {
-    "access": "public",
-    "tag": "v3alpha"
+    "access": "public"
   }
 }

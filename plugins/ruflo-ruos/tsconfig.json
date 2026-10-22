@@ -1,0 +1,4 @@
+{
+  "//": "Claude Code (>= 2.1.287) writes its declarations and this base config into .claude-plugin/types/ when it loads the plugin (gitignored). Run `claude plugin validate .` once, then `tsc -p .`",
+  "extends": "./.claude-plugin/types/tsconfig.json"
+}

@@ -7,3 +7,6 @@
 const [, , group, subcommand] = process.argv;
 if (group !== 'hooks' || !subcommand) process.exit(2);
 process.stdout.write(`hook-telemetry:${subcommand}`);
+if (process.env.RUFLO_HOOK_RECORD_ARGS === '1') {
+  process.stdout.write(` ${JSON.stringify(process.argv.slice(2))}`);
+}

@@ -1,0 +1,4 @@
+{
+  "description": "ruflo-ruos as a mod (ADR-405, optional): shows which ruflo agents run on your ruOS desktops as the `ruos` segment of ruflo's status line ($.ruflo.segment). Reads only .claude-flow/ruos/hosts.json; no network, no ruOS calls; draws nothing when the ruflo mod is not loaded.",
+  "modules": ["./register.ts"]
+}

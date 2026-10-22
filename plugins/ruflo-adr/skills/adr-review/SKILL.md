@@ -2,7 +2,7 @@
 name: adr-review
 description: Review code changes against accepted ADRs for compliance violations
 argument-hint: "[--branch BRANCH]"
-allowed-tools: mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-query mcp__plugin_ruflo-core_ruflo__agentdb_causal-query mcp__plugin_ruflo-core_ruflo__memory_search Bash Read Grep Glob
+allowed-tools: mcp__plugin_ruflo-core_ruflo__agentdb_hierarchical-recall mcp__plugin_ruflo-core_ruflo__memory_list mcp__plugin_ruflo-core_ruflo__memory_search Bash Read Grep Glob
 ---
 
 # ADR Review
@@ -33,7 +33,7 @@ Before merging a PR, after significant code changes, or as part of a periodic co
    - Does it modify a module in a way the ADR's consequences warned against?
    - Is the code referencing a deprecated or superseded ADR?
 
-5. **Query relationship graph** -- Call `mcp__plugin_ruflo-core_ruflo__agentdb_causal-query` to check if any referenced ADRs have been superseded. If so, flag that the code references an outdated decision.
+5. **Query relationship graph** -- Call `mcp__plugin_ruflo-core_ruflo__memory_list` with namespace `adr-edges` (rows are keyed `<relation>:<from>__<to>` with relation `supersedes`, `amends` or `depends-on`) to check if any referenced ADR has been superseded. If the namespace is empty, run `adr-index` first. If a referenced ADR is superseded, flag that the code references an outdated decision.
 
 6. **Report** -- Present findings as a compliance report:
    ```
