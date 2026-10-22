@@ -568,14 +568,22 @@ export class WorkerDaemon extends EventEmitter {
     }
 
     try {
-      // The CLI writes nested objects; legacy files use dotted keys. Scoped
+      // The CLI writes nested objects; legacy files use dotted keys. Each
+      // key resolves independently through scopes.project -> values -> root
+      // — `values` is the envelope config_set writes for its default scope
+      // (#3192 — without this, config_set daemon.idleSecs 0 has no effect
+      // on the running daemon even though it succeeds and updates
+      // config.json) — rather than picking one whole object as "cfg", since
+      // a config.json can legitimately have some keys written under
+      // scopes.project (project-scoped config_set calls) and others under
+      // values (default-scope config_set calls) at the same time. Scoped
       // values retain precedence, including explicit false and zero.
       const read = (obj: Record<string, any> | undefined, key: string): unknown => {
         if (!obj) return undefined;
         return obj[key] ?? key.split('.').reduce((value, part) =>
           value && typeof value === 'object' && Object.hasOwn(value, part) ? value[part] : undefined, obj as any);
       };
-      const get = (key: string) => read(raw?.scopes?.project, key) ?? read(raw, key);
+      const get = (key: string) => read(raw?.scopes?.project, key) ?? read(raw?.values, key) ?? read(raw, key);
       const rawAutoStart = get('daemon.autoStart');
       const rawCpuLoad = get('daemon.resourceThresholds.maxCpuLoad');
       const rawMinMem = get('daemon.resourceThresholds.minFreeMemoryPercent');
