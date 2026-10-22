@@ -277,7 +277,18 @@ LOOKED_LINE="$(printf '%s\n' "$TRACK_OUT_LINE" | grep 'looked under' || true)"
 miss=""
 printf '%s\n' "$LOOKED_LINE" | grep -q 'D--project-Subcloudy' || miss="$miss not-encoded"
 printf '%s\n' "$LOOKED_LINE" | grep -qF 'project\Subcloudy' && miss="$miss corrupt-encoded-path"
+
+# #4366: `_` and `.` are non-alphanumeric too. Claude Code encodes every one
+# to `-`; a path that only replaces separators/colon resolves no session and
+# makes the Stop hook silently persist nothing.
+TRACK_OUT_LINE2="$(TRACK_CWD='D:\project\my_project.v2' node "$ROOT/scripts/track.mjs" 2>&1 || true)"
+LOOKED_LINE2="$(printf '%s\n' "$TRACK_OUT_LINE2" | grep 'looked under' || true)"
+printf '%s\n' "$LOOKED_LINE2" | grep -q 'D--project-my-project-v2' || miss="$miss underscore-dot-not-encoded"
+printf '%s\n' "$LOOKED_LINE2" | grep -qF 'my_project.v2' && miss="$miss underscore-dot-left-literal"
 [[ -z "$miss" ]] && ok || bad "$miss"
+
+step "29c. encodeProjectPath unit cases (#4366)"
+if node "$ROOT/scripts/test-project-slug-4366.mjs"; then ok; else bad "slug cases failed"; fi
 
 step "30. ruflo-cost.md documents 'cost track' subcommand"
 F="$ROOT/commands/ruflo-cost.md"
