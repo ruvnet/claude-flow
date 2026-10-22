@@ -2,6 +2,14 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.4.0 — 2026-10-22
+
+- feat: Phase 4 per ADR-0005 — `rure_analyze_evm` takes inline hex or a file of hex/raw bytecode and returns an aligned-disassembly inventory: dispatcher function selectors (names only for a small well-known table), hazardous-opcode counts and offsets (`SELFDESTRUCT`, `DELEGATECALL`, `CALLCODE`, `CREATE`/`CREATE2`, `ORIGIN`, `CALL`, `STATICCALL`), embedded `PUSH20` addresses, event topics before `LOG1`-`LOG4`, EIP-1167 minimal-proxy detection, solc/IPFS metadata trailer, and embedded strings such as revert reasons (AIDefence-screened).
+- feat: no EVM interpreter, no RPC, no network. `PUSH` immediates are skipped as data, so operand bytes that look like opcodes are never counted.
+- feat: input hardening — 256 KiB cap, strict hex validation, exactly one source per call, truncated trailing `PUSH` clamped.
+- chore: measured on random bytes: 0.59 ms for a 24 KiB (EIP-170-size) input, 5.4 ms for the 256 KiB cap.
+- chore: validated on hand-assembled bytecode only. No real compiler output was available to test against, so dispatcher and metadata handling on production contracts is unverified; optimized or hand-written dispatchers may be missed.
+
 ## 0.3.0 — 2026-10-22
 
 - feat: Phase 3 per ADR-0004 — `rure_analyze_dotnet` reads a managed assembly's ECMA-335 metadata: runtime version, assembly identity and references, type names, method count, P/Invoke imports (native module + function), `#US` string literals and entry-point token. Original pure-TypeScript reader, no dependency, no IL decoding, never loads or runs the assembly.

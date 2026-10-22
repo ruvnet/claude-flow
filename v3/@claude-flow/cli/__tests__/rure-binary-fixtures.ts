@@ -203,3 +203,35 @@ export function buildDotNetPe(): Buffer {
   root.copy(buf, 0x250);
   return buf;
 }
+
+/** Hand-assembled EVM bytecode exercising dispatcher, hazards, push-data traps, topics, strings and solc metadata. */
+export function buildEvmBytecode(): Buffer {
+  const h = (s: string) => Buffer.from(s.replace(/\s/g, ''), 'hex');
+  const ownable = Buffer.from('Ownable: caller is not the owner', 'latin1'); // exactly 32 bytes
+  const meta = Buffer.concat([
+    h('a2 64 69706673 5822'), Buffer.alloc(34, 0xab), h('64 736f6c63 43 000814'),
+  ]);
+  const trailer = Buffer.from([0, meta.length]);
+  return Buffer.concat([
+    h('5f 35 60e0 1c'),
+    h('80 63a9059cbb 14 610020 57'), // transfer(...) via DUP1 PUSH4 EQ
+    h('80 6312345678 14 610030 57'), // unknown selector
+    h('63 70a08231 81 14 610040 57'), // PUSH4 DUP2 EQ
+    h('63 11223344 10 610050 57'), // PUSH4 LT: range pivot, must not count
+    h('5b 5b'),
+    h('60ff 6032'), // push-data that looks like SELFDESTRUCT / ORIGIN: must not count
+    h('32 ff f4'), // real ORIGIN, SELFDESTRUCT, DELEGATECALL
+    h('73'), Buffer.from('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', 'hex'),
+    h('7f ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef 6000 6000 a3'),
+    h('7f'), ownable,
+    meta, trailer,
+  ]);
+}
+
+export function buildMinimalProxy(): Buffer {
+  return Buffer.concat([
+    Buffer.from('363d3d373d3d3d363d73', 'hex'),
+    Buffer.from('bebebebebebebebebebebebebebebebebebebebe', 'hex'),
+    Buffer.from('5af43d82803e903d91602b57fd5bf3', 'hex'),
+  ]);
+}

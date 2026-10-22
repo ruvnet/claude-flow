@@ -1,7 +1,7 @@
 {
   "name": "ruflo-rure",
-  "description": "Statically analyze a local JS/Electron app you're authorized to study, with file+line evidence, and build an original reimplementation of what you find. Experimental. Phase 1: JS/Electron static analysis. Phase 2: native ELF/PE/Mach-O container inspection. Phase 3: .NET assembly metadata. Parses, never executes. EVM and dynamic analysis are future phases, not yet implemented.",
-  "version": "0.3.0",
+  "description": "Statically analyze a local JS/Electron app you're authorized to study, with file+line evidence, and build an original reimplementation of what you find. Experimental. Phase 1: JS/Electron static analysis. Phase 2: native ELF/PE/Mach-O container inspection. Phase 3: .NET assembly metadata. Phase 4: EVM bytecode inventory. Parses, never executes. Dynamic analysis is a future phase, not yet implemented.",
+  "version": "0.4.0",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -17,6 +17,7 @@
     "electron",
     "binary",
     "dotnet",
+    "evm",
     "javascript",
     "mcp",
     "experimental"

@@ -15,6 +15,7 @@ for (const dir of ['skills', 'commands', 'agents', 'docs/adrs']) {
 }
 check('ADR-0001 exists', existsSync(new URL('docs/adrs/0001-scope-and-dual-use-policy.md', root)));
 check('ADR-0002 exists', existsSync(new URL('docs/adrs/0002-phase1-architecture.md', root)));
+check('ADR-0005 exists', existsSync(new URL('docs/adrs/0005-phase4-evm-bytecode.md', root)));
 check('ADR-0004 exists', existsSync(new URL('docs/adrs/0004-phase3-dotnet-metadata.md', root)));
 check('ADR-0003 exists', existsSync(new URL('docs/adrs/0003-phase2-native-binary-static-analysis.md', root)));
 
@@ -60,8 +61,8 @@ check('rure-tools.ts references MAX_BINARY_BYTES', /MAX_BINARY_BYTES/.test(tools
 
 // Tool names referenced by the skill/command/agent docs must exist on the tool list.
 const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].map((m) => m[1]));
-check('exactly five tools (three Phase 1, one each Phase 2 and 3)', toolNames.size === 5);
-for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet']) {
+check('exactly six tools (three Phase 1, one each Phase 2, 3 and 4)', toolNames.size === 6);
+for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }
 
