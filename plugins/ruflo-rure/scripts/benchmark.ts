@@ -91,6 +91,21 @@ async function main() {
           `modulesAnalyzed=${result.modules.length} filesScanned=${result.filesScanned} truncated=${result.truncated}`,
       );
     }
+    const { parseBinary, extractStrings } = await import(new URL('rure/binary-parse.ts', CLI_SRC).href);
+    const big = Buffer.alloc(64 * 1024 * 1024, 0x41);
+    for (let i = 0; i < big.length; i += 97) big[i] = 0;
+    big.write('\x7fELF', 0, 'latin1');
+    big[4] = 2;
+    big[5] = 1;
+    const t0 = process.hrtime.bigint();
+    parseBinary(big);
+    const parseMs = Number(process.hrtime.bigint() - t0) / 1e6;
+    big.fill(0x41);
+    for (let i = 0; i < big.length; i += 4) big[i] = 0; // runs of 3: never reaches minLen, forces a full scan
+    const t1 = process.hrtime.bigint();
+    extractStrings(big);
+    const strMs = Number(process.hrtime.bigint() - t1) / 1e6;
+    console.log(`binary 64MiB: parseBinary=${parseMs.toFixed(1)}ms extractStrings(worst-case full scan)=${strMs.toFixed(1)}ms`);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
