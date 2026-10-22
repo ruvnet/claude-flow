@@ -27,7 +27,7 @@ export const AGENTDB_LOCK_SUFFIX = '.agentdb.lock';
 /** A lock younger than this is never considered stale (saves take milliseconds). */
 export const DEFAULT_MIN_STALE_AGE_MS = 10_000;
 
-export type LockState = 'absent' | 'live' | 'stale' | 'unverifiable';
+export type LockState = 'absent' | 'live' | 'recent' | 'stale' | 'unverifiable';
 
 export interface LockInspection {
   state: LockState;
@@ -142,9 +142,14 @@ export function inspectAgentdbLock(dbPath: string, options: LockGuardOptions = {
   const pid = parsePid(snap.content);
   if (pid === null) return { state: 'unverifiable', lockPath, reason: 'lock content is not a PID; refusing to touch it' };
   if (pid === process.pid || isAlive(pid)) return { state: 'live', lockPath, pid, reason: `lock holder PID ${pid} is alive` };
-  const age = now - snap.mtimeMs;
+  const age = Math.max(0, now - snap.mtimeMs);
   if (age < minAge) {
-    return { state: 'live', lockPath, pid, reason: `holder PID ${pid} is dead but the lock is only ${Math.round(age)}ms old` };
+    return {
+      state: 'recent',
+      lockPath,
+      pid,
+      reason: `holder PID ${pid} is dead but the lock is only ${Math.round(age)}ms old; a writer may still be finishing`,
+    };
   }
   return { state: 'stale', lockPath, pid, reason: `holder PID ${pid} is dead and the lock is ${Math.round(age / 1000)}s old` };
 }
@@ -204,9 +209,11 @@ export async function withAgentdbLockRecovery<T>(
         `AgentDB could not save "${path.basename(dbPath)}": ${inspection.reason}. ` +
           (inspection.state === 'live'
             ? 'Another process is writing this database; retry when it finishes.'
-            : inspection.state === 'absent'
-              ? 'The database changed on disk after it was opened; reopen it and retry (no data was overwritten).'
-              : `If no other process uses this database, remove "${path.basename(inspection.lockPath)}" manually and retry.`),
+            : inspection.state === 'recent'
+              ? 'The holder is gone but the lock is still recent; a writer may be finishing. Retry in a moment (the guard removes it once it is old enough).'
+              : inspection.state === 'absent'
+                ? 'The database changed on disk after it was opened; reopen it and retry (no data was overwritten).'
+                : `If no other process uses this database, remove "${path.basename(inspection.lockPath)}" manually and retry.`),
         inspection.state,
         { cause: error },
       );
