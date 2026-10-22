@@ -50,6 +50,7 @@ export const PLUGIN_MAP: Readonly<Record<string, PluginHome>> = {
   'ruflo-plugin-creator': home('plugins'),
   'ruflo-rag-memory': home('memory'),
   'ruflo-ruos': home('swarm'),
+  'ruflo-rure': home('devtools'),
   'ruflo-ruvector': home('vector'),
   'ruflo-ruvllm': home('neural'),
   'ruflo-rvf': home('sandbox'),
