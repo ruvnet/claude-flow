@@ -1,7 +1,7 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { buildElf64 } from './rure-binary-fixtures.js';
+import { buildElf64, buildDotNetPe } from './rure-binary-fixtures.js';
 import { join } from 'node:path';
 
 // @claude-flow/aidefence is deliberately NOT a dependency of @claude-flow/cli
@@ -40,9 +40,10 @@ afterEach(() => {
 });
 
 describe('ruRE MCP tools (end-to-end)', () => {
-  it('registers exactly the four tools (three Phase 1, one Phase 2)', () => {
+  it('registers exactly the five tools (three Phase 1, one each Phase 2 and 3)', () => {
     expect(rureTools.map((t) => t.name).sort()).toEqual([
       'rure_analyze_binary',
+      'rure_analyze_dotnet',
       'rure_analyze_js_app',
       'rure_extract_asar',
       'rure_find_feature',
@@ -148,5 +149,25 @@ describe('rure_analyze_binary', () => {
     const parsed = parseResult(await toolByName('rure_analyze_binary').handler({ path: file }));
     expect(parsed.success).toBe(true);
     expect(parsed.format).toBe('unknown');
+  });
+});
+
+describe('rure_analyze_dotnet', () => {
+  it('returns metadata and redacts a flagged user string', async () => {
+    const file = join(scratch(), 'demo.dll');
+    writeFileSync(file, buildDotNetPe());
+    const parsed = parseResult(await toolByName('rure_analyze_dotnet').handler({ path: file }));
+    expect(parsed).toMatchObject({ success: true, isManaged: true });
+    expect(parsed.assembly).toEqual({ name: 'Demo', version: '1.2.3.4' });
+    expect(parsed.pinvokes).toEqual([{ module: 'libnative', function: 'do_thing' }]);
+    expect(parsed.redactedCount).toBe(1);
+    expect(JSON.stringify(parsed.userStrings)).not.toContain('ignore previous instructions');
+    expect(parsed.userStrings).toContain('hello-dotnet');
+  });
+
+  it('rejects traversal paths and directories', async () => {
+    const tool = toolByName('rure_analyze_dotnet');
+    expect((await tool.handler({ path: '../../etc/passwd' }) as any).isError).toBe(true);
+    expect((await tool.handler({ path: scratch() }) as any).isError).toBe(true);
   });
 });

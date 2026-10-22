@@ -2,6 +2,13 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.3.0 — 2026-10-22
+
+- feat: Phase 3 per ADR-0004 — `rure_analyze_dotnet` reads a managed assembly's ECMA-335 metadata: runtime version, assembly identity and references, type names, method count, P/Invoke imports (native module + function), `#US` string literals and entry-point token. Original pure-TypeScript reader, no dependency, no IL decoding, never loads or runs the assembly.
+- feat: row layouts for all 45 metadata tables are encoded so the reader can locate the tables it needs; table extents are validated against the `#~` stream size before any row is read, and lists and strings are capped.
+- chore: validated against three genuine Microsoft-built assemblies (PSReadLine Pager and Polyfiller DLLs): names, versions, references and string literals matched. None of them use P/Invoke, so that path is covered by a hand-built fixture only.
+- chore: not covered — IL disassembly, decompilation, signature-blob decoding, resources, obfuscated metadata.
+
 ## 0.2.0 — 2026-10-22
 
 - feat: Phase 2 per ADR-0003 — `rure_analyze_binary` inspects ELF, PE and Mach-O containers (format, architecture, entry point, sections, linked libraries, imported/exported symbols, optional strings) with an original pure-TypeScript parser. No disassembler, no new dependency, never loads or executes the target.
