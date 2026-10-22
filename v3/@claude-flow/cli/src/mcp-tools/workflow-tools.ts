@@ -643,7 +643,8 @@ export const workflowTools: MCPTool[] = [
       // Sort by creation date (newest first)
       workflows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      // Apply limit
+      // Count the matches before the limit cuts the page down
+      const total = workflows.length;
       const limit = (input.limit as number) || 20;
       workflows = workflows.slice(0, limit);
 
@@ -656,7 +657,7 @@ export const workflowTools: MCPTool[] = [
           createdAt: w.createdAt,
           completedAt: w.completedAt,
         })),
-        total: workflows.length,
+        total,
         filters: { status: input.status },
       };
     },
