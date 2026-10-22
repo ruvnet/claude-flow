@@ -20,6 +20,11 @@ const frontmatter=(text)=>{const m=text.match(/^---\n([\s\S]*?)\n---/);const o={
 const names=(dir,file)=>readdirSync(new URL(dir,root),{withFileTypes:true}).filter((e)=>file?e.isDirectory():e.name.endsWith(".md")).map((e)=>file?`${dir}${e.name}/${file}`:`${dir}${e.name}`);
 const items=[...names("skills/","SKILL.md"),...names("commands/"),...names("agents/")];
 const serverTools=new Set([...server.matchAll(/mcp\.(?:tool|registerTool)\('([a-z_]+)'/g)].map((m)=>m[1]));
+// annotation-review.md's own claim ("server tests compare the live tool list with this
+// classification") must be true: every live tool documented, nothing stale left behind.
+const annotationRows=read('annotation-review.md').split('\n').filter((l)=>l.startsWith('| `'));
+const documentedTools=new Set(annotationRows.flatMap((l)=>[...l.matchAll(/`([a-z_]+)`/g)].map((m)=>m[1])));
+check('annotation-review.md documents every live tool, no more, no less',documentedTools.size===serverTools.size&&[...serverTools].every((t)=>documentedTools.has(t)));
 for(const f of items){const text=read(f);const fm=frontmatter(text);
   check(`${f}: no namespaced tool names`,!/mcp__/.test(text));
   check(`${f}: description present, no angle brackets, under 300 chars`,!!fm.description&&!/[<>]/.test(fm.description)&&fm.description.length<300);
