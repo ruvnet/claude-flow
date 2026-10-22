@@ -34,11 +34,19 @@ describe('GuidanceProvider', () => {
       expect(context).toContain('Performance Targets');
     });
 
-    it('should include HNSW performance targets', async () => {
+    it('should include honest performance status without retracted multipliers', async () => {
       const context = await provider.generateSessionContext();
 
       expect(context).toContain('HNSW search');
-      expect(context).toContain('150x');
+      expect(context).toContain('measured latency');
+      expect(context).toContain('Flash Attention');
+      expect(context).toContain('pending an in-tree benchmark');
+      // #4381: these were retracted after the May 2026 audit and must not be
+      // re-injected into every SessionStart context.
+      expect(context).not.toContain('150x');
+      expect(context).not.toContain('12,500x');
+      expect(context).not.toContain('2.49x');
+      expect(context).not.toContain('7.47x');
     });
 
     it('should include code quality rules', async () => {
