@@ -1,3 +1,5 @@
+#subscribe
+
 # Local Development Configuration
 
 ## Environment Variables
