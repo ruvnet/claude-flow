@@ -304,6 +304,29 @@ describe('ReasoningBank', () => {
       expect(result).toHaveProperty('patternsPromoted');
     });
 
+    it('counts each removed duplicate once in a 3-way cluster', async () => {
+      const bank = new ReasoningBank({ useMockEmbeddings: true, dimensions: 384 });
+      await bank.initialize();
+
+      const embedding = new Float32Array(384);
+      embedding[0] = 1;
+      await bank.importPatterns({
+        shortTerm: [
+          { id: 'cluster_high', strategy: 'Cluster high', domain: 'general', embedding, quality: 0.9, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
+          { id: 'cluster_mid', strategy: 'Cluster mid', domain: 'general', embedding, quality: 0.6, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
+          { id: 'cluster_low', strategy: 'Cluster low', domain: 'general', embedding, quality: 0.3, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
+        ],
+        longTerm: [],
+      });
+
+      const result = await bank.consolidate();
+
+      // The high-quality survivor removes both siblings exactly once. The old
+      // loop then re-compared the two tombstones and reported a third removal.
+      expect(result.duplicatesRemoved).toBe(2);
+      expect(bank.getStats().shortTermCount).toBe(1);
+    });
+
     it('should free HNSW index capacity when pruning, not just the in-memory map', async () => {
       // Small maxElements (maxShortTerm + maxLongTerm) so the bug surfaces
       // without inserting thousands of patterns.

@@ -597,7 +597,12 @@ export class ReasoningBank extends EventEmitter {
     // Deduplicate similar patterns
     const patterns = Array.from(this.shortTermPatterns.values());
     for (let i = 0; i < patterns.length; i++) {
+      // A prior comparison may have removed this pattern already. Re-entering
+      // its inner loop would compare a tombstone, double-count
+      // duplicatesRemoved, and issue redundant storage/HNSW deletes (#4410).
+      if (!this.shortTermPatterns.has(patterns[i].id)) continue;
       for (let j = i + 1; j < patterns.length; j++) {
+        if (!this.shortTermPatterns.has(patterns[j].id)) continue;
         const similarity = this.cosineSimilarity(patterns[i].embedding, patterns[j].embedding);
         if (similarity > this.config.dedupThreshold) {
           // Keep the one with higher quality
