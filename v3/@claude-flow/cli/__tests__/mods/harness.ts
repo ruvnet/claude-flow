@@ -13,7 +13,7 @@
  *     absent (what is beneath answers); in a `.catch`, `next` is replay-safe
  *     (`next.called`, `next.error`) and its answer stands;
  *   - `e` is frozen; matchers narrow on equal values, arrays (any of) and RegExps;
- *   - `$` ops: fs.stat rejects ENOENT for a missing path, fs.read rejects
+ *   - `$` ops: tool.list (from `world.tools`), fs.stat rejects ENOENT for a missing path, fs.read rejects
  *     over 4 MiB, env.get/set, settings.read, session.root, ui.*, command.register.
  * What it does not model: tiers above the mod (sec-default is reasoned about,
  * not run), budgets, streaming events, rendering.
@@ -41,6 +41,8 @@ export interface World {
   failRead?: (path: string) => Error | undefined;
   failStat?: (path: string) => Error | undefined;
   failLog?: boolean;
+  /** What `$.tool.list()` returns (default: none). `mcp` marks an MCP server's tool. */
+  tools?: { name: string; description: string; mcp: boolean }[];
 }
 
 export function memoryWorld(root = '/work', settings: unknown = {}): World {
@@ -105,6 +107,11 @@ function engineOf(world: World) {
     settings: {
       async read() {
         return typeof world.settings === 'function' ? (world.settings as () => unknown)() : world.settings;
+      },
+    },
+    tool: {
+      async list() {
+        return world.tools ?? [];
       },
     },
     session: {

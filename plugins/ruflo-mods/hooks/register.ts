@@ -12,6 +12,7 @@ import { registerNoun } from './noun'
 import { readOptions } from './options'
 import { registerProbe } from './probe'
 import { registerRollup } from './rollup'
+import { registerRureOffer } from './rure-offer'
 import { registerRoute } from './route'
 import { registerSession } from './session'
 import { createState } from './state'
@@ -48,4 +49,5 @@ export const register: Register = (on, options) => {
   if (opts.agentTrim) registerAgents(on, state, opts)
   if (opts.deliveryScreen) registerDelivery(on, state)
   if (opts.compactCarry) registerCompact(on, state)
+  if (opts.rureOffer) registerRureOffer(on, state)
 }

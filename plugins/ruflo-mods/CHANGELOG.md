@@ -2,6 +2,9 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-mods`.
 
+## 0.7.0 — 2026-10-23
+- feat: option `rureOffer` (default off, ADR-498): when the model reads or writes a binary, library, `.asar` or CUDA file inside the project, one line beneath the answer says ruRE can look inside it without running it, and how (`/ruflo run dt-re-auto <path>`, or `rure_analyze_binary` / `rure_analyze_cuda`). Offer only: it never runs ruRE, never denies or edits a call, shows at most three files a turn and twelve a session once each, only validated project-relative paths, and nothing from the file. Inert without a ruRE tool and on subagent answers
+
 ## 0.6.2 — 2026-10-14
 - fix: the mod's route context uses the same query-coverage scoring as hook-handler.cjs (inflection variants, IDF weights, coverage >= 0.15), so a short prompt finds a long memory entry and "migrations" finds "migration" (#4136, #4172); the ADR-404 parity test holds again
 
