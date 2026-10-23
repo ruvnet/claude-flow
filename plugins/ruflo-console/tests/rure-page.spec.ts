@@ -37,8 +37,8 @@ const linesOf = (id: string, name: string): string => devLines(id, fixture(name)
 const wrapped = (inner: unknown, isError = false) => `[INFO] Executing tool: x\n[OK] Tool executed in 6ms\nResult:\n${JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(inner) }], ...(isError && { isError: true }) }, null, 2)}\n`
 
 describe('the ruRE catalog', () => {
-  it('has the six tools, each with a unique dt-re- id, in a ruRE group, and the groups have rows', () => {
-    expect(RURE.map(item => item.id)).toEqual(['dt-re-asar', 'dt-re-js', 'dt-re-find', 'dt-re-bin', 'dt-re-net', 'dt-re-evm'])
+  it('has the six tools and DETECT, each with a unique dt-re- id, in a ruRE group, and the groups have rows', () => {
+    expect(RURE.map(item => item.id)).toEqual(['dt-re-auto', 'dt-re-asar', 'dt-re-js', 'dt-re-find', 'dt-re-bin', 'dt-re-net', 'dt-re-evm'])
     expect(RURE.every(item => DEV.includes(item))).toBe(true)
     expect(RURE_GROUPS.every(group => DEV_GROUPS.some(known => known.id === group.id) && RURE.some(item => item.group === group.id))).toBe(true)
   })

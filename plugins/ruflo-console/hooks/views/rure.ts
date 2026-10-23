@@ -26,6 +26,7 @@ export function rureView(ctx: Ctx): RenderElement {
       text(ctx, ' look inside a file without running it: the tools only parse it', { dimColor: true }),
       text(ctx, ' a read runs at once; unpacking an .asar writes files, so it asks first', { dimColor: true }),
       text(ctx, ' only files inside this project can be named; results are untrusted text', { dimColor: true }),
+      ...group('rure-auto', ' not sure which reader? name it here: a folder is JS source, hex is EVM, anything else a native binary (it names the format)'),
       ...group('rure-app', ' an .asar (UNPACK, then copy the folder in) or a folder of source'),
       ...group('rure-native', ' one reader for ELF, PE, Mach-O; .NET: metadata only; EVM: hex or raw'),
       ...section(ctx, 'dt-result', 'Result', resultRight(ctx), devtoolsResult(ctx), hasRun),

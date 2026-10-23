@@ -47,6 +47,7 @@ const FIELDS: Partial<Record<DevGroup, readonly { field: DevField; label: string
   ],
   daa: [{ field: 'note', label: 'note', placeholder: 'feedback or knowledge to send (also a managed-agent prompt)' }],
   // The ruRE page (ADR-494) draws these two sections; the sample is a path inside the project.
+  'rure-auto': [{ field: 'sample', label: 'sample', placeholder: 'any file or folder inside this project: DETECT picks the reader', submit: 'detect' }],
   'rure-app': [
     { field: 'sample', label: 'sample', placeholder: 'a .asar file or a folder of JS source, inside this project', submit: 'map' },
     { field: 'query', label: 'feature', placeholder: 'for FIND FEATURE: the feature in words, e.g. license check', submit: 'find' },

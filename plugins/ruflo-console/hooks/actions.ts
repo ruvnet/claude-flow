@@ -19,8 +19,11 @@ export type ActionSpec = {
   write?: WriteOp
   expect: string
   verify?: (snapshot: Snapshot) => boolean
-  /** Before anything starts (a read at once, a confirmed action after the confirm): the reason it must not run, or null. A reason is shown as the result and nothing is spawned (ADR-495). */
-  preflight?: (host: Pick<Host, 'fs'>) => Promise<string | null>
+  /**
+   * Before anything starts (a read at once, a confirmed action after the confirm): a reason it must not run (shown as the result, nothing spawned), or what to run
+   * instead (the arguments, label, lab id, note and reader a check chose, ADR-496), or null to run as built. ADR-495 added it; ADR-496 lets it choose.
+   */
+  preflight?: (host: Pick<Host, 'fs'>) => Promise<string | Partial<Pick<ActionSpec, 'args' | 'label' | 'lab' | 'note' | 'lines'>> | null>
   /** A local check after a confirmed action succeeds; never part of background refreshes. */
   verifyLocal?: (host: Pick<Host, 'fs' | 'home'>) => Promise<boolean>
   /** Reads only: runs at once, without the confirm step, and shows what the CLI printed. */

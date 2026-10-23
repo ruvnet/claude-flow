@@ -10,15 +10,14 @@ import type { ActionSpec } from './actions'
 import { devLines, fieldRule, fieldValue, need, tool, type DevField, type DevFields } from './data/devtools'
 import type { Host } from './host'
 import type { PaletteEntry } from './palette'
-import { sampleLinkCheck } from './data/rure-guard'
-import { RURE, RURE_GROUPS } from './rure'
+import { RURE, RURE_GROUPS, rurePreflight } from './rure'
 import { SANDBOX, SANDBOX_GROUPS } from './sandbox'
 import type { State } from './state'
 
 /** `read`: local, $0, changes nothing. `local`: local compute that keeps nothing. Then writes, the network, money, deletes. */
 export type DevCost = 'read' | 'local' | 'writes' | 'network' | 'spends' | 'deletes'
 
-export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint' | 'tmux' | 'rvm' | 'rure-app' | 'rure-native'
+export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint' | 'tmux' | 'rvm' | 'rure-auto' | 'rure-app' | 'rure-native'
 
 export type DevEntry = {
   id: string
@@ -196,7 +195,7 @@ export function devSpec(entry: DevEntry, fields: DevFields): ActionSpec | null {
     ...(DECLARED[entry.cost] !== undefined && { declared: DECLARED[entry.cost] }),
     ...(entry.note !== undefined && { note: entry.note }),
     ...(entry.timeoutMs !== undefined && { timeoutMs: entry.timeoutMs }),
-    ...(entry.group.startsWith('rure-') && fields.sample !== '' && { preflight: (host: Pick<Host, 'fs'>) => sampleLinkCheck(host.fs, fields.sample) }),
+    ...(entry.group.startsWith('rure-') && fields.sample !== '' && { preflight: rurePreflight(entry, fields.sample) }),
   }
 }
 
@@ -258,6 +257,7 @@ const SUBMITS: Partial<Record<DevField, string>> = { task: 'dt-brain', ref: 'dt-
 
 /** Enter in a field on a page of its own: the entry that page runs for it, where that differs from the shared `SUBMITS` (the ruRE page, ADR-494). */
 const PAGE_SUBMITS: Partial<Record<DevGroup, Partial<Record<DevField, string>>>> = {
+  'rure-auto': { sample: 'dt-re-auto' },
   'rure-app': { sample: 'dt-re-js', query: 'dt-re-find' },
   'rure-native': { sample: 'dt-re-bin' },
 }
