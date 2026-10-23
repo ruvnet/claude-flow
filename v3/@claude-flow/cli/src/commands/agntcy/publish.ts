@@ -124,7 +124,7 @@ const publishCommand: Command = {
 
     // Step 2 (stub, requires the not-yet-published runtime): the actual
     // Directory publish call.
-    const status = await detectAgntcyRuntime();
+    const status = await detectAgntcyRuntime(process.env, AGNTCY_PACKAGE_NAME, ['publishAgentRecord']);
 
     if (!status.configured) {
       output.printInfo(AGNTCY_NOT_CONFIGURED_MESSAGE);

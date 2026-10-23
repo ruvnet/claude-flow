@@ -69,7 +69,7 @@ const joinCommand: Command = {
       return { success: false, exitCode: 1 };
     }
 
-    const status = await detectAgntcyRuntime();
+    const status = await detectAgntcyRuntime(process.env, AGNTCY_PACKAGE_NAME, ['joinGroup']);
 
     if (!status.configured) {
       output.printInfo(AGNTCY_NOT_CONFIGURED_MESSAGE);

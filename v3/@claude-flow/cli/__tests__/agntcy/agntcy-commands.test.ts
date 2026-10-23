@@ -86,6 +86,17 @@ describe('agntcy command scaffold (ADR-380) — not-configured fallback', () => 
       expect(status.reason).toMatch(/resolved/);
     });
 
+    it('reports not configured when the installed SDK lacks the required export', async () => {
+      const status = await detectAgntcyRuntime(
+        { [AGNTCY_ENDPOINT_ENV]: 'https://slim.example.com' },
+        'node:fs',
+        ['createSlimTransport'],
+      );
+      expect(status.configured).toBe(false);
+      expect(status.reason).toMatch(/does not export createSlimTransport/);
+      expect(status.endpoint).toBe('https://slim.example.com');
+    });
+
     it('still degrades gracefully if the optional package genuinely is not installed', async () => {
       // Regression guard for the "works without AGNTCY installed" contract
       // this file's header describes — simulate a MODULE_NOT_FOUND by
