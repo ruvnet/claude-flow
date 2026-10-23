@@ -32,10 +32,31 @@ export function versionLess(a: string, b: string): boolean {
   return false;
 }
 
+export interface VersionProbe { command: string; args: string[]; windowsVerbatimArguments?: boolean }
+
+/**
+ * #4397: Node refuses to execFile a .cmd/.bat shim on Windows (EINVAL), so the
+ * npm-global `claude.cmd` read as "version unknown". Shims go through cmd.exe
+ * with the path quoted; a path holding cmd metacharacters is not probed at
+ * all (null) rather than risk interpreting it.
+ */
+export function versionProbe(path: string, platform: NodeJS.Platform = process.platform, comspec = process.env.ComSpec || 'cmd.exe'): VersionProbe | null {
+  if (platform === 'win32' && /\.(cmd|bat)$/i.test(path)) {
+    if (/["&|<>^%\r\n]/.test(path)) return null;
+    return { command: comspec, args: ['/d', '/s', '/c', `""${path}" --version"`], windowsVerbatimArguments: true };
+  }
+  return { command: path, args: ['--version'] };
+}
+
 /** `claude --version` of one binary, bounded; null when it cannot say. */
 export const defaultVersionOf: VersionOf = (path) => {
+  const probe = versionProbe(path);
+  if (!probe) return null;
   try {
-    const out = execFileSync(path, ['--version'], { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execFileSync(probe.command, probe.args, {
+      encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'],
+      ...(probe.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
+    });
     return out.match(/\d+\.\d+\.\d+/)?.[0] ?? null;
   } catch {
     return null;
