@@ -86,13 +86,15 @@ describe.skipIf(!HAVE_CLI)('ruRE rows against the real CLI', () => {
     expect(run('dt-re-bin', { sample: 'bin/sample.macho' }).lines.join('\n')).toContain('MACHO · aarch64')
   }, 120_000)
 
-  it('.NET ASSEMBLY reads metadata, P/Invoke and a string literal AIDefence held back', () => {
+  it('.NET ASSEMBLY reads metadata and P/Invoke, and says what happened to the screening of its string literals', () => {
     const net = run('dt-re-net', { sample: 'lib/sample.dll' }).lines.join('\n')
 
     expect(net).toContain('Demo 1.2.3.4')
     expect(net).toContain('P/Invoke (1): libnative!do_thing')
     expect(net).toContain('hello-dotnet')
-    expect(net).toMatch(/hidden by AIDefence/)
+    // With AIDefence installed the flagged literal is hidden and counted; without it (CI) the tool reports screened:false and the page says so.
+    // Either way the screening state is on screen: a page that said nothing would let untrusted strings pass as clean.
+    expect(net).toMatch(/hidden by AIDefence|not screened: AIDefence was unavailable/)
   }, 120_000)
 
   it('EVM BYTECODE lists selectors, hazards and a minimal proxy', () => {
