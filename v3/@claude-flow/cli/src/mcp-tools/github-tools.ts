@@ -98,16 +98,25 @@ function run(cmd: string, cwd?: string): string | null {
  * strings stay literal.
  */
 function runArgv(file: string, args: string[], cwd?: string): string | null {
+  const r = runArgvResult(file, args, cwd);
+  return 'out' in r ? r.out : null;
+}
+
+/** runArgv that keeps the failure text (stderr, else the error message) for reporting. */
+function runArgvResult(file: string, args: string[], cwd?: string): { out: string } | { error: string } {
   try {
-    return execFileSync(file, args, {
-      encoding: 'utf-8',
-      timeout: 15000,
-      cwd: cwd || getProjectCwd(),
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
-    }).trim();
-  } catch {
-    return null;
+    return {
+      out: execFileSync(file, args, {
+        encoding: 'utf-8',
+        timeout: 15000,
+        cwd: cwd || getProjectCwd(),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: false,
+      }).trim(),
+    };
+  } catch (err) {
+    const e = err as { stderr?: string | Buffer; message?: string };
+    return { error: String(e.stderr ?? '').trim() || e.message || 'unknown error' };
   }
 }
 
@@ -328,8 +337,9 @@ export const githubTools: MCPTool[] = [
         const status = action === 'merge' ? 'merged' : 'closed';
         if (gh) {
           const argv = action === 'merge' ? ['pr', 'merge', String(prNumber), '--merge'] : ['pr', 'close', String(prNumber)];
-          if (runArgv('gh', [...argv, ...repoArgs]) === null) {
-            return { success: false, source: 'gh-cli', error: `gh pr ${action} ${prNumber} failed` };
+          const r = runArgvResult('gh', [...argv, ...repoArgs]);
+          if ('error' in r) {
+            return { success: false, source: 'gh-cli', error: `gh pr ${action} ${prNumber} failed: ${r.error}` };
           }
           return { success: true, _real: true, action: status, prNumber, [`${status}At`]: new Date().toISOString() };
         }
@@ -429,8 +439,9 @@ export const githubTools: MCPTool[] = [
             if (labels && labels.length > 0) argv.push('--add-label', labels.join(','));
             if (argv.length === 3) return { success: false, error: 'update requires title or labels' };
           }
-          if (runArgv('gh', [...argv, ...repoArgs]) === null) {
-            return { success: false, source: 'gh-cli', error: `gh issue ${argv[1]} ${issueNumber} failed` };
+          const r = runArgvResult('gh', [...argv, ...repoArgs]);
+          if ('error' in r) {
+            return { success: false, source: 'gh-cli', error: `gh issue ${argv[1]} ${issueNumber} failed: ${r.error}` };
           }
           return action === 'update'
             ? { success: true, _real: true, action: 'updated', issueNumber }

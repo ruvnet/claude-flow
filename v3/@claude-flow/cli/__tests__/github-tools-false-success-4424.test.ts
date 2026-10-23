@@ -31,7 +31,9 @@ function seedStore(prs: Record<string, object>, issues: Record<string, object>) 
   writeFileSync(storePath, JSON.stringify({ repos: {}, prs, issues, version: '3.0.0' }));
 }
 const readStore = () => JSON.parse(readFileSync(storePath, 'utf-8'));
-const ghFails = () => execFileSyncMock.mockImplementation(() => { throw new Error('gh: merge conflict'); });
+// execFileSync throws with the child's stderr attached; that text must reach the caller.
+const GH_STDERR = 'X Pull request #12 is not mergeable: the merge commit cannot be cleanly created.';
+const ghFails = () => execFileSyncMock.mockImplementation(() => { throw Object.assign(new Error('Command failed: gh'), { stderr: `${GH_STDERR}\n` }); });
 
 async function tool(name: string) {
   const { githubTools } = await import('../src/mcp-tools/github-tools.js');
@@ -72,7 +74,8 @@ describe('with gh installed (#4424)', () => {
     // Baseline: { success: true, source: 'local-store' } and the pr-…12… record mutated.
     expect(r.success).toBe(false);
     expect(r.source).toBe('gh-cli');
-    expect(String(r.error)).toMatch(/failed/);
+    expect(String(r.error)).toMatch(/failed: /);
+    expect(String(r.error)).toContain(GH_STDERR);
     expect(readStore().prs['pr-1786319612345'].status).toBe('open');
     expect(readStore().issues['issue-1786319612345']).toMatchObject({ status: 'open', title: 'local' });
   });
