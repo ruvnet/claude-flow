@@ -1,5 +1,5 @@
 /**
- * The ruRE page (ADR-492) under vitest: the catalog against the real tool schemas, what the `sample` field refuses, the readers
+ * The ruRE page (ADR-494) under vitest: the catalog against the real tool schemas, what the `sample` field refuses, the readers
  * against what the real CLI printed (tests/fixtures/rure/*.txt are captured `ruflo mcp exec` runs, not hand-written JSON), a hostile
  * answer, the page itself, its palette ids and Enter routing, and its guide. Run with
  *   npx vitest run plugins/ruflo-console/tests/rure-page.spec.ts

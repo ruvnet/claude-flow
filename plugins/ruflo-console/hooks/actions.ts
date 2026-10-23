@@ -19,6 +19,8 @@ export type ActionSpec = {
   write?: WriteOp
   expect: string
   verify?: (snapshot: Snapshot) => boolean
+  /** Before anything starts (a read at once, a confirmed action after the confirm): the reason it must not run, or null. A reason is shown as the result and nothing is spawned (ADR-495). */
+  preflight?: (host: Pick<Host, 'fs'>) => Promise<string | null>
   /** A local check after a confirmed action succeeds; never part of background refreshes. */
   verifyLocal?: (host: Pick<Host, 'fs' | 'home'>) => Promise<boolean>
   /** Reads only: runs at once, without the confirm step, and shows what the CLI printed. */

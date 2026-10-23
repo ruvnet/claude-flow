@@ -117,6 +117,15 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
     host.invalidate()
 
     try {
+      const blocked = await spec.preflight?.(host)
+
+      if (blocked !== undefined && blocked !== null) {
+        if (spec.lab !== undefined) panel.result = { id: spec.lab, label: spec.label, ok: false, exitCode: null, lines: [blocked], atMs: Date.now() }
+        say(spec.label, false, blocked)
+
+        return
+      }
+
       // A CLI action picks its launcher once per session; a cold npx download gets a long limit and says it is a first run.
       const launcher = spec.argv === undefined ? await resolveLauncher(host, state) : null
       const argv = spec.argv ?? [...(launcher?.prefix ?? []), ...spec.args]
