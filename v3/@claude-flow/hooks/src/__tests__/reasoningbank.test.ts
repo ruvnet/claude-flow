@@ -304,18 +304,29 @@ describe('ReasoningBank', () => {
       expect(result).toHaveProperty('patternsPromoted');
     });
 
-    it('counts each removed duplicate once in a 3-way cluster', async () => {
+    it.each([
+      ['high-first', [0.9, 0.6, 0.3]],
+      ['low-first', [0.3, 0.6, 0.9]],
+      ['mid-first', [0.6, 0.3, 0.9]],
+    ])('counts each removed duplicate once in a 3-way cluster (%s)', async (_label, qualities) => {
       const bank = new ReasoningBank({ useMockEmbeddings: true, dimensions: 384 });
       await bank.initialize();
 
       const embedding = new Float32Array(384);
       embedding[0] = 1;
       await bank.importPatterns({
-        shortTerm: [
-          { id: 'cluster_high', strategy: 'Cluster high', domain: 'general', embedding, quality: 0.9, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
-          { id: 'cluster_mid', strategy: 'Cluster mid', domain: 'general', embedding, quality: 0.6, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
-          { id: 'cluster_low', strategy: 'Cluster low', domain: 'general', embedding, quality: 0.3, usageCount: 1, successCount: 0, createdAt: Date.now(), updatedAt: Date.now(), metadata: {} },
-        ],
+        shortTerm: qualities.map((quality, i) => ({
+          id: `cluster_${i}`,
+          strategy: `Cluster ${i}`,
+          domain: 'general',
+          embedding,
+          quality,
+          usageCount: 1,
+          successCount: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          metadata: {},
+        })),
         longTerm: [],
       });
 

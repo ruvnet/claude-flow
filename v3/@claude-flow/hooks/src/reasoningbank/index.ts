@@ -613,6 +613,9 @@ export class ReasoningBank extends EventEmitter {
             await this.hnswIndex.removePoint(toRemove.id);
           }
           duplicatesRemoved++;
+          // If `i` lost, every later comparison would be against a removed
+          // pattern. Stop this inner loop entirely (#4415 review).
+          if (toRemove === patterns[i]) break;
         }
       }
     }
