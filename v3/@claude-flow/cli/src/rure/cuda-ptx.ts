@@ -22,24 +22,47 @@ export interface PtxInfo {
   scanTruncated: boolean;
 }
 
-/** True when the bytes look like PTX source: the first directive is `.version` after comments and blank space. */
+/**
+ * True when the bytes look like PTX source: the first directive is `.version` after comments and blank space. A hand-written scan, not a
+ * regex: a lazy comment pattern inside a repeated group backtracks exponentially on `/*` followed by many `*` + `/` pairs (CodeQL js/redos
+ * caught the first version of this). Every step here moves forward, so the cost is linear in the 8 KiB it looks at.
+ */
 export function looksLikePtx(b: Buffer): boolean {
   const head = b.toString('latin1', 0, Math.min(b.length, 8192));
+  let i = 0;
 
-  return /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*\.version\s+\d/.test(head);
+  for (;;) {
+    while (i < head.length && (head.charCodeAt(i) <= 32 || head.charCodeAt(i) === 0xa0)) i += 1;
+
+    if (head.startsWith('//', i)) {
+      const end = head.indexOf('\n', i);
+
+      if (end < 0) return false;
+      i = end + 1;
+    } else if (head.startsWith('/*', i)) {
+      const end = head.indexOf('*/', i + 2);
+
+      if (end < 0) return false;
+      i = end + 2;
+    } else break;
+  }
+
+  return /^\.version\s+\d/.test(head.slice(i, i + 32));
 }
 
 export function scanPtx(text: string, includeText: boolean): PtxInfo {
   const scanned = text.length > MAX_PTX_SCAN ? text.slice(0, MAX_PTX_SCAN) : text;
   const info: PtxInfo = {
-    version: /^\s*\.version\s+(\d+\.\d+)/m.exec(scanned)?.[1] ?? null,
-    target: /^\s*\.target\s+([A-Za-z0-9_., ]{1,60}?)\s*(?:\/\/|$)/m.exec(scanned)?.[1]?.trim() ?? null,
-    addressSize: Number(/^\s*\.address_size\s+(\d+)/m.exec(scanned)?.[1] ?? NaN) || null,
+    // Space and tab only, never `\s`, at a line start: `\s` also matches newlines, so every line start inside a run of blank lines rescanned the
+    // rest of the run (80000 blank lines took 4.6 s and 320000 took 71 s before this).
+    version: /^[ \t]*\.version[ \t]+(\d+\.\d+)/m.exec(scanned)?.[1] ?? null,
+    target: /^[ \t]*\.target[ \t]+([A-Za-z0-9_., ]{1,60}?)[ \t]*(?:\/\/|$)/m.exec(scanned)?.[1]?.trim() ?? null,
+    addressSize: Number(/^[ \t]*\.address_size[ \t]+(\d+)/m.exec(scanned)?.[1] ?? NaN) || null,
     entries: [],
     functions: [],
     scanTruncated: text.length > MAX_PTX_SCAN,
   };
-  const re = /\.(entry|func)\s+(?:\([^)]{0,200}\)\s*)?([A-Za-z_$%][\w$.%]{0,198})\s*\(/g;
+  const re = /\.(entry|func)\s{1,64}(?:\([^)]{0,200}\)\s{0,64})?([A-Za-z_$%][\w$.%]{0,198})\s{0,64}\(/g;
   let m: RegExpExecArray | null;
 
   while ((m = re.exec(scanned)) !== null && info.entries.length + info.functions.length < MAX_NAMES) {
