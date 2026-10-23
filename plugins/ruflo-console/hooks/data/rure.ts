@@ -7,8 +7,8 @@
 import { plain, recordOf } from './parse'
 import { measureOf } from './safe'
 
-/** Lines a ruRE answer keeps; the panel scrolls (j/k) past its window. */
-export const RE_MAX_LINES = 40
+/** Lines a ruRE answer keeps in all, whatever the file holds; the panel scrolls (j/k) past its window. */
+export const RE_MAX_LINES = 120
 
 /** The CLI's own words when it has no such tool: the ruRE tools shipped after the releases that predate them. */
 export const NO_TOOLS = 'this ruflo CLI has no rure_* tools: update ruflo (npx ruflo@latest), or run the one built from main'
@@ -27,6 +27,38 @@ const strs = (value: unknown, max: number, each = 40): string => {
   const items = list(value).map(item => text(item, each)).filter(item => item !== '')
 
   return items.length === 0 ? '(none)' : `${items.slice(0, max).join(', ')}${items.length > max ? `, … +${items.length - max}` : ''}`
+}
+
+/** Items one list shows, and the width of a wrapped line. */
+const LIST_MAX = 60
+const WRAP = 96
+
+/**
+ * A titled list: `title (total): a, b` on one line when it fits (what every short list always was), else `title (total):` and the items
+ * wrapped on lines of their own, in order, at most LIST_MAX of them and `… +N` for the rest. `items` are already clean text.
+ */
+function block(title: string, total: number | string, items: readonly string[]): string[] {
+  const shown = items.filter(item => item !== '')
+
+  if (shown.length === 0) return [`${title} (${total}): (none)`]
+
+  const cut = shown.slice(0, LIST_MAX)
+  const tail = shown.length > LIST_MAX ? `, … +${shown.length - LIST_MAX}` : ''
+  const whole = `${title} (${total}): ${cut.join(', ')}${tail}`
+
+  if (whole.length <= WRAP + 12) return [whole]
+
+  const rows: string[] = []
+  let row = ''
+
+  for (const item of cut) {
+    if (row !== '' && row.length + item.length + 2 > WRAP) {
+      rows.push(`  ${row},`)
+      row = item
+    } else row = row === '' ? item : `${row}, ${item}`
+  }
+
+  return [`${title} (${total}):`, ...rows, `  ${row}${tail}`]
 }
 
 /** What every answer says about itself: the parser's warnings, a cut walk, and what AIDefence held back. */
@@ -48,11 +80,11 @@ function binaryLines(record: Record<string, unknown>): string[] {
   return [
     `${text(record.format).toUpperCase() || 'n/a'} · ${text(record.arch) || 'n/a'} · ${num(record.bits)}-bit ${text(record.endianness) || 'n/a'}-endian · ${text(record.kind) || 'n/a'}`,
     `entry ${hex(record.entryPoint)}`,
-    `libraries (${list(record.libraries).length}): ${strs(record.libraries, 8)}`,
-    `imports (${list(record.imports).length}): ${strs(record.imports, 12)}`,
-    `exports (${list(record.exports).length}): ${strs(record.exports, 12)}`,
-    `sections (${sections.length}): ${sections.slice(0, 8).map(section => `${text(section.name, 20)} ${hex(section.offset)}+${num(section.size)}`).join(' · ') || '(none)'}`,
-    ...(strings.length > 0 ? [`strings (${strings.length}${record.stringsTruncated === true ? '+' : ''}): ${strings.slice(0, 12).join(' | ')}`] : []),
+    ...block('libraries', list(record.libraries).length, list(record.libraries).map(item => text(item, 40))),
+    ...block('imports', list(record.imports).length, list(record.imports).map(item => text(item, 40))),
+    ...block('exports', list(record.exports).length, list(record.exports).map(item => text(item, 40))),
+    ...block('sections', sections.length, sections.map(section => `${text(section.name, 20)} ${hex(section.offset)}+${num(section.size)}`)),
+    ...(strings.length > 0 ? block('strings', `${strings.length}${record.stringsTruncated === true ? '+' : ''}`, strings) : []),
   ]
 }
 
@@ -65,11 +97,11 @@ function dotnetLines(record: Record<string, unknown>): string[] {
 
   return [
     `${text(assembly?.name) || 'n/a'} ${text(assembly?.version, 20)} · runtime ${text(record.runtimeVersion, 20) || 'n/a'}`,
-    `references (${refs.length}): ${refs.slice(0, 8).join(', ') || '(none)'}`,
-    `types (${num(record.typeCount)}): ${strs(record.types, 10, 50)}`,
+    ...block('references', refs.length, refs),
+    ...block('types', num(record.typeCount), list(record.types).map(item => text(item, 50))),
     `methods ${num(record.methodCount)} · entry token ${hex(record.entryPointToken)}`,
-    `P/Invoke (${calls.length}): ${calls.slice(0, 10).join(', ') || '(none)'}`,
-    `user strings (${list(record.userStrings).length}): ${strs(record.userStrings, 8, 50)}`,
+    ...block('P/Invoke', calls.length, calls),
+    ...block('user strings', list(record.userStrings).length, list(record.userStrings).map(item => text(item, 50))),
   ]
 }
 
@@ -86,13 +118,13 @@ function evmLines(record: Record<string, unknown>): string[] {
 
   return [
     `${num(record.byteLength)} bytes · ${num(record.instructionCount)} instructions · ${num(record.jumpdestCount)} JUMPDEST · ${num(record.invalidOpcodeCount)} invalid`,
-    `selectors (${selectors.length}): ${selectors.slice(0, 8).join(' · ') || '(none found: unusual dispatcher or no ABI)'}`,
+    ...(selectors.length === 0 ? ['selectors (0): (none found: unusual dispatcher or no ABI)'] : block('selectors', selectors.length, selectors)),
     `hazards: ${hazards.join(' · ') || 'none of the tracked opcodes (an inventory, not a finding)'}`,
-    `addresses (${list(record.addresses).length}): ${strs(record.addresses, 4, 44)}`,
-    `events (${topics.length}): ${topics.slice(0, 6).join(', ') || '(none)'}`,
+    ...block('addresses', list(record.addresses).length, list(record.addresses).map(item => text(item, 44))),
+    ...block('events', topics.length, topics),
     ...(proxy !== null ? [`EIP-1167 minimal proxy → ${text(proxy.implementation, 44)}`] : []),
     ...(meta !== null ? [`compiler: solc ${text(meta.solc, 16) || 'n/a'}${typeof meta.ipfs === 'string' ? ` · ipfs ${plain(meta.ipfs, 12)}` : ''}`] : []),
-    ...(list(record.strings).length > 0 ? [`strings: ${strs(record.strings, 6, 60)}`] : []),
+    ...(list(record.strings).length > 0 ? block('strings', list(record.strings).length, list(record.strings).map(item => text(item, 60))) : []),
   ]
 }
 
@@ -109,8 +141,8 @@ function jsLines(record: Record<string, unknown>): string[] {
   return [
     `${record.isElectron === true ? 'Electron app' : 'JavaScript'} · ${num(record.filesScanned)} files scanned · ${modules.length} modules`,
     `Electron boundaries: ${[...kinds].map(([kind, count]) => `${kind} ×${count}`).join(' · ') || 'none'}`,
-    `imports (${sources.size}): ${[...sources].slice(0, 14).join(', ') || '(none)'}`,
-    ...modules.slice(0, 6).map(module => `  ${text(module.file, 60)} · ${list(module.imports).length} imports · ${list(module.electronBoundaries).length} boundaries`),
+    ...block('imports', sources.size, [...sources]),
+    ...modules.slice(0, 20).map(module => `  ${text(module.file, 60)} · ${list(module.imports).length} imports · ${list(module.electronBoundaries).length} boundaries`),
   ]
 }
 
@@ -120,7 +152,7 @@ function findLines(record: Record<string, unknown>): string[] {
 
   return [
     head,
-    ...matches.slice(0, 6).flatMap(match => {
+    ...matches.slice(0, 20).flatMap(match => {
       const range = recordOf(match.lineRange)
       const first = typeof match.snippet === 'string' ? plain(match.snippet.split('\n').find(line => line.trim() !== '') ?? '', 100) : ''
 
@@ -144,6 +176,7 @@ const READERS: Record<string, (record: Record<string, unknown>) => string[]> = {
   'dt-re-js': jsLines,
   'dt-re-find': findLines,
   'dt-re-bin': binaryLines,
+  'dt-re-auto': binaryLines,
   'dt-re-net': dotnetLines,
   'dt-re-evm': evmLines,
 }

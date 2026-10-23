@@ -2,6 +2,12 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.46.0 — 2026-10-23
+- feat: ruRE DETECT (ADR-496). One row for any file or folder: a folder is read as JavaScript / Electron source, a `.hex`, `.evm` or `.bytecode` file as EVM bytecode, everything else as a native binary, and the result says which reader was chosen. It never unpacks an `.asar` (the one reader that writes): it names UNPACK .ASAR, which asks first. A `.dll` or `.exe` says it may be a .NET assembly and names the row that tells. The choice comes from the folder/file kind and the extension, not the file's bytes (the host hands back text).
+- feat: long ruRE lists (imports, exports, libraries, sections, strings, selectors, types) get lines of their own, wrapped, up to 60 items each, and the panel keeps up to 120 lines (was 40, with each list cut at 8 to 14 items). A list that fits one line is unchanged.
+- feat: Claude sees what a ruRE run found. `console_run` answers with the result lines and `console_state` carries a `rure` block (reader, label, caveats first, lines), every string through the model path and marked as the analyzed file's own text.
+- chore: `ActionSpec.preflight` may now return replacement arguments, label, lab id, note and reader as well as a refusal (ADR-495 added it).
+
 ## 0.45.2 — 2026-10-23
 - fix: ruRE refuses a sample that is a link, or sits behind one (ADR-495). The text rule only stopped `..` and absolute paths; a link inside the project that pointed outside it was opened by the tool. Every ruRE row now walks the sample on disk first and shows the reason without starting anything, for the page and for Claude's `/ruflo run dt-re-*` alike. Adds a general `preflight` to actions.
 - chore: ruRE source comments cite ADR-494 (they said 492).
