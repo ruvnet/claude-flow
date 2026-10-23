@@ -35,6 +35,10 @@ export interface GuidancePattern {
   createdAt: number;
   updatedAt: number;
   metadata: Record<string, unknown>;
+  /** ADR-179 sub-feature 1 (context trim): per-session turn index stamped on
+   * pattern retrieval so the trimmer can drop stale entries. Optional so
+   * existing pattern producers keep working without the governor active. */
+  lastAccessTurn?: number;
 }
 
 /**
