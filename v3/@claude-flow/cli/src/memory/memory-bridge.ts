@@ -902,12 +902,10 @@ function getDb(registry: any): any | null {
   return { db, agentdb };
 }
 
-// One-shot guard so we only patch once per process — the embedder is shared
-// by ReflexionMemory/SkillLibrary/CausalRecall and they all see the same
-// object reference.
-let _embedderPatched = false;
-async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown; embed?: (t: string) => Promise<Float32Array>; embedBatch?: (ts: string[]) => Promise<Float32Array[]>; __ruvectorRescued?: boolean } }): Promise<void> {
-  if (_embedderPatched) return;
+// The rescue is idempotent per embedder via __ruvectorRescued. A process-wide
+// flag would skip later dbPath registries and leave their embedder on mock (#4410).
+/** @internal Exported for the multi-store rescue regression test. */
+export async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown; embed?: (t: string) => Promise<Float32Array>; embedBatch?: (ts: string[]) => Promise<Float32Array[]>; __ruvectorRescued?: boolean } }): Promise<void> {
   const emb = agentdb?.embedder;
   if (!emb || emb.__ruvectorRescued) return;
 
@@ -965,7 +963,6 @@ async function rescueAgentdbEmbedder(agentdb: { embedder?: { pipeline?: unknown;
   emb.embedBatch = async (texts: string[]): Promise<Float32Array[]> =>
     Promise.all(texts.map(t => newEmbed(t)));
   emb.__ruvectorRescued = true;
-  _embedderPatched = true;
 }
 
 /** AgentDB uses a null pipeline while its transformer failed and it serves mock vectors. */
