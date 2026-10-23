@@ -14,6 +14,8 @@
  */
 import { filterGuarded } from './git-filters'
 import { plain } from './parse'
+import { flavorOfPlatform } from './write-flavor'
+import { hasParentSegment, isAbsolutePath } from './paths'
 import { cleanText } from './wf-clean'
 import type { WfRun } from './workflows'
 
@@ -65,7 +67,7 @@ export const PROCS_ARGV: readonly string[] = ['/usr/bin/find', '/proc', '-maxdep
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/
 
 /** An absolute path with no control character and no `..` part: the only kind that reaches a command. */
-export const isSafePath = (path: string): boolean => path.length > 1 && path.length <= 1024 && path.startsWith('/') && !CONTROL.test(path) && !path.split('/').includes('..')
+export const isSafePath = (path: string): boolean => path.length > 1 && path.length <= 1024 && isAbsolutePath(path) && !CONTROL.test(path) && !hasParentSegment(path)
 
 const SECRETISH_NAME = /^(?:\.env(?:\..+)?|\.npmrc|\.netrc|\.pgpass|\.secrets?|secrets?(?:\..+)?|credentials(?:\..+)?|id_(?:rsa|dsa|ecdsa|ed25519)|.+\.(?:pem|key|p12|pfx|jks|keystore|secret))\/?$/i
 
@@ -234,7 +236,10 @@ export async function readWorktrees(io: WtIo, input: { cwd: string; nowMs: numbe
 }
 
 /** The process check for these paths; never throws: a probe that fails is a blind check. */
-export async function checkProcs(io: WtIo, paths: readonly string[], nowMs: number): Promise<ProcCheck> {
+export async function checkProcs(io: WtIo, paths: readonly string[], nowMs: number, platform?: unknown): Promise<ProcCheck> {
+  // /proc is Linux-only: on Windows (no find, no /proc) the answer is "not available" and nothing is spawned. macOS got "did not answer" from the failed spawn; it now gets this.
+  if ((platform === undefined ? flavorOfPlatform() : flavorOfPlatform(platform)) !== 'gnu') return { atMs: nowMs, ok: false, seen: 0, counts: new Map(), paths: new Set(paths), why: 'the live-process check is not available on this system' }
+
   const result = await io.run(PROCS_ARGV, 30_000).catch(() => null)
 
   if (result === null || result.stdout === '') return { atMs: nowMs, ok: false, seen: 0, counts: new Map(), paths: new Set(paths), why: 'the process listing did not answer' }

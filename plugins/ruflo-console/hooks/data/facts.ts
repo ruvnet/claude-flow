@@ -4,6 +4,7 @@
  * every string cleaned. A value a file does not hold is absent, and the view says n/a.
  */
 import { jsonObject, msOf, plain, recordOf, stringOf } from './parse'
+import { hasParentSegment, isAbsolutePath } from './paths'
 import { countOf, ratioOf } from './safe'
 
 export type NeuralStats = { trajectories?: number; patterns?: number; signals?: number; lastAdaptationMs?: number }
@@ -202,7 +203,7 @@ export function parseMarketplaces(text: string | null): Marketplace[] | null {
       const location = typeof market?.installLocation === 'string' ? market.installLocation : undefined
       const updatedMs = msOf(market?.lastUpdated)
       // Only an absolute path with no `..` is followed to the clone's manifest.
-      const safeLocation = location !== undefined && location.startsWith('/') && !location.split('/').includes('..') && location.length < 400 ? location : undefined
+      const safeLocation = location !== undefined && isAbsolutePath(location) && !hasParentSegment(location) && location.length < 400 ? location : undefined
 
       return market === null || !/^[A-Za-z0-9._-]{1,80}$/.test(name)
         ? []

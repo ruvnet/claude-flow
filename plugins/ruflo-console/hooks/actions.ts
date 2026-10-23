@@ -7,6 +7,7 @@ import { idOf, type AgentRecord, type ClaimRecord, type Claimant, type TaskRecor
 import type { Snapshot } from './data/snapshot'
 import type { Findings } from './data/failure'
 import type { Host } from './host'
+import type { WriteOp } from './data/write-via'
 
 export type ActionSpec = {
   label: string
@@ -14,6 +15,8 @@ export type ActionSpec = {
   /** A fixed command outside ruflo, or an offline read, with optional JSON on stdin. */
   argv?: readonly string[]
   stdin?: string
+  /** A disk write that goes through the host's file API instead of `argv` (the Windows write flavor, data/write-via.ts); `argv` then is only a stand-in the runner never executes. */
+  write?: WriteOp
   expect: string
   verify?: (snapshot: Snapshot) => boolean
   /** A local check after a confirmed action succeeds; never part of background refreshes. */

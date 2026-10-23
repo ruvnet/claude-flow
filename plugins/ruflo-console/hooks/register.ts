@@ -1,11 +1,11 @@
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 import { tolerantPress } from './press-guard'
 import { ANSWER_KEYS } from './views/attention'
-import { rootedPath } from './data/abs-path'
 import { createController, type Controller } from './controller'
 import { startSessions } from './sessions'
 import { record } from './data/events'
 import { plain } from './data/parse'
+import { homeOf, isAbsolutePath, joinPath } from './data/paths'
 import { dispatch } from './dispatch'
 import { markPicture } from './gfx/pictures'
 import type { Host } from './host'
@@ -14,15 +14,13 @@ import { newState, PANE_ID, restore, restoreSessions, storeKeyOf, termStoreKeyOf
 import { BAR_KEY, barView } from './views/bar'
 import { addNotice, dismissNotices } from './notices'
 import { setBootChecks } from './boot-checks'
-import { startWriteFlavorDetection } from './data/write-flavor'
+import { startWriteFlavor } from './data/write-flavor'
 import { buildOf, isOurCheckout, setBuild } from './build'
-import { runUpdateCheck } from './update-flow'
 import { announceModelTools, parseControlEnv, serveModelTools } from './model-tools'
 import { loadAiPrefs, setControlCap } from './settings'
-import { hydrateWhatsNew } from './whatsnew'
-import { prefsFromStore, recordToast, saveToastPrefs, TOASTS_KEY } from './toasts'
+import { loadAtStart } from './startup-loads'
+import { recordToast } from './toasts'
 import { contextSection, onPromptSubmit, onTurnComplete } from './mission-claude'
-import { parseMode, RECHECK_EVERY_MS, UPDATES_KEY } from './updates'
 import { selfCheckResults } from './self-check'
 import { kitForSurface, type Kit } from './views/common'
 import { createToaster, type Digest, type ToastLevel, type ToastPrefs } from './toast-policy'
@@ -40,7 +38,7 @@ const RUFLO_TOOL = /^mcp__(claude-flow|ruflo|plugin_ruflo[\w-]*)__/
 let isResettingScroll = false
 
 function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
-  const rooted = (path: string) => rootedPath(cwd, path)
+  const rooted = (path: string) => (isAbsolutePath(path) ? path : joinPath(cwd, path))
   const quietly = (fn: () => unknown) => {
     try {
       const result = fn()
@@ -63,7 +61,14 @@ function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPre
   })
 
   return {
-    fs: { read: async path => $.fs.read(rooted(path)), stat: async path => $.fs.stat(rooted(path)), list: async path => $.fs.list(rooted(path)) },
+    fs: {
+      read: async path => $.fs.read(rooted(path)),
+      stat: async path => $.fs.stat(rooted(path)),
+      list: async path => $.fs.list(rooted(path)),
+      // The Windows write flavor (write-via.ts): the host's own file API, since no dd, sh, install, mkdir or cp is on the engine's PATH there.
+      write: async (path, text) => $.fs.write(rooted(path), text),
+      exists: async path => $.fs.exists(rooted(path)),
+    },
         every: (ms, fn) => $.clock.every(ms, fn),
     after: (ms, fn) => $.clock.after(ms, fn),
     storeGet: async key => $.store.get(key),
@@ -109,7 +114,17 @@ function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPre
       return { tools: names.length, servers: [...new Set(names)].sort() }
     },
     settings: async () => $.settings.read(),
-    home: async () => $.env.get('HOME'),
+    home: async () => {
+      const [home, userProfile, homeDrive, homePath] = await Promise.all([
+        $.env.get('HOME'),
+        $.env.get('USERPROFILE'),
+        $.env.get('HOMEDRIVE'),
+        $.env.get('HOMEPATH'),
+      ])
+      const envVars: { [key: string]: string | undefined } = { HOME: home, USERPROFILE: userProfile, HOMEDRIVE: homeDrive, HOMEPATH: homePath }
+
+      return homeOf(k => envVars[k])
+    },
     configDir: async () => $.env.get('CLAUDE_CONFIG_DIR'),
     pluginRoot: $.plugin.root,
     // `$.ruflo` exists only where ruflo-mods is seated; validate refuses feature-detecting a noun, so these are
@@ -167,10 +182,10 @@ export const register: Register = (on, raw: PluginOptions) => {
   on('session.start', async ($, e, next) => {
     control?.stop()
     host = hostOf($, e.cwd, { prefs: () => state.toastPrefs, record: digest => recordToast(state, digest) })
-    // Which write argv the host takes (GNU dd/install on Linux, the constant sh scripts on macOS/BSD). Started before the controller (whose
-    // timers write) exists; every write awaits it (writeFlavorReady), so none is built with a guessed flavor.
+    // Which write the host takes (GNU dd/install on Linux, the constant sh scripts on macOS/BSD, the host's file API on Windows). Started
+    // before the controller (whose timers write) exists; every write awaits it (writeFlavorReady), so none is built with a guessed flavor.
     const detecting = host
-    void startWriteFlavorDetection((argv, timeoutMs) => detecting.run(argv, timeoutMs))
+    void startWriteFlavor((argv, timeoutMs) => detecting.run(argv, timeoutMs), undefined, e.cwd)
     state.cwd = e.cwd
     state.nostrKeyVerifiedAtMs = null
     state.isInteractive = e.isInteractive !== false
@@ -190,37 +205,7 @@ export const register: Register = (on, raw: PluginOptions) => {
       })
       .catch(() => undefined)
 
-    // The update mode is the person's, kept in the plugin's store; then, once the build is known (a development checkout is never offered
-    // an update) and the screen has settled, one check for a newer published version. It never throws and never blocks the console.
-    const moded = here.storeGet(UPDATES_KEY).then(
-      value => {
-        state.updates = parseMode(value)
-        here.invalidate()
-      },
-      () => undefined,
-    )
-
-    // The Toasts setting is the person's, kept in the plugin's store and mirrored to a file the other plugins read (ADR-477).
-    const toasted = here.storeGet(TOASTS_KEY).then(
-      value => {
-        state.toastPrefs = prefsFromStore(value)
-        if (state.toastPrefs.mode !== 'all' || state.toastPrefs.muted.length > 0) void saveToastPrefs(state, here)
-      },
-      () => undefined,
-    )
-
-    // What's new (ADR-478): the record of what was looked at, read once; the controller's first disk read then takes the baseline.
-    const looked = hydrateWhatsNew(state, here).catch(() => undefined)
-
-    void toasted
-    void looked
-    void Promise.all([built, moded]).then(() => {
-      if (!state.isInteractive) return
-
-      here.after(2_500, () => void runUpdateCheck(state, here))
-      // A session left open for days re-asks too, quietly (no dialog mid-work); the daily gate keeps the network to once a day.
-      state.timers.set('update-recheck', here.every(RECHECK_EVERY_MS, () => void runUpdateCheck(state, here, { quiet: true })))
-    })
+    loadAtStart(state, here, built)
 
     const bound = host
 

@@ -12,6 +12,7 @@
  */
 import { readBounded, type ReadCache } from './files'
 import { filterGuarded } from './git-filters'
+import { below, hasParentSegment, isAbsolutePath, samePath, trimTrailing } from './paths'
 import { cleanLine, cleanPath, journalResult, type Capped, type Parsed } from './wf-activity'
 import { activityOf, parsedStats, PARSED_BUDGET_CHARS, resetStore } from './wf-incr-store'
 import { TAIL_BYTES, TRANSCRIPT_CAP, type WorkflowFs } from './workflows-read'
@@ -54,11 +55,11 @@ export function isRunFile(path: string, configDir: string | null): boolean {
 
 /** True for an absolute path inside the project's working directory (where Claude Code puts an agent's worktree), with no `..` part. */
 export function isProjectDir(path: string, cwd: string): boolean {
-  if (!path.startsWith('/') || path.includes('\0') || path.includes('\n') || path.split('/').includes('..')) return false
+  if (!isAbsolutePath(path) || path.includes('\0') || path.includes('\n') || hasParentSegment(path)) return false
 
-  const root = cwd.replace(/\/+$/, '')
+  const root = trimTrailing(cwd)
 
-  return root !== '' && (path === root || path.startsWith(`${root}/`))
+  return root !== '' && (samePath(path, root) || below(root, path) !== null)
 }
 
 export type Note = { phase: 'loading' | 'ok' | 'none' | 'failed'; why?: string }

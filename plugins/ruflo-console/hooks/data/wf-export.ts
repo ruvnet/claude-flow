@@ -88,6 +88,7 @@ export function exportSpec(path: string, markdown: string, label: string, hasDir
     args: [],
     argv: newFileArgv(path, hasDir, flavor),
     stdin: markdown,
+    ...(flavor === 'host-fs' && { write: { kind: hasDir ? 'create-excl' : 'create-dirs', path, text: markdown } as const }),
     expect: `a new file at ${path}`,
     declared: 'write',
     shows: `write ${path} (${BYTES(markdown)} bytes; never overwrites)`,

@@ -9,7 +9,7 @@ import { ESCAPES, HIDDEN, INVISIBLE } from './parse'
 import { maskSecrets } from './workflows'
 import { AUTOPILOT_DIR } from './ap-envelope'
 import { appendArgv } from './append-argv'
-import { posixTouch, type WriteFlavor } from './write-flavor'
+import { hostFsArgv, posixTouch, type WriteFlavor } from './write-flavor'
 
 export const JOURNAL_FILE = `${AUTOPILOT_DIR}/journal.jsonl`
 /** A journal over this is read no further (the cap is drawn): the loop then compacts by checkpoint (data/ap-loop.ts `compactState`). */
@@ -181,7 +181,7 @@ export { appendArgv }
  * unchanged. POSIX (BSD install has no -D): the guarded touch in write-flavor.ts: makes the folder, refuses a link or a non-regular
  * target, creates the file with `set -C` under umask 077 where none is, then `chmod 600`.
  */
-export const touchArgv = (path: string, flavor: WriteFlavor): readonly string[] => (flavor === 'gnu' ? ['install', '-D', '-m', '600', '/dev/null', path] : posixTouch(path))
+export const touchArgv = (path: string, flavor: WriteFlavor): readonly string[] => (flavor === 'host-fs' ? hostFsArgv('touch', path) : flavor === 'gnu' ? ['install', '-D', '-m', '600', '/dev/null', path] : posixTouch(path))
 
 /** How many valid `step.started` lines for this step id the text holds. Two sessions that both picked a task each write one; a step is handed over only when it is exactly one. */
 export const startedCount = (text: string, stepId: string): number => parseJournal(text).events.filter(e => e.t === 'step.started' && e.id === stepId).length

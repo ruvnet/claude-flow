@@ -11,6 +11,7 @@ import { record } from './data/events'
 import { plain } from './data/parse'
 import { answerFailed, failureReason, judgeFindings } from './data/failure'
 import type { Host } from './host'
+import { writeVia } from './data/write-via'
 import { labLines } from './mh-lab'
 import { outputLines } from './ops'
 import { filterPalette, paletteEntries, textOfQuery, type PaletteEntry } from './palette'
@@ -28,6 +29,8 @@ export const UNBOUND_REPLACED_MS = 10_000
 /** Claude may withdraw at most this many asks per minute, and may not re-ask the same label this soon after withdrawing it. */
 export const WITHDRAW_MAX_PER_MIN = 3
 export const REASK_COOLDOWN_MS = 10_000
+/** A confirmed action whose on-disk check fails is read once more this long after: the CLI can return before its state file lands. */
+export const VERIFY_RETRY_MS = 1_000
 
 /** True when a waiting card has outlived its window: a Yes for it would be refused, so it only blocks the next ask. */
 export const isStale = (pending: Pick<Pending, 'askedAtMs'>, nowMs = Date.now()): boolean => nowMs - pending.askedAtMs >= PENDING_TTL_MS
@@ -122,7 +125,9 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
       lastArgv = argv
 
       if (isCold) say(spec.label, true, FIRST_RUN_LABEL)
-      const result = await host.run(argv, isCold ? Math.max(spec.timeoutMs ?? 0, COLD_TIMEOUT_MS) : spec.timeoutMs ?? 90_000, spec.stdin)
+      const result = spec.write !== undefined
+        ? await writeVia('host-fs', host, { ...spec.write, timeoutMs: spec.timeoutMs ?? 10_000 })
+        : await host.run(argv, isCold ? Math.max(spec.timeoutMs ?? 0, COLD_TIMEOUT_MS) : spec.timeoutMs ?? 90_000, spec.stdin)
 
       // A verdict command's "found something" exit with its JSON answer is an answer (`spec.findings`): the CLI was
       // reached, so the launcher is kept, and the run is not a failure. Any other non-zero exit is one.
@@ -166,9 +171,16 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
 
       await deps.freshRead()
 
-      const verified = spec.verifyLocal !== undefined
-        ? ok && await spec.verifyLocal(host) ? 'yes' : 'no'
-        : spec.verify === undefined || state.snapshot === null ? 'n/a' : spec.verify(state.snapshot) ? 'yes' : 'no'
+      const verifiedOnce = () => (spec.verify === undefined || state.snapshot === null ? 'n/a' : spec.verify(state.snapshot) ? 'yes' : 'no')
+      let verified = spec.verifyLocal !== undefined ? (ok && (await spec.verifyLocal(host)) ? 'yes' : 'no') : verifiedOnce()
+
+      // The CLI can return before its state file lands: when the run succeeded but the file is not there yet, look once more a second later.
+      // `n/a` here means the snapshot had not loaded (null) rather than "no verifier"; retry only when the verifier is defined.
+      if ((verified === 'no' || (verified === 'n/a' && spec.verify !== undefined)) && ok && spec.verifyLocal === undefined) {
+        await new Promise<void>(resolve => void host.after(VERIFY_RETRY_MS, resolve))
+        await deps.freshRead()
+        verified = verifiedOnce()
+      }
 
       state.outcome = {
         label: spec.label,

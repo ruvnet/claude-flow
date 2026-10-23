@@ -46,6 +46,17 @@ async function open(control: Controller, state: State, label: string): Promise<{
 
 const DUMP_WAIT_MS = 8_000
 
+/** Waits for `work` for at most `ms`; the timer is cleared as soon as either side settles, so a fast probe leaves nothing pending. */
+export async function settleWithin(work: Promise<unknown>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    await Promise.race([work, new Promise(resolve => { timer = setTimeout(resolve, ms) })])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** The catalog this plugin ships (read once per session), or the built-in mod list when it is missing or another contract. */
 async function loadCatalog(control: Controller): Promise<Catalog> {
   control.catalog ??= control.host.fs
@@ -66,7 +77,7 @@ async function dumpOf(control: Controller, state: State, view: State['view']): P
 
   try {
     await control.refresh()
-    await Promise.race([control.probe(true), new Promise(resolve => setTimeout(resolve, DUMP_WAIT_MS))])
+    await settleWithin(control.probe(true), DUMP_WAIT_MS)
     // Self-Evolution draws from its own file read, which opening the view starts: a dump waits for it too.
     if (view === 'evolve') await loadEvolve(state, control.host)
     if (view === 'workflows') await refreshWorkflows(state, control.host, true)

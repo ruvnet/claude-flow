@@ -10,8 +10,9 @@
 import type { ActionSpec } from './actions'
 import { decodeSaved, emptySaved, encodeSaved, captureDrill, restoreDrill, sameDrill, SAVED_FILE, SAVED_MAX_BYTES, type Saved } from './data/wf-saved'
 import { cleanText } from './data/wf-clean'
-import { checkNoLinks, dirOf, removeFileArgv, replaceFileArgv } from './data/wf-file'
+import { checkNoLinks, dirOf, removeFileArgv } from './data/wf-file'
 import { writeFlavorReady } from './data/write-flavor'
+import { writeVia } from './data/write-via'
 import { readBounded } from './data/files'
 import type { Host } from './host'
 import type { State } from './state'
@@ -141,7 +142,7 @@ export async function syncSavedViews(state: State, host: SavedHost, nowMs: numbe
       }
 
       const hasDir = (await host.fs.stat(dirOf(path)).catch(() => undefined)) !== undefined
-      const result = await host.run(replaceFileArgv(path, hasDir, await writeFlavorReady()), 10_000, encodeSaved(own.saved, nowMs))
+      const result = await writeVia(await writeFlavorReady(), host, { kind: 'replace', path, text: encodeSaved(own.saved, nowMs), hasDir })
 
       own.error = result.exitCode === 0 ? null : `the write exited ${result.exitCode}`
       if (result.exitCode === 0) own.isDirty = false

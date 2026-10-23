@@ -2,6 +2,16 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.45.1 — 2026-10-23
+- fix: broader Windows parity for the console (#4036, thanks @socrates6969) — the narrow 0.44.2 and 0.44.7 fixes extended across the whole plugin. The path helpers are consolidated into `hooks/data/paths.ts` (`isWindowsPath`, `isAbsolutePath`, `trimTrailing`, `joinPath`, `samePath`, `hasParentSegment`, `below`, `normalizePath`, `homeOf`) and the earlier narrower `abs-path.ts` is removed (its two sites move to the consolidated module).
+- fix: workspace keys ignore drive-letter case and trailing-separator differences, so `c:\work\app\` and `C:\Work\app` are one workspace with one remembered page and one terminal history.
+- fix: any confirmed action whose on-disk check fails is re-checked once after one second (new `VERIFY_RETRY_MS = 1_000` in `runner.ts`), so a hive started from the console shows at once instead of reading "not verified".
+- fix: no Linux-only process probe off Linux (macOS, Windows), and the probe timers are cleared when the session ends.
+- fix: autopilot's kill flag can be cleared on Windows. Starting autopilot on Windows is refused with a plain message until a follow-up: its journal needs atomic appends and its folder fence needs Windows-aware path checks. Stop works as before.
+- fix: disk writes (settings, journal, envelope, exports) work on Windows through the host's file API (`$.fs.write` / `$.fs.exists`); Linux and macOS keep their exact commands.
+- fix: the home folder is found on Windows via `USERPROFILE` or `HOMEDRIVE` + `HOMEPATH`, so sessions, plugin health and What's new read it.
+- fix: Windows project folders (`C:\work\app`, `\\server\share\app`) and UNC shares are recognised across the remaining sites (plugin catalog, workflow drill I/O, event export, ADR discovery, workflow file resolution); protected autopilot folders match ignoring case.
+
 ## 0.45.0 — 2026-10-23
 - feat: a **ruRE** page in the TOOLS group (ADR-494): static reverse engineering of a file in your project through the six `rure_*` tools — a JS/Electron app (APP MAP, FIND FEATURE, UNPACK .ASAR), a native binary (ELF, PE, Mach-O), a .NET assembly and EVM bytecode. The tools parse and never run the file. Five rows are `$0` reads that run at once; UNPACK .ASAR writes to a temp folder and asks first. The file is named by a new *sample* field that takes only a path inside the project. Every row is a palette id (`/ruflo run dt-re-bin <path>`). Names and strings from the analyzed file are shown cleaned, so a hostile binary cannot put a terminal escape on the screen. On a ruflo CLI without the tools (3.59.17 and older) the rows say to update.
 - chore: Enter in a field on a page of its own can run that page’s row (the ruRE page); the same `query` field on the Plugins page still runs the plugin search. The boot specs now derive the finish time from the number of areas instead of a fixed 5.4 s.

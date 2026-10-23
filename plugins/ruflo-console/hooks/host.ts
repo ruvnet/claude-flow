@@ -1,6 +1,6 @@
 import type { CommandSpec, HookStream, PaneOpenArgs, ProcessRunResult, ProcessSpawnChunk, ProcessSpawnResult, Timer, UiBlitArgs } from 'claude-code'
 
-import type { ReaderFs } from './data/files'
+import type { WriterFs } from './data/write-via'
 import type { ToastLevel } from './toast-policy'
 import type { RufloRoute, RufloSnapshot } from '../types'
 
@@ -13,7 +13,7 @@ export type OpenResult = { isPlaced: boolean; reason?: string } | void
  * removed the affordance, a policy mod said no): every caller catches, and a refusal is a missing fact, never a crash.
  */
 export type Host = {
-  fs: ReaderFs
+  fs: WriterFs
   every: (ms: number, fn: () => void) => Timer
   after: (ms: number, fn: () => void) => Timer
   storeGet: (key: string) => Promise<unknown>

@@ -13,7 +13,7 @@
  * over 1 MiB (several blocks; the callers stay far below, BATCH_MAX in activity-io.ts), or a short write(2) that dd completes with a second
  * call (the kernel may do that, e.g. on a full disk or a signal). This is not claimed to be atomic beyond that.
  */
-import { posixAppend, type WriteFlavor } from './write-flavor'
+import { hostFsArgv, posixAppend, type WriteFlavor } from './write-flavor'
 
 export const appendArgv = (path: string, flavor: WriteFlavor): readonly string[] =>
-  flavor === 'gnu' ? ['dd', `of=${path}`, 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'] : posixAppend(path)
+  flavor === 'gnu' ? ['dd', `of=${path}`, 'oflag=append', 'conv=notrunc', 'bs=1M', 'iflag=fullblock', 'status=none'] : flavor === 'posix' ? posixAppend(path) : hostFsArgv('append', path)

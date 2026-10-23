@@ -1,4 +1,5 @@
 import type { PluginOptions, Timer } from 'claude-code'
+import { isWindowsPath, trimTrailing } from './data/paths'
 import { guardOptionsOf, type GuardOptions } from './data/wf-alerts'
 import { sessionOptionsOf, type SessionOptions } from './data/sessions-options'
 import { convoOptionsOf, type ConvoOptions } from './data/wf-targets'
@@ -93,7 +94,16 @@ export const viewOf = (word: string): ViewId | null => {
  * `$.store` is the plugin's, not the folder's: the key carries the working directory, so a view chosen in one project
  * never follows the person into another (the ruflo-swarm leak).
  */
-export const storeKeyOf = (cwd: string): string => `ruflo-console/ui:${cwd}`
+export const storeKeyOf = (cwd: string): string => `ruflo-console/ui:${workspaceKeyOf(cwd)}`
+
+/**
+ * The working directory as a store-key part. A POSIX folder is the string itself (today's keys, byte for byte). A Windows folder (drive-lettered
+ * or a share) is one folder however it is spelled, so it is folded: lower case, `/` for `\`, no trailing separator (`c:\users\me\` and
+ * `C:\Users\me` share a key).
+ */
+function workspaceKeyOf(cwd: string): string {
+  return isWindowsPath(cwd) ? trimTrailing(cwd).replace(/\\/g, '/').toLowerCase() : cwd
+}
 
 /** How actions reach the ruflo CLI: each a fixed argv prefix. Only `npx` may download. */
 export const CLI_PREFIXES = {
@@ -172,7 +182,7 @@ export type TermLine = { kind: 'in' | 'head' | 'out' | 'err' | 'sys' | 'tool' | 
 /** A conversation kept per project: codex's thread id, claude's session id, so a follow-up resumes it. */
 export type TermSessions = { codex?: string; claude?: string }
 
-export const termStoreKeyOf = (cwd: string): string => `ruflo-console/term:${cwd}`
+export const termStoreKeyOf = (cwd: string): string => `ruflo-console/term:${workspaceKeyOf(cwd)}`
 
 /** What an action did: what ran, how it exited, whether the disk shows the change, and anything it printed to show. */
 export type Outcome = { label: string; ok: boolean; verified: 'yes' | 'no' | 'n/a'; detail: string; atMs: number; lines?: string[]; /** A confirm card that nobody answered within PENDING_TTL_MS and was cleared unrun (the Room shows it briefly). */ expired?: boolean }

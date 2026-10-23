@@ -8,16 +8,17 @@ import { budgetAmount, ladderDollars } from '../cost'
 import { jsonAfter } from './cli'
 import { safeInstallPath } from './cost-ledger'
 import { numberOf, plain, recordOf } from './parse'
+import { hasParentSegment, isAbsolutePath, joinPath } from './paths'
 
 export type MissionCost = { usd: number | null; credits: number | null; unpriced: string[]; rows: number; /** The window's start the ledger reports back: it says which mission the reading is for. */ fromMs: number | null }
 export type CapLevel = 'none' | 'OK' | 'INFO' | 'WARNING' | 'CRITICAL' | 'HARD_STOP'
 export type CapState = { level: CapLevel; percent: number | null }
 
-/** An absolute POSIX path: no control characters, no `..` segment. It is one argv element, never part of a shell line. */
+/** An absolute path (POSIX, drive-lettered or UNC): no control characters, no `..` segment. It is one argv element, never part of a shell line. */
 const safeProject = (value: unknown): string | undefined => {
   const path = typeof value === 'string' ? value : ''
 
-  return path.startsWith('/') && path.length <= 500 && !/[\u0000-\u001f\u007f-\u009f]/.test(path) && !path.split('/').includes('..') ? path : undefined
+  return isAbsolutePath(path) && path.length <= 500 && !/[\u0000-\u001f\u007f-\u009f]/.test(path) && !hasParentSegment(path) ? path : undefined
 }
 
 /**
@@ -35,7 +36,7 @@ export function missionCostArgv(root: string, fromMs: number, toMs: number | nul
   if (base === undefined || where === undefined || from === undefined || to === undefined) return null
   if (to !== null && Date.parse(to) < Date.parse(from)) return null
 
-  return ['node', `${base}/scripts/ledger.mjs`, '--format', 'json', '--from', from, ...(to === null ? [] : ['--to', to]), '--project', where]
+  return ['node', joinPath(base, 'scripts', 'ledger.mjs'), '--format', 'json', '--from', from, ...(to === null ? [] : ['--to', to]), '--project', where]
 }
 
 /** What `ledger.mjs --format json` printed for the window. A total that is missing is `null` (unknown), not zero. */

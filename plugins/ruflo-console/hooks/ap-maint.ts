@@ -4,8 +4,9 @@
  */
 import type { Host } from './host'
 import type { Store } from './ap-live'
-import { checkNoLinks, copyExclusiveArgv, replaceFileArgv } from './data/wf-file'
+import { checkNoLinks } from './data/wf-file'
 import { writeFlavorReady } from './data/write-flavor'
+import { writeVia } from './data/write-via'
 import { evaluate, lastHash, outcomesOf, promote, propose, reviewTrials, tunablesFrom, verifyReceipts } from './data/ap-adapt'
 import type { Envelope } from './data/ap-envelope'
 import { encodeLine, JOURNAL_FILE, type JournalEvent } from './data/ap-journal'
@@ -43,7 +44,7 @@ export async function rotate(store: Store, host: Host, cwd: string, nowMs: numbe
 
     // The archive must be a new name with no link on the way: a pre-made link there would make the no-clobber copy skip and the old journal be lost.
     const clear = await checkNoLinks(host.fs, archive, { cwd: cwd }).catch(() => ({ ok: false as const }))
-    const copied = clear.ok ? await host.run(copyExclusiveArgv(path, archive, await writeFlavorReady()), 30_000).catch(() => ({ exitCode: 1 })) : { exitCode: 1 }
+    const copied = clear.ok ? await writeVia(await writeFlavorReady(), host, { kind: 'copy-no-clobber', from: path, path: archive, timeoutMs: 30_000 }).catch(() => ({ exitCode: 1 })) : { exitCode: 1 }
     const saved = (await host.fs.stat(archive).catch(() => undefined)) !== undefined
 
     if (copied.exitCode !== 0 || !saved) return
@@ -55,7 +56,7 @@ export async function rotate(store: Store, host: Host, cwd: string, nowMs: numbe
     try {
       if (pin !== null) await setPin(store, host, cwd, { ...pin, starts: 1 })
 
-      const wrote = await host.run(replaceFileArgv(path, true, await writeFlavorReady()), 10_000, lines).catch(() => ({ exitCode: 1 }))
+      const wrote = await writeVia(await writeFlavorReady(), host, { kind: 'replace', path, text: lines, hasDir: true }).catch(() => ({ exitCode: 1 }))
 
       if (wrote.exitCode !== 0 && pin !== null) await setPin(store, host, cwd, pin)
     } finally {

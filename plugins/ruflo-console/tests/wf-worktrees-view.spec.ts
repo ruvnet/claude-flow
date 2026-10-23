@@ -4,7 +4,7 @@
  * Pure and fast: a stand-in for git and /proc (tests/fixtures/wf-git.ts), no engine. Run with
  *   npx vitest run plugins/ruflo-console/tests/wf-worktrees-view.spec.ts --testTimeout=30000
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { newWfUi } from '../hooks/data/workflows-nav'
 import { AHEAD_ARGV, REMOVE_ARGV, type WtRead } from '../hooks/data/wf-worktrees'
@@ -14,6 +14,12 @@ import type { Ctx } from '../hooks/views/common'
 import { registerSlot, resetSlots, slotsFor, type SlotEnv } from '../hooks/views/wf-slots'
 import { boardRows, clock, nameOf, ordered, refreshWorktrees, registerWorktreeSlots, removalSpec, resetWorktrees, storeFor, wireWfWorktrees } from '../hooks/views/wf-worktrees'
 import { BASE_PROCS, block, flatWords, ioOf, kit, NOW, procLines, ROOT, wt, words, world, type World } from './fixtures/wf-git'
+
+const realPlatform = Object.getOwnPropertyDescriptor(process, 'platform')
+
+// The /proc check is Linux-only (checkProcs asks the engine's own platform); these tests stand in for a Linux host whatever runs them.
+beforeAll(() => { Object.defineProperty(process, 'platform', { value: 'linux', configurable: true }) })
+afterAll(() => { if (realPlatform !== undefined) Object.defineProperty(process, 'platform', realPlatform) })
 
 describe('the board and the confirm-gated removal', () => {
   let state: State

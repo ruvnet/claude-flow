@@ -20,7 +20,7 @@ const RISKY_WORD = /(^|[_\s-])(delete|rm|remove|purge|reset|shutdown|terminate|s
 
 /** The kind of action a spec is, when it may be remembered; null when it must always ask. */
 export function rememberKey(spec: ActionSpec): string | null {
-  if (spec.argv !== undefined || spec.run !== undefined || spec.isReadOnly === true || spec.stdin !== undefined) return null
+  if (spec.argv !== undefined || spec.write !== undefined || spec.run !== undefined || spec.isReadOnly === true || spec.stdin !== undefined) return null
 
   const words = spec.args.join(' ')
 

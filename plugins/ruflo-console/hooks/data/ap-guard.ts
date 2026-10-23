@@ -4,7 +4,8 @@
  * reader and the (optional) permission check. Nothing here widens anything: a task it cannot place is `cls: null` and is parked.
  */
 import { missionCostArgv, parseMissionCost } from './mission-cost'
-import { DENY_PATTERNS, KILL_FILE, TOOL_CLASSES, type ToolClass } from './ap-envelope'
+import { writeFlavorReady } from './write-flavor'
+import { DENY_PATTERNS, KILL_CLEARED, KILL_FILE, TOOL_CLASSES, type ToolClass } from './ap-envelope'
 import { ESCAPES, HIDDEN, INVISIBLE } from './parse'
 import { ANATOLE_STALE_MS } from './anatole'
 import type { EffectFact, Preflight, TaskFact } from './ap-loop'
@@ -76,10 +77,18 @@ export function anatoleFact(facts: AnatoleFacts | undefined, nowMs?: number): 'o
   return 'on'
 }
 
-/** True when the kill flag exists. A stat that throws means no flag (a missing file is how stat says it). Checked on every tick. */
-export async function killSeen(fs: Pick<ReaderFs, 'stat'>, cwd: string): Promise<boolean> {
+/**
+ * True when the kill flag exists. A stat that throws means no flag (a missing file is how stat says it). Checked on every tick. On host-fs
+ * (Windows, no delete) a flag whose content is exactly KILL_CLEARED is a cleared one, not a stop; any other content, empty included, is a stop.
+ */
+export async function killSeen(fs: Pick<ReaderFs, 'stat'> & { read?: ReaderFs['read'] }, cwd: string): Promise<boolean> {
   try {
-    return (await fs.stat(`${cwd.replace(/\/+$/, '')}/${KILL_FILE}`)) !== undefined
+    const path = `${cwd.replace(/\/+$/, '')}/${KILL_FILE}`
+
+    if ((await fs.stat(path)) === undefined) return false
+    if ((await writeFlavorReady()) !== 'host-fs' || fs.read === undefined) return true
+
+    return (await fs.read(path).catch(() => '')) !== KILL_CLEARED
   } catch {
     return false
   }

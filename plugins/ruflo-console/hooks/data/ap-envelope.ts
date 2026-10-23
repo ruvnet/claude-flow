@@ -4,6 +4,7 @@
  * hash does not match its body is treated as tampered and the loop refuses to run on it. Hard denies are not part of the envelope: they
  * are a constant of this file, and an envelope that names one as allowed is rejected, never trimmed.
  */
+import { hasParentSegment, isAbsolutePath, isWindowsPath } from './paths'
 
 /** Classes of action an envelope can allow. Each task is classified (data/ap-guard.ts) into exactly one, or is parked. */
 export const TOOL_CLASSES = ['read', 'edit', 'test', 'git-local', 'git-branch', 'network', 'spawn', 'mcp'] as const
@@ -27,7 +28,8 @@ export const DENY_PATTERNS: readonly [HardDeny, RegExp][] = [
 /** Folders the autopilot's own steps may never be pointed at: its envelope, journal and kill flag, and Project Anatole's status. A task or envelope that names one is refused, not trimmed. */
 export const PROTECTED_DIRS = ['.claude-flow/console', '.claude-flow/protector-mod'] as const
 export const isProtectedPath = (path: string): boolean => {
-  const flat = path.replace(/\/+/g, '/').replace(/\/\.\//g, '/')
+  // Windows file systems ignore case, so a drive-lettered path is compared lower-cased; a POSIX path stays exact.
+  const flat = (isWindowsPath(path) ? path.toLowerCase() : path).replace(/\/+/g, '/').replace(/\/\.\//g, '/')
 
   return PROTECTED_DIRS.some(dir => flat.includes(dir)) || flat.endsWith('/.claude-flow') || flat.endsWith('/.claude-flow/')
 }
@@ -118,7 +120,7 @@ export function validateEnvelope(raw: unknown): Checked {
   if (paths === null || paths.length === 0) errors.push('paths: at least one absolute folder')
 
   for (const path of paths ?? []) {
-    if (!path.startsWith('/') || path === '/' || path.length > 300 || BAD_CHARS.test(path) || path.split('/').includes('..') || path.includes('\\')) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
+    if (!isAbsolutePath(path) || path === '/' || /^[A-Za-z]:\/?$/.test(path) || path.length > 300 || BAD_CHARS.test(path) || hasParentSegment(path) || path.includes('\\')) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
     else if (isProtectedPath(path)) errors.push(`paths: "${path.slice(0, 40)}" is the autopilot's or Project Anatole's own folder: steps are never pointed at it`)
   }
 
@@ -344,3 +346,5 @@ export const classAllowed = (envelope: Envelope, toolClass: string): boolean => 
 export const AUTOPILOT_DIR = '.claude-flow/console/autopilot'
 export const ENVELOPE_FILE = `${AUTOPILOT_DIR}/envelope.json`
 export const KILL_FILE = `${AUTOPILOT_DIR}/KILL`
+/** Windows (host-fs) has no delete, so clearing the kill flag there rewrites the file with exactly this; a KILL file with any other content (an empty one included) is a stop. */
+export const KILL_CLEARED = 'cleared'

@@ -8,13 +8,14 @@
 import type { RenderElement } from 'claude-code'
 
 import type { ActionSpec } from '../actions'
-import { activeOf, apTick, appendEvents, clearKill, drainNotices, hostOf, pauseNow, refreshAutopilot, resumeNow, setPin, stopNow, storeOf, writeEnvelope } from '../ap-live'
+import { activeOf, apTick, appendEvents, AUTOPILOT_WINDOWS_REFUSAL, clearKill, drainNotices, hostOf, pauseNow, refreshAutopilot, resumeNow, setPin, stopNow, storeOf, writeEnvelope } from '../ap-live'
 import { DEFAULTS, tierOf, tunablesFrom, verifyReceipts } from '../data/ap-adapt'
 import { AUTOPILOT_DIR, hashOf, HARD_DENIES, MAX_DURATION_MS, MIN_DURATION_MS, seal, TOOL_CLASSES, validateEnvelope, widened, type Envelope, type ToolClass } from '../data/ap-envelope'
 import { anatoleFact } from '../data/ap-guard'
 import { SPEND_BASIS, spendSource } from '../data/ap-spend'
 import { bandText, summarize } from '../data/ap-loop'
 import { cleanText } from '../data/wf-clean'
+import { writeFlavorReady } from '../data/write-flavor'
 import { readBounded, under } from '../data/files'
 import type { NoticeDraft } from '../notices'
 import type { State } from '../state'
@@ -233,6 +234,15 @@ export function startSpec(env: SlotEnv): ActionSpec | null {
     expect: 'a start line in the autopilot journal, then steps handed to the session',
     note: 'After this, steps inside the envelope run WITHOUT asking this console, for days if the session lives, and spend money. Claude Code\'s own permission dialog still applies and is never bypassed: anything it would ask about is parked. Stop, the KILL file or /ruflo autopilot stop halts it within one tick.',
     run: async () => {
+      // Windows (host-fs): no atomic append for the journal's duplicate-start guard and no Windows-aware path fence yet. Nothing is written or dispatched (follow-up).
+      if ((await writeFlavorReady()) === 'host-fs') {
+        store.error = AUTOPILOT_WINDOWS_REFUSAL
+        host.toast(AUTOPILOT_WINDOWS_REFUSAL)
+        host.invalidate()
+
+        return
+      }
+
       const now = Date.now()
       const sealed = seal(next, (store.sealed?.revision ?? 0) + 1, now)
       const mode = anatoleFact(state.snapshot?.anatole)

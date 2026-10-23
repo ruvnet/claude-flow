@@ -6,6 +6,7 @@
  */
 import { jsonAfter, type Probe } from './cli'
 import { numberOf, plain, recordOf, stringOf } from './parse'
+import { hasParentSegment } from './paths'
 
 import type { State } from '../state'
 
@@ -34,11 +35,11 @@ const moneyOf = (value: unknown): Money => {
   return { ...(usd !== undefined && { usd }), ...(credits !== undefined && { credits }) }
 }
 
-/** An absolute POSIX path of a plugin's install directory: no `..`, no control characters, no shell-looking text. */
+/** An absolute path of a plugin's install directory (POSIX, or drive-lettered on Windows): no `..`, no control characters, no shell-looking text. */
 export const safeInstallPath = (value: unknown): string | undefined => {
   const path = typeof value === 'string' ? value : ''
 
-  return /^\/[A-Za-z0-9._@+/ -]{1,300}$/.test(path) && !path.split('/').includes('..') ? path : undefined
+  return (/^\/[A-Za-z0-9._@+/ -]{1,300}$/.test(path) || /^[A-Za-z]:[\\/][A-Za-z0-9._@+\\/ -]{1,300}$/.test(path)) && !hasParentSegment(path) ? path : undefined
 }
 
 /** The ledger JSON `ledger.mjs --format json --advise` prints. */
