@@ -20,6 +20,17 @@
 
 `@claude-flow/browser` provides a comprehensive browser automation layer for AI agents, combining Vercel Labs' `agent-browser` CLI with claude-flow's learning, memory, and security capabilities. It enables agents to navigate websites, fill forms, extract data, and learn from successful interaction patterns.
 
+## Browser Mode for Playwright Automation
+
+Claude-flow v3 supports browser mode for Playwright-based automation workflows.
+
+Browser mode allows agents to interact with live web pages, automate browser actions, and validate UI workflows using Playwright.
+
+### Example
+
+```bash
+claude-flow automation run --browser
+
 ### Architecture
 
 ```
