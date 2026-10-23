@@ -13,18 +13,26 @@
  * controller exists). Every write path awaits `writeFlavorReady()` before it builds an argv, and the builders take the flavor as a required
  * argument, so no write can be built with a guessed flavor. Detection has its own deadline (DETECT_DEADLINE_MS), independent of the host's
  * timeout, so a runner that never settles cannot hold a write (the kill switch flag included) forever. Where `uname` fails, answers
- * nothing or misses the deadline, the engine's own `process.platform` decides (darwin and the BSDs: posix; anything else: gnu), because
- * the GNU argv is known to fail on macOS. A leaf: no imports.
+ * nothing or misses the deadline, the engine's own `process.platform` decides (darwin and the BSDs: posix; Windows: host-fs; anything
+ * else: gnu), because the GNU argv is known to fail on macOS.
+ *
+ * Windows is the third flavor, `host-fs`: Claude Code's process environment there has none of uname, dd, sh, install, mkdir or cp, so no
+ * argv can write. The writes go through the host's own file API instead (`$.fs.write` makes the folders; `$.fs.read`, `$.fs.exists` and
+ * `$.fs.stat` check what is there); see write-via.ts. On a Windows engine no `uname` is run at all (`startWriteFlavor`). A leaf but for paths.ts.
  */
-export type WriteFlavor = 'gnu' | 'posix'
+import { isWindowsPath } from './paths'
+
+export type WriteFlavor = 'gnu' | 'posix' | 'host-fs'
 
 let detection: Promise<WriteFlavor> | null = null
 
 /** How long detection may take before the platform fallback answers. */
 export const DETECT_DEADLINE_MS = 3_000
 
-/** The engine's own platform (`process.platform` where the runtime exposes it), to a flavor: darwin and *bsd are posix, the rest gnu. */
+/** The engine's own platform (`process.platform` where the runtime exposes it), to a flavor: win32 is host-fs, darwin and *bsd are posix, the rest gnu. */
 export function flavorOfPlatform(platform: unknown = (globalThis as { process?: { platform?: unknown } }).process?.platform): WriteFlavor {
+  if (platform === 'win32') return 'host-fs'
+
   return typeof platform === 'string' && (platform === 'darwin' || platform.endsWith('bsd')) ? 'posix' : 'gnu'
 }
 
@@ -53,6 +61,21 @@ export function startWriteFlavorDetection(run: Run, deadlineMs: number = DETECT_
   return detection
 }
 
+/**
+ * What the session starts: on a Windows engine the flavor is host-fs and no command is run; anywhere else the one `uname` detection.
+ * `platform` is the engine's own (a test passes one). Where the runtime does not expose it, a session whose working directory is a
+ * Windows path (a drive letter or a share) is a Windows engine all the same.
+ */
+export function startWriteFlavor(run: Run, platform: unknown = (globalThis as { process?: { platform?: unknown } }).process?.platform, cwd?: string): Promise<WriteFlavor> {
+  if (flavorOfPlatform(platform) === 'host-fs' || (cwd !== undefined && isWindowsPath(cwd))) {
+    detection = Promise.resolve('host-fs')
+
+    return detection
+  }
+
+  return startWriteFlavorDetection(run, DETECT_DEADLINE_MS, () => flavorOfPlatform(platform))
+}
+
 /** The flavor every write awaits before it builds its argv: the detection's answer, or `gnu` where none was started (a test host, a build without a session). */
 export const writeFlavorReady = (): Promise<WriteFlavor> => detection ?? Promise.resolve('gnu')
 
@@ -61,7 +84,7 @@ export const setWriteFlavor = (flavor: WriteFlavor | null): void => {
   detection = flavor === null ? null : Promise.resolve(flavor)
 }
 
-/** `uname -s` output to a flavor: Linux keeps the GNU argv; every other kernel (Darwin, the BSDs) takes the sh scripts. */
+/** `uname -s` output to a flavor: Linux keeps the GNU argv; every other kernel (Darwin, the BSDs) takes the sh scripts. A Windows engine never asks (`startWriteFlavor`). */
 export const flavorOfKernel = (kernel: string): WriteFlavor => (kernel.trim() === 'Linux' ? 'gnu' : 'posix')
 
 /** Refuses a target that is a link (dangling or not) or exists and is not a regular file. */
@@ -103,3 +126,9 @@ export const posixReplaceWithDirs = (path: string): readonly string[] => posix('
 export const posixTouch = (path: string): readonly string[] => posix('touch', path)
 /** Copies the regular file `source` to a new file `path`; fails if anything is at `path` (BSD cp has no --no-clobber; `cp -n` exits 0 when it skips). */
 export const posixCopyExclusive = (source: string, path: string): readonly string[] => posix('copyExclusive', path, source)
+
+/**
+ * What an argv builder answers for host-fs: not a command. Every write of that flavor goes through `writeVia` (write-via.ts), which never
+ * runs it; a caller that did run it would get "cannot start" for a program that does not exist, never a guessed GNU or sh write.
+ */
+export const hostFsArgv = (op: string, path: string): readonly string[] => ['ruflo-console:host-fs', op, path]

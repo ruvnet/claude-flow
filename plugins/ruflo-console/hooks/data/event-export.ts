@@ -3,7 +3,6 @@
  * target is a name under `.claude-flow/console/exports/` or a path inside the project; `..`, a link on the way, a bad extension and an
  * existing file are all refused, and the text is washed and capped before it is built. The write itself is a confirm-gated fixed argv.
  */
-import { isAbsolutePath } from './abs-path'
 import { isoOf } from './safe'
 import type { ActionSpec } from '../actions'
 import { levelOf } from './event-severity'
@@ -11,6 +10,7 @@ import { maskLine } from './event-mask'
 import type { ConsoleEvent } from './events'
 import { refOf } from './events'
 import { EXPORT_DIR } from './activity-store'
+import { below, hasParentSegment, isAbsolutePath, isWindowsPath, normalizePath, trimTrailing } from './paths'
 import { checkNoLinks, dirOf, newFileArgv, type PathCheck } from './wf-file'
 import { writeFlavorReady } from './write-flavor'
 import { clockOf, type Concurrency, type LaneView } from './timeline-model'
@@ -28,7 +28,7 @@ export const formatOf = (path: string): Format | null => (/\.md$/.test(path) ? '
 /** The absolute path a name or relative path means (a bare file name goes under the exports folder), or why it is refused. Lexical only; see `checkNoLinks` for the disk half. */
 export function resolveTarget(input: string, cwd: string, allowed: readonly Format[]): PathCheck {
   const raw = input.trim()
-  const root = cwd.replace(/\/+$/, '')
+  const root = trimTrailing(cwd)
 
   if (raw === '') return { ok: false, why: 'give a file name ending in .md, .jsonl or .csv' }
   if (raw.length > 300) return { ok: false, why: 'a path over 300 characters is refused' }
@@ -48,10 +48,12 @@ export function resolveTarget(input: string, cwd: string, allowed: readonly Form
 
   if (!NAME.test(name) || format === null) return { ok: false, why: 'the file name must be letters, digits, dots, dashes, underscores or spaces, and end in .md, .jsonl or .csv' }
   if (!allowed.includes(format)) return { ok: false, why: `this export can be ${allowed.map(item => `.${item}`).join(' or ')}, not .${format}` }
-  if (!path.startsWith(`${root}/`)) return { ok: false, why: `outside the project: only paths under ${root} are written` }
+  const inside = below(root, path)
+
+  if (inside === null) return { ok: false, why: `outside the project: only paths under ${root} are written` }
 
   // A markdown file is a command, an agent or a skill when it lands in `.claude/`, and a hook sample in `.git/`: event words are agent output, so those folders are not export targets.
-  const hidden = path.slice(root.length + 1).split('/').slice(0, -1).find(part => part.startsWith('.') && part !== '.claude-flow')
+  const hidden = inside.slice(0, -1).find(part => part.startsWith('.') && part !== '.claude-flow')
 
   if (hidden !== undefined) return { ok: false, why: `${hidden} is a hidden folder: exports go to .claude-flow/console/exports/ or a visible folder in the project` }
 
@@ -129,19 +131,21 @@ export async function exportSpecFor(fs: Pick<ReaderFs, 'stat'>, cwd: string, tar
 
   if (!placed.ok) return placed
 
-  const clear = await checkNoLinks(fs, placed.path, { cwd: cwd.replace(/\/+$/, '') })
+  const clear = await checkNoLinks(fs, placed.path, { cwd: trimTrailing(cwd) })
 
   if (!clear.ok) return clear
 
   const hasDir = (await fs.stat(dirOf(placed.path)).catch(() => undefined)) !== undefined
+  const flavor = await writeFlavorReady()
 
   return {
     ok: true,
     spec: {
       label: `write ${label}`,
       args: [],
-      argv: newFileArgv(placed.path, hasDir, await writeFlavorReady()),
+      argv: newFileArgv(placed.path, hasDir, flavor),
       stdin: content,
+      ...(flavor === 'host-fs' && { write: { kind: hasDir ? 'create-excl' : 'create-dirs', path: placed.path, text: content } as const }),
       expect: `a new file at ${placed.path}`,
       declared: 'write',
       shows: `write ${placed.path} (${bytes(content)} bytes; never overwrites)`,

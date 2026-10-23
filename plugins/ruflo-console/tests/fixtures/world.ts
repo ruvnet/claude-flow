@@ -28,6 +28,9 @@ export const BAND: RenderInput<'AbovePrompt'> = {
 
 export const command = (args = '') => ({ command: 'ruflo', args, origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 180 } })
 
+/** The host hands hooks native paths (`C:\work\.claude-flow\x` on Windows); the fake file system keys on `/work/...`. */
+export const normalizeFixturePath = (p: string): string => p.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
+
 export type Answer = { exitCode: number; stdout: string; stderr: string } | { deny: string }
 
 export type World = {
@@ -87,7 +90,7 @@ export function cliAnswer(argv: readonly string[]): Answer {
  */
 export function worldOf(on: On, files: Readonly<Record<string, string>>, options: { refuseAll?: boolean; commands?: readonly string[]; home?: Readonly<Record<string, string>>; env?: Readonly<Record<string, string>> } = {}): World {
   let tick = 1_000
-  const all = new Map<string, string>([...Object.entries(files).map(([path, text]) => [`${CWD}/${path}`, text] as const), ...Object.entries(options.home ?? {}).map(([path, text]) => [`${HOME}/${path}`, text] as const)])
+  const all = new Map<string, string>([...Object.entries(files).map(([path, text]) => [normalizeFixturePath(`${CWD}/${path}`), text] as const), ...Object.entries(options.home ?? {}).map(([path, text]) => [normalizeFixturePath(`${HOME}/${path}`), text] as const)])
   const mtimes = new Map<string, number>([...all.keys()].map(path => [path, tick]))
   const world: World = {
     files: all,
@@ -107,25 +110,34 @@ export function worldOf(on: On, files: Readonly<Record<string, string>>, options
     respond: cliAnswer,
     put: (path, text) => {
       tick += 1_000
-      all.set(`${CWD}/${path}`, text)
-      mtimes.set(`${CWD}/${path}`, tick)
+      all.set(normalizeFixturePath(`${CWD}/${path}`), text)
+      mtimes.set(normalizeFixturePath(`${CWD}/${path}`), tick)
     },
   }
   const refuse = options.refuseAll === true
 
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('fs.read', ($, e) => (world.reads.push(e.path), refuse || !all.has(e.path) ? { deny: `ENOENT: ${e.path}` } : { value: all.get(e.path) as string }))
+  on('fs.read', ($, e) => {
+    const path = normalizeFixturePath(e.path)
+
+    world.reads.push(path)
+
+    return refuse || !all.has(path) ? { deny: `ENOENT: ${path}` } : { value: all.get(path) as string }
+  })
   on('fs.stat', ($, e) => {
-    world.stats.push(e.path)
-    const text = all.get(e.path)
+    const path = normalizeFixturePath(e.path)
+
+    world.stats.push(path)
+
+    const text = all.get(path)
 
     // A folder that holds a file stats as a directory, as a real one does (the ADRs page asks before it lists).
-    if (!refuse && text === undefined && [...all.keys()].some(path => path.startsWith(`${e.path}/`))) return { value: { kind: 'dir' as const, size: 0, mtimeMs: 1, isLink: false } }
+    if (!refuse && text === undefined && [...all.keys()].some(key => key.startsWith(`${path}/`))) return { value: { kind: 'dir' as const, size: 0, mtimeMs: 1, isLink: false } }
 
-    return refuse || text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: { kind: 'file' as const, size: text.length, mtimeMs: mtimes.get(e.path) ?? 0, isLink: false } }
+    return refuse || text === undefined ? { deny: `ENOENT: ${path}` } : { value: { kind: 'file' as const, size: text.length, mtimeMs: mtimes.get(path) ?? 0, isLink: false } }
   })
   on('fs.list', ($, e) => {
-    const prefix = `${e.path ?? CWD}/`
+    const prefix = `${normalizeFixturePath(e.path ?? CWD)}/`
     const below = [...all.keys()].filter(path => path.startsWith(prefix)).map(path => path.slice(prefix.length))
     const files = below.filter(name => !name.includes('/'))
     // A folder holding a file shows as a directory entry of its own, as a real listing does.

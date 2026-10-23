@@ -4,7 +4,7 @@
  * Pure and fast: a stand-in for git and /proc (tests/fixtures/wf-git.ts), no engine. Run with
  *   npx vitest run plugins/ruflo-console/tests/wf-worktrees.spec.ts --testTimeout=30000
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { AHEAD_ARGV, BATCH, checkProcs, DIRTY_CAP, inUseOf, isRemovableDir, isSafePath, LIST_MAX_BYTES, makerOf, MAX_PROBED, MIN_AGE_MS, MIN_PROCS, parseProcs, parseWorktrees, planRemoval, PROCS_ARGV, PROCS_FRESH_MS, readWorktrees, REMOVE_ARGV, REMOVE_MAX, whyKept, type WtRow } from '../hooks/data/wf-worktrees'
 import type { WfAgent, WfRun } from '../hooks/data/workflows'
@@ -48,20 +48,20 @@ describe('the live-process check', () => {
   })
 
   it('refuses to answer when it looks blind: fewer than the minimum working directories', async () => {
-    const blind = parseProcs(procLines(Array.from({ length: MIN_PROCS - 1 }, (_, i) => [i + 1, 'cwd', '/'] as [number, string, string])), [wt('a')], NOW)
+    const blind = parseProcs(procLines(Array.from({ length: MIN_PROCS - 1 }, (_, i) => [i + 1, 'cwd', '/'] as [number, string, string])), [wt('a')], NOW, 'linux')
 
     expect(blind.ok).toBe(false)
     expect(blind.why).toMatch(/may be blind/)
     expect(inUseOf(blind, wt('a'))).toBeNull()
 
-    const none = await checkProcs({ run: async () => ({ stdout: '', stderr: '', exitCode: 1 }), stat: async () => undefined }, [wt('a')], NOW)
+    const none = await checkProcs({ run: async () => ({ stdout: '', stderr: '', exitCode: 1 }), stat: async () => undefined }, [wt('a')], NOW, 'linux')
 
     expect(none).toMatchObject({ ok: false, why: 'the process listing did not answer' })
-    expect((await checkProcs({ run: async () => Promise.reject(new Error('x')), stat: async () => undefined }, [wt('a')], NOW)).ok).toBe(false)
+    expect((await checkProcs({ run: async () => Promise.reject(new Error('x')), stat: async () => undefined }, [wt('a')], NOW, 'linux')).ok).toBe(false)
   })
 
   it('reads a listing that exited non-zero (other users\' processes are unreadable) when it holds what it needs', async () => {
-    const check = await checkProcs(ioOf(world()), [wt('busy')], NOW)
+    const check = await checkProcs(ioOf(world()), [wt('busy')], NOW, 'linux')
 
     expect(check.ok).toBe(true)
     expect(inUseOf(check, wt('busy'))).toBe(2)
@@ -155,12 +155,32 @@ describe('who made a worktree', () => {
   })
 })
 
+describe('the process probe off Linux', () => {
+  const spy = () => { const run = vi.fn(async () => ({ stdout: '', stderr: '', exitCode: 0 })); return { io: { run, stat: async () => undefined }, run } }
+
+  it.each(['win32', 'darwin'])('answers "not available on this system" on %s without spawning', async platform => {
+    const { io, run } = spy()
+    const check = await checkProcs(io, [wt('a')], NOW, platform)
+
+    expect(run).not.toHaveBeenCalled()
+    expect(check).toMatchObject({ ok: false, seen: 0, why: 'the live-process check is not available on this system' })
+    expect(inUseOf(check, wt('a'))).toBeNull()
+  })
+
+  it('still spawns the find on linux', async () => {
+    const { io, run } = spy()
+
+    await checkProcs(io, [wt('a')], NOW, 'linux')
+    expect(run).toHaveBeenCalledWith(PROCS_ARGV, 30_000)
+  })
+})
+
 describe('the probes', () => {
   it('uses only fixed argv: git -C <dir> ..., one find, never a shell string', async () => {
     const w = world()
 
     await readWorktrees(ioOf(w), { cwd: wt('current'), nowMs: NOW, runs: [] })
-    await checkProcs(ioOf(w), [wt('old')], NOW)
+    await checkProcs(ioOf(w), [wt('old')], NOW, 'linux')
 
     expect(w.calls.length).toBeGreaterThan(10)
     for (const argv of w.calls) {

@@ -8,8 +8,9 @@
  */
 import { checkNoLinks } from './data/wf-file'
 import { appendArgv } from './data/append-argv'
-import { dirOf, newFileArgv, replaceFileArgv } from './data/wf-file'
+import { dirOf } from './data/wf-file'
 import { writeFlavorReady } from './data/write-flavor'
+import { writeVia } from './data/write-via'
 import { keepNewestHalf, READ_MAX } from './data/activity-store'
 import type { Host } from './host'
 
@@ -68,7 +69,7 @@ async function ensureIgnored(host: IoHost, dir: string): Promise<void> {
   if (ignored.has(dir)) return
 
   ignored.add(dir)
-  await host.run(newFileArgv(`${dir}/.gitignore`, true, await writeFlavorReady()), WRITE_TIMEOUT_MS, IGNORE_BODY).catch(() => undefined)
+  await writeVia(await writeFlavorReady(), host, { kind: 'create-excl', path: `${dir}/.gitignore`, text: IGNORE_BODY, timeoutMs: WRITE_TIMEOUT_MS }).catch(() => undefined)
 }
 
 async function rotate(host: IoHost, channel: Channel): Promise<void> {
@@ -78,10 +79,24 @@ async function rotate(host: IoHost, channel: Channel): Promise<void> {
 
   const size = stat.size ?? channel.size ?? 0
   const kept = size > READ_MAX ? '' : keepNewestHalf(await host.fs.read(channel.path).catch(() => ''), channel.cap)
+  const flavor = await writeFlavorReady()
+
+  // Windows (host-fs): no rm, mv or temporary file; the host's write replaces the file with its newest half in one call.
+  if (flavor === 'host-fs') {
+    const replaced = await writeVia(flavor, host, { kind: 'replace', path: channel.path, text: kept, hasDir: true })
+
+    if (replaced.exitCode === 0) {
+      channel.size = kept.length
+      channel.rotations++
+    }
+
+    return
+  }
+
   await host.run(['rm', '-f', '--', tmpOf(channel.path)], WRITE_TIMEOUT_MS)
 
   // The flavor is awaited before the first flavored write; the rm, mv and mkdir argv are the same on GNU and BSD, so they need none.
-  const written = await host.run(newFileArgv(tmpOf(channel.path), true, await writeFlavorReady()), WRITE_TIMEOUT_MS, kept)
+  const written = await writeVia(flavor, host, { kind: 'create-excl', path: tmpOf(channel.path), text: kept, timeoutMs: WRITE_TIMEOUT_MS })
 
   if (written.exitCode !== 0) return
 
@@ -118,7 +133,8 @@ export async function flush(host: IoHost, cwd: string, path: string, nowMs: numb
 
     if (!clear.ok) throw new Error(clear.why)
 
-    if (!channel.isDirReady) {
+    // host-fs: the host's write makes the folders, and there is no mkdir to run.
+    if (!channel.isDirReady && (await writeFlavorReady()) !== 'host-fs') {
       const made = await host.run(['mkdir', '-p', '--', dirOf(path)], WRITE_TIMEOUT_MS)
 
       if (made.exitCode !== 0) throw new Error(`the folder could not be made (exit ${made.exitCode})`)
@@ -129,7 +145,7 @@ export async function flush(host: IoHost, cwd: string, path: string, nowMs: numb
 
     if (channel.size === null) channel.size = (await host.fs.stat(path).catch(() => undefined))?.size ?? 0
 
-    const result = await host.run(appendArgv(path, await writeFlavorReady()), WRITE_TIMEOUT_MS, batch.join(''))
+    const result = await writeVia(await writeFlavorReady(), host, { kind: 'append', path, text: batch.join(''), timeoutMs: WRITE_TIMEOUT_MS })
 
     if (result.exitCode !== 0) throw new Error(`the write exited ${result.exitCode}`)
 
@@ -155,7 +171,7 @@ export async function replaceFile(host: IoHost, cwd: string, path: string, conte
     if (!clear.ok) return clear.why.slice(0, 80)
 
     const hasDir = (await host.fs.stat(dirOf(path)).catch(() => undefined)) !== undefined
-    const result = await host.run(replaceFileArgv(path, hasDir, await writeFlavorReady()), WRITE_TIMEOUT_MS, content)
+    const result = await writeVia(await writeFlavorReady(), host, { kind: 'replace', path, text: content, hasDir, timeoutMs: WRITE_TIMEOUT_MS })
 
     if (result.exitCode === 0) await ensureIgnored(host, dirOf(path))
 

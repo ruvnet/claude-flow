@@ -90,7 +90,10 @@ describe('a change asked for by name', () => {
 
     await ask(t, 'swarm-stop')
     t.press('y')
-    await settle(600)
+    // runner.ts re-checks the verify once at VERIFY_RETRY_MS (1 s) when a confirmed action's start
+    // succeeded but its state file is not on disk yet (#4036 bullet 2); the stand-in CLI's state
+    // never changes here, so the whole re-check window has to resolve before the verdict is drawn.
+    await settle(1200)
 
     const after = ran().slice(before)
 

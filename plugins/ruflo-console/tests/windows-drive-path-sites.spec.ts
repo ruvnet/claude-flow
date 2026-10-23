@@ -7,13 +7,23 @@ import type { ReaderFs } from '../hooks/data/files'
 // #4356: on Windows `state.cwd` is a drive path (`C:\Users\...`), not `/...`. Each of these
 // three sites hardcoded `base.startsWith('/')` (or `root.startsWith('/')`) as its "do we know
 // the project folder" guard, so all three fail closed on Windows regardless of settings —
-// matching the already-fixed #4175 bug in register.ts (see abs-path.spec.ts).
+// matching the already-fixed #4175 bug in register.ts.
+//
+// #4036: PR consolidated path helpers onto `paths.ts`. On a Windows base, `joinPath` now uses
+// the base's own separator (`\\`), so the probe path for `C:\Users\dev\project` + `docs` is
+// `C:\Users\dev\project\docs` rather than the earlier `C:\Users\dev\project/docs`. The
+// semantics are the same on a real Windows filesystem; `fsWithDir` is made separator-agnostic
+// here so the test continues to anchor the behaviour, not the exact string.
 
 const WIN_CWD = 'C:\\Users\\dev\\project'
 
+const normSeps = (p: string): string => p.replace(/[\\/]+/g, '/')
+
 function fsWithDir(dirPath: string): Pick<ReaderFs, 'stat' | 'list' | 'read'> {
+  const target = normSeps(dirPath)
+
   return {
-    stat: async (path: string) => (path === dirPath ? { kind: 'dir' } : undefined),
+    stat: async (path: string) => (normSeps(path) === target ? { kind: 'dir' } : undefined),
     list: async () => [],
     read: async () => '',
   }
