@@ -61,6 +61,7 @@ const SCHEMA: Record<string, { props: readonly string[]; req?: readonly string[]
   rure_find_feature: { props: ['path', 'query'], req: ['path', 'query'] },
   rure_analyze_binary: { props: ['path', 'includeStrings'], req: ['path'] },
   rure_analyze_dotnet: { props: ['path'], req: ['path'] },
+  rure_analyze_cuda: { props: ['path', 'includePtx'], req: ['path'] },
   rure_analyze_evm: { props: ['bytecode', 'path', 'includeDisassembly'] },
   daa_learning_status: { props: ['agentId', 'detailed'] },
   daa_performance_metrics: { props: ['category', 'timeRange'] },

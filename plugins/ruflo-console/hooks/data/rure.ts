@@ -77,8 +77,11 @@ function binaryLines(record: Record<string, unknown>): string[] {
   const sections = list(record.sections).map(recordOf).filter((section): section is Record<string, unknown> => section !== null && text(section.name) !== '')
   const strings = list(record.strings).map(recordOf).flatMap(item => (item !== null && typeof item.value === 'string' ? [plain(item.value, 60)] : []))
 
+  const holdsCuda = sections.some(section => /^\.?nv_fatb/.test(text(section.name, 24)) || text(section.name, 24) === '__nv_fatbin')
+
   return [
     `${text(record.format).toUpperCase() || 'n/a'} · ${text(record.arch) || 'n/a'} · ${num(record.bits)}-bit ${text(record.endianness) || 'n/a'}-endian · ${text(record.kind) || 'n/a'}`,
+    ...(holdsCuda ? ['holds CUDA code (a .nv_fatbin section): run CUDA for its kernels, architectures and PTX'] : []),
     `entry ${hex(record.entryPoint)}`,
     ...block('libraries', list(record.libraries).length, list(record.libraries).map(item => text(item, 40))),
     ...block('imports', list(record.imports).length, list(record.imports).map(item => text(item, 40))),
@@ -171,12 +174,51 @@ function asarLines(record: Record<string, unknown>): string[] {
   ]
 }
 
+/** Kernel and entry lines kept; the rest is counted. */
+const CUDA_ENTRY_LINES = 30;
+const CUDA_KERNEL_LINES = 60;
+
+/** The CUDA tool's answer (ADR-0006, ADR-497): what the fatbin holds, then each kernel with what it costs, then the PTX. Every value is the file's own text or a measurement. */
+function cudaLines(record: Record<string, unknown>): string[] {
+  const rows = (value: unknown): Record<string, unknown>[] => list(value).map(recordOf).filter((row): row is Record<string, unknown> => row !== null)
+  const summary = recordOf(record.summary)
+  const entries = rows(record.entries)
+  const kernels = rows(record.kernels)
+  const modules = rows(record.ptx)
+  const section = recordOf(record.hostSection)
+  const archs = (value: unknown): string => strs(value, 8, 12)
+  const known = (value: unknown, unit = ''): string => (countOf(value) === undefined ? 'n/a' : `${countOf(value)}${unit}`)
+
+  const entryLines = entries.slice(0, CUDA_ENTRY_LINES).map(entry => `  #${num(entry.index)} ${text(entry.kind, 8) || '?'} ${text(entry.arch, 10) || 'sm_?'} · ${text(entry.compressed, 8) || '?'} · ${entry.read === true ? known(entry.size, ' B') : `unread: ${text(entry.note, 100) || 'no reason given'}`}`)
+  const kernelLines = kernels.slice(0, CUDA_KERNEL_LINES).map(kernel => {
+    const name = text(kernel.identifier, 40) || text(kernel.name, 60)
+    const shared = (countOf(kernel.sharedBytes) ?? 0) > 0 ? ` · shared ${known(kernel.sharedBytes, ' B')}` : ''
+    const estimate = countOf(kernel.instructionEstimate) === undefined ? '' : ` (~${known(kernel.instructionEstimate)} instr)`
+
+    return `  ${name}${kernel.isEntry === true ? '' : ' [device fn]'} · ${text(kernel.arch, 10) || 'sm_?'} · ${known(kernel.registers)} reg · ${known(kernel.codeBytes, ' B')} code${estimate} · const ${known(kernel.constantBytes, ' B')}${shared}`
+  })
+
+  return [
+    `CUDA · ${text(record.source) || 'n/a'} · cubins ${archs(record.cubinArchs)} · PTX ${archs(record.ptxArchs)} · ${known(summary?.kernels)} kernels · ${known(summary?.deviceFunctions)} device functions`,
+    ...(section !== null ? [`fatbin in ${text(section.name, 20)} at ${hex(section.offset)} (${known(section.size, ' B')})`] : []),
+    `${known(record.containers)} container(s), ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}:`,
+    ...entryLines,
+    ...(entries.length > CUDA_ENTRY_LINES ? [`  … +${entries.length - CUDA_ENTRY_LINES} more entries`] : []),
+    `kernels (${kernels.length}):`,
+    ...(kernelLines.length === 0 ? ['  (none read)'] : kernelLines),
+    ...(kernels.length > CUDA_KERNEL_LINES ? [`  … +${kernels.length - CUDA_KERNEL_LINES} more`] : []),
+    ...modules.slice(0, 4).map(module => `PTX ${text(module.version, 12) || 'n/a'} · ${text(module.target, 20) || 'n/a'} · ${known(module.addressSize)}-bit · kernels: ${strs(rows(module.entries).map(entry => entry.name), 6, 40)}`),
+    ...block('host signals', list(record.hostSignals).length, list(record.hostSignals).map(item => text(item, 40))),
+  ]
+}
+
 const READERS: Record<string, (record: Record<string, unknown>) => string[]> = {
   'dt-re-asar': asarLines,
   'dt-re-js': jsLines,
   'dt-re-find': findLines,
   'dt-re-bin': binaryLines,
   'dt-re-auto': binaryLines,
+  'dt-re-cuda': cudaLines,
   'dt-re-net': dotnetLines,
   'dt-re-evm': evmLines,
 }

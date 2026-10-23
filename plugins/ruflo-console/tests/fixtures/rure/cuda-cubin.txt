@@ -1,0 +1,13 @@
+  Parameters: {"path":"k80.cubin"}
+
+[OK] Tool executed in 12.95ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"source\":\"cubin\",\"hostSection\":null,\"hostSignals\":[],\"containers\":0,\"entries\":[],\"cubinArchs\":[\"sm_80\"],\"ptxArchs\":[],\"kernels\":[{\"name\":\"_Z12scale_secretPfi\",\"identifier\":\"scale_secret\",\"isEntry\":true,\"codeBytes\":384,\"instructionEstimate\":24,\"registers\":8,\"constantBytes\":364,\"sharedBytes\":null,\"localBytes\":null,\"entry\":null,\"arch\":\"sm_80\"},{\"name\":\"_Z5saxpyifPKfPf\",\"identifier\":\"saxpy\",\"isEntry\":true,\"codeBytes\":384,\"instructionEstimate\":24,\"registers\":10,\"constantBytes\":376,\"sharedBytes\":null,\"localBytes\":null,\"entry\":null,\"arch\":\"sm_80\"}],\"ptx\":[],\"warnings\":[],\"truncated\":false,\"summary\":{\"containers\":0,\"entries\":0,\"cubins\":0,\"ptxEntries\":0,\"kernels\":2,\"deviceFunctions\":0},\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

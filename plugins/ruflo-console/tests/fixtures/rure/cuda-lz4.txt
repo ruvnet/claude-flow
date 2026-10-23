@@ -1,0 +1,13 @@
+  Parameters: {"path":"host-cuda128"}
+
+[OK] Tool executed in 13.19ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"source\":\"host\",\"hostSection\":{\"name\":\".nv_fatbin\",\"offset\":8248,\"size\":6232},\"hostSignals\":[\".nv_fatbin\",\"__nv_module_id\",\".nvFatBinSegment\",\"libcudart.so.12\",\"__cudaRegisterFatBinaryEnd\",\"__cudaInitModule\",\"__cudaPopCallConfiguration\",\"__cudaRegisterFatBinary\",\"__cudaPushCallConfiguration\",\"__cudaRegisterFunction\",\"__cudaUnregisterFatBinary\"],\"containers\":2,\"entries\":[{\"index\":0,\"container\":0,\"kind\":\"cubin\",\"rawKind\":2,\"arch\":\"sm_80\",\"version\":\"0x10007\",\"flags\":\"0x11\",\"compressed\":\"none\",\"storedBytes\":872,\"size\":872,\"read\":true},{\"index\":1,\"container\":1,\"kind\":\"cubin\",\"rawKind\":2,\"arch\":\"sm_80\",\"version\":\"0x10007\",\"flags\":\"0x11\",\"compressed\":\"none\",\"storedBytes\":4456,\"size\":4456,\"read\":true},{\"index\":2,\"container\":1,\"kind\":\"ptx\",\"rawKind\":1,\"arch\":\"sm_80\",\"version\":\"0x80007\",\"flags\":\"0x2011\",\"compressed\":\"lz4\",\"storedBytes\":661,\"size\":1480,\"read\":true}],\"cubinArchs\":[\"sm_80\"],\"ptxArchs\":[\"sm_80\"],\"kernels\":[{\"name\":\"_Z12scale_secretPfi\",\"identifier\":\"scale_secret\",\"isEntry\":true,\"codeBytes\":384,\"instructionEstimate\":null,\"registers\":8,\"constantBytes\":364,\"sharedBytes\":null,\"localBytes\":null,\"entry\":1,\"arch\":\"sm_80\"},{\"name\":\"_Z5saxpyifPKfPf\",\"identifier\":\"saxpy\",\"isEntry\":true,\"codeBytes\":384,\"instructionEstimate\":null,\"registers\":10,\"constantBytes\":376,\"sharedBytes\":null,\"localBytes\":null,\"entry\":1,\"arch\":\"sm_80\"}],\"ptx\":[{\"version\":\"8.7\",\"target\":\"sm_80\",\"addressSize\":64,\"entries\":[{\"name\":\"_Z5saxpyifPKfPf\",\"params\":4},{\"name\":\"_Z12scale_secretPfi\",\"params\":2}],\"functions\":[],\"scanTruncated\":false,\"entry\":2}],\"warnings\":[\"entry 0: the entry header says sm_80, the cubin's e_flags say sm_5\",\"entry 1: the entry header says sm_80, the cubin's e_flags say sm_5\"],\"truncated\":false,\"summary\":{\"containers\":2,\"entries\":3,\"cubins\":2,\"ptxEntries\":1,\"kernels\":2,\"deviceFunctions\":0},\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

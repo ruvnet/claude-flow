@@ -37,8 +37,8 @@ const linesOf = (id: string, name: string): string => devLines(id, fixture(name)
 const wrapped = (inner: unknown, isError = false) => `[INFO] Executing tool: x\n[OK] Tool executed in 6ms\nResult:\n${JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(inner) }], ...(isError && { isError: true }) }, null, 2)}\n`
 
 describe('the ruRE catalog', () => {
-  it('has the six tools and DETECT, each with a unique dt-re- id, in a ruRE group, and the groups have rows', () => {
-    expect(RURE.map(item => item.id)).toEqual(['dt-re-auto', 'dt-re-asar', 'dt-re-js', 'dt-re-find', 'dt-re-bin', 'dt-re-net', 'dt-re-evm'])
+  it('has the seven tools and DETECT, each with a unique dt-re- id, in a ruRE group, and the groups have rows', () => {
+    expect(RURE.map(item => item.id)).toEqual(['dt-re-auto', 'dt-re-asar', 'dt-re-js', 'dt-re-find', 'dt-re-bin', 'dt-re-net', 'dt-re-cuda', 'dt-re-evm'])
     expect(RURE.every(item => DEV.includes(item))).toBe(true)
     expect(RURE_GROUPS.every(group => DEV_GROUPS.some(known => known.id === group.id) && RURE.some(item => item.group === group.id))).toBe(true)
   })
@@ -63,6 +63,7 @@ describe('the ruRE catalog', () => {
     expect(params('dt-re-bin', { sample: 'bin/tool' })).toEqual({ path: 'bin/tool', includeStrings: true })
     expect(params('dt-re-net', { sample: 'lib/a.dll' })).toEqual({ path: 'lib/a.dll' })
     expect(params('dt-re-evm', { sample: 'c/token.bin' })).toEqual({ path: 'c/token.bin' })
+    expect(params('dt-re-cuda', { sample: 'gpu/app' })).toEqual({ path: 'gpu/app' })
     expect(devSpec(entry('dt-re-bin'), fields({ sample: 'bin/tool' }))?.args.slice(0, 4)).toEqual(['mcp', 'exec', '-t', 'rure_analyze_binary'])
   })
 

@@ -16,7 +16,7 @@ import type { DevEntry } from './devtools'
 export const RURE_GROUPS = [
   { id: 'rure-auto', title: 'Any file or folder', right: 'DETECT picks the reader · parse only' },
   { id: 'rure-app', title: 'JavaScript and Electron apps', right: 'an .asar or a folder of source · parse only' },
-  { id: 'rure-native', title: 'Native binaries, .NET and EVM', right: 'ELF · PE · Mach-O · .NET · EVM bytecode · parse only' },
+  { id: 'rure-native', title: 'Native binaries, .NET and EVM', right: 'ELF · PE · Mach-O · .NET · CUDA · EVM bytecode · parse only' },
 ] as const
 
 export const RURE: readonly DevEntry[] = [
@@ -26,6 +26,7 @@ export const RURE: readonly DevEntry[] = [
   { id: 'dt-re-find', group: 'rure-app', name: 'FIND FEATURE', about: 'where a feature lives: the sample folder, and the words in the feature field', label: 'ruRE: find a feature in a JS source folder', cost: 'read', input: 'query', args: f => need(f, ['sample', 'query'], v => tool('rure_find_feature', { path: v.sample, query: v.query })) },
   { id: 'dt-re-bin', group: 'rure-native', name: 'NATIVE BINARY', about: 'ELF, PE or Mach-O: sections, libraries, imports, exports, strings', label: 'ruRE: inspect a native binary', cost: 'read', input: 'sample', args: f => need(f, ['sample'], v => tool('rure_analyze_binary', { path: v.sample, includeStrings: true })) },
   { id: 'dt-re-net', group: 'rure-native', name: '.NET ASSEMBLY', about: 'metadata only: references, types, P/Invoke, string literals', label: 'ruRE: inspect a .NET assembly', cost: 'read', input: 'sample', args: f => need(f, ['sample'], v => tool('rure_analyze_dotnet', { path: v.sample })) },
+  { id: 'dt-re-cuda', group: 'rure-native', name: 'CUDA', about: 'GPU code in a CUDA program, .cubin, .fatbin or .ptx: architectures, kernels, registers, memory, PTX', label: 'ruRE: inspect CUDA code', cost: 'read', input: 'sample', args: f => need(f, ['sample'], v => tool('rure_analyze_cuda', { path: v.sample })) },
   { id: 'dt-re-evm', group: 'rure-native', name: 'EVM BYTECODE', about: 'a file of hex or raw bytecode: selectors, risky opcodes, proxies', label: 'ruRE: inventory EVM bytecode', cost: 'read', input: 'sample', args: f => need(f, ['sample'], v => tool('rure_analyze_evm', { path: v.sample })) },
 ]
 
