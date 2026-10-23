@@ -115,10 +115,14 @@ export interface AgntcyRuntimeStatus {
  * @param packageName Injectable for tests (to simulate "package not
  *   installed" without needing to actually uninstall the real optional
  *   dependency); defaults to {@link AGNTCY_PACKAGE_NAME}.
+ * @param requiredExports Function names the caller will use. A resolved module
+ *   missing any of them is reported as not configured, with the missing names
+ *   in `reason`, instead of failing later at the call site.
  */
 export async function detectAgntcyRuntime(
   env: NodeJS.ProcessEnv = process.env,
   packageName: string = AGNTCY_PACKAGE_NAME,
+  requiredExports: readonly string[] = [],
 ): Promise<AgntcyRuntimeStatus> {
   const endpoint = env[AGNTCY_ENDPOINT_ENV];
   if (!endpoint) {
@@ -131,7 +135,19 @@ export async function detectAgntcyRuntime(
     // `await import('pg')`). Never a static `import` — a static import
     // would make @claude-flow/cli fail to build/run when the package is
     // absent, which is the one thing ADR-150/ADR-380 forbid.
-    await import(packageName);
+    const mod = await import(packageName);
+    if (requiredExports.length > 0) {
+      const missing = requiredExports.filter(
+        (name) => typeof (mod as Record<string, unknown>)[name] !== 'function',
+      );
+      if (missing.length > 0) {
+        return {
+          configured: false,
+          reason: `${packageName} resolved but does not export ${missing.join(', ')}; the installed SDK API is not the one this command implements`,
+          endpoint,
+        };
+      }
+    }
     return { configured: true, reason: `${packageName} resolved`, endpoint };
   } catch (error) {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
