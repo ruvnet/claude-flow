@@ -100,6 +100,50 @@ describe('AgentDBBackend', () => {
       const retrieved = await backend.get(entry.id);
       expect(retrieved).toBeNull();
     });
+
+    it('should delete an entry that exists only in AgentDB, not the in-memory cache (fresh-instance parity with get())', async () => {
+      const entry = createDefaultEntry({
+        key: 'persisted-only-delete',
+        content: 'Only on disk',
+      });
+
+      await backend.store(entry);
+      // Simulate what a second, independent AgentDBBackend instance pointed at
+      // the same dbPath would see: the row is persisted in AgentDB, but this
+      // instance's in-memory cache has never heard of it.
+      (backend as unknown as { entries: Map<string, unknown> }).entries.clear();
+
+      // get() already falls back to AgentDB on a cache miss -- confirms the
+      // row really is persisted before asserting delete()'s behavior on it.
+      expect(await backend.get(entry.id)).not.toBeNull();
+
+      const deleted = await backend.delete(entry.id);
+      expect(deleted).toBe(true);
+      expect(await backend.get(entry.id)).toBeNull();
+    });
+
+    it('should update an entry that exists only in AgentDB, not the in-memory cache (fresh-instance parity with get())', async () => {
+      const entry = createDefaultEntry({
+        key: 'persisted-only-update',
+        content: 'Original content',
+      });
+
+      await backend.store(entry);
+      (backend as unknown as { entries: Map<string, unknown> }).entries.clear();
+
+      expect(await backend.get(entry.id)).not.toBeNull();
+
+      const updated = await backend.update(entry.id, { content: 'Updated content' });
+      expect(updated?.content).toBe('Updated content');
+
+      const retrieved = await backend.get(entry.id);
+      expect(retrieved?.content).toBe('Updated content');
+    });
+
+    it('should leave an in-memory cache miss with no persisted row as a true no-op (negative control)', async () => {
+      expect(await backend.delete('never-stored-id')).toBe(false);
+      expect(await backend.update('never-stored-id', { content: 'x' })).toBeNull();
+    });
   });
 
   describe('Query Operations', () => {

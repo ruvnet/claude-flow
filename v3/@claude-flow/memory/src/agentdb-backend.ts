@@ -349,8 +349,17 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    * Update entry
    */
   async update(id: string, update: MemoryEntryUpdate): Promise<MemoryEntry | null> {
-    const entry = this.entries.get(id);
-    if (!entry) return null;
+    let entry = this.entries.get(id);
+    if (!entry) {
+      // Mirror get()'s existing AgentDB fallback: an entry persisted by a
+      // prior instance/process against the same dbPath is reachable via
+      // get(), so update() must be able to find and mutate it too instead
+      // of treating a cache miss as "entry does not exist."
+      if (!this.agentdb) return null;
+      const persisted = await this.getFromAgentDB(id);
+      if (!persisted) return null;
+      entry = persisted;
+    }
 
     this.hnsw?.invalidate();
 
@@ -388,6 +397,13 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     entry.version++;
     this.hnsw?.invalidate();
 
+    // Re-admit into the in-memory cache/indexes (a no-op for the already-
+    // cached path; required when `entry` was just loaded via the AgentDB
+    // fallback above) so later get()/query() calls see the change without
+    // another round-trip.
+    this.entries.set(id, entry);
+    this.updateIndexes(entry);
+
     // Update in AgentDB
     if (this.agentdb) {
       await this.updateInAgentDB(entry);
@@ -402,7 +418,20 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
    */
   async delete(id: string): Promise<boolean> {
     const entry = this.entries.get(id);
-    if (!entry) return false;
+    if (!entry) {
+      // Mirror get()'s existing AgentDB fallback: an entry persisted by a
+      // prior instance/process against the same dbPath is reachable via
+      // get(), so delete() must actually remove it there too instead of
+      // treating a cache miss as "entry does not exist."
+      if (!this.agentdb) return false;
+      const persisted = await this.getFromAgentDB(id);
+      if (!persisted) return false;
+      // Never admitted into this instance's in-memory cache, so there are
+      // no in-memory indexes to clean up here.
+      await this.deleteFromAgentDB(id);
+      this.emit('entry:deleted', { id });
+      return true;
+    }
 
     // Remove from indexes
     this.entries.delete(id);
@@ -662,14 +691,19 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
     if (!this.agentdb) return;
 
     const db = this.agentdb.database;
-    if (!db || typeof db.run !== 'function') {
-      // AgentDB doesn't expose raw database - using native API
+    // The real agentdb package exposes a raw better-sqlite3 Database here
+    // (synchronous `.prepare(sql).run(...)`/`.get(...)`), not the async
+    // `db.run(sql, params)`/`db.get(sql, params)` shape this fallback was
+    // originally written against — that shape has never existed on any
+    // installed agentdb version. Detect via `.prepare` instead.
+    if (!db || typeof db.prepare !== 'function') {
+      // AgentDB doesn't expose a compatible raw database - using native API
       return;
     }
 
     try {
     // Create memory_entries table
-    await db.run(`
+    db.prepare(`
       CREATE TABLE IF NOT EXISTS memory_entries (
         id TEXT PRIMARY KEY,
         key TEXT NOT NULL,
@@ -685,18 +719,18 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         updated_at INTEGER NOT NULL,
         expires_at INTEGER,
         version INTEGER NOT NULL,
-        references TEXT,
+        "references" TEXT,
         access_count INTEGER DEFAULT 0,
         last_accessed_at INTEGER
       )
-    `);
+    `).run();
 
     // Create indexes
-    await db.run(
+    db.prepare(
       'CREATE INDEX IF NOT EXISTS idx_namespace ON memory_entries(namespace)'
-    );
-    await db.run('CREATE INDEX IF NOT EXISTS idx_key ON memory_entries(key)');
-    await db.run('CREATE INDEX IF NOT EXISTS idx_type ON memory_entries(type)');
+    ).run();
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_key ON memory_entries(key)').run();
+    db.prepare('CREATE INDEX IF NOT EXISTS idx_type ON memory_entries(type)').run();
     } catch {
       // Schema creation failed - using in-memory only
     }
@@ -723,23 +757,26 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         return;
       }
 
-      // Fallback: use database directly if available
+      // Fallback: use database directly if available. The real agentdb
+      // package exposes a raw better-sqlite3 Database here (synchronous
+      // `.prepare(sql).run(...)`), not the async `db.run(sql, params)` shape
+      // this fallback was originally written against.
       const db = this.agentdb.database;
-      if (!db || typeof db.run !== 'function') {
+      if (!db || typeof db.prepare !== 'function') {
         // No compatible database interface - skip agentdb storage
         // Entry is already stored in-memory
         return;
       }
 
-      await db.run(
+      db.prepare(
       `
       INSERT OR REPLACE INTO memory_entries
       (id, key, content, embedding, type, namespace, tags, metadata, owner_id,
-       access_level, created_at, updated_at, expires_at, version, references,
+       access_level, created_at, updated_at, expires_at, version, "references",
        access_count, last_accessed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      [
+    `
+    ).run([
         entry.id,
         entry.key,
         entry.content,
@@ -757,8 +794,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         JSON.stringify(entry.references),
         entry.accessCount,
         entry.lastAccessedAt,
-      ]
-    );
+      ]);
     } catch {
       // AgentDB storage failed - entry is already in-memory
     }
@@ -778,11 +814,14 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         if (data) return this.dataToEntry(id, data);
       }
 
-      // Fallback to database
+      // Fallback to database. The real agentdb package exposes a raw
+      // better-sqlite3 Database here (synchronous `.prepare(sql).get(...)`),
+      // not the async `db.get(sql, params)` shape this fallback was
+      // originally written against.
       const db = this.agentdb.database;
-      if (!db || typeof db.get !== 'function') return null;
+      if (!db || typeof db.prepare !== 'function') return null;
 
-      const row = await db.get('SELECT * FROM memory_entries WHERE id = ?', [id]);
+      const row = db.prepare('SELECT * FROM memory_entries WHERE id = ?').get([id]);
       if (!row) return null;
       return this.rowToEntry(row);
     } catch {
@@ -836,11 +875,14 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         return;
       }
 
-      // Fallback to database
+      // Fallback to database. The real agentdb package exposes a raw
+      // better-sqlite3 Database here (synchronous `.prepare(sql).run(...)`),
+      // not the async `db.run(sql, params)` shape this fallback was
+      // originally written against.
       const db = this.agentdb.database;
-      if (!db || typeof db.run !== 'function') return;
+      if (!db || typeof db.prepare !== 'function') return;
 
-      await db.run('DELETE FROM memory_entries WHERE id = ?', [id]);
+      db.prepare('DELETE FROM memory_entries WHERE id = ?').run([id]);
     } catch {
       // Delete failed - entry removed from in-memory
     }
