@@ -45,7 +45,11 @@ Given an `AgentDBBackend` instance whose entry exists only in the persisted `age
 
 ## Benchmarks / Evaluation
 
-Real evaluator: Vitest 4.1.8 against the real `agentdb@3.0.0-alpha.20` + better-sqlite3 (freshly `pnpm install`-ed this session; `v3/` had no `node_modules`). 3 new tests added to `agentdb-backend.test.ts` (2 discriminating: delete/update a cache-miss persisted-only entry; 1 negative control: a genuinely never-stored id stays a no-op). Stash-isolated baseline: both discriminating tests fail — `get()` itself returns `null` post-cache-clear (persistence never happened), confirming the bug is real, not hypothetical. Candidate: 3/3 pass. One pre-existing test (`agentdb-backend-lock.test.ts`) needed updating — its manual probe table name collided with the schema now actually being created; renamed, intent preserved, both its tests still pass. Full `@claude-flow/memory` suite: 648/649 both baseline and candidate (1 pre-existing environmental failure — a read-only-file permission test that no-ops running as root — confirmed identical via a separate stash/pop re-run), plus the 3 new tests in the narrower run above. `tsc --noEmit`: 0 errors both ways.
+Real evaluator: Vitest 4.1.8 against the real `agentdb@3.0.0-alpha.20` + better-sqlite3 (freshly `pnpm install`-ed this session; `v3/` had no `node_modules`). 3 new tests added to `agentdb-backend.test.ts` (2 discriminating: delete/update a cache-miss persisted-only entry; 1 negative control: a genuinely never-stored id stays a no-op). Stash-isolated baseline: both discriminating tests fail — `get()` itself returns `null` post-cache-clear (persistence never happened), confirming the bug is real, not hypothetical. One pre-existing test (`agentdb-backend-lock.test.ts`) needed updating — its manual probe table name collided with the schema now actually being created; renamed, intent preserved.
+
+**Independent adversarial critique (separate subagent, no authoring context): CONFIRMED-WITH-CAVEATS → caveat fixed forward same session.** The critic reproduced the above independently, then found a real regression the initial fix introduced: `agentdb`'s sql.js/WASM fallback `Database` shim (used whenever native better-sqlite3 can't load) implements `run`/`get` with a spread-args signature, not better-sqlite3's flexible single-array-or-spread one. The initial fix called `.run([...])`/`.get([id])` with a single array argument — on better-sqlite3 that's fine, but on the sql.js shim it silently binds a corrupted row (no exception, wrong/undefined data) instead of the previous harmless no-op, turning a clean failure into a new, untested, silent-corruption path. Fixed by switching every call site to spread args (`.run(...params)`/`.get(id)`), which the critic confirmed also works correctly on better-sqlite3. Added a 4th test exercising the real `memory_entries` schema end-to-end (store/get/update/delete) against the real sql.js backend, not a hand-rolled probe table — stash-isolated: fails with `undefined` content against the pre-fix array-arg version (silent corruption, not an exception), passes 3/3 with spread args.
+
+Full `@claude-flow/memory` suite: 649/650 both the array-arg and final spread-arg versions (1 pre-existing environmental failure — a read-only-file permission test that no-ops running as root — confirmed identical via stash/pop re-runs by both this session and the independent critic). `tsc --noEmit`: 0 errors throughout.
 
 ## Darwin Results
 
@@ -55,8 +59,8 @@ Skipped — binary correctness fix (an API-shape/SQL-identifier/control-flow bug
 
 ```
 Session commit:   a413f478123085c0f67cab18e19f64b4859eb367
-Report SHA-256:   PENDING
-Witness stamp:    PENDING
+Report SHA-256:   2fe819b9b8fa90e461e72fcdd231cd96ce02a3914c52647af13fe752f49de278
+Witness stamp:    e0f270f0b986867dba878a60d6e8a33e6d12b0a5d6426d8587fdd9a679ebb0cb
 ```
 Verifier: fetch this file from the PR's branch, strip the Witness block's filled-in values back to `PENDING`, SHA-256 the file, concatenate with the session commit above, SHA-256 again — must equal the witness stamp.
 

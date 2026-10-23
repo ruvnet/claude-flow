@@ -63,4 +63,35 @@ describe('AgentDBBackend with real sql.js agentdb and a lock file', () => {
     await expect(b.shutdown()).rejects.toBeInstanceOf(AgentdbLockError);
     expect(fs.existsSync(lockFile)).toBe(true);
   });
+
+  it('store/get/update/delete round-trip correctly through the real memory_entries schema on the sql.js fallback (not just better-sqlite3)', async () => {
+    // agentdb's sql.js/WASM Database shim only implements a spread-args
+    // run(...params)/get(...params) signature, unlike better-sqlite3's
+    // flexible single-array-or-spread one -- a single-array call silently
+    // binds a corrupt row here instead of throwing. Exercise the real
+    // memory_entries path (not a hand-rolled probe table) end to end.
+    const b = mk();
+    await b.initialize();
+    expect((b as any).getAgentDB().database.constructor.name).toBe('SqlJsDatabase');
+    const { createDefaultEntry } = await import('./types.js');
+    const entry = createDefaultEntry({ key: 'sqljs-roundtrip', content: 'original' });
+    await b.store(entry);
+
+    // Force every read/write below off the in-memory cache and onto the
+    // real sql.js-backed persistence path.
+    (b as any).entries.clear();
+    const got = await b.get(entry.id);
+    expect(got?.content).toBe('original');
+    expect(got?.key).toBe('sqljs-roundtrip');
+
+    const updated = await b.update(entry.id, { content: 'updated' });
+    expect(updated?.content).toBe('updated');
+    (b as any).entries.clear();
+    expect((await b.get(entry.id))?.content).toBe('updated');
+
+    expect(await b.delete(entry.id)).toBe(true);
+    expect(await b.get(entry.id)).toBeNull();
+
+    await b.shutdown();
+  });
 });

@@ -776,7 +776,12 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
        access_count, last_accessed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
-    ).run([
+    // Bind params as individual (spread) arguments, not a single array.
+    // better-sqlite3 accepts either form, but agentdb's sql.js/WASM fallback
+    // Database shim only implements the spread signature -- a single array
+    // argument there silently binds as one bad param instead of throwing,
+    // corrupting the row rather than failing loudly.
+    ).run(
         entry.id,
         entry.key,
         entry.content,
@@ -794,7 +799,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
         JSON.stringify(entry.references),
         entry.accessCount,
         entry.lastAccessedAt,
-      ]);
+      );
     } catch {
       // AgentDB storage failed - entry is already in-memory
     }
@@ -821,7 +826,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       const db = this.agentdb.database;
       if (!db || typeof db.prepare !== 'function') return null;
 
-      const row = db.prepare('SELECT * FROM memory_entries WHERE id = ?').get([id]);
+      const row = db.prepare('SELECT * FROM memory_entries WHERE id = ?').get(id);
       if (!row) return null;
       return this.rowToEntry(row);
     } catch {
@@ -882,7 +887,7 @@ export class AgentDBBackend extends EventEmitter implements IMemoryBackend {
       const db = this.agentdb.database;
       if (!db || typeof db.prepare !== 'function') return;
 
-      db.prepare('DELETE FROM memory_entries WHERE id = ?').run([id]);
+      db.prepare('DELETE FROM memory_entries WHERE id = ?').run(id);
     } catch {
       // Delete failed - entry removed from in-memory
     }
