@@ -79,11 +79,12 @@ describe.skipIf(!HAVE_CLI)('DETECT against the real CLI', () => {
     const answer = await detect('bin/tool')
 
     expect(answer.label).toBe('ruRE: detect → NATIVE BINARY')
-    expect(answer.lines![0]).toMatch(/^ELF/)
+    // A caveat line (AIDefence unavailable in CI) may come first: the format line is somewhere in the result, not at index 0.
+    expect(answer.lines!.some(line => /^ELF/.test(line))).toBe(true)
   })
 
   it('a PE .exe is a native binary', async () => {
-    expect((await detect('win/native.exe')).lines![0]).toMatch(/^PE/)
+    expect((await detect('win/native.exe')).lines!.some(line => /^PE/.test(line))).toBe(true)
   })
 
   it('a managed .dll is read natively, says it may be .NET, and the .NET row then reads its metadata', async () => {
