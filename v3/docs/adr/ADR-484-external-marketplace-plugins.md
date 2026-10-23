@@ -30,7 +30,7 @@ here. The first entry:
 ```json
 { "name": "agentic-qe-fleet",
   "source": { "source": "git-subdir", "url": "https://github.com/proffesor-for-testing/agentic-qe.git",
-              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.11", "sha": "221d6de15c73bb385961e4e649d8fcc1f5dc2dea" } }
+              "path": "plugins/agentic-qe-fleet", "ref": "v3.15.12", "sha": "90a91fe3cc7dc1b9ee9a6ce4e888f3406e8f794a" } }
 ```
 
 Rules for an external entry:
@@ -61,18 +61,18 @@ the Mods section already reads any `.claude-flow/*-mod/status.json`, and the scr
 `check-plugin-manifests`, `mod-capability-matrix`, `probe-mod-guards`, the CLI command inventory) skip a non-string source or never read the
 marketplace. They do not cover the external plugin; its own repository runs its manifest, mod and guard tests.
 
-## 3. Evidence (Claude Code 2.1.295 on 2026-10-09; the install re-run on 2.1.296 at the v3.15.2 pin, 2026-10-10, at the v3.15.3 pin, 2026-10-11, at the v3.15.4 and v3.15.5 pins, 2026-10-12, at the v3.15.6 pin, 2026-10-13, on 2.1.300 at the v3.15.7 pin, 2026-10-15, on 2.1.301 at the v3.15.8 pin, 2026-10-16, on 2.1.302 at the v3.15.9 pin, 2026-10-18, on 2.1.303 at the v3.15.10 pin, 2026-10-19, and on 2.1.308 at the v3.15.11 pin, 2026-10-22)
+## 3. Evidence (Claude Code 2.1.295 on 2026-10-09; the install re-run on 2.1.296 at the v3.15.2 pin, 2026-10-10, at the v3.15.3 pin, 2026-10-11, at the v3.15.4 and v3.15.5 pins, 2026-10-12, at the v3.15.6 pin, 2026-10-13, on 2.1.300 at the v3.15.7 pin, 2026-10-15, on 2.1.301 at the v3.15.8 pin, 2026-10-16, on 2.1.302 at the v3.15.9 pin, 2026-10-18, on 2.1.303 at the v3.15.10 pin, 2026-10-19, on 2.1.308 at the v3.15.11 pin, 2026-10-22, and on 2.1.309 at the v3.15.12 pin, 2026-10-23)
 
 - `claude plugin validate .claude-plugin/marketplace.json` passes with the entry; a `{"source":"bogus"}` source is refused.
   `claude plugin validate .` at the root fails exactly as it does on `main`, on the legacy root `.claude-plugin/plugin.json`
   (`repository` must be a string), and reports nothing about the new entry.
 - In a throwaway `CLAUDE_CONFIG_DIR`: `claude plugin marketplace add <marketplace>` then `claude plugin install agentic-qe-fleet@<marketplace>`
-  installs 3.15.11 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.11` (`gitCommitSha` 221d6de1 in `installed_plugins.json`; e5814a2f at the v3.15.10 pin, d1c33d2b at the v3.15.9 pin, d9ce98f7 at the v3.15.8 pin, 7f2d091d at the v3.15.7 pin, 0fa34d24 at the v3.15.6 pin, d65ede14 at the v3.15.5 pin, bec02b13 at the v3.15.4 pin);
-  `claude mcp list` shows `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.11 mcp - ✔ Connected`; `claude plugin test` on the
-  installed copy: 45 pass, 0 fail across 3 files (the same 45 as at v3.15.2 through v3.15.10; 11 at v3.15.0 and 22 at v3.15.1, as those releases added guard and status-file tests).
+  installs 3.15.12 into `plugins/cache/<marketplace>/agentic-qe-fleet/3.15.12` (`gitCommitSha` 90a91fe3 in `installed_plugins.json`; 221d6de1 at the v3.15.11 pin, e5814a2f at the v3.15.10 pin, d1c33d2b at the v3.15.9 pin, d9ce98f7 at the v3.15.8 pin, 7f2d091d at the v3.15.7 pin, 0fa34d24 at the v3.15.6 pin, d65ede14 at the v3.15.5 pin, bec02b13 at the v3.15.4 pin);
+  `claude mcp list` shows `plugin:agentic-qe-fleet:agentic-qe: npx -y agentic-qe@3.15.12 mcp - ✔ Connected`; `claude plugin test` on the
+  installed copy: 45 pass, 0 fail across 3 files (the same 45 as at v3.15.2 through v3.15.11; 11 at v3.15.0 and 22 at v3.15.1, as those releases added guard and status-file tests).
   At the v3.15.2 pin, `claude -p "/aqe-mod status"` answered from the mod, wrote `.claude-flow/aqe-mod/status.json` and reported the mod's
-  version (3.15.2) and its totals across sessions; the v3.15.3 to v3.15.11 re-runs had no logged-in session, so that step was not repeated. From 3.15.2 to
-  3.15.11 the plugin folder changed only its version (`plugin.json`, the mod's `hooks/version.ts`, CHANGELOG entries) and its MCP pin.
+  version (3.15.2) and its totals across sessions; the v3.15.3 to v3.15.12 re-runs had no logged-in session, so that step was not repeated. From 3.15.2 to
+  3.15.12 the plugin folder changed only its version (`plugin.json`, the mod's `hooks/version.ts`, CHANGELOG entries) and its MCP pin.
 
 ## 4. Consequences
 
