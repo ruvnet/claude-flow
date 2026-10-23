@@ -122,7 +122,7 @@ export function validateEnvelope(raw: unknown): Checked {
   if (paths === null || paths.length === 0) errors.push('paths: at least one absolute folder')
 
   for (const path of paths ?? []) {
-    if (!isAbsolutePath(path) || path === '/' || /^[A-Za-z]:[\\/]?$/.test(path) || path.length > 300 || BAD_CHARS.test(path) || hasParentSegment(path)) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
+    if (!isAbsolutePath(path) || path === '/' || /^[A-Za-z]:[\\/]?$/.test(path) || path.length > 300 || BAD_CHARS.test(path) || hasParentSegment(path) || (path.includes('\\') && !isWindowsPath(path))) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
     else if (isProtectedPath(path)) errors.push(`paths: "${path.slice(0, 40)}" is the autopilot's or Project Anatole's own folder: steps are never pointed at it`)
   }
 

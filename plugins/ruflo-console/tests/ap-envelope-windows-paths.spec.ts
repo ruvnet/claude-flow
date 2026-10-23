@@ -68,6 +68,17 @@ describe('validateEnvelope on Windows paths', () => {
     if (!result.ok) expect(result.errors.some(e => e.startsWith('paths'))).toBe(true)
   })
 
+  it('still refuses a POSIX-rooted path that smuggles backslashes (hasParentSegment would miss them)', () => {
+    // #4436 review: `/work/app\..\..\other` passes isAbsolutePath (POSIX) and hasParentSegment splits POSIX-only,
+    // so without a `\` reject for non-Windows paths the `..` segments are invisible to the validator.
+    for (const bad of ['/work/app\\..\\..\\other', '/work/app\\sub', '/work/app\\..']) {
+      const result = validateEnvelope(envWith([bad]))
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) expect(result.errors.some(e => e.startsWith('paths'))).toBe(true)
+    }
+  })
+
   it('strips a trailing backslash from a Windows path, same as it strips a trailing slash on POSIX', () => {
     const result = validateEnvelope(envWith(['C:\\work\\app\\']))
 
