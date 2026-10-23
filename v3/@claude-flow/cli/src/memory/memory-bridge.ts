@@ -1365,6 +1365,19 @@ export async function bridgeStoreEntry(options: {
  * Phase 2: BM25 hybrid scoring replaces naive String.includes() keyword fallback.
  * Combines cosine similarity (semantic) with BM25 (lexical) via reciprocal rank fusion.
  */
+/**
+ * #4397: how many of the newest rows the pre-rank SELECT hands to scoring.
+ * #2982 added ORDER BY updated_at DESC but kept LIMIT 1000, so rows outside
+ * the newest 1000 became unfindable (the sql.js path and 3.38.3 used 10000).
+ * Override with CLAUDE_FLOW_SEARCH_WINDOW (clamped to 100..100000).
+ */
+export const DEFAULT_BRIDGE_SEARCH_WINDOW = 10000;
+export function resolveBridgeSearchWindow(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number.parseInt(env.CLAUDE_FLOW_SEARCH_WINDOW ?? "", 10);
+  if (!Number.isFinite(n)) return DEFAULT_BRIDGE_SEARCH_WINDOW;
+  return Math.min(100000, Math.max(100, n));
+}
+
 export async function bridgeSearchEntries(options: {
   query: string;
   namespace?: string;
@@ -1440,7 +1453,7 @@ export async function bridgeSearchEntries(options: {
         FROM memory_entries
         WHERE ${liveMemoryRowSql()} ${whereExtra}
         ORDER BY updated_at DESC
-        LIMIT 1000
+        LIMIT ${resolveBridgeSearchWindow()}
       `);
       rows = filterParams.length > 0 ? stmt.all(...filterParams) : stmt.all();
     } catch {
