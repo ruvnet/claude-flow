@@ -5,6 +5,16 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.60.1] - 2026-10-23
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.60.1. No leaf package changed, so no standalone publishes.
+
+### Fixed
+
+- `ruflo cleanup --force --keep-config` deleted the config files it is meant to keep (`claude-flow.config.json`, the `hooks`/`claudeFlow` blocks of `.claude/settings.json`): the parser stores the flag as `keepConfig` and the action read `keep-config` (#4435).
+- `ruflo-console` 0.45.1: ADR init, saves and exports work on Windows. The write layer shelled out to `dd`, `install` and `sh`, which do not exist there; a new `host-fs` write flavor uses the host filesystem (#4433, #4434, carries #4429).
+- `ruflo-console`: the autopilot envelope accepts Windows paths (`C:\work\app`, UNC) and compares them ignoring case and separator style; a POSIX-rooted path containing a backslash is still refused (#4436). Autopilot start stays gated off on Windows.
+
 ## [3.60.0] - 2026-10-23
 
 Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.60.0, with `@claude-flow/hooks` 3.0.2 and `@claude-flow/mcp` 3.1.2 published standalone. Backward-compatible additions (six new reverse-engineering MCP tools, a ruRE page in the console) plus security and correctness fixes. The 3.59.x patch releases are not itemised here; this lists what changed since 3.59.17.
