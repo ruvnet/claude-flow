@@ -43,6 +43,9 @@ export class DaemonManager {
   private config: DaemonManagerConfig;
   private daemons: Map<string, DaemonInstance> = new Map();
   private restartCounts: Map<string, number> = new Map();
+  // #4410: backoff timers must be cancellable. Keeping them only in a local
+  // closure let an explicit stop() be undone ~1s later by a pending restart.
+  private restartTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(config?: Partial<DaemonManagerConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -86,6 +89,13 @@ export class DaemonManager {
     daemon.state.status = 'starting';
     daemon.state.startedAt = new Date();
 
+    // A manual/normal start supersedes any pending failure backoff.
+    const pendingRestart = this.restartTimers.get(name);
+    if (pendingRestart) {
+      clearTimeout(pendingRestart);
+      this.restartTimers.delete(name);
+    }
+
     try {
       // Start interval timer
       daemon.timer = setInterval(async () => {
@@ -118,6 +128,12 @@ export class DaemonManager {
     }
 
     daemon.state.status = 'stopping';
+
+    const pendingRestart = this.restartTimers.get(name);
+    if (pendingRestart) {
+      clearTimeout(pendingRestart);
+      this.restartTimers.delete(name);
+    }
 
     if (daemon.timer) {
       clearInterval(daemon.timer);
@@ -262,10 +278,19 @@ export class DaemonManager {
         this.restartCounts.set(name, restartCount);
 
         if (restartCount <= this.config.maxRestartAttempts) {
-          // Schedule restart
-          setTimeout(() => {
+          // Schedule restart, keeping the handle so stop() can cancel it.
+          const existing = this.restartTimers.get(name);
+          if (existing) clearTimeout(existing);
+          const timer = setTimeout(() => {
+            this.restartTimers.delete(name);
+            const current = this.daemons.get(name);
+            if (!current || current.state.status === 'stopped' || current.state.status === 'stopping' || !current.config.enabled) {
+              return;
+            }
             this.restart(name).catch(() => {});
           }, 1000 * restartCount); // Exponential backoff
+          timer.unref?.();
+          this.restartTimers.set(name, timer);
         } else {
           daemon.state.status = 'error';
         }
