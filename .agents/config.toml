@@ -96,6 +96,10 @@ enabled = true
 path = ".agents/skills/security-audit"
 enabled = true
 
+[[skills.config]]
+path = ".agents/skills/crm-onboarding-health"
+enabled = true
+
 # =============================================================================
 # Profiles
 # =============================================================================
