@@ -111,6 +111,13 @@ function validateRoomId(roomId: string): string {
   if (!/^[A-Za-z0-9_.\-:/@#]+$/.test(roomId)) {
     throw new Error('roomId may only contain [A-Za-z0-9_.\\-:/@#]');
   }
+  // `.` and `/` are allowed chars, so reject `..` explicitly. The roomId is
+  // joined into a file path in roomLogPath; without this check a value like
+  // ../../../../tmp/x escapes the .agentbbs directory. Matches the validator
+  // in agentbbs-federation.ts.
+  if (roomId.includes('..')) {
+    throw new Error('roomId must not contain ..');
+  }
   return roomId;
 }
 
