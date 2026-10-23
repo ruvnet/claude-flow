@@ -106,7 +106,12 @@ function persistToMemory(summary) {
     '--namespace', ns,
     '--key', key,
     '--value', JSON.stringify(summary),
-  ], { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32' });
+  ], {
+    // #4397: land the row in the store the MCP server uses (CLAUDE_FLOW_CWD),
+    // not in whatever project dir the Stop hook happened to fire from.
+    cwd: process.env.CLAUDE_FLOW_CWD || process.cwd(),
+    stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8', shell: process.platform === 'win32',
+  });
   if (r.status !== 0) {
     return { ok: false, reason: r.stderr?.slice(0, 300) || `exit ${r.status}` };
   }

@@ -682,5 +682,9 @@ step "46. #3227 diagnostic log: track.mjs / ruflo-hook.cjs failure logging"
 node "$ROOT/scripts/test-cost-tracker-diagnostic-log-3227.mjs" >/dev/null 2>&1 \
   && ok || bad "test-cost-tracker-diagnostic-log-3227-failed"
 
+step "47. #4397 track.mjs runs memory store in CLAUDE_FLOW_CWD"
+node "$ROOT/scripts/test-cost-tracker-data-cwd-4397.mjs" >/dev/null 2>&1 \
+  && ok || bad "test-cost-tracker-data-cwd-4397-failed"
+
 printf "\n%s passed, %s failed\n" "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]] || exit 1
