@@ -12,6 +12,7 @@
  */
 import { readBounded, type ReadCache } from './files'
 import { filterGuarded } from './git-filters'
+import { below, hasParentSegment, isAbsolutePath, samePath, trimTrailing } from './paths'
 import { cleanLine, cleanPath, journalResult, type Capped, type Parsed } from './wf-activity'
 import { activityOf, parsedStats, PARSED_BUDGET_CHARS, resetStore } from './wf-incr-store'
 import { TAIL_BYTES, TRANSCRIPT_CAP, type WorkflowFs } from './workflows-read'

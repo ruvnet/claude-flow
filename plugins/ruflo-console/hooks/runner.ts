@@ -173,7 +173,8 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
       let verified = spec.verifyLocal !== undefined ? (ok && (await spec.verifyLocal(host)) ? 'yes' : 'no') : verifiedOnce()
 
       // The CLI can return before its state file lands: when the run succeeded but the file is not there yet, look once more a second later.
-      if (verified === 'no' && ok && spec.verifyLocal === undefined) {
+      // `n/a` here means the snapshot had not loaded (null) rather than "no verifier"; retry only when the verifier is defined.
+      if ((verified === 'no' || (verified === 'n/a' && spec.verify !== undefined)) && ok && spec.verifyLocal === undefined) {
         await new Promise<void>(resolve => void host.after(VERIFY_RETRY_MS, resolve))
         await deps.freshRead()
         verified = verifiedOnce()

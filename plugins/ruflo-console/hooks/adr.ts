@@ -13,7 +13,7 @@ import { adrDirText, detectStyle, draftFromMission, fileNameFor, initialRecord, 
 import { record as recordEvents } from './data/events'
 import { readBounded, type ReadCache } from './data/files'
 import { plain } from './data/parse'
-import { isAbsolutePath } from './data/abs-path'
+import { isAbsolutePath, joinPath } from './data/paths'
 import { checkNoLinks, dirOf, newFileArgv, replaceFileArgv } from './data/wf-file'
 import { writeFlavorReady } from './data/write-flavor'
 import { writeVia } from './data/write-via'

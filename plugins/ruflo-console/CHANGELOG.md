@@ -2,6 +2,16 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.44.8 — 2026-10-22
+- fix: broader Windows parity for the console (#4036, thanks @socrates6969) — the narrow 0.44.2 and 0.44.7 fixes extended across the whole plugin. The path helpers are consolidated into `hooks/data/paths.ts` (`isWindowsPath`, `isAbsolutePath`, `trimTrailing`, `joinPath`, `samePath`, `hasParentSegment`, `below`, `normalizePath`, `homeOf`) and the earlier narrower `abs-path.ts` is removed (its two sites move to the consolidated module).
+- fix: workspace keys ignore drive-letter case and trailing-separator differences, so `c:\work\app\` and `C:\Work\app` are one workspace with one remembered page and one terminal history.
+- fix: any confirmed action whose on-disk check fails is re-checked once after one second (new `VERIFY_RETRY_MS = 1_000` in `runner.ts`), so a hive started from the console shows at once instead of reading "not verified".
+- fix: no Linux-only process probe off Linux (macOS, Windows), and the probe timers are cleared when the session ends.
+- fix: autopilot's kill flag can be cleared on Windows. Starting autopilot on Windows is refused with a plain message until a follow-up: its journal needs atomic appends and its folder fence needs Windows-aware path checks. Stop works as before.
+- fix: disk writes (settings, journal, envelope, exports) work on Windows through the host's file API (`$.fs.write` / `$.fs.exists`); Linux and macOS keep their exact commands.
+- fix: the home folder is found on Windows via `USERPROFILE` or `HOMEDRIVE` + `HOMEPATH`, so sessions, plugin health and What's new read it.
+- fix: Windows project folders (`C:\work\app`, `\\server\share\app`) and UNC shares are recognised across the remaining sites (plugin catalog, workflow drill I/O, event export, ADR discovery, workflow file resolution); protected autopilot folders match ignoring case.
+
 ## 0.44.7 — 2026-10-21
 - fix: the ADRs page, the Events/Timeline export and the AI terminal's "save transcript" now work on Windows (#4356, thanks @marioja). All three hardcoded a leading-`/` check as their "is the project folder known" guard; on Windows `state.cwd` is a drive path (`C:\Users\...`), so every one of them refused with "no project folder is known" regardless of settings. They now use the existing `isAbsolutePath` helper (already fixed for register.ts in #4175). Also fixed a second, independent bug on the transcript-save path: it pre-joined `state.cwd` into the string handed to `resolveExportPath`, which refuses any backslash in its input — so even after the first fix, a Windows transcript save still failed; it now passes the relative file name only, same as the Events/Timeline export already did.
 

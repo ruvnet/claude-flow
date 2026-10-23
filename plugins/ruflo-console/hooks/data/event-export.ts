@@ -3,7 +3,6 @@
  * target is a name under `.claude-flow/console/exports/` or a path inside the project; `..`, a link on the way, a bad extension and an
  * existing file are all refused, and the text is washed and capped before it is built. The write itself is a confirm-gated fixed argv.
  */
-import { isAbsolutePath } from './abs-path'
 import { isoOf } from './safe'
 import type { ActionSpec } from '../actions'
 import { levelOf } from './event-severity'

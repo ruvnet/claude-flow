@@ -1,7 +1,6 @@
 import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 import { tolerantPress } from './press-guard'
 import { ANSWER_KEYS } from './views/attention'
-import { rootedPath } from './data/abs-path'
 import { createController, type Controller } from './controller'
 import { startSessions } from './sessions'
 import { record } from './data/events'
@@ -41,7 +40,7 @@ const RUFLO_TOOL = /^mcp__(claude-flow|ruflo|plugin_ruflo[\w-]*)__/
 let isResettingScroll = false
 
 function hostOf($: EngineInterface, cwd: string, toasts: { prefs: () => ToastPrefs; record: (digest: Digest) => void }): Host {
-  const rooted = (path: string) => rootedPath(cwd, path)
+  const rooted = (path: string) => (isAbsolutePath(path) ? path : joinPath(cwd, path))
   const quietly = (fn: () => unknown) => {
     try {
       const result = fn()

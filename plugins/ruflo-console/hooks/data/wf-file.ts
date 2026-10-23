@@ -9,7 +9,6 @@
  * A path is accepted only if, after normalising, it sits under an allowed root (the project, or the scratchpad where one is known)
  * with no `..`, no link on the way down to it and, for a summary, no file already there to overwrite.
  */
-import { isAbsolutePath } from './abs-path'
 import type { ReaderFs } from './files'
 import { below, hasParentSegment, isAbsolutePath, isWindowsPath, joinPath, normalizePath, trimTrailing } from './paths'
 import { hostFsArgv, posixCopyExclusive, posixCreateExclusive, posixCreateExclusiveWithDirs, posixReplace, posixReplaceWithDirs, type WriteFlavor } from './write-flavor'
