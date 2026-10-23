@@ -957,7 +957,7 @@ export const neuralTools: MCPTool[] = [
       properties: {
         modelId: { type: 'string', description: 'Model ID to compress' },
         method: { type: 'string', enum: ['quantize', 'prune', 'distill'], description: 'Compression method' },
-        targetSize: { type: 'number', description: 'Target size reduction (0-1)' },
+        targetSize: { type: 'number', description: 'Not used: quantize (#4195) and prune (#4423) are unavailable, and distill merges by similarity' },
       },
     },
     handler: async (input) => {
@@ -965,7 +965,6 @@ export const neuralTools: MCPTool[] = [
 
       const store = loadNeuralStore();
       const method = (input.method as string) || 'quantize';
-      const targetReduction = (input.targetSize as number) || 0.5;
       const patterns = Object.values(store.patterns);
 
       if (patterns.length === 0) {
@@ -996,21 +995,18 @@ export const neuralTools: MCPTool[] = [
       await ensureEmbeddings();
 
       if (method === 'prune') {
-        // Prune patterns with low usage count below threshold (targetReduction as min usage)
-        const threshold = targetReduction;
-        const toRemove: string[] = [];
-        for (const [id, pattern] of Object.entries(store.patterns)) {
-          if ((pattern.usageCount || 0) < threshold) toRemove.push(id);
-        }
-        for (const id of toRemove) delete store.patterns[id];
-        saveNeuralStore(store);
+        // #4423: prune deleted patterns with usageCount below targetSize, but
+        // nothing in the neural store records usage (patterns are written with
+        // 0 and only max-merged), so any targetSize > 0, including the old 0.5
+        // default, deleted and persisted every pattern. Refuse until usage is
+        // tracked, the same way quantize refuses (#4195). The store is untouched.
         return {
-          success: true, _real: true, method,
-          embeddingProvider: embeddingServiceName,
-          threshold,
-          patternsRemoved: toRemove.length,
+          success: false,
+          error: 'Pruning is unavailable: neural patterns do not record usage, so there is no signal to choose which to remove.',
+          method,
+          patternsRemoved: 0,
           patternsBefore: beforeCount,
-          patternsAfter: Object.keys(store.patterns).length,
+          patternsAfter: beforeCount,
         };
       }
 
