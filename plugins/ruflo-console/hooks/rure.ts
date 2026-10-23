@@ -1,5 +1,5 @@
 /**
- * The ruRE page's catalog (ADR-492): static reverse engineering of a file in the project, through the six `rure_*` tools of
+ * The ruRE page's catalog (ADR-494): static reverse engineering of a file in the project, through the six `rure_*` tools of
  * ruflo-rure (ADR-0001..0005 of that plugin). Every tool parses and never executes the target, so five are local $0 reads that
  * run at once; unpacking an .asar writes files to a temp folder, so it asks first. The file is named only by the `sample` field,
  * which holds a path inside the project: nothing outside it can be reached from here (the tools themselves accept any readable

@@ -1,5 +1,5 @@
 /**
- * ruRE end to end (ADR-492): every row of the page, as the console would run it, against the REAL built ruflo CLI and real files.
+ * ruRE end to end (ADR-494): every row of the page, as the console would run it, against the REAL built ruflo CLI and real files.
  * A temp project gets an ELF, a PE, a Mach-O, a .NET assembly, two EVM contracts, a JS/Electron app, an .asar built from it and an
  * ELF whose section name carries terminal escapes; each row's exact argv (`ruflo mcp exec -t rure_* -p {...}`) runs in that project,
  * and what the CLI printed goes through the console's own reader. Nothing is mocked and nothing in the target is run.

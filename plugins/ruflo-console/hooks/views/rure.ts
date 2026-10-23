@@ -8,7 +8,7 @@ const right = (group: DevGroup): string => DEV_GROUPS.find(entry => entry.id ===
 const title = (group: DevGroup): string => DEV_GROUPS.find(entry => entry.id === group)?.title ?? group
 
 /**
- * ruRE (ADR-492): static reverse engineering of a file in the project, in two sections (JavaScript and Electron apps; native
+ * ruRE (ADR-494): static reverse engineering of a file in the project, in two sections (JavaScript and Electron apps; native
  * binaries, .NET and EVM) and the result of the last run below. The rows are the Dev Tools rows, the fields and the result panel
  * the same; only the page is its own. Drawing it runs nothing. Everything in a result is the file's own text: it is shown cleaned
  * (no escape sequence reaches the terminal) and the page says to treat it as untrusted.

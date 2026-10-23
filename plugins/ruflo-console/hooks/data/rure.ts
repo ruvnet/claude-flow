@@ -1,5 +1,5 @@
 /**
- * ruRE in Dev Tools (ADR-492): the readers for what the six `rure_*` tools answer through `ruflo mcp exec`. The tools
+ * ruRE in Dev Tools (ADR-494): the readers for what the six `rure_*` tools answer through `ruflo mcp exec`. The tools
  * parse a file and never run it, but what they return is the file's own text (section names, imports, strings, type
  * names), so every such value passes plain() before it is a line: an escape sequence in a hostile binary never reaches
  * the terminal. Counts and offsets are shown only when they are measurements (#3822). Pure: strings in, lines out.

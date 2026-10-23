@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.45.2 — 2026-10-23
+- fix: ruRE refuses a sample that is a link, or sits behind one (ADR-495). The text rule only stopped `..` and absolute paths; a link inside the project that pointed outside it was opened by the tool. Every ruRE row now walks the sample on disk first and shows the reason without starting anything, for the page and for Claude's `/ruflo run dt-re-*` alike. Adds a general `preflight` to actions.
+- chore: ruRE source comments cite ADR-494 (they said 492).
+
 ## 0.45.1 — 2026-10-23
 - fix: broader Windows parity for the console (#4036, thanks @socrates6969) — the narrow 0.44.2 and 0.44.7 fixes extended across the whole plugin. The path helpers are consolidated into `hooks/data/paths.ts` (`isWindowsPath`, `isAbsolutePath`, `trimTrailing`, `joinPath`, `samePath`, `hasParentSegment`, `below`, `normalizePath`, `homeOf`) and the earlier narrower `abs-path.ts` is removed (its two sites move to the consolidated module).
 - fix: workspace keys ignore drive-letter case and trailing-separator differences, so `c:\work\app\` and `C:\Work\app` are one workspace with one remembered page and one terminal history.

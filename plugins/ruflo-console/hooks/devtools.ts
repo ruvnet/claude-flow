@@ -10,6 +10,7 @@ import type { ActionSpec } from './actions'
 import { devLines, fieldRule, fieldValue, need, tool, type DevField, type DevFields } from './data/devtools'
 import type { Host } from './host'
 import type { PaletteEntry } from './palette'
+import { sampleLinkCheck } from './data/rure-guard'
 import { RURE, RURE_GROUPS } from './rure'
 import { SANDBOX, SANDBOX_GROUPS } from './sandbox'
 import type { State } from './state'
@@ -195,6 +196,7 @@ export function devSpec(entry: DevEntry, fields: DevFields): ActionSpec | null {
     ...(DECLARED[entry.cost] !== undefined && { declared: DECLARED[entry.cost] }),
     ...(entry.note !== undefined && { note: entry.note }),
     ...(entry.timeoutMs !== undefined && { timeoutMs: entry.timeoutMs }),
+    ...(entry.group.startsWith('rure-') && fields.sample !== '' && { preflight: (host: Pick<Host, 'fs'>) => sampleLinkCheck(host.fs, fields.sample) }),
   }
 }
 
@@ -254,7 +256,7 @@ export const withTmux = (entry: DevEntry, tmux: State['devtools']['tmux']): DevE
 /** Which entry Enter in each field runs; a field with none only keeps its text. */
 const SUBMITS: Partial<Record<DevField, string>> = { task: 'dt-brain', ref: 'dt-diff', path: 'dt-cow-status', session: 'dt-sb-capture', send: 'dt-sb-send', url: 'dt-br-open', target: 'dt-br-click', query: 'dt-plug-search', cmd: 'dt-term-exec' }
 
-/** Enter in a field on a page of its own: the entry that page runs for it, where that differs from the shared `SUBMITS` (the ruRE page, ADR-492). */
+/** Enter in a field on a page of its own: the entry that page runs for it, where that differs from the shared `SUBMITS` (the ruRE page, ADR-494). */
 const PAGE_SUBMITS: Partial<Record<DevGroup, Partial<Record<DevField, string>>>> = {
   'rure-app': { sample: 'dt-re-js', query: 'dt-re-find' },
   'rure-native': { sample: 'dt-re-bin' },
