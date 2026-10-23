@@ -183,27 +183,34 @@ export const daaTools: MCPTool[] = [
         return { success: false, error: 'Agent not found' };
       }
 
-      const performanceScore = (input.performanceScore as number) || 0.8;
+      // #4426: `|| 0.8` turned a failing 0 (and a missing score) into a 0.8
+      // success. A given score must be in [0, 1]; a missing one records none.
+      const performanceScore = input.performanceScore === undefined ? null : input.performanceScore;
+      if (performanceScore !== null && (typeof performanceScore !== 'number' || !Number.isFinite(performanceScore) || performanceScore < 0 || performanceScore > 1)) {
+        return { success: false, error: 'performanceScore must be a number between 0 and 1' };
+      }
 
       // Update agent metrics
       agent.metrics.adaptations++;
-      agent.metrics.successRate = (agent.metrics.successRate + performanceScore) / 2;
+      if (performanceScore !== null) agent.metrics.successRate = (agent.metrics.successRate + performanceScore) / 2;
       agent.lastActivity = new Date().toISOString();
       agent.status = 'active';
       saveDAAStore(store);
 
       // Store adaptation feedback in AgentDB for pattern learning (backward compat: JSON store above)
       let _storedIn: 'agentdb' | 'json-store' = 'json-store';
-      try {
-        const bridge = await import('../memory/memory-bridge.js');
-        await bridge.bridgeRecordFeedback({
-          taskId: `adapt-${agentId}-${agent.metrics.adaptations}`,
-          success: performanceScore >= 0.5,
-          quality: performanceScore,
-          agent: agentId,
-        });
-        _storedIn = 'agentdb';
-      } catch { /* AgentDB not available */ }
+      if (performanceScore !== null) {
+        try {
+          const bridge = await import('../memory/memory-bridge.js');
+          await bridge.bridgeRecordFeedback({
+            taskId: `adapt-${agentId}-${agent.metrics.adaptations}`,
+            success: performanceScore >= 0.5,
+            quality: performanceScore,
+            agent: agentId,
+          });
+          _storedIn = 'agentdb';
+        } catch { /* AgentDB not available */ }
+      }
 
       return {
         success: true,
