@@ -1325,6 +1325,15 @@ export class WorkerDaemon extends EventEmitter {
     const internalConfig = workerConfig as WorkerConfigInternal;
     const staggerOffset = internalConfig.offsetMs || 0;
 
+    // #4410: only one timer may own a worker type. A redundant enable used to
+    // schedule a second timeout while this.timers kept only the newer handle,
+    // so the original leaked and could fire again after stop().
+    const previousTimer = this.timers.get(workerConfig.type);
+    if (previousTimer) {
+      clearTimeout(previousTimer);
+      this.timers.delete(workerConfig.type);
+    }
+
     // Calculate initial delay with stagger offset
     let initialDelay = staggerOffset;
     if (state.lastRun) {
@@ -1340,8 +1349,9 @@ export class WorkerDaemon extends EventEmitter {
       // Use concurrency-controlled execution (P0 fix)
       await this.executeWorkerWithConcurrencyControl(workerConfig);
 
-      // Reschedule
-      if (this.running) {
+      // Reschedule only while the daemon is running and this worker is still
+      // enabled. Disabling during an in-flight run must not resurrect it.
+      if (this.running && workerConfig.enabled) {
         const timer = setTimeout(runAndReschedule, workerConfig.intervalMs);
         this.timers.set(workerConfig.type, timer);
         state.nextRun = new Date(Date.now() + workerConfig.intervalMs);
@@ -2149,13 +2159,18 @@ export class WorkerDaemon extends EventEmitter {
       workerConfig.enabled = enabled;
 
       if (enabled && this.running) {
-        this.scheduleWorker(workerConfig);
+        // A live timer or an in-flight run will schedule the next iteration
+        // itself; scheduling here would create a second chain (#4410).
+        if (!this.timers.has(type) && !this.runningWorkers.has(type)) {
+          this.scheduleWorker(workerConfig);
+        }
       } else if (!enabled) {
         const timer = this.timers.get(type);
         if (timer) {
           clearTimeout(timer);
           this.timers.delete(type);
         }
+        this.pendingWorkers = this.pendingWorkers.filter(workerType => workerType !== type);
       }
 
       this.saveState();
