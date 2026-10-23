@@ -1,7 +1,8 @@
 /**
  * The host-adapter boundary (ADR-489), kept true by test: `hooks/` is the part of the console that is the same on every host. It has no
- * value import of the Claude Code engine, no Node module and no package, and only `register.ts` and `model-tools.ts` reach `$`. The
- * standalone shell (`tui/`) imports neither of those two. Run with
+ * value import of the Claude Code engine, no Node module and no package, and only the host-adapter files (`register.ts`, `host-of.ts`
+ * and `model-tools.ts`) reach `$`. `host-of.ts` is a split-out part of register.ts carrying the `hostOf()` builder so register.ts stays
+ * under the plugin's 500-line smoke step. The standalone shell (`tui/`) imports none of the three. Run with
  *   npx vitest run plugins/ruflo-console/tests/tui-boundary.spec.ts
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
@@ -17,8 +18,8 @@ const bare = (file: string): string => readFileSync(file, 'utf8').replace(/\/\*[
 const importsOf = (text: string): Array<[boolean, string]> => [...text.matchAll(/^(import|export)\b([^'";]*?)from\s+'([^']+)'/gm)].map(match => [/^\s*type\b/.test(match[2] ?? ''), match[3] as string])
 const hooks = walk(join(root, 'hooks')).map(file => ({ file: relative(join(root, 'hooks'), file), text: bare(file) }))
 
-/** The two modules that talk to the Claude Code engine directly. */
-const ENGINE_ONLY = ['model-tools.ts', 'register.ts']
+/** The host-adapter files that talk to the Claude Code engine directly. `host-of.ts` carries the hostOf() builder split out of register.ts. */
+const ENGINE_ONLY = ['host-of.ts', 'model-tools.ts', 'register.ts']
 const ENGINE = /\$\.(ui|clock|store|fs|http|process|session|tool|settings|env|plugin|command|prompt|ruflo)\.[a-zA-Z]+\(|\bon\('|EngineInterface|\bRegister\b/
 
 describe('hooks/ is host-neutral', () => {
@@ -45,7 +46,7 @@ describe('tui/ is the second adapter', () => {
   it('exists, stays under 500 lines a file, and never imports the engine-only modules', () => {
     expect(tui.length).toBeGreaterThanOrEqual(5)
     expect(tui.filter(({ lines }) => lines > 500)).toEqual([])
-    expect(tui.filter(({ text }) => /from\s+'\.\.\/hooks\/(register|model-tools)'/.test(text))).toEqual([])
+    expect(tui.filter(({ text }) => /from\s+'\.\.\/hooks\/(register|host-of|model-tools)'/.test(text))).toEqual([])
   })
 
   it('has no runtime dependency: only node: modules, relative paths and types', () => {
@@ -67,7 +68,7 @@ describe('tui/ is the second adapter', () => {
     const inputs = Object.keys(built.metafile.inputs)
 
     expect(inputs.some(input => /hooks\/views\/pane\.ts$/.test(input))).toBe(true)
-    expect(inputs.filter(input => /hooks\/register\.ts$/.test(input))).toEqual([])
+    expect(inputs.filter(input => /hooks\/(register|host-of)\.ts$/.test(input))).toEqual([])
     // The console_* tool server inside model-tools.ts is started only by register.ts; the standalone shell never calls it.
     expect(readdirSync(join(root, 'tui')).map(name => readFileSync(join(root, 'tui', name), 'utf8')).some(text => /serveModelTools|announceModelTools/.test(text))).toBe(false)
   })

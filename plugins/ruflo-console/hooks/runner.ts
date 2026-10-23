@@ -23,6 +23,8 @@ export const PENDING_TTL_MS = 30_000
 
 /** The state.timers key of the expiry timer, so the controller's stop and close cancel it with the rest. */
 export const EXPIRY_TIMER = 'pending-expiry'
+/** The CLI can return before its state file lands: when the run succeeded but the file is not there yet, look once more this long later. */
+const VERIFY_RETRY_MS = 1_000
 /** A typed Yes (`/ruflo yes`, bound to no card) is refused this soon after Claude raised the card, or after a card left unanswered. */
 export const UNBOUND_FRESH_MS = 3_000
 export const UNBOUND_REPLACED_MS = 10_000
