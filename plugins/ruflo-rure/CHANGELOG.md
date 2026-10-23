@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.5.0 — 2026-10-23
+
+- feat: Phase 5 per ADR-0006 — `rure_analyze_cuda` inventories the GPU code in a CUDA program from a host ELF/PE with a `.nv_fatbin` section, or a standalone fatbin, cubin or PTX file: the fatbin containers and entries (kind, target `sm_NN`, compression), PTX version/target/kernel names, and per kernel its mangled name, code size, register count, constant/shared/local memory and an instruction estimate. zstd (CUDA 13) and LZ4 (CUDA 12) compressed entries are read under size caps; a Node without zstd reports those entries as unread. Original pure-TypeScript reader: no toolkit, no SASS decoding, nothing run. Checked against real `nvcc` 12.8 and 13.0 output (sm_75, sm_80, sm_90) and `cuobjdump`: kernel names, register counts, constant and shared memory all equal. A new MCP tool, so it ships in the next minor release of `@claude-flow/cli`; the ruflo console's ruRE page does not list it yet.
+- chore: the layout is what was read from real files, not NVIDIA's specification (which is not published). A first draft read register counts from the code section's `sh_info`, which is right on sm_75/80 and zero on sm_90; testing on a multi-architecture binary caught it, and it now reads `EIATTR_REGCOUNT` from `.nv.info`.
+
 ## 0.4.2 — 2026-10-23
 
 - docs: the six tools now have a page in the ruflo console (TOOLS → ruRE, ruflo-console 0.45.0, ruflo ADR-494), so a person can run them without asking Claude. The console accepts only project-relative paths and shows the file's own text cleaned of terminal escapes. No tool, schema or behavior changed.
