@@ -4,7 +4,7 @@
  * hash does not match its body is treated as tampered and the loop refuses to run on it. Hard denies are not part of the envelope: they
  * are a constant of this file, and an envelope that names one as allowed is rejected, never trimmed.
  */
-import { hasParentSegment, isAbsolutePath, isWindowsPath } from './paths'
+import { below, hasParentSegment, isAbsolutePath, isWindowsPath, samePath, trimTrailing } from './paths'
 
 /** Classes of action an envelope can allow. Each task is classified (data/ap-guard.ts) into exactly one, or is parked. */
 export const TOOL_CLASSES = ['read', 'edit', 'test', 'git-local', 'git-branch', 'network', 'spawn', 'mcp'] as const
@@ -28,8 +28,10 @@ export const DENY_PATTERNS: readonly [HardDeny, RegExp][] = [
 /** Folders the autopilot's own steps may never be pointed at: its envelope, journal and kill flag, and Project Anatole's status. A task or envelope that names one is refused, not trimmed. */
 export const PROTECTED_DIRS = ['.claude-flow/console', '.claude-flow/protector-mod'] as const
 export const isProtectedPath = (path: string): boolean => {
-  // Windows file systems ignore case, so a drive-lettered path is compared lower-cased; a POSIX path stays exact.
-  const flat = (isWindowsPath(path) ? path.toLowerCase() : path).replace(/\/+/g, '/').replace(/\/\.\//g, '/')
+  // Windows file systems ignore case and either separator, so a drive-lettered or UNC path has its `\` folded to `/`
+  // and is lower-cased before compare; a POSIX path stays exact. Doubled separators and `/./` segments are flattened.
+  const windows = isWindowsPath(path)
+  const flat = (windows ? path.replace(/\\/g, '/').toLowerCase() : path).replace(/\/+/g, '/').replace(/\/\.\//g, '/')
 
   return PROTECTED_DIRS.some(dir => flat.includes(dir)) || flat.endsWith('/.claude-flow') || flat.endsWith('/.claude-flow/')
 }
@@ -120,7 +122,7 @@ export function validateEnvelope(raw: unknown): Checked {
   if (paths === null || paths.length === 0) errors.push('paths: at least one absolute folder')
 
   for (const path of paths ?? []) {
-    if (!isAbsolutePath(path) || path === '/' || /^[A-Za-z]:\/?$/.test(path) || path.length > 300 || BAD_CHARS.test(path) || hasParentSegment(path) || path.includes('\\')) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
+    if (!isAbsolutePath(path) || path === '/' || /^[A-Za-z]:[\\/]?$/.test(path) || path.length > 300 || BAD_CHARS.test(path) || hasParentSegment(path)) errors.push(`paths: "${path.slice(0, 40)}" is not an absolute folder below the root with no ..`)
     else if (isProtectedPath(path)) errors.push(`paths: "${path.slice(0, 40)}" is the autopilot's or Project Anatole's own folder: steps are never pointed at it`)
   }
 
@@ -175,7 +177,7 @@ export function validateEnvelope(raw: unknown): Checked {
     envelope: {
       name: name as string,
       toolClasses: [...new Set(classes as ToolClass[])].sort(),
-      paths: [...new Set(paths as string[])].map(path => path.replace(/\/+$/, '')).sort(),
+      paths: [...new Set(paths as string[])].map(trimTrailing).sort(),
       repos: [...new Set(repos as string[])].sort(),
       network: [...new Set(network as string[])].sort(),
       secretEnv: [...new Set(secretEnv as string[])].sort(),
@@ -335,8 +337,8 @@ export function narrowed(prev: Envelope, next: Envelope): string[] {
   return out
 }
 
-/** A path is inside the envelope when it is one of its folders or below one (compared at a folder boundary, so /a/bc is not inside /a/b). */
-export const pathAllowed = (envelope: Envelope, path: string): boolean => !path.split('/').includes('..') && !isProtectedPath(path) && envelope.paths.some(root => path === root || path.startsWith(`${root}/`))
+/** A path is inside the envelope when it is one of its folders or below one (compared at a folder boundary, so /a/bc is not inside /a/b). Windows paths compare ignoring case and separator style, so `C:\work\app\file.ts` is inside envelope path `C:\work\app`. */
+export const pathAllowed = (envelope: Envelope, path: string): boolean => !hasParentSegment(path) && !isProtectedPath(path) && envelope.paths.some(root => samePath(root, path) || below(root, path) !== null)
 
 export const hostAllowed = (envelope: Envelope, host: string): boolean => envelope.network.includes(host.toLowerCase())
 
