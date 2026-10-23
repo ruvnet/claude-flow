@@ -63,12 +63,20 @@
       "description": "OpenAI reasoning model for complex tasks",
       "provider": "openai",
       "supportsTools": true
+    },
+    {
+      "name": "orcarouter/fusion",
+      "displayName": "Fusion (OrcaRouter)",
+      "description": "OpenAI-compatible model routed through the OrcaRouter gateway",
+      "provider": "orcarouter",
+      "supportsTools": true
     }
   ],
   "secrets": {
     "openaiApiKey": "openai-api-key",
     "googleApiKey": "google-api-key",
-    "openrouterApiKey": "openrouter-api-key"
+    "openrouterApiKey": "openrouter-api-key",
+    "orcarouterApiKey": "orcarouter-api-key"
   },
   "tools": [],
   "cloudFunctions": {},

@@ -38,6 +38,7 @@
             "OPENAI_API_KEY",
             "GOOGLE_API_KEY",
             "OPENROUTER_API_KEY",
+            "ORCAROUTER_API_KEY",
             "ANTHROPIC_API_KEY",
             "SEARCH_API_URL",
             "RESEARCH_API_URL",
@@ -209,6 +210,7 @@
         "OPENAI_API_KEY",
         "GOOGLE_API_KEY",
         "OPENROUTER_API_KEY",
+        "ORCAROUTER_API_KEY",
         "ANTHROPIC_API_KEY",
         "OPENID_CLIENT_SECRET"
       ]
