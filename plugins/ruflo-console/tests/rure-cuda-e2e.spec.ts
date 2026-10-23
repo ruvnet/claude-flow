@@ -7,6 +7,7 @@
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import * as zlib from 'node:zlib'
 import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -21,6 +22,9 @@ const FIXTURES = join(CLI_DIR, '__tests__', 'fixtures', 'cuda')
 const HAVE_CUDA_TOOL = existsSync(CLI) && existsSync(TOOLS) && readFileSync(TOOLS, 'utf8').includes('rure_analyze_cuda')
 
 if (!HAVE_CUDA_TOOL) console.log('SKIP ruRE CUDA e2e: build the CLI first (cd v3/@claude-flow/cli && npx tsc); it needs rure_analyze_cuda')
+
+/** The CLI runs under this same Node: where it has no zstd (before 22.15; CI's Test Suite job is Node 20) a zstd entry must read as unread, not as data. */
+const HAVE_ZSTD = typeof (zlib as unknown as { zstdDecompressSync?: unknown }).zstdDecompressSync === 'function'
 
 let project = ''
 
@@ -97,14 +101,26 @@ describe.skipIf(!HAVE_CUDA_TOOL)('the CUDA row against the real CLI', () => {
     })
   }
 
-  it('LZ4 (CUDA 12) and zstd (CUDA 13) PTX are both read', async () => {
+  it('LZ4 (CUDA 12) PTX is read on every Node', async () => {
     const lz4 = (await row('dt-re-cuda', 'gpu/host-cuda128')).lines.join('\n')
-    const zstd = (await row('dt-re-cuda', 'gpu/host-default')).lines.join('\n')
 
     expect(lz4).toMatch(/ptx sm_80 · lz4 · 1480 B/)
     expect(lz4).toMatch(/PTX 8\.\d · sm_80 · 64-bit · kernels:/)
-    expect(zstd).toMatch(/ptx sm_80 · zstd · 1464 B/)
-    expect(zstd).toMatch(/PTX 9\.0 · sm_80 · 64-bit · kernels:/)
+  })
+
+  it(HAVE_ZSTD ? 'zstd (CUDA 13) PTX is read' : 'zstd (CUDA 13) PTX is shown as unread, with the reason, on a Node without zstd (the rest still reads)', async () => {
+    const zstd = (await row('dt-re-cuda', 'gpu/host-default')).lines.join('\n')
+
+    expect(zstd).toMatch(/kernels \(2\):/)
+    expect(zstd).toContain('  saxpy · sm_80 · 10 reg')
+
+    if (HAVE_ZSTD) {
+      expect(zstd).toMatch(/ptx sm_80 · zstd · 1464 B/)
+      expect(zstd).toMatch(/PTX 9\.0 · sm_80 · 64-bit · kernels:/)
+    } else {
+      expect(zstd).toMatch(/ptx sm_80 · zstd · unread: this Node cannot read zstd/)
+      expect(zstd).not.toMatch(/PTX 9\.0/)
+    }
   })
 
   it('a CUDA host binary read by the native row points at the CUDA row, and a non-CUDA file does not', async () => {
