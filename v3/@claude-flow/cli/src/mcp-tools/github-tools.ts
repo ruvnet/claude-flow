@@ -98,16 +98,25 @@ function run(cmd: string, cwd?: string): string | null {
  * strings stay literal.
  */
 function runArgv(file: string, args: string[], cwd?: string): string | null {
+  const r = runArgvResult(file, args, cwd);
+  return 'out' in r ? r.out : null;
+}
+
+/** runArgv that keeps the failure text (stderr, else the error message) for reporting. */
+function runArgvResult(file: string, args: string[], cwd?: string): { out: string } | { error: string } {
   try {
-    return execFileSync(file, args, {
-      encoding: 'utf-8',
-      timeout: 15000,
-      cwd: cwd || getProjectCwd(),
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: false,
-    }).trim();
-  } catch {
-    return null;
+    return {
+      out: execFileSync(file, args, {
+        encoding: 'utf-8',
+        timeout: 15000,
+        cwd: cwd || getProjectCwd(),
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: false,
+      }).trim(),
+    };
+  } catch (err) {
+    const e = err as { stderr?: string | Buffer; message?: string };
+    return { error: String(e.stderr ?? '').trim() || e.message || 'unknown error' };
   }
 }
 
@@ -251,10 +260,13 @@ export const githubTools: MCPTool[] = [
       const store = loadGitHubStore();
       const action = (input.action as string) || 'list';
       const gh = hasGhCli();
+      // #4424: like #2963 for issues — owner/repo were validated but never
+      // passed to `gh`, so PR actions (including merge/close) hit the cwd's repo.
+      const repoArgs: string[] = input.owner && input.repo ? ['--repo', `${input.owner}/${input.repo}`] : [];
 
       if (action === 'list') {
         if (gh) {
-          const raw = run('gh pr list --state all --limit 20 --json number,title,state,headRefName,createdAt');
+          const raw = runArgv('gh', ['pr', 'list', '--state', 'all', '--limit', '20', '--json', 'number,title,state,headRefName,createdAt', ...repoArgs]);
           if (raw) {
             try {
               const prs = JSON.parse(raw);
@@ -282,6 +294,7 @@ export const githubTools: MCPTool[] = [
             '--base', baseBranch,
             '--head', headBranch,
             '--body', body,
+            ...repoArgs,
           ]);
           if (result) {
             return { success: true, _real: true, action: 'created', url: result };
@@ -304,6 +317,7 @@ export const githubTools: MCPTool[] = [
           const raw = runArgv('gh', [
             'pr', 'view', String(prNumber),
             '--json', 'number,title,state,body,additions,deletions,changedFiles,reviews,mergeable,statusCheckRollup',
+            ...repoArgs,
           ]);
           if (raw) {
             try {
@@ -314,31 +328,26 @@ export const githubTools: MCPTool[] = [
         return { success: false, error: prNumber ? 'gh CLI not available or PR not found. Install gh: https://cli.github.com' : 'prNumber is required (positive integer) for review.' };
       }
 
-      if (action === 'merge') {
+      if (action === 'merge' || action === 'close') {
+        // #4424: a failed `gh` call, or a local fallback that matched nothing,
+        // used to be reported as success. Fail instead; offline, only update a
+        // local record whose id is exactly `pr-<prNumber>`.
         const prNumber = toPositiveInt(input.prNumber);
-        if (gh && prNumber) {
-          const result = runArgv('gh', ['pr', 'merge', String(prNumber), '--merge']);
-          if (result !== null) {
-            return { success: true, _real: true, action: 'merged', prNumber, mergedAt: new Date().toISOString() };
+        if (!prNumber) return { success: false, error: `prNumber is required (positive integer) for ${action}.` };
+        const status = action === 'merge' ? 'merged' : 'closed';
+        if (gh) {
+          const argv = action === 'merge' ? ['pr', 'merge', String(prNumber), '--merge'] : ['pr', 'close', String(prNumber)];
+          const r = runArgvResult('gh', [...argv, ...repoArgs]);
+          if ('error' in r) {
+            return { success: false, source: 'gh-cli', error: `gh pr ${action} ${prNumber} failed: ${r.error}` };
           }
+          return { success: true, _real: true, action: status, prNumber, [`${status}At`]: new Date().toISOString() };
         }
-        // Fallback: local store
-        const prKey = prNumber ? Object.keys(store.prs).find(k => k.includes(String(prNumber))) : undefined;
-        if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'merged'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'merged', prNumber, mergedAt: new Date().toISOString() };
-      }
-
-      if (action === 'close') {
-        const prNumber = toPositiveInt(input.prNumber);
-        if (gh && prNumber) {
-          const result = runArgv('gh', ['pr', 'close', String(prNumber)]);
-          if (result !== null) {
-            return { success: true, _real: true, action: 'closed', prNumber, closedAt: new Date().toISOString() };
-          }
-        }
-        const prKey = prNumber ? Object.keys(store.prs).find(k => k.includes(String(prNumber))) : undefined;
-        if (prKey && store.prs[prKey]) { store.prs[prKey].status = 'closed'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'closed', prNumber, closedAt: new Date().toISOString() };
+        const pr = store.prs[`pr-${prNumber}`];
+        if (!pr) return { success: false, source: 'local-store', error: `gh CLI not available and no local PR pr-${prNumber}` };
+        pr.status = status;
+        saveGitHubStore(store);
+        return { success: true, source: 'local-store', action: status, prNumber, [`${status}At`]: new Date().toISOString() };
       }
 
       return { success: false, error: 'Unknown action' };
@@ -416,42 +425,40 @@ export const githubTools: MCPTool[] = [
         return { success: true, source: 'local-store', action: 'created', issue };
       }
 
-      if (action === 'update') {
+      if (action === 'update' || action === 'close') {
+        // #4424: same contract as github_pr_manage merge/close — a failed `gh`
+        // call or an unmatched local fallback is a failure, not a success.
         const issueNumber = toPositiveInt(input.issueNumber);
-        if (gh && issueNumber) {
-          const argv = ['issue', 'edit', String(issueNumber)];
-          if (input.title) argv.push('--title', input.title as string);
-          if (input.labels) {
-            const labels = sanitizeLabels(input.labels);
-            if (labels === null) return { success: false, error: 'labels contains disallowed characters' };
-            if (labels.length > 0) argv.push('--add-label', labels.join(','));
+        if (!issueNumber) return { success: false, error: `issueNumber is required (positive integer) for ${action}.` };
+        const labels = input.labels === undefined ? undefined : sanitizeLabels(input.labels);
+        if (labels === null) return { success: false, error: 'labels contains disallowed characters' };
+        if (gh) {
+          const argv = ['issue', action === 'update' ? 'edit' : 'close', String(issueNumber)];
+          if (action === 'update') {
+            if (input.title) argv.push('--title', input.title as string);
+            if (labels && labels.length > 0) argv.push('--add-label', labels.join(','));
+            if (argv.length === 3) return { success: false, error: 'update requires title or labels' };
           }
-          if (argv.length > 3) {
-            const result = runArgv('gh', [...argv, ...repoArgs]);
-            if (result !== null) return { success: true, _real: true, action: 'updated', issueNumber };
+          const r = runArgvResult('gh', [...argv, ...repoArgs]);
+          if ('error' in r) {
+            return { success: false, source: 'gh-cli', error: `gh issue ${argv[1]} ${issueNumber} failed: ${r.error}` };
           }
+          return action === 'update'
+            ? { success: true, _real: true, action: 'updated', issueNumber }
+            : { success: true, _real: true, action: 'closed', issueNumber, closedAt: new Date().toISOString() };
         }
-        const issueKey = issueNumber ? Object.keys(store.issues).find(k => k.includes(String(issueNumber))) : undefined;
-        if (issueKey && store.issues[issueKey]) {
-          if (input.title) store.issues[issueKey].title = input.title as string;
-          if (input.labels) {
-            const labels = sanitizeLabels(input.labels);
-            if (labels !== null) store.issues[issueKey].labels = labels;
-          }
-          saveGitHubStore(store);
+        const issue = store.issues[`issue-${issueNumber}`];
+        if (!issue) return { success: false, source: 'local-store', error: `gh CLI not available and no local issue issue-${issueNumber}` };
+        if (action === 'close') {
+          issue.status = 'closed';
+        } else {
+          if (input.title) issue.title = input.title as string;
+          if (labels) issue.labels = labels;
         }
-        return { success: true, source: 'local-store', action: 'updated', issueNumber };
-      }
-
-      if (action === 'close') {
-        const issueNumber = toPositiveInt(input.issueNumber);
-        if (gh && issueNumber) {
-          const result = runArgv('gh', ['issue', 'close', String(issueNumber), ...repoArgs]);
-          if (result !== null) return { success: true, _real: true, action: 'closed', issueNumber, closedAt: new Date().toISOString() };
-        }
-        const issueKey = issueNumber ? Object.keys(store.issues).find(k => k.includes(String(issueNumber))) : undefined;
-        if (issueKey && store.issues[issueKey]) { store.issues[issueKey].status = 'closed'; saveGitHubStore(store); }
-        return { success: true, source: 'local-store', action: 'closed', issueNumber, closedAt: new Date().toISOString() };
+        saveGitHubStore(store);
+        return action === 'update'
+          ? { success: true, source: 'local-store', action: 'updated', issueNumber }
+          : { success: true, source: 'local-store', action: 'closed', issueNumber, closedAt: new Date().toISOString() };
       }
 
       return { success: false, error: 'Unknown action' };
