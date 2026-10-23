@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.47.0 — 2026-10-23
+- feat: a **CUDA** row on the ruRE page (ADR-497) for the new `rure_analyze_cuda` tool: for a CUDA program, a `.cubin`, a `.fatbin` or a `.ptx` it shows the fatbin entries (kind, target `sm_NN`, compression), each kernel with its register count, code size and constant/shared memory, and the PTX version, target and kernel names. Needs a ruflo CLI that has the tool (the release after 3.60.1); on an older one the row says to update, as the other ruRE rows do.
+- feat: DETECT sends `.cubin`, `.fatbin` and `.ptx` files to the CUDA row, and the native-binary row says "holds CUDA code" for a program with a `.nv_fatbin` section, pointing at it.
+- chore: help topic, row copy and Claude's `console_run dt-re-cuda <path>` cover the new row; `console_state`'s `rure` block carries its result like the others'.
+
 ## 0.46.0 — 2026-10-23
 - feat: ruRE DETECT (ADR-496). One row for any file or folder: a folder is read as JavaScript / Electron source, a `.hex`, `.evm` or `.bytecode` file as EVM bytecode, everything else as a native binary, and the result says which reader was chosen. It never unpacks an `.asar` (the one reader that writes): it names UNPACK .ASAR, which asks first. A `.dll` or `.exe` says it may be a .NET assembly and names the row that tells. The choice comes from the folder/file kind and the extension, not the file's bytes (the host hands back text).
 - feat: long ruRE lists (imports, exports, libraries, sections, strings, selectors, types) get lines of their own, wrapped, up to 60 items each, and the panel keeps up to 120 lines (was 40, with each list cut at 8 to 14 items). A list that fits one line is unchanged.

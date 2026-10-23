@@ -52,7 +52,7 @@ const FIELDS: Partial<Record<DevGroup, readonly { field: DevField; label: string
     { field: 'sample', label: 'sample', placeholder: 'a .asar file or a folder of JS source, inside this project', submit: 'map' },
     { field: 'query', label: 'feature', placeholder: 'for FIND FEATURE: the feature in words, e.g. license check', submit: 'find' },
   ],
-  'rure-native': [{ field: 'sample', label: 'sample', placeholder: 'a binary, .NET assembly or bytecode file, inside this project', submit: 'inspect' }],
+  'rure-native': [{ field: 'sample', label: 'sample', placeholder: 'a binary, .NET assembly, CUDA program (.cubin, .fatbin, .ptx) or bytecode file, inside this project', submit: 'inspect' }],
 }
 
 /** One dotted-leader row: the cost tag, the name, what it does, and its ▸ button; an n/a row says why instead. */
