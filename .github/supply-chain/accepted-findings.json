@@ -49,6 +49,26 @@
       "trackingIssue": "https://github.com/ruvnet/ruflo/issues/2412",
       "expiresAt": "2026-11-25",
       "rationale": "Peer-dependency-only — the plugin does not redistribute cli's transitives. cli@3.14.2 ships its own audit on each publish. Re-audit and drop this entry once either (a) the peer is removed in favor of a slim interface package or (b) cli's tree no longer reports HIGH transitives."
+    },
+    {
+      "package": "plugins/ruflo-graph-intelligence",
+      "depName": "zod",
+      "severity": "high",
+      "via": ["GHSA-mrhx-c7xc-m3w5"],
+      "tracking": "ruflo#4442 — Zod <4.6.6 can exhaust memory validating oversized constrained collections (GHSA-mrhx-c7xc-m3w5). This project's OWN zod dependency is upgraded to ^4.6.7 (locked 4.6.7), so the schemas this project defines are patched. The audit still reports the package name `zod` because the lockfile also holds zod 3.25.76 copies NESTED inside other packages (@claude-flow/cli, hooks, security, plugin-gastown-bridge, and agentic-flow), none of which is this project's code; zod 3.x has no patched release.",
+      "trackingIssue": "https://github.com/ruvnet/ruflo/issues/4442",
+      "expiresAt": "2026-11-23",
+      "rationale": "The remaining 3.x copies belong to sibling @claude-flow/* packages and agentic-flow, which still depend on zod 3; moving them is a repo-wide zod 4 migration (each package's schemas and tests), tracked in #4442, not something to force through npm overrides here (zod 4 changes z.record and error APIs that code written for zod 3 relies on, and that cannot be tested from this project). Expires 2026-11-23 so the audit fails again and forces the decision."
+    },
+    {
+      "package": "v3/@claude-flow/browser",
+      "depName": "zod",
+      "severity": "high",
+      "via": ["GHSA-mrhx-c7xc-m3w5"],
+      "tracking": "ruflo#4442 — Zod <4.6.6 can exhaust memory validating oversized constrained collections (GHSA-mrhx-c7xc-m3w5). This project's OWN zod dependency is upgraded to ^4.6.7 (locked 4.6.7), so the schemas this project defines are patched. The audit still reports the package name `zod` because the lockfile also holds zod 3.25.76 copies NESTED inside other packages (@claude-flow/cli, hooks, security, plugin-gastown-bridge, and agentic-flow), none of which is this project's code; zod 3.x has no patched release.",
+      "trackingIssue": "https://github.com/ruvnet/ruflo/issues/4442",
+      "expiresAt": "2026-11-23",
+      "rationale": "The remaining 3.x copies belong to sibling @claude-flow/* packages and agentic-flow, which still depend on zod 3; moving them is a repo-wide zod 4 migration (each package's schemas and tests), tracked in #4442, not something to force through npm overrides here (zod 4 changes z.record and error APIs that code written for zod 3 relies on, and that cannot be tested from this project). Expires 2026-11-23 so the audit fails again and forces the decision."
     }
   ],
   "lockfile": [

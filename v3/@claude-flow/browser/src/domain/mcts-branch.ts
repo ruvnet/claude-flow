@@ -36,7 +36,7 @@ export const McTsBranchSchema = z.object({
   /** Action this branch represents (open/click/fill/...). */
   action: z.string().min(1),
   /** Inputs for that action. */
-  input: z.record(z.unknown()),
+  input: z.record(z.string(), z.unknown()),
   /** Depth in the tree (root = 0). */
   depth: z.number().int().nonnegative(),
   /** Number of times this branch has been selected by UCB1. */
