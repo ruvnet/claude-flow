@@ -28,7 +28,7 @@ export type NavStyle = 'auto' | 'icons' | 'brief' | 'full'
 export const NAV_STYLES: readonly NavStyle[] = ['auto', 'icons', 'brief', 'full']
 export const NAV_KEY = 'nav-style'
 
-export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'themes' | 'whatsnew' | 'adrs'
+export type ViewId = 'menu' | 'overview' | 'swarm' | 'workflows' | 'hive' | 'claims' | 'federation' | 'plugins' | 'learning' | 'metaharness' | 'memory' | 'cost' | 'timeline' | 'approvals' | 'events' | 'room' | 'missions' | 'xruv' | 'terminal' | 'skills' | 'agent' | 'secure' | 'perf' | 'automate' | 'neural' | 'vector' | 'evolve' | 'devtools' | 'sandbox' | 'market' | 'settings' | 'themes' | 'whatsnew' | 'adrs' | 'rure'
 
 /**
  * The views in tab order, each with its hotkey and the inline height it asks for. Digits are the first nine; the three
@@ -72,6 +72,7 @@ export const VIEWS: readonly { id: ViewId; key: string; label: string; short: st
   { id: 'sandbox', key: '', label: 'Sandbox', short: 'Sbx', icon: '🧫', blurb: 'isolated places to try things: tmux sessions, RVF copy-on-write branches, RVM', rows: 40 },
   { id: 'market', key: 'm', label: 'Plugin Catalog', short: 'Cat', icon: '📦', blurb: 'every ruflo plugin, mod and skill: what it ships, install, enable, disable, update, view and use', rows: 50 },
   { id: 'adrs', key: '', label: 'ADRs', short: 'ADR', icon: '📐', blurb: 'your project’s Architecture Decision Records: find, propose, accept and supersede them, attach them to a mission so Claude and the swarm follow what was decided', rows: 44 },
+  { id: 'rure', key: '', label: 'ruRE', short: 'RE', icon: '🔬', blurb: 'static reverse engineering of a file in your project: a JS/Electron app, a native binary, a .NET assembly or EVM bytecode. It parses and never runs the file', rows: 40 },
   { id: 'whatsnew', key: '', label: 'What’s new', short: 'New', icon: '🆕', blurb: 'what changed in your ruflo plugins, newest first: from each plugin’s own CHANGELOG, breaking changes pinned until you dismiss them', rows: 40 },
   { id: 'themes', key: '', label: 'Theme Studio', short: 'Themes', icon: '◈', blurb: 'theme selection, color picker, animated palettes and Claude or Codex theme generator', rows: 50 },
   { id: 'settings', key: 's', label: 'Settings', short: 'Set', icon: '⚙️', blurb: 'simple to advanced settings: plugin options, ruflo config, updates, and the AI terminal’s model and budget, each edited in place', rows: 50 },

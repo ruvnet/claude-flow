@@ -12,7 +12,7 @@ export const NAV_GROUPS: readonly { title: string; icon: string; rows: readonly 
   { title: 'MIND', icon: '🧠', rows: [['learning', 'neural', 'metaharness', 'evolve', 'memory', 'vector']] },
   { title: 'SAFETY', icon: '🛡️', rows: [['secure', 'cost', 'perf', 'timeline', 'events', 'room']] },
   { title: 'NETWORK', icon: '🌐', rows: [['federation', 'xruv', 'sandbox', 'skills', 'market']] },
-  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'automate', 'devtools', 'plugins'], ['adrs', 'whatsnew', 'themes', 'settings']] },
+  { title: 'TOOLS', icon: '🛠️', rows: [['terminal', 'automate', 'devtools', 'plugins'], ['adrs', 'rure', 'whatsnew', 'themes', 'settings']] },
 ]
 
 export const groupOf = (view: ViewId): string | null => NAV_GROUPS.find(group => group.rows.some(row => row.includes(view)))?.title ?? null

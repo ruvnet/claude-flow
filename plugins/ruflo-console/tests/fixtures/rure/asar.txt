@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_extract_asar
+  Parameters: {"path":"app.asar"}
+
+[OK] Tool executed in 17.26ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"truncated\":false,\"unpackedPath\":\"/tmp/ruflo-rure-asar-IeyRSI/unpacked\",\"fileCount\":2,\"totalBytes\":257}"
+    }
+  ]
+}

@@ -6,14 +6,15 @@
 import { jsonAfter } from './cli'
 import { plain, recordOf } from './parse'
 import { labLines } from '../mh-lab'
+import { rureLines } from './rure'
 
-export type DevField = 'ref' | 'path' | 'label' | 'url' | 'target' | 'query' | 'task' | 'cmd' | 'id' | 'note' | 'session' | 'send'
+export type DevField = 'ref' | 'path' | 'label' | 'url' | 'target' | 'query' | 'task' | 'cmd' | 'id' | 'note' | 'session' | 'send' | 'sample'
 
 export type DevFields = Record<DevField, string>
 
-export const DEV_FIELDS: readonly DevField[] = ['ref', 'path', 'label', 'url', 'target', 'query', 'task', 'cmd', 'id', 'note', 'session', 'send']
+export const DEV_FIELDS: readonly DevField[] = ['ref', 'path', 'label', 'url', 'target', 'query', 'task', 'cmd', 'id', 'note', 'session', 'send', 'sample']
 
-export const emptyFields = (): DevFields => ({ ref: 'HEAD', path: '', label: '', url: '', target: '', query: '', task: '', cmd: '', id: '', note: '', session: '', send: '' })
+export const emptyFields = (): DevFields => ({ ref: 'HEAD', path: '', label: '', url: '', target: '', query: '', task: '', cmd: '', id: '', note: '', session: '', send: '', sample: '' })
 
 const CONTROL = /[\u0000-\u001f\u007f]/
 
@@ -50,6 +51,8 @@ function urlOf(text: string): string | null {
 const RULES: Record<DevField, { test: (text: string) => string | null; rule: string }> = {
   ref: { test: text => (/^[A-Za-z0-9@][A-Za-z0-9._/~^@{}-]{0,99}$/.test(text.trim()) ? text.trim() : null), rule: 'a git ref: HEAD, HEAD~3, main..HEAD, a branch or a sha (letters, digits . _ / ~ ^ @ { } -, not starting with -)' },
   path: { test: pathOf, rule: 'a path under the project: relative, letters, digits . _ / -, no .. segment, at most 160' },
+  // ruRE (ADR-492): the file or folder to analyze. Same rule as `path`: only what is inside the project can be named here.
+  sample: { test: pathOf, rule: 'a file or folder under the project: relative, letters, digits . _ / -, no .. segment, at most 160 (the ruRE page analyzes only what is inside this project)' },
   label: { test: text => (/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(text.trim()) ? text.trim() : null), rule: 'a label: letters, digits . _ -, at most 40, not starting with . or -' },
   url: { test: urlOf, rule: 'an http(s) URL with no spaces or quotes, at most 300' },
   target: { test: text => (/^@e\d{1,5}$/.test(text.trim()) ? text.trim() : null), rule: 'an element ref from a snapshot: @e1, @e12 …' },
@@ -145,6 +148,13 @@ export function brainLines(value: unknown): string[] {
 /** What a Dev Tools run printed, as clean lines: the wrapper unwrapped, the brain read for its picks, errors said first. */
 export function devLines(id: string, stdout: string, stderr = ''): string[] {
   const answer = unwrap(stdout)
+
+  // ruRE (ADR-492): its own readers, applied first; a CLI without the tools is said plainly.
+  if (id.startsWith('dt-re-')) {
+    const lines = rureLines(id, answer?.value ?? null, stdout, stderr)
+
+    if (lines.length > 0) return lines
+  }
 
   if (answer === null) return labLines(id, stdout, stderr)
 

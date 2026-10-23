@@ -19,6 +19,7 @@ Two files carry the number 430 (the menu's accents, and the menu-design amendmen
 | 452 | Mod-system overnight hardening: findings, changes, open items | Accepted (record) | 10-05 | 404, 444, 445, 446, 450, 451 | — | #3735; records #3706, #3711, #3713, #3714, #3715, #3717, #3719, #3727, #3732, #3733, #3734 (all merged) | no code of its own | `probe-mod-guards`, `sync-mod-screen --check` |
 | 453 | Project Anatole: an optional, learning watchdog for unattended agents | Proposed | 10-05 | 404, 444, 445, 446, 450, 451, 452; related 449 | — | this PR (ADR only) | not built | — |
 | 491 | ruflo-mods across Claude Code and Codex: a host-neutral core and a thin Codex adapter | Proposed | 10-11 | 404, 406, 444, 447, 451, 488, 490; related 489 | — | this PR (ADR only) | not built; evidence table measured by ADR-490's loop | `scripts/e2e/leg-codex.mjs` policy probes |
+| 494 | ruRE in the ruflo console: a TOOLS page for static reverse engineering | Accepted | 10-23 | 442, 480; related 489 | — | this PR | ruflo-console 0.45.0 (the `rure_*` tools are in `main` after 3.59.17) | `tests/rure-page.spec.ts`, `tests/rure-e2e.spec.ts` (real CLI) |
 
 ## Console: mission control and Claude control
 

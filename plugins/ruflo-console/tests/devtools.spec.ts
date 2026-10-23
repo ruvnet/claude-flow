@@ -56,6 +56,12 @@ const SCHEMA: Record<string, { props: readonly string[]; req?: readonly string[]
   ruvllm_hnsw_create: { props: ['dimensions', 'maxPatterns', 'efSearch'], req: ['dimensions', 'maxPatterns'] },
   ruvllm_sona_create: { props: ['hiddenDim', 'learningRate', 'patternCapacity'] },
   ruvllm_microlora_create: { props: ['inputDim', 'outputDim', 'rank', 'alpha'], req: ['inputDim', 'outputDim'] },
+  rure_extract_asar: { props: ['path'], req: ['path'] },
+  rure_analyze_js_app: { props: ['path'], req: ['path'] },
+  rure_find_feature: { props: ['path', 'query'], req: ['path', 'query'] },
+  rure_analyze_binary: { props: ['path', 'includeStrings'], req: ['path'] },
+  rure_analyze_dotnet: { props: ['path'], req: ['path'] },
+  rure_analyze_evm: { props: ['bytecode', 'path', 'includeDisassembly'] },
   daa_learning_status: { props: ['agentId', 'detailed'] },
   daa_performance_metrics: { props: ['category', 'timeRange'] },
   daa_agent_create: { props: ['id', 'name', 'type', 'cognitivePattern', 'learningRate', 'enableMemory', 'capabilities'], req: ['id'] },
@@ -94,7 +100,7 @@ const COMMANDS: Record<string, readonly string[]> = {
   'appliance verify': ['-f', '--quick'],
 }
 
-const FULL: DevFields = { ref: 'main..HEAD', path: '.swarm/memory.rvf', label: 'try-1', url: 'https://example.com/a?b=1', target: '@e3', query: 'neural', task: 'review my pull request', cmd: 'git status', id: 'agent-1', note: 'worked well', session: 'demo', send: 'git status' }
+const FULL: DevFields = { ref: 'main..HEAD', path: '.swarm/memory.rvf', label: 'try-1', url: 'https://example.com/a?b=1', target: '@e3', query: 'neural', task: 'review my pull request', cmd: 'git status', id: 'agent-1', note: 'worked well', session: 'demo', send: 'git status', sample: 'app/tool.bin' }
 
 const runnable = DEV.filter(entry => entry.na === undefined)
 
@@ -188,7 +194,7 @@ describe('the Dev Tools catalog', () => {
 
 describe('the fields', () => {
   it('refuse what could read as a flag, control characters, and over-long text', () => {
-    for (const field of ['ref', 'path', 'label', 'query', 'task', 'cmd', 'id', 'note'] as const) {
+    for (const field of ['ref', 'path', 'label', 'query', 'task', 'cmd', 'id', 'note', 'sample'] as const) {
       expect(fieldValue(field, '-rf'), field).toBeNull()
       expect(fieldValue(field, '--help'), field).toBeNull()
       expect(fieldValue(field, 'a\nb'), field).toBeNull()

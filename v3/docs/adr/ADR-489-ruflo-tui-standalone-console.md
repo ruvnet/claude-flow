@@ -204,6 +204,7 @@ not a replacement and not a second implementation.
 | `sandbox` | Sandbox | partial | its buttons are not drawn; its actions are asked for by name at the go prompt (:), each after the console card |
 | `market` | Plugin Catalog | partial | its buttons are not drawn; its actions are asked for by name at the go prompt (:), each after the console card |
 | `adrs` | ADRs | partial | its buttons are not drawn; its actions are asked for by name at the go prompt (:), each after the console card |
+| `rure` | ruRE | partial | its buttons are not drawn; its actions are asked for by name at the go prompt (:), each after the console card |
 | `whatsnew` | What’s new | same | changelogs of the installed plugins |
 | `themes` | Theme Studio | partial | the look is chosen with t or --look; the colour picker and generated themes are not here yet |
 | `settings` | Settings | partial | shown as the standalone defaults; plugin options live in the Claude Code settings and the standalone has no store for them yet (the look is --look/t, the speed --fps) |

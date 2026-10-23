@@ -22,17 +22,17 @@ export const AREA_VIEW: Record<string, ViewId> = {
   Missions: 'missions', Overview: 'overview', Swarm: 'swarm', Workflows: 'workflows', 'Hive-Mind': 'hive', Claims: 'claims', Approvals: 'approvals', Automation: 'automate',
   Learning: 'learning', Neural: 'neural', 'Vector Lab': 'vector', 'Memory Lab': 'memory', MetaHarness: 'metaharness', 'Self-Evolution': 'evolve',
   Security: 'secure', Federation: 'federation', 'x.ruv.io': 'xruv', 'Plugins & Mods': 'plugins', Skills: 'skills', 'Plugin Catalog': 'market',
-  'Dev Tools': 'devtools', Sandbox: 'sandbox', 'Cost & Budget': 'cost', Timeline: 'timeline', Events: 'events', 'The Room': 'room', Performance: 'perf', 'AI Terminal': 'terminal', 'What’s new': 'whatsnew', ADRs: 'adrs', Themes: 'themes', Settings: 'settings',
+  'Dev Tools': 'devtools', Sandbox: 'sandbox', 'Cost & Budget': 'cost', Timeline: 'timeline', Events: 'events', 'The Room': 'room', Performance: 'perf', 'AI Terminal': 'terminal', 'What’s new': 'whatsnew', ADRs: 'adrs', ruRE: 'rure', Themes: 'themes', Settings: 'settings',
 }
 
 /** Pages with no hotkey on purpose (every letter is taken): reached from the menu, the nav, the palette or by name. */
-const NAMED_ONLY: ReadonlySet<string> = new Set(['sandbox', 'room', 'workflows', 'whatsnew', 'adrs', 'themes'])
+const NAMED_ONLY: ReadonlySet<string> = new Set(['sandbox', 'room', 'workflows', 'whatsnew', 'adrs', 'rure', 'themes'])
 
 export type Registries = { secure: readonly SecEntry[]; secureText: readonly SecText[]; perf: readonly PerfEntry[]; dev: readonly DevEntry[]; lab: readonly LabEntry[] }
 export const REGISTRIES: Registries = { secure: SECURE, secureText: SECURE_TEXT, perf: PERF, dev: DEV, lab: LAB }
 
 /** One value per field that its rule accepts, so every runnable Dev Tools row has an input that runs. */
-export const SAMPLE_FIELDS: DevFields = { ref: 'HEAD~1', path: 'memory/sample.rvf', label: 'ckpt-1', url: 'https://example.com', target: '@e1', query: 'auth', task: 'review my pull request', cmd: 'ls', id: 'agent-1', note: 'hello', session: 'demo', send: 'ls -la' }
+export const SAMPLE_FIELDS: DevFields = { ref: 'HEAD~1', path: 'memory/sample.rvf', label: 'ckpt-1', url: 'https://example.com', target: '@e1', query: 'auth', task: 'review my pull request', cmd: 'ls', id: 'agent-1', note: 'hello', session: 'demo', send: 'ls -la', sample: 'app/tool.bin' }
 
 /** Free text, then an action type (policy-eval takes one): a text verb passes when any of these builds its command. */
 const SAMPLE_TEXTS = ['hello world', 'deploy']

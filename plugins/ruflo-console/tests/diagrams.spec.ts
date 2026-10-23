@@ -8,6 +8,9 @@ import { gaugePicture, pipelinePicture, radarPicture, samplesPicture, trendPictu
 import { flowModelOf, flowPicture, flowRows, ringOf } from '../hooks/gfx/flow'
 import { federationPicture, ganttPicture, heatmapPicture } from '../hooks/gfx/maps'
 import { BOOT_MODULES, BOOT_ROWS } from '../hooks/gfx/boot'
+
+/** When the boot log has printed every area and READY: it starts at 1.5 s and prints a line every 120 ms, so it grows with the areas (not a fixed time). */
+const BOOT_DONE_MS = 1_500 + (BOOT_MODULES.length + 1) * 120
 import { activityPicture, bannerPicture, bootPicture, curvePicture, edges, headerPicture, layout, markPicture, palettePicture, topologyPicture, type TopoModel } from '../hooks/gfx/pictures'
 import { isBooting, newState, optionsOf } from '../hooks/state'
 import type { Grid } from '../hooks/gfx/raster'
@@ -151,13 +154,13 @@ describe('BBS boot screen', () => {
   const text = (grid: ReturnType<typeof bootPicture>, width: number) => Array.from({ length: grid.rows }, (_, y) => String.fromCodePoint(...Array.from({ length: width }, (_, x) => grid.glyph(x, y) || 32))).join('\n')
 
   it('draws the logo and fills a bar from elapsed time and answered reads, with no modem dial-up', () => {
-    for (const age of [100, 700, 2_000, 5_400]) {
+    for (const age of [100, 700, 2_000, BOOT_DONE_MS]) {
       const shown = text(bootPicture('demo', 60, age, 5, 10), 60)
 
       expect(shown, `${age} ms`).not.toMatch(/ATDT|RING|CONNECT 115200/)
     }
 
-    const done = text(bootPicture('demo', 60, 5_400, 10, 10), 60)
+    const done = text(bootPicture('demo', 60, BOOT_DONE_MS, 10, 10), 60)
 
     expect(done).toContain('│ ~~~~~ │')
     expect(done).toContain('▐▌')
@@ -178,7 +181,7 @@ describe('BBS boot screen', () => {
     expect(text(bootPicture('demo', 80, 1_700, 0, 10, rows), 80)).not.toContain('Hive-Mind')
 
     // Every area, in menu order, then READY.
-    const full = text(bootPicture('demo', 80, 5_400, 10, 10, rows), 80)
+    const full = text(bootPicture('demo', 80, BOOT_DONE_MS, 10, 10, rows), 80)
 
     for (const entry of BOOT_MODULES) expect(full).toContain(entry.name)
     expect(full.indexOf('Missions')).toBeLessThan(full.indexOf('Settings'))
@@ -187,19 +190,19 @@ describe('BBS boot screen', () => {
     expect(full).toContain('100%  reads 10/10')
 
     // A short pane shows the newest lines, not the oldest; no rows given: the sign alone, as before.
-    const short = text(bootPicture('demo', 80, 5_400, 10, 10, BOOT_ROWS + 1 + 5), 80)
+    const short = text(bootPicture('demo', 80, BOOT_DONE_MS, 10, 10, BOOT_ROWS + 1 + 5), 80)
 
     expect(short).toContain('READY')
     expect(short).not.toContain('Missions')
-    expect(bootPicture('demo', 80, 5_400, 10, 10).rows).toBe(BOOT_ROWS)
+    expect(bootPicture('demo', 80, BOOT_DONE_MS, 10, 10).rows).toBe(BOOT_ROWS)
   })
 
   it('reports the self-check: [ OK ] only for an area whose check passed, [FAIL] and its problem for one that did not, READY counting what was verified', () => {
     const rows = BOOT_ROWS + 1 + BOOT_MODULES.length + 1
     const passing = BOOT_MODULES.map(entry => ({ area: entry.name, ok: true, problems: [] as string[] }))
     const withFailure = passing.map(result => (result.area === 'Security' ? { ...result, ok: false, problems: ['aid-check: an empty field must be refused'] } : result))
-    const good = text(bootPicture('demo', 80, 5_400, 10, 10, rows, passing), 80)
-    const bad = text(bootPicture('demo', 80, 5_400, 10, 10, rows, withFailure), 80)
+    const good = text(bootPicture('demo', 80, BOOT_DONE_MS, 10, 10, rows, passing), 80)
+    const bad = text(bootPicture('demo', 80, BOOT_DONE_MS, 10, 10, rows, withFailure), 80)
 
     expect(good).toContain('[ OK ] Security')
     expect(good).toContain(`${BOOT_MODULES.length} of ${BOOT_MODULES.length} areas verified`)

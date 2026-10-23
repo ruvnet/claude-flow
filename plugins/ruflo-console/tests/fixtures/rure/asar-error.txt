@@ -1,0 +1,15 @@
+[INFO] Executing tool: rure_extract_asar
+  Parameters: {"path":"nothere.asar"}
+
+[OK] Tool executed in 16.30ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":false,\"error\":\"asar extraction failed: ENOENT: no such file or directory, open 'nothere.asar'\"}"
+    }
+  ],
+  "isError": true
+}

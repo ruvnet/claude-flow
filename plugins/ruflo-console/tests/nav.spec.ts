@@ -12,7 +12,7 @@ describe('main nav hotkeys', () => {
 
     expect(keys.every(key => /^[0-9a-z]$/.test(key))).toBe(true)
     expect(new Set(keys).size).toBe(keys.length)
-    expect(VIEWS.filter(view => view.key === '').map(view => view.id)).toEqual(['workflows', 'room', 'sandbox', 'adrs', 'whatsnew', 'themes'])
+    expect(VIEWS.filter(view => view.key === '').map(view => view.id)).toEqual(['workflows', 'room', 'sandbox', 'adrs', 'rure', 'whatsnew', 'themes'])
   })
 
   it('none takes a key the footer, the confirm row, scrolling or the menu prompt owns', () => {

@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_dotnet
+  Parameters: {"path":"sample.dll"}
+
+[OK] Tool executed in 13.18ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"isManaged\":true,\"runtimeVersion\":\"v4.0.30319\",\"assembly\":{\"name\":\"Demo\",\"version\":\"1.2.3.4\"},\"assemblyRefs\":[{\"name\":\"System.Runtime\",\"version\":\"6.0.0.0\"}],\"typeCount\":2,\"types\":[\"<Module>\",\"Foo.Bar\"],\"methodCount\":1,\"pinvokes\":[{\"module\":\"libnative\",\"function\":\"do_thing\"}],\"userStrings\":[\"hello-dotnet\",\"[content redacted by AIDefence — threat or PII detected]\"],\"entryPointToken\":100663297,\"warnings\":[],\"truncated\":false,\"redactedCount\":1,\"screened\":true}"
+    }
+  ]
+}

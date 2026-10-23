@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_binary
+  Parameters: {"path":"sample.macho"}
+
+[OK] Tool executed in 13.11ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"format\":\"macho\",\"arch\":\"aarch64\",\"bits\":64,\"endianness\":\"little\",\"kind\":\"executable\",\"entryPoint\":4660,\"sections\":[],\"libraries\":[\"/usr/lib/libSystem.B.dylib\"],\"imports\":[],\"exports\":[],\"warnings\":[],\"truncated\":false,\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

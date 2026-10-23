@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_evm
+  Parameters: {"path":"sample.evm"}
+
+[OK] Tool executed in 12.53ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"byteLength\":202,\"instructionCount\":79,\"jumpdestCount\":2,\"invalidOpcodeCount\":35,\"selectors\":[{\"selector\":\"0xa9059cbb\",\"name\":\"transfer(address,uint256)\",\"offset\":6},{\"selector\":\"0x12345678\",\"name\":null,\"offset\":17},{\"selector\":\"0x70a08231\",\"name\":\"balanceOf(address)\",\"offset\":27}],\"hazards\":{\"ORIGIN\":{\"count\":1,\"offsets\":[54]},\"SELFDESTRUCT\":{\"count\":1,\"offsets\":[55]},\"DELEGATECALL\":{\"count\":1,\"offsets\":[56]}},\"addresses\":[\"0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef\"],\"eventTopics\":[{\"topic\":\"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef\",\"name\":\"Transfer(address,address,uint256)\",\"offset\":115},{\"topic\":\"0x4f776e61626c653a2063616c6c6572206973206e6f7420746865206f776e6572\",\"name\":null,\"offset\":149}],\"minimalProxy\":null,\"metadata\":{\"ipfs\":\"abababababababababababababababababababababababababababababababababab\",\"solc\":\"0.8.20\"},\"strings\":[\"Ownable: caller is not the owner\"],\"warnings\":[],\"truncated\":false,\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

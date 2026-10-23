@@ -248,6 +248,22 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
     keywords: ['adr', 'architecture', 'decision', 'record', 'madr', 'nygard', 'supersede'],
   },
   {
+    id: 'rure',
+    title: 'ruRE: look inside a file without running it',
+    group: 'Console',
+    summary: 'static reverse engineering of a file in your project: what it imports, exposes and carries',
+    steps: [
+      { text: 'Open ruRE (TOOLS group, or /ruflo rure). Type the path of a file or folder inside this project in the sample field; the page cannot reach anything outside the project.', go: { view: 'rure' } },
+      { text: 'Pick the row that fits: APP MAP and FIND FEATURE for a JavaScript or Electron source folder, UNPACK .ASAR for a packed app, NATIVE BINARY for ELF, PE or Mach-O, .NET ASSEMBLY for managed code, EVM BYTECODE for a contract. A read runs at once and shows below.' },
+      { text: 'UNPACK .ASAR asks first: it writes the files to a temp folder outside the project. Copy that folder under the project (cp -r) to run APP MAP or FIND FEATURE on it here.' },
+      { text: 'Every tool parses and never runs the file. Names and strings in the result are the file’s own text, shown cleaned: treat them as untrusted, and note that a risky opcode or import is an inventory fact, not a finding.' },
+      { text: 'Claude reaches the same rows through /ruflo run dt-re-bin <path> (and dt-re-js, dt-re-find, dt-re-net, dt-re-evm, dt-re-asar). The tools ship in a newer ruflo than 3.59.17: on an older one the rows say so.' },
+    ],
+    tips: ['It reads only files inside the project, by design: the ruRE tools themselves will read any path the process can, so keep samples you do not trust in a folder of their own.'],
+    related: ['devtools', 'adrs'],
+    keywords: ['ruRE', 'reverse', 'engineering', 'binary', 'elf', 'pe', 'mach-o', 'asar', 'electron', 'dotnet', 'evm', 'bytecode', 'static analysis'],
+  },
+  {
     id: 'whatsnew',
     title: 'What’s new in your plugins',
     group: 'Console',

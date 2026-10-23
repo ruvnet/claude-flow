@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_binary
+  Parameters: {"path":"sample.exe"}
+
+[OK] Tool executed in 12.19ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"format\":\"pe\",\"arch\":\"x86-64\",\"bits\":64,\"endianness\":\"little\",\"kind\":\"executable\",\"entryPoint\":4096,\"sections\":[{\"name\":\".idata\",\"offset\":512,\"size\":512}],\"libraries\":[\"KERNEL32.dll\"],\"imports\":[\"KERNEL32.dll!ExitProcess\"],\"exports\":[],\"warnings\":[],\"truncated\":false,\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

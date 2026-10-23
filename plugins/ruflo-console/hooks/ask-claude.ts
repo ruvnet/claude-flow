@@ -51,6 +51,7 @@ export const VIEW_ASK: Record<ViewId, ViewAsk> = {
   sandbox: { default: 'Which sandbox fits what I want to try, and is anything running here I should end?', slash: 'ruflo-rvf:rvf' },
   market: { default: 'Which of these plugins would help most for what I am doing?' },
   adrs: { default: 'Which of my project’s ADRs matter for what I am working on, and does anything I have changed cut across an accepted decision?' },
+  rure: { default: 'What do the ruRE results above say about this file: what does it import and expose, and does anything in it deserve a closer look? Say what the tools cannot tell.' },
   whatsnew: { default: 'Which of these plugin changes matter for how I work, and does any breaking change need action from me?' },
   themes: { default: 'Help me design a readable animated console theme with Theme Studio.' },
   settings: { default: 'Which of these settings should I change for how I work?' },

@@ -45,6 +45,16 @@ CONSOLE_DRIVE_INSTALL="$PWD:ruflo-mods@ruflo" RUFLO_E2E_LIVE=1 bash plugins/rufl
 - **Missions, loops, swarms.** Attach ADRs to the active mission (the page suggests some from the goal's words; you decide). Claude's mission context, each task's instruction and spawned swarm agents (ruflo-swarm 0.3.5) are told the accepted decisions, masked and capped. At *verify*, changed files are compared with the paths the attached accepted ADRs name: a warning in the mission record. **That compares paths only. It does not prove a change follows or breaks a decision, and it never blocks.** When a mission is done, *draft an ADR from this mission* prepares a proposed record from its goal and tasks; the decision is yours to write.
 - **For Claude.** `/ruflo run adr-propose <title>`, `adr-accept <n>`, `adr-supersede <old> <new>`, `adr-attach <n>` and the rest are palette entries, so Claude reaches them through `console_run` at the *write* control level (reading the page is *read*); a change still waits for your Yes on the diff.
 
+## Look inside a file without running it: ruRE (ADR-494)
+
+**TOOLS → ruRE** is the page for the six static-analysis tools of ruflo-rure: type a file or folder **inside your project** in the *sample* field and press a row.
+
+- **JavaScript and Electron.** *APP MAP* (imports and Electron boundaries per module) and *FIND FEATURE* (where a feature lives, in words) read a folder of source; *UNPACK .ASAR* extracts an app archive to a temp folder outside the project, so it asks first, and you copy that folder in to map it.
+- **Native, .NET, EVM.** *NATIVE BINARY* reads ELF, PE and Mach-O; *.NET ASSEMBLY* reads metadata only; *EVM BYTECODE* takes a file of hex or raw bytes and lists selectors, risky opcodes and proxies.
+- **Parse only.** Nothing is executed. Names and strings in a result are the file’s own text: shown cleaned (no escape sequence reaches the terminal) and to be treated as untrusted. A risky opcode or import is an inventory fact, not a finding.
+- **For Claude.** Every row is a palette id: `/ruflo run dt-re-bin tools/app.exe`, `dt-re-js`, `dt-re-find`, `dt-re-net`, `dt-re-evm`, `dt-re-asar`. The tools ship in a ruflo newer than 3.59.17; on an older one the rows say `update ruflo`.
+- **Limits.** Only project-relative paths are accepted (a symlink inside the project that points outside is still followed by the tool). Dynamic analysis is not part of this page.
+
 ## In a terminal of its own: `ruflo tui` (ADR-489)
 
 The same views the mod draws, on five pages (Overview, Cost, Swarm, Events, Missions), drawn by a small standalone terminal host instead of Claude Code, and a sixth, AI, that asks Codex or OpenRouter. The five are read-only; the AI page shows a card of exactly what would be sent and sends only after a `y`; `npx ruflo tui` (the `ruflo` package and `@claude-flow/cli` carry the bundle).
