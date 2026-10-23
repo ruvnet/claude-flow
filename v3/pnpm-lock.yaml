@@ -124,7 +124,7 @@ importers:
         specifier: 3.0.5
         version: link:../codex
       '@claude-flow/mcp':
-        specifier: 3.1.1
+        specifier: 3.1.2
         version: link:../mcp
       '@claude-flow/neural':
         specifier: 3.0.0
