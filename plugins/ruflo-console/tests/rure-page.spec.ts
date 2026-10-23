@@ -120,6 +120,8 @@ describe('the readers, against what the real CLI printed', () => {
     expect(evm).toMatch(/hazards: .*SELFDESTRUCT ×1 @55/)
     expect(evm).toContain('Transfer(address,address,uint256)')
     expect(evm).toContain('compiler: solc 0.8.20')
+    // plain() already marks a clipped value with one ellipsis: never two.
+    expect(evm).not.toContain('……')
     expect(evm).toContain('Ownable: caller is not the owner')
     expect(linesOf('dt-re-evm', 'evm-proxy')).toContain('EIP-1167 minimal proxy → 0xbebebebebebebebebebebebebebebebebebebebe')
     expect(linesOf('dt-re-evm', 'evm-proxy')).toContain('selectors (0)')

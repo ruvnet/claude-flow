@@ -80,7 +80,7 @@ function evmLines(record: Record<string, unknown>): string[] {
 
     return item === null ? [] : [`${plain(name, 16)} ×${num(item.count)} @${list(item.offsets).slice(0, 3).map(offset => num(offset)).join(',')}`]
   })
-  const topics = list(record.eventTopics).map(recordOf).flatMap(item => (item === null ? [] : [text(item.name, 50) || `${text(item.topic, 14)}…`]))
+  const topics = list(record.eventTopics).map(recordOf).flatMap(item => (item === null ? [] : [text(item.name, 50) || text(item.topic, 14)]))
   const proxy = recordOf(record.minimalProxy)
   const meta = recordOf(record.metadata)
 
@@ -91,7 +91,7 @@ function evmLines(record: Record<string, unknown>): string[] {
     `addresses (${list(record.addresses).length}): ${strs(record.addresses, 4, 44)}`,
     `events (${topics.length}): ${topics.slice(0, 6).join(', ') || '(none)'}`,
     ...(proxy !== null ? [`EIP-1167 minimal proxy → ${text(proxy.implementation, 44)}`] : []),
-    ...(meta !== null ? [`compiler: solc ${text(meta.solc, 16) || 'n/a'}${typeof meta.ipfs === 'string' ? ` · ipfs ${plain(meta.ipfs, 12)}…` : ''}`] : []),
+    ...(meta !== null ? [`compiler: solc ${text(meta.solc, 16) || 'n/a'}${typeof meta.ipfs === 'string' ? ` · ipfs ${plain(meta.ipfs, 12)}` : ''}`] : []),
     ...(list(record.strings).length > 0 ? [`strings: ${strs(record.strings, 6, 60)}`] : []),
   ]
 }
