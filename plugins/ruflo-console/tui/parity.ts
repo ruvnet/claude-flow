@@ -44,6 +44,7 @@ export const PARITY: Record<ViewId | 'agent', Parity> = {
   sandbox: { status: 'partial', why: READ_ONLY },
   market: { status: 'partial', why: READ_ONLY },
   adrs: { status: 'partial', why: READ_ONLY },
+  rure: { status: 'partial', why: READ_ONLY },
   whatsnew: { status: 'same', why: 'changelogs of the installed plugins' },
   themes: { status: 'partial', why: 'the look is chosen with t or --look; the colour picker and generated themes are not here yet' },
   settings: { status: 'partial', why: 'shown as the standalone defaults; plugin options live in the Claude Code settings and the standalone has no store for them yet (the look is --look/t, the speed --fps)' },

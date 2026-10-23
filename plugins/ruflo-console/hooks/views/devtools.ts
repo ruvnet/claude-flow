@@ -5,6 +5,7 @@ import { DEV, DEV_GROUPS, devSpec, type DevCost, type DevEntry, type DevGroup } 
 import { slot } from './attention'
 import { ago, button, clip, col, type Ctx, row, section, tagChip, text, THEME } from './common'
 import { frameResult } from './status-card'
+import { RURE_GROUPS } from '../rure'
 import { SANDBOX_GROUPS } from '../sandbox'
 import { spinAt } from '../spinner'
 import { sendResultRow } from './secure'
@@ -45,6 +46,12 @@ const FIELDS: Partial<Record<DevGroup, readonly { field: DevField; label: string
     { field: 'send', label: 'type', placeholder: 'one command line to type into that session: Enter shows it, then asks before it runs', submit: 'send' },
   ],
   daa: [{ field: 'note', label: 'note', placeholder: 'feedback or knowledge to send (also a managed-agent prompt)' }],
+  // The ruRE page (ADR-492) draws these two sections; the sample is a path inside the project.
+  'rure-app': [
+    { field: 'sample', label: 'sample', placeholder: 'a .asar file or a folder of JS source, inside this project', submit: 'map' },
+    { field: 'query', label: 'feature', placeholder: 'for FIND FEATURE: the feature in words, e.g. license check', submit: 'find' },
+  ],
+  'rure-native': [{ field: 'sample', label: 'sample', placeholder: 'a binary, .NET assembly or bytecode file, inside this project', submit: 'inspect' }],
 }
 
 /** One dotted-leader row: the cost tag, the name, what it does, and its ▸ button; an n/a row says why instead. */
@@ -83,7 +90,7 @@ export function fieldRows(ctx: Ctx, group: DevGroup): RenderElement[] {
       value: ctx.state.devtools.fields[field],
       submitLabel: submit ?? 'keep',
       onInput: value => ctx.act.devtools.draft(field, value),
-      onSubmit: value => ctx.act.devtools.submit(field, value),
+      onSubmit: value => ctx.act.devtools.submit(field, value, group),
     }),
   )
 }
@@ -146,8 +153,8 @@ export function devtoolsView(ctx: Ctx): RenderElement {
   const hasRun = state.lab.running?.id.startsWith('dt-') === true || state.lab.result?.id.startsWith('dt-') === true || state.pending !== null
   const rows: RenderElement[] = [text(ctx, ' $0 local read, runs at once · cpu/wr local work or a write · net the network · $$ may spend · del deletes: each of these asks first', { dimColor: true })]
 
-  // The sandbox groups (tmux, RVM) are drawn on the Sandbox page, not here.
-  DEV_GROUPS.filter(group => !SANDBOX_GROUPS.some(sandbox => sandbox.id === group.id)).forEach((group, i) => {
+  // The sandbox groups (tmux, RVM) are drawn on the Sandbox page and the ruRE groups on the ruRE page, not here.
+  DEV_GROUPS.filter(group => !SANDBOX_GROUPS.some(sandbox => sandbox.id === group.id) && !RURE_GROUPS.some(re => re.id === group.id)).forEach((group, i) => {
     const entries = DEV.filter(candidate => candidate.group === group.id)
 
     // The first group, and every group with a text field, opens: a field folded away could not be typed into, so its runs would refuse.

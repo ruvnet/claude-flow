@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_js_app
+  Parameters: {"path":"app"}
+
+[OK] Tool executed in 156.13ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"filesScanned\":1,\"truncated\":false,\"skippedFiles\":0,\"isElectron\":true,\"modules\":[{\"file\":\"app/src/main.js\",\"imports\":[{\"source\":\"electron\",\"names\":[],\"evidence\":{\"file\":\"app/src/main.js\",\"lineStart\":1,\"lineEnd\":1}},{\"source\":\"fs\",\"names\":[],\"evidence\":{\"file\":\"app/src/main.js\",\"lineStart\":2,\"lineEnd\":2}}],\"exports\":[],\"electronBoundaries\":[{\"kind\":\"ipcMain\",\"detail\":\"ipcMain\",\"evidence\":{\"file\":\"app/src/main.js\",\"lineStart\":1,\"lineEnd\":1}},{\"kind\":\"require-electron\",\"detail\":\"require(\\\"electron\\\")\",\"evidence\":{\"file\":\"app/src/main.js\",\"lineStart\":1,\"lineEnd\":1}},{\"kind\":\"ipcMain\",\"detail\":\"ipcMain\",\"evidence\":{\"file\":\"app/src/main.js\",\"lineStart\":3,\"lineEnd\":3}}]}],\"redactedSnippetCount\":0,\"screened\":true}"
+    }
+  ]
+}

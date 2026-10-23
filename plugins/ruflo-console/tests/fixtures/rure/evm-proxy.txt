@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_evm
+  Parameters: {"path":"proxy.evm"}
+
+[OK] Tool executed in 11.15ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"byteLength\":45,\"instructionCount\":24,\"jumpdestCount\":1,\"invalidOpcodeCount\":0,\"selectors\":[],\"hazards\":{\"DELEGATECALL\":{\"count\":1,\"offsets\":[31]}},\"addresses\":[\"0xbebebebebebebebebebebebebebebebebebebebe\"],\"eventTopics\":[],\"minimalProxy\":{\"implementation\":\"0xbebebebebebebebebebebebebebebebebebebebe\"},\"metadata\":null,\"strings\":[],\"warnings\":[],\"truncated\":false,\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

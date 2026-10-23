@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_analyze_binary
+  Parameters: {"path":"sample.elf","includeStrings":true}
+
+[OK] Tool executed in 13.92ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"format\":\"elf\",\"arch\":\"x86-64\",\"bits\":64,\"endianness\":\"little\",\"kind\":\"shared-or-pie\",\"entryPoint\":4160,\"sections\":[{\"name\":\"\",\"offset\":0,\"size\":0},{\"name\":\".shstrtab\",\"offset\":64,\"size\":36},{\"name\":\".dynstr\",\"offset\":100,\"size\":28},{\"name\":\".dynamic\",\"offset\":128,\"size\":32},{\"name\":\".dynsym\",\"offset\":160,\"size\":72}],\"libraries\":[\"libc.so.6\"],\"imports\":[\"puts\"],\"exports\":[\"exported_fn\"],\"warnings\":[],\"truncated\":false,\"strings\":[{\"value\":\".shstrtab\",\"offset\":65},{\"value\":\".dynstr\",\"offset\":75},{\"value\":\".dynamic\",\"offset\":83},{\"value\":\".dynsym\",\"offset\":92},{\"value\":\"libc.so.6\",\"offset\":101},{\"value\":\"exported_fn\",\"offset\":116}],\"stringsTruncated\":false,\"redactedCount\":0,\"screened\":true}"
+    }
+  ]
+}

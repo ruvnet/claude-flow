@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.4.2 — 2026-10-23
+
+- docs: the six tools now have a page in the ruflo console (TOOLS → ruRE, ruflo-console 0.45.0, ruflo ADR-494), so a person can run them without asking Claude. The console accepts only project-relative paths and shows the file's own text cleaned of terminal escapes. No tool, schema or behavior changed.
+
 ## 0.4.1 — 2026-10-22
 
 Fixes from an independent security review of 0.1.0-0.4.0. Each finding was reproduced against the real source before fixing, and each fix has a test that fails without it.

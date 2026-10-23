@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.45.0 — 2026-10-23
+- feat: a **ruRE** page in the TOOLS group (ADR-494): static reverse engineering of a file in your project through the six `rure_*` tools — a JS/Electron app (APP MAP, FIND FEATURE, UNPACK .ASAR), a native binary (ELF, PE, Mach-O), a .NET assembly and EVM bytecode. The tools parse and never run the file. Five rows are `$0` reads that run at once; UNPACK .ASAR writes to a temp folder and asks first. The file is named by a new *sample* field that takes only a path inside the project. Every row is a palette id (`/ruflo run dt-re-bin <path>`). Names and strings from the analyzed file are shown cleaned, so a hostile binary cannot put a terminal escape on the screen. On a ruflo CLI without the tools (3.59.17 and older) the rows say to update.
+- chore: Enter in a field on a page of its own can run that page’s row (the ruRE page); the same `query` field on the Plugins page still runs the plugin search. The boot specs now derive the finish time from the number of areas instead of a fixed 5.4 s.
+
 ## 0.44.7 — 2026-10-21
 - fix: the ADRs page, the Events/Timeline export and the AI terminal's "save transcript" now work on Windows (#4356, thanks @marioja). All three hardcoded a leading-`/` check as their "is the project folder known" guard; on Windows `state.cwd` is a drive path (`C:\Users\...`), so every one of them refused with "no project folder is known" regardless of settings. They now use the existing `isAbsolutePath` helper (already fixed for register.ts in #4175). Also fixed a second, independent bug on the transcript-save path: it pre-joined `state.cwd` into the string handed to `resolveExportPath`, which refuses any backslash in its input — so even after the first fix, a Windows transcript save still failed; it now passes the relative file name only, same as the Events/Timeline export already did.
 

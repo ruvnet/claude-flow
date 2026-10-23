@@ -1,0 +1,14 @@
+[INFO] Executing tool: rure_find_feature
+  Parameters: {"path":"app","query":"license check"}
+
+[OK] Tool executed in 160.01ms
+
+Result:
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"success\":true,\"matches\":[{\"file\":\"app/src/main.js\",\"lineRange\":{\"start\":1,\"end\":5},\"snippet\":\"const { ipcMain, BrowserWindow } = require('electron');\\nconst fs = require('fs');\\nipcMain.handle('license:check', async (e, key) => { return fs.readFileSync(key, 'utf8'); });\\nfetch('https://api.example.com/v1/activate');\\n\",\"score\":2,\"redacted\":false}],\"filesScanned\":1,\"truncated\":false,\"skippedFiles\":0,\"screened\":true}"
+    }
+  ]
+}

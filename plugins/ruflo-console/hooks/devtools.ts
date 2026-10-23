@@ -10,13 +10,14 @@ import type { ActionSpec } from './actions'
 import { devLines, fieldRule, fieldValue, need, tool, type DevField, type DevFields } from './data/devtools'
 import type { Host } from './host'
 import type { PaletteEntry } from './palette'
+import { RURE, RURE_GROUPS } from './rure'
 import { SANDBOX, SANDBOX_GROUPS } from './sandbox'
 import type { State } from './state'
 
 /** `read`: local, $0, changes nothing. `local`: local compute that keeps nothing. Then writes, the network, money, deletes. */
 export type DevCost = 'read' | 'local' | 'writes' | 'network' | 'spends' | 'deletes'
 
-export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint' | 'tmux' | 'rvm'
+export type DevGroup = 'github' | 'analyze' | 'cow' | 'wasm' | 'browser' | 'terminal' | 'providers' | 'plugins' | 'ruvllm' | 'daa' | 'brain' | 'managed' | 'maint' | 'tmux' | 'rvm' | 'rure-app' | 'rure-native'
 
 export type DevEntry = {
   id: string
@@ -58,6 +59,7 @@ export const DEV_GROUPS: readonly { id: DevGroup; title: string; right: string }
   { id: 'managed', title: 'Managed agents', right: 'Anthropic cloud · every call asks' },
   { id: 'maint', title: 'Maintenance', right: 'cleanup · update · migrate · process · appliance' },
   ...SANDBOX_GROUPS,
+  ...RURE_GROUPS,
 ]
 
 const SESSION = 'ruflo-console'
@@ -169,6 +171,7 @@ export const DEV: readonly DevEntry[] = [
   { id: 'dt-app-inspect', group: 'maint', name: 'APPLIANCE', about: 'the RVFA header and sections of the path field’s .rvf', label: 'appliance inspect', cost: 'read', input: 'path', args: f => need(f, ['path'], v => ['appliance', 'inspect', '-f', v.path, '--json']) },
   { id: 'dt-app-verify', group: 'maint', name: 'APPLIANCE VERIFY', about: 'its integrity (quick, no capability tests)', label: 'appliance verify --quick', cost: 'read', input: 'path', args: f => need(f, ['path'], v => ['appliance', 'verify', '-f', v.path, '--quick']) },
   ...SANDBOX,
+  ...RURE,
 ]
 
 /** What an entry's own `cost` says its class is: the console's confirm gate never reads an action as less than this. `local` and `read` declare nothing. */
@@ -212,7 +215,7 @@ export function devWhy(entry: DevEntry, fields: DevFields): string {
 }
 
 /** A value each field accepts, to find which field kept an entry from running. */
-const SAMPLE: DevFields = { ref: 'HEAD', path: 'memory.rvf', label: 'l', url: 'https://example.com', target: '@e1', query: 'q', task: 't', cmd: 'c', id: 'i', note: 'n', session: 's', send: 'c' }
+const SAMPLE: DevFields = { ref: 'HEAD', path: 'memory.rvf', label: 'l', url: 'https://example.com', target: '@e1', query: 'q', task: 't', cmd: 'c', id: 'i', note: 'n', session: 's', send: 'c', sample: 'app/x' }
 
 /**
  * Every runnable entry as a palette entry, so `/ruflo run dt-diff HEAD~3` works headless: an entry with an input field
@@ -251,10 +254,16 @@ export const withTmux = (entry: DevEntry, tmux: State['devtools']['tmux']): DevE
 /** Which entry Enter in each field runs; a field with none only keeps its text. */
 const SUBMITS: Partial<Record<DevField, string>> = { task: 'dt-brain', ref: 'dt-diff', path: 'dt-cow-status', session: 'dt-sb-capture', send: 'dt-sb-send', url: 'dt-br-open', target: 'dt-br-click', query: 'dt-plug-search', cmd: 'dt-term-exec' }
 
+/** Enter in a field on a page of its own: the entry that page runs for it, where that differs from the shared `SUBMITS` (the ruRE page, ADR-492). */
+const PAGE_SUBMITS: Partial<Record<DevGroup, Partial<Record<DevField, string>>>> = {
+  'rure-app': { sample: 'dt-re-js', query: 'dt-re-find' },
+  'rure-native': { sample: 'dt-re-bin' },
+}
+
 export type DevtoolsActions = {
   draft: (field: DevField, text: string) => void
-  /** Enter in a field: keep its text and run its entry (a read at once, the rest asked first). */
-  submit: (field: DevField, text: string) => void
+  /** Enter in a field: keep its text and run its entry (a read at once, the rest asked first); `group` is the section the field is drawn in. */
+  submit: (field: DevField, text: string, group?: DevGroup) => void
 }
 
 export function devtoolsActions(state: State, host: Host, run: (id: string, text: string) => boolean, refuse: (why: string) => void): DevtoolsActions {
@@ -262,11 +271,11 @@ export function devtoolsActions(state: State, host: Host, run: (id: string, text
     draft: (field, text) => {
       state.devtools.fields[field] = text
     },
-    submit: (field, text) => {
+    submit: (field, text, group) => {
       state.devtools.fields[field] = text
       host.invalidate()
 
-      const id = SUBMITS[field]
+      const id = (group === undefined ? undefined : PAGE_SUBMITS[group]?.[field]) ?? SUBMITS[field]
 
       if (id === undefined) return
       if (fieldValue(field, text) === null) refuse(`${field} field: ${fieldRule(field)}`)

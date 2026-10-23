@@ -30,6 +30,7 @@ import { themesView } from './themes'
 import { settingsView } from './settings'
 import { whatsnewView } from './whatsnew'
 import { adrsView } from './adr'
+import { rureView } from './rure'
 import { devtoolsResult, devtoolsView } from './devtools'
 import { sandboxView } from './sandbox'
 import { federationView } from './federation'
@@ -100,7 +101,7 @@ export const BODIES: Record<ViewId, (ctx: Ctx) => RenderElement> = {
   market: catalogView,
   themes: themesView,
   settings: settingsView,
-  whatsnew: whatsnewView, adrs: adrsView,
+  whatsnew: whatsnewView, adrs: adrsView, rure: rureView,
   agent: agentView,
 }
 
