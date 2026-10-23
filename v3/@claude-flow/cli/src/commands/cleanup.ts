@@ -124,7 +124,7 @@ export const cleanupCommand: Command = {
   ],
   action: async (ctx: CommandContext): Promise<CommandResult> => {
     const force = ctx.flags.force === true;
-    const keepConfig = ctx.flags['keep-config'] === true;
+    const keepConfig = ctx.flags.keepConfig === true || ctx.flags['keep-config'] === true;
     const cwd = ctx.cwd;
 
     const dryRun = !force;
