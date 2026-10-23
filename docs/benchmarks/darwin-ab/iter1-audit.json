@@ -1,0 +1,17 @@
+{
+  "iteration": 1,
+  "phase": "audit",
+  "timestamp_utc": "2026-06-22T15:00:00Z",
+  "prereqs": {
+    "docker_installed": true,
+    "docker_daemon_running": false,
+    "python3": "3.12.13",
+    "swebench_pypi_reachable": true,
+    "hf_swebench_lite_reachable": true,
+    "darwin_cli_works": true,
+    "openrouter_key_available": true,
+    "disk_free_gb": 1500
+  },
+  "blocker": "docker daemon not running — official SWE-Bench eval requires per-instance docker containers",
+  "next_iter_plan": "Iter 2: pull 5 instances from princeton-nlp/SWE-bench_Lite, build bench-suite JSON, eval via sandbox=mock (deterministic, no docker) — graduate to sandbox=real once docker daemon is started"
+}

@@ -1,0 +1,126 @@
+{
+  "success": true,
+  "data": {
+    "overall": {
+      "ok": true,
+      "icon": "✅"
+    },
+    "gates": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "details": [
+        {
+          "ok": true,
+          "criterion": "TPR improvement ≥ 25% vs fixed harness",
+          "measured": "+150% (B2 0.4 → B3 1)"
+        },
+        {
+          "ok": true,
+          "criterion": "FPR reduction ≥ 40%",
+          "measured": "−75.000028% (B2 0.888889 → B3 0.222222)"
+        },
+        {
+          "ok": true,
+          "criterion": "Patch-test pass rate ≥ 80%",
+          "measured": "100%"
+        },
+        {
+          "ok": true,
+          "criterion": "Reproduction success ≥ 90%",
+          "measured": "100%"
+        },
+        {
+          "ok": true,
+          "criterion": "Unsafe outputs = 0",
+          "measured": "champion=0, baselines=0,0,0"
+        },
+        {
+          "ok": true,
+          "criterion": "Cost increase ≤ 2× fixed harness",
+          "measured": "1.633929×"
+        },
+        {
+          "ok": true,
+          "criterion": "All runs reproducible from receipts",
+          "measured": "B0=593274e6 B1=2589863b B2=92a56965 B3=69a12eb3"
+        },
+        {
+          "ok": true,
+          "criterion": "Champion beats every baseline on fitness",
+          "measured": "B3 0.89875 vs [0.5665, 0.1365, 0.598]"
+        },
+        {
+          "ok": true,
+          "criterion": "Beyond SOTA: champion STATISTICALLY beats the previous champion",
+          "measured": "lower95 0.16575 > 0, meanDelta 0.242896, p=0, unsafe-regression=false"
+        },
+        {
+          "ok": true,
+          "criterion": "Compounding: false-positive repeat-rate drop ≥ 35%",
+          "measured": "−100% (cold 4 → warm 0)"
+        },
+        {
+          "ok": true,
+          "criterion": "Compounding: patch-reuse improvement ≥ 20%",
+          "measured": "+100%"
+        },
+        {
+          "ok": true,
+          "criterion": "Compounding: seeded genomes beat random ≥ 15%",
+          "measured": "+15.1617% (seeded 0.737719 vs random 0.640594)"
+        }
+      ]
+    },
+    "baselines": [
+      {
+        "harness": "static-only",
+        "fitness": 0.5665,
+        "tpr": 0.3,
+        "fpr": 1,
+        "patchPass": 1,
+        "repro": 1,
+        "unsafe": 0,
+        "cost": "4t/1r"
+      },
+      {
+        "harness": "LLM single-pass",
+        "fitness": 0.1365,
+        "tpr": 0,
+        "fpr": 1,
+        "patchPass": 0,
+        "repro": 0,
+        "unsafe": 0,
+        "cost": "1t/1r"
+      },
+      {
+        "harness": "fixed agent",
+        "fitness": 0.598,
+        "tpr": 0.4,
+        "fpr": 0.888889,
+        "patchPass": 1,
+        "repro": 1,
+        "unsafe": 0,
+        "cost": "2t/1r"
+      },
+      {
+        "harness": "Darwin champion",
+        "fitness": 0.89875,
+        "tpr": 1,
+        "fpr": 0.222222,
+        "patchPass": 1,
+        "repro": 1,
+        "unsafe": 0,
+        "cost": "4t/3r"
+      }
+    ],
+    "rawMarkdown": "# DARWIN-SHIELD-BENCH results\n\nCorpus: `darwin-shield-bench@1.0.0` — 10 ground-truth vulns, 9 decoys. 8 evolution cycles.\n\n**Overall: ✅ PASS**\n\n## Baselines vs champion\n\n| Harness | fitness | TPR | FPR | patch-pass | repro | unsafe | cost |\n|---|---|---|---|---|---|---|---|\n| B0 static-only | 0.5665 | 0.3 | 1 | 1 | 1 | 0 | 4t/1r |\n| B1 LLM single-pass | 0.1365 | 0 | 1 | 0 | 0 | 0 | 1t/1r |\n| B2 fixed agent | 0.598 | 0.4 | 0.888889 | 1 | 1 | 0 | 2t/1r |\n| B3 Darwin champion | 0.89875 | 1 | 0.222222 | 1 | 1 | 0 | 4t/3r |\n\n## Acceptance gates\n\n- ✅ **TPR improvement ≥ 25% vs fixed harness** — +150% (B2 0.4 → B3 1)\n- ✅ **FPR reduction ≥ 40%** — −75.000028% (B2 0.888889 → B3 0.222222)\n- ✅ **Patch-test pass rate ≥ 80%** — 100%\n- ✅ **Reproduction success ≥ 90%** — 100%\n- ✅ **Unsafe outputs = 0** — champion=0, baselines=0,0,0\n- ✅ **Cost increase ≤ 2× fixed harness** — 1.633929×\n- ✅ **All runs reproducible from receipts** — B0=593274e6 B1=2589863b B2=92a56965 B3=69a12eb3\n- ✅ **Champion beats every baseline on fitness** — B3 0.89875 vs [0.5665, 0.1365, 0.598]\n- ✅ **Beyond SOTA: champion STATISTICALLY beats the previous champion** — lower95 0.16575 > 0, meanDelta 0.242896, p=0, unsafe-regression=false\n- ✅ **Compounding: false-positive repeat-rate drop ≥ 35%** — −100% (cold 4 → warm 0)\n- ✅ **Compounding: patch-reuse improvement ≥ 20%** — +100%\n- ✅ **Compounding: seeded genomes beat random ≥ 15%** — +15.1617% (seeded 0.737719 vs random 0.640594)\n\n## Statistical promotion (champion vs previous champion)\n\n- mean per-repo Δ: **0.242896** (prev 0.5155 → new 0.759375)\n- lower-95% bound: **0.16575** (> 0 required), one-sided p = 0\n- verdict: ✅ statistically superior — promoted: lower95 0.16575 > 0, meanDelta 0.242896, zero unsafe\n\n## Compounding (ruVector memory makes the next run smarter)\n\n- false-positive repeat-rate drop: **100%** (≥ 35% required) ✅\n- patch-reuse improvement: **100%** (≥ 20% required) ✅\n- seeded-vs-random advantage: **15.1617%** (≥ 15% required) ✅\n\n## Lever ablation (the harness is the lever)\n\nFitness lost when each lever is knocked out of the champion (full = 0.89875):\n\n- context (→ minimal): **−0.11875**\n- tools (→ single tool): **−0.07275**\n- reviewers (→ 1): **−0.04625**\n- model (→ none): **−0**\n- memory (→ off): **−0**\n\n## Champion genome\n\n```json\n{\n  \"id\": \"g6_v2_12\",\n  \"parentId\": \"g5_v6_10\",\n  \"planner\": \"risk-first\",\n  \"contextPolicy\": \"hybrid\",\n  \"reviewerCount\": 3,\n  \"retryBudget\": 3,\n  \"fuzzBudgetSeconds\": 15,\n  \"tools\": [\n    \"semgrep\",\n    \"osv-scanner\",\n    \"codeql\",\n    \"trivy\"\n  ],\n  \"modelMix\": [\n    \"claude\"\n  ],\n  \"validationPipeline\": [\n    \"static\",\n    \"fuzz\",\n    \"repro-test\",\n    \"review\"\n  ],\n  \"safetyProfile\": \"strict-defensive\"\n}\n```\n\nLineage: baseline → g0_v4_4 → g1_v2_8 → g2_v2_e → g4_v5_t → g5_v6_10 → g6_v2_12\n\nOverall: PASS\n",
+    "shape": {
+      "population": 8,
+      "cycles": 8,
+      "seed": 23
+    },
+    "durationMs": 354
+  },
+  "generatedAt": "2026-06-22T15:10:17.879Z"
+}
