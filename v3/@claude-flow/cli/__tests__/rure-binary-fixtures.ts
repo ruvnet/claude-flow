@@ -236,3 +236,141 @@ export function buildMinimalProxy(): Buffer {
     Buffer.from('5af43d82803e903d91602b57fd5bf3', 'hex'),
   ]);
 }
+
+/** A cubin (ELF64, e_machine 190) with the kernels given: symbols, .text.<name> (register count in sh_info), .nv.constant0.<name>. */
+export function buildCubin(kernels: { name: string; regs?: number; codeBytes?: number; constBytes?: number; deviceFn?: boolean }[], arch = 80): Buffer {
+  const secNames: string[] = [];
+  const secs: { name: string; type: number; data: Buffer; info?: number; link?: number }[] = [];
+  const strtab: number[] = [0];
+  const nameAt = (s: string): number => {
+    const at = strtab.length;
+
+    strtab.push(...Buffer.from(s, 'latin1'), 0);
+
+    return at;
+  };
+  const symbols = [Buffer.alloc(24)];
+  const textIndex: number[] = [];
+
+  kernels.forEach((k, i) => {
+    secs.push({ name: `.text.${k.name}`, type: 1, data: Buffer.alloc(k.codeBytes ?? 128), info: ((k.regs ?? 8) << 24) | (1 + i) });
+    textIndex.push(3 + secs.length); // sections 1..3 are .shstrtab, .strtab, .symtab; kernels start at 4
+    if (k.constBytes !== undefined) secs.push({ name: `.nv.constant0.${k.name}`, type: 1, data: Buffer.alloc(k.constBytes) });
+  });
+  kernels.forEach((k, i) => {
+    const sym = Buffer.alloc(24);
+
+    sym.writeUInt32LE(nameAt(k.name), 0);
+    sym[4] = 0x12; // GLOBAL FUNC
+    sym[5] = k.deviceFn ? 0 : 0x10; // STO_CUDA_ENTRY
+    sym.writeUInt16LE(textIndex[i] as number, 6);
+    sym.writeBigUInt64LE(BigInt(k.codeBytes ?? 128), 16);
+    symbols.push(sym);
+  });
+
+  const all = [
+    { name: '', type: 0, data: Buffer.alloc(0) },
+    { name: '.shstrtab', type: 3, data: Buffer.alloc(0) },
+    { name: '.strtab', type: 3, data: Buffer.from(strtab) },
+    { name: '.symtab', type: 2, data: Buffer.concat(symbols), link: 2 },
+    ...secs,
+  ];
+  const shstr: number[] = [0];
+
+  for (const s of all) {
+    secNames.push(s.name);
+  }
+
+  const offsets = secNames.map(name => {
+    if (name === '') return 0;
+
+    const at = shstr.length;
+
+    shstr.push(...Buffer.from(name, 'latin1'), 0);
+
+    return at;
+  });
+
+  all[1]!.data = Buffer.from(shstr);
+
+  let off = 64;
+  const placed = all.map(s => {
+    const at = off;
+
+    off += s.data.length;
+
+    return at;
+  });
+  const shoff = off;
+  const buf = Buffer.alloc(shoff + all.length * 64);
+
+  buf.write('\x7fELF', 0, 'latin1');
+  buf[4] = 2;
+  buf[5] = 1;
+  buf[6] = 1;
+  buf.writeUInt16LE(2, 0x10);
+  buf.writeUInt16LE(190, 0x12);
+  buf.writeUInt32LE(1, 0x14);
+  buf.writeBigUInt64LE(BigInt(shoff), 0x28);
+  buf.writeUInt32LE((arch << 8) | 4, 0x30);
+  buf.writeUInt16LE(64, 0x34);
+  buf.writeUInt16LE(64, 0x3a);
+  buf.writeUInt16LE(all.length, 0x3c);
+  buf.writeUInt16LE(1, 0x3e);
+  all.forEach((s, i) => {
+    s.data.copy(buf, placed[i] as number);
+
+    const h = shoff + i * 64;
+
+    buf.writeUInt32LE(offsets[i] as number, h);
+    buf.writeUInt32LE(s.type, h + 4);
+    buf.writeBigUInt64LE(BigInt(placed[i] as number), h + 24);
+    buf.writeBigUInt64LE(BigInt(s.data.length), h + 32);
+    buf.writeUInt32LE((s as { link?: number }).link ?? 0, h + 40);
+    buf.writeUInt32LE((s as { info?: number }).info ?? 0, h + 44);
+    buf.writeBigUInt64LE(s.type === 2 ? 24n : 0n, h + 56);
+  });
+
+  return buf;
+}
+
+export interface FatbinEntrySpec {
+  kind: number;
+  arch: number;
+  payload: Buffer;
+  flags?: bigint;
+  /** Written as the compressed size (default 0) and the decompressed size (default 0). */
+  compressedSize?: number;
+  decompressedSize?: bigint;
+  /** The entry header length written into the header (default 64); the header itself is always 64 bytes of fields. */
+  headerSize?: number;
+}
+
+/** A fatbin: one container (magic, version 1, header size 16, payload size) holding the entries, each padded to 8 bytes. */
+export function buildFatbin(entries: FatbinEntrySpec[], overrides: { fatSize?: bigint; headerSize?: number } = {}): Buffer {
+  const parts = entries.map(e => {
+    const header = Buffer.alloc(Math.max(64, e.headerSize ?? 64));
+    const padded = Math.ceil(e.payload.length / 8) * 8;
+
+    header.writeUInt16LE(e.kind, 0);
+    header.writeUInt16LE(0x0101, 2);
+    header.writeUInt32LE(e.headerSize ?? 64, 4);
+    header.writeBigUInt64LE(BigInt(padded), 8);
+    header.writeUInt32LE(e.compressedSize ?? 0, 16);
+    header.writeUInt32LE(e.kind === 1 ? 0x90000 : 0x10008, 24);
+    header.writeUInt32LE(e.arch, 28);
+    header.writeBigUInt64LE(e.flags ?? 0x11n, 40);
+    header.writeBigUInt64LE(e.decompressedSize ?? 0n, 56);
+
+    return Buffer.concat([header.subarray(0, Math.max(64, e.headerSize ?? 64)), e.payload, Buffer.alloc(padded - e.payload.length)]);
+  });
+  const body = Buffer.concat(parts);
+  const head = Buffer.alloc(16);
+
+  head.writeUInt32LE(0xba55ed50, 0);
+  head.writeUInt16LE(1, 4);
+  head.writeUInt16LE(overrides.headerSize ?? 16, 6);
+  head.writeBigUInt64LE(overrides.fatSize ?? BigInt(body.length), 8);
+
+  return Buffer.concat([head, body]);
+}

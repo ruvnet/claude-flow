@@ -1,0 +1,52 @@
+# /usr/local/cuda-12.8/bin/cuobjdump (Build cuda_12.8.r12.8/compiler.35538042_0)
+## -lelf -lptx
+ELF file    1: host-cuda128-all.1.sm_80.cubin
+ELF file    2: host-cuda128-all.2.sm_80.cubin
+PTX file    1: host-cuda128-all.1.sm_80.ptx
+## -res-usage
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,7]
+host = linux
+compile_size = 64bit
+compressed
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin elf code:
+================
+arch = sm_80
+code version = [1,7]
+host = linux
+compile_size = 64bit
+compressed
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _Z12scale_secretPfi:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:364 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z5saxpyifPKfPf:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:376 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_80
+code version = [8,7]
+host = linux
+compile_size = 64bit
+compressed
+ptxasOptions = 
+## -symbols
+Fatbin elf code:
+arch = sm_80
+Fatbin elf code:
+arch = sm_80
+STT_FUNC         STB_GLOBAL STO_ENTRY      _Z12scale_secretPfi
+STT_FUNC         STB_GLOBAL STO_ENTRY      _Z5saxpyifPKfPf
+Fatbin ptx code:
+arch = sm_80

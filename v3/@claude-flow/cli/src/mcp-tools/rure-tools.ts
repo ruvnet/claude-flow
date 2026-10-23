@@ -17,6 +17,7 @@ import { gateWithAIDefence, type GatedText } from '../rure/aidefence-gate.js';
 import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-parse.js';
 import { parseDotNet } from '../rure/dotnet-parse.js';
 import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
+import { analyzeCuda } from '../rure/cuda-parse.js';
 import type { ModuleAnalysis, Evidence } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -339,6 +340,56 @@ export const rureTools: MCPTool[] = [
         return ok({ ...info, strings, redactedCount: sc.redacted, screened: sc.screened });
       } catch (err) {
         return fail(`evm analysis failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'rure_analyze_cuda',
+    description:
+      'Statically inventory the GPU code in a CUDA program (ADR-0006): from a host ELF/PE with a .nv_fatbin section, a standalone fatbin, cubin or PTX file, the fatbin containers and entries (PTX or cubin, target architecture sm_NN, compression: zstd and LZ4 payloads are read under size caps), and per kernel its mangled name, code size, register count, constant/shared/local memory and an instruction estimate; PTX version, target and kernel names. Parses only: no SASS decoding, no CUDA toolkit or driver, nothing is run, and nothing is written. Names from the file are untrusted text and are screened by AIDefence (redactedCount / screened report this). Use rure_analyze_binary first when it is not known whether a file holds CUDA code.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'cuda', 'gpu', 'fatbin', 'ptx', 'static-analysis'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to a CUDA host binary (ELF/PE), a .fatbin, a .cubin or a .ptx file' },
+        includePtx: { type: 'boolean', description: 'Also return the PTX text, cut at 64 KiB (default false)' },
+      },
+      required: ['path'],
+    },
+    handler: async (input): Promise<MCPToolResult> => {
+      const v = validatePath(input.path, 'path');
+      if (!v.valid) return fail(v.error!);
+      try {
+        const r = readCapped(v.sanitized, MAX_BINARY_BYTES);
+        if (!r.ok) return fail(r.error);
+        const info = analyzeCuda(r.bytes, { includePtx: input.includePtx === true });
+        const sc = new Screener();
+        const names = await sc.screen(info.kernels.map((k) => k.name));
+        const idents = await sc.screen(info.kernels.map((k) => k.identifier ?? ''));
+        const kernels = info.kernels.map((k, i) => ({ ...k, name: names[i], identifier: k.identifier === null ? null : idents[i] }));
+        const ptx: Record<string, unknown>[] = [];
+        for (const m of info.ptx) {
+          const entries = await sc.screen(m.entries.map((e) => e.name));
+          const functions = await sc.screen(m.functions);
+          const text = m.text === undefined ? undefined : await sc.one(m.text);
+          ptx.push({ ...m, entries: m.entries.map((e, i) => ({ ...e, name: entries[i] })), functions, ...(text !== undefined && { text }) });
+        }
+        const hostSignals = await sc.screen(info.hostSignals);
+        const hostSection = info.hostSection === null ? null : { ...info.hostSection, name: await sc.one(info.hostSection.name) };
+        const entryKernels = kernels.filter((k) => k.isEntry).length;
+        return ok({
+          ...info,
+          hostSection,
+          hostSignals,
+          kernels,
+          ptx,
+          summary: { containers: info.containers, entries: info.entries.length, cubins: info.entries.filter((e) => e.kind === 'cubin').length, ptxEntries: info.entries.filter((e) => e.kind === 'ptx').length, kernels: entryKernels, deviceFunctions: kernels.length - entryKernels },
+          redactedCount: sc.redacted,
+          screened: sc.screened,
+        });
+      } catch (err) {
+        return fail(`cuda analysis failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
   },
