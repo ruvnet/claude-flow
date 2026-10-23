@@ -81,7 +81,7 @@ async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | n
   }
 }
 
-function getUpdateType(
+export function getUpdateType(
   current: string,
   latest: string
 ): 'major' | 'minor' | 'patch' | 'none' {
@@ -89,7 +89,9 @@ function getUpdateType(
     return 'none';
   }
 
-  if (semver.eq(current, latest)) {
+  // An update is a strictly newer version. Comparing the parts one by one called 3.60.0 (running) against 3.59.17 (latest) a
+  // 'patch' update, since 17 > 0, and the startup check then auto-installed the older version: a downgrade.
+  if (!semver.gt(latest, current)) {
     return 'none';
   }
 
