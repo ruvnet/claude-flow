@@ -99,6 +99,15 @@ describe('agentbbs MCP tools — structural contract', () => {
     expect(/^[A-Za-z0-9_.\-:/@#]+$/.test('hr/onboarding')).toBe(true);
   });
 
+  it('publish and watch reject a roomId that escapes the .agentbbs dir (..)', async () => {
+    const publish = findTool('federation_bbs_publish');
+    const watch = findTool('federation_bbs_watch');
+    for (const roomId of ['../../../../tmp/x', 'a/../../../tmp/x', '..']) {
+      await expect(publish.handler({ roomId, msgType: 'task-result', payload: {} })).rejects.toThrow(/must not contain \.\./);
+      await expect(watch.handler({ roomId })).rejects.toThrow(/must not contain \.\./);
+    }
+  });
+
   it('publish rejects malformed msgType (validation runs before optional-dep check)', async () => {
     const publish = findTool('federation_bbs_publish');
     await expect(publish.handler({
