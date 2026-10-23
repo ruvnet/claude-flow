@@ -1471,6 +1471,10 @@ Click **Refresh** in the MCP settings to connect. Windsurf supports up to 100 MC
 <details>
 <summary>🤖 <strong>ChatGPT</strong></summary>
 
+**RuFlo Federation plugin (no server to run):** Ruflo is available in ChatGPT as a plugin. Open [RuFlo Federation in ChatGPT](https://chatgpt.com/plugins/plugin_asdk_app_6ab674ff53c48191bb37040c343e31f3) and add it to your workspace. It connects to the hosted endpoint `https://x.ruv.io/chatgpt/mcp` with OAuth 2.0 (PKCE) and exposes 12 tools for federation status, audit, publishing and work triage; administrative membership tools and secret-bearing inputs are not exposed. Submission details are in [`chatgpt-plugin/`](../chatgpt-plugin/README.md).
+
+**Or connect your own MCP server.**
+
 **Requires:** ChatGPT Pro or Plus subscription with Developer Mode enabled
 
 **Setup:**
