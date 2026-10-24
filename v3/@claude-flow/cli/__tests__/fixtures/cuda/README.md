@@ -14,6 +14,7 @@ the tests compare against. Built on Linux x86-64, 2026-10-23.
 | `k80.fatbin` | nvcc 13.0.88 | `nvcc -fatbin -arch=sm_80 -compress-mode=none -o k80.fatbin k.cu` |
 | `k80.cubin` | nvcc 13.0.88 | `nvcc -cubin -arch=sm_80 -o k80.cubin k.cu` |
 | `k80.ptx` | nvcc 13.0.88 | `nvcc -ptx -arch=compute_80 -o k80.ptx k.cu` |
+| `k70-cuda128.cubin`, `k75-cuda128.cubin`, `k90-cuda128.cubin` | nvcc 12.8.93 | `nvcc -cubin -arch=sm_70 -Wno-deprecated-gpu-targets -o k70-cuda128.cubin k.cu` (and `sm_75`, `sm_90`). CUDA 12 writes these with ELF OS ABI 51, where the SM number is the low byte of `e_flags`; CUDA 13 uses OS ABI 65 and the second byte. Added when the launch plan (ruflo ADR-501) found the reader calling every such cubin `sm_5`. Ground truth is `cuobjdump -res-usage` and `-symbols`. |
 
 Then `strip` the `host-*` files, and record the ground truth with `cuobjdump -lelf -lptx F; cuobjdump -res-usage F; cuobjdump -symbols F`.
 CUDA 13 no longer accepts `compute_70`, hence sm_75 in the multi-architecture build.

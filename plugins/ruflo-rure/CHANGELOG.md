@@ -2,6 +2,11 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.6.0 — 2026-10-24
+
+- feat: `rure_cuda_launch_plan` (ruflo ADR-501, ruflo CLI 3.62.0): the step from "what the CUDA program contains" to "what is worth measuring". For each kernel of each architecture it works out theoretical occupancy at a set of block sizes, which resource limits it, the best block sizes and a few flags, and with `includeHarness` returns the text of a CUDA driver-API program the person can build to check the numbers on their own GPU (and, with arguments they supply, to time launches). The occupancy model reproduces NVIDIA's `cuda_occupancy.h` on every combination checked for sm_70, 75, 80, 86, 87, 89, 90 and 120, and equals the CUDA driver on real devices (see the ADR for which). Read-only: nothing is compiled, loaded or run by ruRE, and nothing from the analyzed file reaches the harness text.
+- docs: the skill gains the launch-plan step and states the limits (occupancy bounds performance and does not predict it; an architecture without a table gets no figure; building the harness is the person's step). Its console step now lists the CUDA row and the outside-folder option, which it had not caught up with.
+
 ## 0.5.0 — 2026-10-23
 
 - feat: Phase 5 per ADR-0006 — `rure_analyze_cuda` inventories the GPU code in a CUDA program from a host ELF/PE with a `.nv_fatbin` section, or a standalone fatbin, cubin or PTX file: the fatbin containers and entries (kind, target `sm_NN`, compression), PTX version/target/kernel names, and per kernel its mangled name, code size, register count, constant/shared/local memory and an instruction estimate. zstd (CUDA 13) and LZ4 (CUDA 12) compressed entries are read under size caps; a Node without zstd reports those entries as unread. Original pure-TypeScript reader: no toolkit, no SASS decoding, nothing run. Checked against real `nvcc` 12.8 and 13.0 output (sm_75, sm_80, sm_90) and `cuobjdump`: kernel names, register counts, constant and shared memory all equal. A new MCP tool, so it ships in the next minor release of `@claude-flow/cli`; the ruflo console's ruRE page does not list it yet.

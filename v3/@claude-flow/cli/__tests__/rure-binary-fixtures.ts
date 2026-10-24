@@ -237,8 +237,8 @@ export function buildMinimalProxy(): Buffer {
   ]);
 }
 
-/** A cubin (ELF64, e_machine 190) with the kernels given: symbols, .text.<name> (register count in sh_info), .nv.constant0.<name>. */
-export function buildCubin(kernels: { name: string; regs?: number; codeBytes?: number; constBytes?: number; deviceFn?: boolean }[], arch = 80): Buffer {
+/** A cubin (ELF64, e_machine 190) with the kernels given: symbols, .text.<name> (register count in sh_info), .nv.constant0.<name>, and with `nvInfo` the global .nv.info register records the reader trusts. */
+export function buildCubin(kernels: { name: string; regs?: number; codeBytes?: number; constBytes?: number; sharedBytes?: number; localBytes?: number; deviceFn?: boolean }[], arch = 80, options: { nvInfo?: boolean } = {}): Buffer {
   const secNames: string[] = [];
   const secs: { name: string; type: number; data: Buffer; info?: number; link?: number }[] = [];
   const strtab: number[] = [0];
@@ -253,9 +253,11 @@ export function buildCubin(kernels: { name: string; regs?: number; codeBytes?: n
   const textIndex: number[] = [];
 
   kernels.forEach((k, i) => {
-    secs.push({ name: `.text.${k.name}`, type: 1, data: Buffer.alloc(k.codeBytes ?? 128), info: ((k.regs ?? 8) << 24) | (1 + i) });
+    secs.push({ name: `.text.${k.name}`, type: 1, data: Buffer.alloc(k.codeBytes ?? 128), info: (((k.regs ?? 8) << 24) | (1 + i)) >>> 0 });
     textIndex.push(3 + secs.length); // sections 1..3 are .shstrtab, .strtab, .symtab; kernels start at 4
     if (k.constBytes !== undefined) secs.push({ name: `.nv.constant0.${k.name}`, type: 1, data: Buffer.alloc(k.constBytes) });
+    if (k.sharedBytes !== undefined) secs.push({ name: `.nv.shared.${k.name}`, type: 1, data: Buffer.alloc(k.sharedBytes) });
+    if (k.localBytes !== undefined) secs.push({ name: `.nv.local.${k.name}`, type: 1, data: Buffer.alloc(k.localBytes) });
   });
   kernels.forEach((k, i) => {
     const sym = Buffer.alloc(24);
@@ -267,6 +269,18 @@ export function buildCubin(kernels: { name: string; regs?: number; codeBytes?: n
     sym.writeBigUInt64LE(BigInt(k.codeBytes ?? 128), 16);
     symbols.push(sym);
   });
+
+  // The register count the reader trusts (EIATTR_REGCOUNT in the global .nv.info: format 4, attribute 0x2f, 8 payload bytes: symbol index, count).
+  const info = Buffer.alloc(12 * kernels.length);
+
+  kernels.forEach((k, i) => {
+    info[12 * i] = 4;
+    info[12 * i + 1] = 0x2f;
+    info.writeUInt16LE(8, 12 * i + 2);
+    info.writeUInt32LE(1 + i, 12 * i + 4);
+    info.writeUInt32LE(k.regs ?? 8, 12 * i + 8);
+  });
+  if (options.nvInfo === true) secs.push({ name: '.nv.info', type: 0x70000000, data: info });
 
   const all = [
     { name: '', type: 0, data: Buffer.alloc(0) },

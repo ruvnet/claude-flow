@@ -1,0 +1,13 @@
+# /usr/local/cuda-12.8/bin/cuobjdump (Build cuda_12.8.r12.8/compiler.35538042_0)
+## -res-usage
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _Z12scale_secretPfi:
+  REG:8 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:540 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z5saxpyifPKfPf:
+  REG:10 STACK:0 SHARED:0 LOCAL:0 CONSTANT[0]:552 TEXTURE:0 SURFACE:0 SAMPLER:0
+## -symbols
+STT_FUNC         STB_GLOBAL STO_ENTRY      _Z12scale_secretPfi
+STT_FUNC         STB_GLOBAL STO_ENTRY      _Z5saxpyifPKfPf
