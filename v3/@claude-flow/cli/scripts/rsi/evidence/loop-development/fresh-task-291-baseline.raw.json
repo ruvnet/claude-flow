@@ -1,0 +1,16 @@
+{
+  "schema": "ruflo.parent-only-evaluator-result/v1",
+  "taskId": "avoid-ai-writing-291",
+  "sourceCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+  "exitCode": 1,
+  "tests": 4,
+  "passed": 1,
+  "failed": 3,
+  "outcomes": [
+    { "id": "blank-line-lf", "expected": 0, "actual": 1, "pass": false },
+    { "id": "adjacent-line-lf", "expected": 0, "actual": 1, "pass": false },
+    { "id": "blank-line-crlf", "expected": 0, "actual": 1, "pass": false },
+    { "id": "same-line-positive-control", "expected": 1, "actual": 1, "pass": true }
+  ],
+  "interpretation": "Known failing base calibration from the public issue specification; no proposal or repair candidate was evaluated."
+}

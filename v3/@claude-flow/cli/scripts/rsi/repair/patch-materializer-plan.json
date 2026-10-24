@@ -1,0 +1,71 @@
+{
+  "schema": "ruflo.repair-patch-materializer-engineering-plan/v1",
+  "purpose": "VERIFY_CHILD_OWNED_EXPOSED_TEMPLATE_PATCH_MATERIALIZATION_WITHOUT_REPOSITORY_EXECUTION",
+  "implementationParent": "8bf532221055dc62cecd9b007eaf5d17c9f5e9d7",
+  "inheritedImprover": {
+    "planSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+    "planRawSha256": "55292e89055f5f5e81478e442c38ac7b451a1540f9d1125eb4a12ddd9b4683b9",
+    "requiredArm": "inherited",
+    "requiredLibraryId": "forward-generator-capability",
+    "requiredFamily": "FORWARD_GENERATOR_CAPABILITY",
+    "requiredDescriptorHash": "04fc1e03a99e94f6ec9b3adae880761175828ee7618ec2ed65be657a680a28b6",
+    "requiredSelectedTests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "ORDINARY_THROUGHPUT"]
+  },
+  "task": {
+    "id": "p-limit-limit-function-clear-queue",
+    "repository": "sindresorhus/p-limit",
+    "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+    "fixCommit": "f3e7f9ba364a9357bd912d136367d06c46660917",
+    "path": "index.js",
+    "partition": "TRAINING_ONLY_CALIBRATION",
+    "exposure": "PUBLISHED_FIX_AND_UPSTREAM_TESTS_KNOWN"
+  },
+  "source": {
+    "baseGitBlob": "5ecd39257c623b6dd4df204bbd7c94fbdf0b8d12",
+    "baseSha256": "30fa94b6aebe7f044f7383feee7931fc7c1a4912affadac97539cda67c14057d",
+    "baseBytes": 3315,
+    "knownFixGitBlob": "b74d48ab0e37788e657e5ad12d90e281ef1f39d1",
+    "knownFixSha256": "63239cd9ae80b1433e05014fe6ec501475c6fa59fad06418cb5972dbc7cc14e2",
+    "knownFixBytes": 3446,
+    "maxSourceBytes": 16384
+  },
+  "admittedRule": {
+    "schema": "ruflo.repair-single-replacement-rule/v1",
+    "operation": "WRAP_AND_FORWARD_SINGLE_PROPERTY_V1",
+    "oldSnippet": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\treturn (...arguments_) => limit(() => function_(...arguments_));\n}\n",
+    "oldSnippetSha256": "328b6c782efd078d98ba7fe6377a81c0878678bce0c03265159673ee509a34f8",
+    "functionName": "limitFunction",
+    "functionArgument": "function_",
+    "optionsArgument": "options",
+    "limiterName": "limit",
+    "wrapperName": "limitedFunction",
+    "forwardedProperty": "clearQueue"
+  },
+  "budgets": {
+    "childProcesses": 1,
+    "patchArtifacts": 1,
+    "replacementOperations": 1,
+    "trainingOnlyDescriptorScores": 4,
+    "repairCandidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "proofBoundary": {
+    "engineeringOnly": true,
+    "ruleResearcherAuthoredFromExposedFix": true,
+    "exposedFixDerivedRuleReadByChild": true,
+    "knownFixFixturePathProvided": false,
+    "knownFixFixtureReadAuditPerformed": false,
+    "freshTaskOutcomesRead": false,
+    "matchedControlPatchCoverage": false,
+    "empiricalHypothesisAdmitted": false,
+    "repositoryPatchApplied": false,
+    "repairCandidateEvaluated": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "improvementCapacityMeasured": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}

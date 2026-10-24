@@ -1,0 +1,48 @@
+{
+  "schema": "ruflo.repair-fd-launch-engineering-reservation/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "startedAt": "2026-09-13T12:11:33Z",
+  "source": {
+    "commit": "7d78690fb90014216d212347ddb9c0bb0f41d488",
+    "tree": "368305311216d98045c90ee0771c3379410c1673",
+    "implementationParent": "576a2b6933d18ace01485a4aba41cdfd86d11e93"
+  },
+  "upstreamBindings": {
+    "bubblewrapV090Commit": "8e51677abd7e3338e4952370bf7d902e37d8cbb6",
+    "bubblewrapV090SourceBlob": "9b78a9ae30dd8f3361f95ae0132d1c32a4ac3329",
+    "bubblewrapV0100Commit": "dc63ec667e6546f34e0b6c088cdf8ae7c7dea0f3",
+    "bubblewrapV0100SourceBlob": "bc75da470aec092ec9bdd08c240870507acedd47"
+  },
+  "stagnationCheck": {
+    "experimentalUncertaintyResolved": "WHETHER_PINNED_BUBBLEWRAP_0_9_0_CAN_ATOMICALLY_BIND_VALIDATED_RUNTIME_DIRECTORIES",
+    "expectedDecision": "NO_AND_FAIL_CLOSED_BEFORE_NAMESPACE_SPAWN"
+  },
+  "registeredValidation": {
+    "runsReserved": 3,
+    "command": "node --test v3/@claude-flow/cli/scripts/rsi/repair/fd-launch.test.mjs v3/@claude-flow/cli/scripts/rsi/repair/runtime-snapshot.test.mjs && node --check v3/@claude-flow/cli/scripts/rsi/repair/executor.mjs",
+    "nodeParentInvocationsReserved": 6,
+    "testRunnerDescendantProcessesReserved": null,
+    "retainInterruptedOrUnknownWork": true
+  },
+  "preReservationEngineering": {
+    "pureValidationRuns": 4,
+    "pureValidationProcessAccounting": null,
+    "reviewerHostProbeSpawnAttempts": 1,
+    "reviewerHostProbeObservedCompletion": false,
+    "reviewerHostProbeElapsedMsLowerBound": 10300,
+    "reviewerHostProbePurpose": "NO_CANDIDATE_BUBBLEWRAP_BIND_OPTION_SMOKE",
+    "reviewerHostProbeResult": "INTERRUPTED_OR_UNOBSERVED_RETAINED_NO_RETRY",
+    "repairCandidateEvaluations": 0
+  },
+  "missionDeltaReserved": {
+    "candidateEvaluations": 0,
+    "isolatedRepairProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "repairResourceProposalApproved": false,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

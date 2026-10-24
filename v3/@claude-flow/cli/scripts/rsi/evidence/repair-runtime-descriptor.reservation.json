@@ -1,0 +1,21 @@
+{
+  "schema": "ruflo.repair-runtime-descriptor-engineering-reservation/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "sourceCommit": "5c0b3044df464e2da2f141c4f13673b2c9de7eb2",
+  "sourceTree": "16d4abdb178ab98859ea52c727e46ea93dbb63b4",
+  "runtimeLayoutHash": "ccf90161f686638f6409a6f187631e5848713ed2f5174df47466018c5c5ae8f8",
+  "snapshotHash": "f4e1a04ccab31069b6eccf241207e2f6c45efae9e83bcb5ebd3b293f9ff16529",
+  "startedAt": "2026-09-13T08:05:26Z",
+  "reservedNodeValidationProcesses": 4,
+  "reservedWallMs": 60000,
+  "reservedSnapshotFileBytesPerHostRun": 132248416,
+  "scope": "THREE_DESCRIPTOR_TEST_RUNS_AND_ONE_HOST_SNAPSHOT_STAGE_VERIFY_DISCARD",
+  "bubblewrapStarts": 0,
+  "candidateEvaluations": 0,
+  "nativeFieldCalls": 0,
+  "externalProviderSpendUsd": 0,
+  "retainOnInterruption": true,
+  "missionBudgetChanged": false,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

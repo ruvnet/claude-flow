@@ -1,0 +1,121 @@
+{
+  "schema": "ruflo.repair-inherited-improver-engineering-result/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "recordedAt": "2026-09-13T09:00:05Z",
+  "decision": "ACCEPT_EXPOSED_TRAINING_RANKER_SCAFFOLD_ONLY",
+  "stagnationCheck": {
+    "uncertaintyResolved": "WHETHER_A_FROZEN_CHILD_MECHANISM_CAN_DERIVE_VERSIONED_STATE_AND_PRODUCE_SCORED_SUCCESSOR_DESCRIPTORS_WITHOUT_POST_SPAWN_COACHING",
+    "acceptanceDemonstrated": true,
+    "executionBlockerRemoved": false,
+    "experimentalLearningProduced": false
+  },
+  "source": {
+    "commit": "5d4c60f3906a4a70973e4c11f33db95a31def172",
+    "tree": "249b1a48bbd7f63ec16b85219142cdd0d65ea74c",
+    "implementationParent": "b9d30d3c4ef2befb83db18425e4b7d932069389a",
+    "reservationCommit": "ef059bf837703b62c069f4e8a6ff331c2d56638d",
+    "planSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+    "planRawSha256": "55292e89055f5f5e81478e442c38ac7b451a1540f9d1125eb4a12ddd9b4683b9"
+  },
+  "reservation": {
+    "path": "evidence/repair-inherited-improver.reservation.json",
+    "sha256": "cf3f23e101612333c747e4b9b54f0cd408ecfd12fc920111090c2d924916a509",
+    "retained": true,
+    "limits": {
+      "nodeValidationProcesses": 3,
+      "engineeringChildProcesses": 15,
+      "descriptorScores": 120,
+      "wallMs": 60000
+    }
+  },
+  "trainingLineage": {
+    "repository": "sindresorhus/p-limit",
+    "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+    "fixCommit": "f3e7f9ba364a9357bd912d136367d06c46660917",
+    "diffSha256": "265905aeb1727496ea8c41a8cf60e9826c8724d778a409b5d8233e23a562f818",
+    "partition": "TRAINING_ONLY_CALIBRATION",
+    "exposure": "PUBLISHED_FIX_AND_UPSTREAM_TESTS_KNOWN",
+    "freshTaskOutcomesRead": false
+  },
+  "mechanism": {
+    "proposer": "DETERMINISTIC_RULE_PROPOSER_V1",
+    "evaluator": "TRAINING_TRACE_DESCRIPTOR_MATCH_V1",
+    "model": "NONE",
+    "arms": ["inherited", "frozen", "static", "shuffled", "previous"],
+    "previousControlDegenerateWithFrozen": true,
+    "stateDimensionsUsedAndShuffled": ["diagnosisRuleCredits", "patchFamilyCredits", "testCredits"],
+    "childCanProduceExecutablePatch": false,
+    "childCanExecuteRepositoryCandidate": false
+  },
+  "registeredMeasurements": {
+    "sourceBoundRuns": 3,
+    "nodeValidationProcesses": 3,
+    "observedEngineeringChildProcesses": 15,
+    "childSpawnAttempts": 15,
+    "failedChildSpawns": 0,
+    "testPasses": 45,
+    "testFailures": 0,
+    "descriptorScores": 120,
+    "individualOuterWallMs": [400, 435, 434],
+    "summedOuterWallMs": 1269,
+    "externalProviderSpendUsd": 0,
+    "improverModelCalls": 0,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null,
+    "totalEngineeringUsd": null
+  },
+  "additionalDevelopmentChecks": {
+    "prepublicationParentTestProcesses": 4,
+    "observedChildProcesses": 16,
+    "descriptorScores": 146,
+    "knownFailedAssertionsRetained": 2,
+    "knownFailedChildSpawns": 0,
+    "knownIndividualSuiteWallMs": [146.238559, 329.141804, null, 320.028],
+    "otherNodeAndCoordinationProcesses": "NOT_FULLY_AGGREGATED",
+    "summedWallMs": null,
+    "totalEngineeringUsd": null
+  },
+  "review": {
+    "mode": "READ_ONLY_SECOND_AGENT_CODE_REVIEW",
+    "initialHighFindings": 3,
+    "initialMediumFindings": 3,
+    "initialLowFindings": 2,
+    "remainingCriticalOrHighFindings": 0,
+    "finalFocusedTests": 15,
+    "finalFocusedTestPasses": 15,
+    "freshTaskLeakageFound": false,
+    "resourceGateBypassFound": false
+  },
+  "legacyMission": {
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7,
+    "newNativeFieldCalls": 0,
+    "newEpochs": 0
+  },
+  "repairMission": {
+    "resourceProposalApproved": false,
+    "candidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "repairProcessWallMs": 0,
+    "candidateExecutionEnabled": false
+  },
+  "proofBoundary": {
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "freshTaskImprovementFound": false,
+    "independentConfirmation": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "remainingBlockers": [
+    "EXECUTABLE_PATCH_PROPOSAL_AND_REPOSITORY_EVALUATION",
+    "EXCLUSIVE_UID_OR_REVIEWED_FD_RELATIVE_ISOLATION_BOUNDARY",
+    "COMPATIBLE_CLEAN_OFFLINE_RUNNER",
+    "ACTUAL_P_LIMIT_BASE_AND_FIX_ISOLATED_REPRODUCTION",
+    "FRESH_DEVELOPMENT_TASK_FREEZE",
+    "REPAIR_RESOURCE_ENVELOPE_APPROVAL"
+  ],
+  "largestUncertainty": "WHETHER_INHERITED_FAILURE_ANALYSIS_STATE_IMPROVES_DESCENDANT_SUCCESSOR_PRODUCTIVITY_ON_FRESH_TASKS"
+}

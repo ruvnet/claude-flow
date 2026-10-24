@@ -1,0 +1,105 @@
+{
+  "schema": "ruflo.rsi-engineering-result/v1",
+  "increment": "FRESH-PROMPT-001",
+  "recordedAt": "2026-09-14T01:47:03.814Z",
+  "implementationParent": "cde19aa0e1c691540375fe726537d97ea7f9eaf7",
+  "reviewedSourceCommit": "61054ce3457ef07a0c0fc6b16c53387a36944658",
+  "reviewedSourceTree": "84c0b7cc8c5efc5b8f50bc360e80daeebdd1d0d7",
+  "federationClaimEvent": "e80bc7b500ef2abf8224a75fffacbea9c24ff7035db88e2e04f719906dc29773",
+  "githubReservationComment": 5657862257,
+  "decision": "ACCEPT_IMMUTABLE_PUBLIC_TASK_INPUT",
+  "blockerRemoved": "The frozen source-only proposer surface now receives an exact bounded public task statement without researcher follow-up or evaluator disclosure.",
+  "publicTaskReadback": {
+    "url": "https://github.com/conorbronsdon/avoid-ai-writing/issues/291",
+    "checkedAt": "2026-09-14T01:46:45.000Z",
+    "state": "open",
+    "comments": 0,
+    "fixDataAcquired": false,
+    "candidateOutcomeRead": false
+  },
+  "source": {
+    "freshTaskId": "avoid-ai-writing-291",
+    "baseCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+    "publicIssueNumber": 291,
+    "promptCapsuleSha256": "91495813669034503c7db9bf723b0b7c2ef30b8561e5f3880f4560609d0ee7dc",
+    "promptCapsuleBytes": 2448,
+    "freezeHash": "1ed08cdbc62d67392529b6bc8d02ae3e3a8f5f07e1432ca842382c36167830e3",
+    "promptModuleSha256": "f3bae3285506ad511264a6078e03c94ab1ec605410a1f839ced4e77ddc8262fb",
+    "promptTestSha256": "aaf1263e582472d75ef765d95b411676a7c4d83b04a3cc16c70565017e9abfbe",
+    "stageModuleSha256": "bc7f082ca28bebb1ff2eaf8f9a541b6687ae06971abf1fdb5e8c5b9107effb98",
+    "stageTestSha256": "d83ef4d2222f75ede48e238e4f8447291bd8b2f54bd2875510b67d76b739d178",
+    "workflowSha256": "c61f7038fabd63fa55c036801f8038328f25738f3391aaa995eaca77d2c8c15a",
+    "repairLoopSha256": "40a0f81b33660f3046f9019621b26130a5dd66d116b8a9492ae085d3b3634e66",
+    "githubBlobReadback": {
+      "promptValidator": "7c2ea5801a30c84bdc02c05e68d99e60d2c72074",
+      "freeze": "a45b586bc28d59aa45cd93b2fe0f4d2df168a78b",
+      "taskSpec": "1abf74defe653bb7c5ac5cec6664024b804a26a4"
+    }
+  },
+  "separation": {
+    "parentValidatesPromptBeforeStaging": true,
+    "publicTaskInputInProposerReceipt": true,
+    "taskSpecFileInSourceWorkspace": false,
+    "proposerReceiptContainsEvaluatorIdentity": false,
+    "parentBindingContainsEvaluatorIdentity": true,
+    "proposerRuntimeStarted": false,
+    "osIsolationProved": false
+  },
+  "measurement": {
+    "localTestCommands": 2,
+    "testFileWorkerAttempts": 7,
+    "testCases": 60,
+    "passedCases": 60,
+    "failedCases": 0,
+    "summedReportedNodeMs": 325.497920,
+    "completedSourceStages": 14,
+    "temporarySourceBytesWritten": 4155368,
+    "combinedBoundaryResult": "44/44",
+    "acceptanceResult": "16/16",
+    "repairCandidateEvaluations": 0,
+    "proposerOrEvaluatorStarts": 0,
+    "isolatedNamespaceStarts": 0,
+    "summedRepairProcessWallMs": 0,
+    "newNativeFieldCalls": 0,
+    "modelCalls": 0,
+    "newEpochs": 0,
+    "piRequests": 0,
+    "externalProviderSpendUsd": 0,
+    "ciProcesses": null,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null,
+    "totalEngineeringUsd": null
+  },
+  "mission": {
+    "initialAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7
+  },
+  "proofBoundary": {
+    "empiricalHypothesisAdmitted": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "guidanceChange": {
+    "prior": "The child surface contained immutable source bytes but no exact bounded task statement, so a future child would still require researcher follow-up.",
+    "proposed": "Freeze the exact public issue bytes before proposal, validate task/provenance bounds in the parent, and copy only public task input into the proposer receipt while retaining evaluator data in the parent binding.",
+    "expectedBenefit": "Let a future child identify the requested repair without additional researcher coaching while preserving evaluator separation.",
+    "benefitMeasured": false,
+    "measuredMechanics": "Exact prompt bytes and provenance passed validation; altered, unbounded, commented/closed, evaluator-bearing and execution-enabling variants failed closed; the proposer receipt matched the public prompt and excluded evaluator identities.",
+    "rollbackCondition": "Reject the task if prompt or public identity drifts, a solution becomes exposed before proposal, parent-only data reaches the proposer surface, or sandbox separation cannot be enforced.",
+    "cadenceBefore": "HOURLY",
+    "cadenceAfter": "HOURLY",
+    "cadenceRationale": "Useful bounded launch integration remains ready and no writer contention was observed."
+  },
+  "pi": {
+    "state": "BLOCKED_AUTH",
+    "requestsThisIncrement": 0,
+    "memoriesAdmitted": 0
+  },
+  "largestRemainingUncertainty": "Whether inherited training-only failure-analysis state improves descendant successor productivity on genuinely fresh tasks at equal total cost.",
+  "nextBlocker": "Bind the now task-complete proposer surface to a child launch on a compatible exclusive-UID isolation host and prove evaluator paths are absent from sandbox mounts; explicit repair-resource approval is still required before any candidate trial.",
+  "acceptance": "node --test v3/@claude-flow/cli/scripts/rsi/repair/fresh-task-prompt.test.mjs v3/@claude-flow/cli/scripts/rsi/repair/fresh-task-stage.test.mjs"
+}

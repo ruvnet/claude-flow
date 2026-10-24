@@ -1,0 +1,83 @@
+{
+  "schema": "ruflo.repair-ci-coverage/v1",
+  "increment": "LOOP-GUIDANCE-002",
+  "decision": "FAIL_CLOSED_ON_UNREGISTERED_REPAIR_TESTS",
+  "recordedAt": "2026-09-13T18:18:35Z",
+  "baselineSource": "3ae06672d6d7735b47d9417078078c52f1998fb9",
+  "reservationUrl": "https://github.com/ruvnet/core-memory/issues/85#issuecomment-5655140168",
+  "implementation": {
+    "module": "v3/@claude-flow/cli/scripts/rsi/repair/ci-coverage.mjs",
+    "moduleSha256": "fdda345672d89b340ba7de80811f343facd3942499817145599649ff5230218d",
+    "moduleBytes": 2451,
+    "test": "v3/@claude-flow/cli/scripts/rsi/repair/ci-coverage.test.mjs",
+    "testSha256": "bcc9f3a85be13414f1eda546f3de2bf6ebe19d741449d799ab621ff341a24625",
+    "testBytes": 1670,
+    "workflow": ".github/workflows/rsi-experiment.yml",
+    "workflowSha256": "1d5e0eb939aa7e82580b8190485b8c0b5e778a4fc2a7588bc59d7aa4ae6b4662",
+    "workflowBytes": 5240,
+    "explicitRepairTestReferences": 19
+  },
+  "retainedAuthoringFailure": {
+    "testFileWorkers": 1,
+    "failure": "SYNTAX_ERROR_ESCAPED_TEMPLATE_DELIMITER",
+    "durationMs": 67.898732
+  },
+  "baseline": {
+    "tests": 5,
+    "pass": 4,
+    "fail": 1,
+    "durationMs": 89.819529,
+    "missing": ["ci-coverage.test.mjs"]
+  },
+  "fixed": {
+    "tests": 5,
+    "pass": 5,
+    "fail": 0,
+    "durationMs": 80.648173,
+    "missing": [],
+    "duplicates": []
+  },
+  "rawOutcomeFile": "repair-ci-coverage.raw.txt",
+  "costs": {
+    "localTestCommands": 3,
+    "nodeTestFileWorkerAttempts": 3,
+    "summedReportedNodeTestDurationMs": 238.366434,
+    "candidateEvaluations": 0,
+    "namespaceStarts": 0,
+    "missionNativeFieldCalls": 0,
+    "newEpochs": 0,
+    "providerSpendInitiatedUsd": 0,
+    "outerModelCostUsd": null,
+    "ciProcessCost": null,
+    "totalUsd": null
+  },
+  "guidanceAndCadence": {
+    "priorGuidanceSource": "3ae06672d6d7735b47d9417078078c52f1998fb9",
+    "proposedGuidance": "every repair test file must have exactly one executable bounded-RSI workflow reference, checked before the remaining repair suites",
+    "rationale": "the prior increment produced one green CI run that did not execute its new suite",
+    "expectedBenefit": "prevent future unregistered repair tests from yielding false-complete focused CI",
+    "benefitMeasured": true,
+    "acceptance": "audit fails on its own unregistered test, rejects synthetic missing and duplicate references, then passes after exact registration",
+    "rollbackCondition": "revert if complete-checkout audit cannot deterministically map repair test files to executable workflow references",
+    "priorSchedule": "hourly",
+    "proposedSchedule": "hourly",
+    "scheduleChanged": false,
+    "scheduleRationale": "useful bounded engineering remains available without measured contention"
+  },
+  "legacyMission": {
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeCallsReserved": 209784,
+    "epochs": 7
+  },
+  "proofBoundary": {
+    "validationIntegrityOnly": true,
+    "newEmpiricalHypothesis": false,
+    "freshTaskOutcome": false,
+    "osIsolationValidated": false,
+    "repairEnvelopeApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}
+

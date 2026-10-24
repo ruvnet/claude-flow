@@ -1,0 +1,46 @@
+name: rsi-isolation-engine-artifact
+on:
+  pull_request:
+    paths:
+      - 'v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.mjs'
+      - 'v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.test.mjs'
+      - 'v3/@claude-flow/cli/scripts/rsi/repair/engine-build-plan.json'
+      - '.github/workflows/rsi-engine-artifact.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.sha == 'd1394f0b7d4436210e10c5f2b35f25c9e5a1a889'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.19.0'
+      - name: Validate source-bound build contract
+        run: node --test v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.test.mjs
+      - name: Install recorded build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y binutils build-essential curl libcap-dev meson ninja-build pkg-config xz-utils
+      - name: Build and attest patched isolation engine without launching a namespace
+        env:
+          RUFLO_ENGINE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RUFLO_ENGINE_RESERVATION: ${{ github.workspace }}/v3/@claude-flow/cli/scripts/rsi/evidence/loop-development/repair-engine-artifact-v2.reservation.json
+        run: >-
+          node v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.mjs build
+          "$RUNNER_TEMP/rsi-engine-build"
+          "$RUNNER_TEMP/rsi-engine-build/artifact/receipt.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rsi-bwrap-v0.12.0-linux-x64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/rsi-engine-build/artifact
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30

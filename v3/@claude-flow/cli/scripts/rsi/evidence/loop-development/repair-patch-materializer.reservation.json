@@ -1,0 +1,50 @@
+{
+  "schema": "ruflo.repair-engineering-reservation/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "reservedAt": "2026-09-13T09:49:00Z",
+  "purpose": "SOURCE_BOUND_PATCH_MATERIALIZER_VALIDATION",
+  "source": {
+    "commit": "7f672c6689f33b9f2cf894fb724c4edb87daf1cd",
+    "tree": "c7fb9fa13e6d42f3f63391933b8b05e6aa24fd84",
+    "implementationParent": "8bf532221055dc62cecd9b007eaf5d17c9f5e9d7",
+    "materializerPlanSemanticHash": "525b8e6f4818d76c314d68fa7c02a4b7f05c41249c7ed463063063ba19e5ea8b",
+    "materializerPlanRawSha256": "4aef281fdbe07346395a4a25367d9a126677e00e9044a7779f796f71ae417b33",
+    "inheritedImproverPlanSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0"
+  },
+  "predecessorReservation": {
+    "path": "evidence/loop-development/repair-inherited-improver.reservation.json",
+    "sha256": "cf3f23e101612333c747e4b9b54f0cd408ecfd12fc920111090c2d924916a509"
+  },
+  "limits": {
+    "nodeValidationProcesses": 3,
+    "nodeTestWorkers": 0,
+    "materializerChildProcesses": 3,
+    "fifoSetupProcesses": 3,
+    "trainingOnlyDescriptorScores": 96,
+    "completedPatchArtifacts": 15,
+    "replacementOperations": 15,
+    "outerWallMs": 60000
+  },
+  "repairMissionDeltaLimits": {
+    "candidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "summedProcessWallMs": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "retention": "CHARGE_ALL_STARTED_WORK_AND_RETAIN_INTERRUPTED_RESERVATION",
+  "execution": {
+    "testIsolation": "none",
+    "candidateExecutionEnabled": false,
+    "repairResourceProposalApproved": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "legacyState": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "reservedNativeFieldCalls": 209784,
+    "epochs": 7
+  }
+}

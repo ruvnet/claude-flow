@@ -1,0 +1,67 @@
+{
+  "schema": "ruflo.repair-engineering-reservation/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "reservedAt": "2026-09-13T11:26:48Z",
+  "purpose": "SOURCE_BOUND_EQUAL_MECHANICS_CONTROL_MATERIALIZER_VALIDATION",
+  "source": {
+    "commit": "d2d5ae350da1f32e557e4525e22b36b6ae5c8fbd",
+    "tree": "cac254d57ab5b4c73aa90d726f5a5010d0690246",
+    "implementationParent": "220ba9f08dea55ff50ff4b8e53ff739ecf644446",
+    "controlMaterializerPlanSemanticHash": "a7a8df26ef90d815824234e064ea611fc926502f0eb904af81aade258df9287e",
+    "controlMaterializerPlanRawSha256": "fb75a39dfadd8649bbd8d149f4dd79f085d96cdb033802a446fef684a69ba04d",
+    "inheritedImproverPlanSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0"
+  },
+  "predecessorReservation": {
+    "path": "evidence/loop-development/repair-patch-materializer.reservation.json",
+    "sha256": "0044a495b7d08c2c7c8e3434c289411138c82bbca1e6db711214e5527fd131b4"
+  },
+  "limits": {
+    "batchParentProcesses": 3,
+    "chargedMaterializerChildSpawnAttempts": 15,
+    "childProposalDescriptors": 30,
+    "childArtifactConstructions": 30,
+    "childReplacementOperations": 30,
+    "childDescriptorScores": 30,
+    "retainedChildArtifacts": 30,
+    "parentReverificationAttempts": 15,
+    "parentProposalDescriptors": 30,
+    "parentArtifactConstructions": 30,
+    "parentReplacementOperations": 30,
+    "parentDescriptorScores": 30,
+    "summedOuterWallMs": 60000
+  },
+  "inputReadLimits": {
+    "parentControlPlanReads": 3,
+    "parentControlPlanBytes": 17172,
+    "parentImproverPlanReads": 3,
+    "parentImproverPlanBytes": 11994,
+    "childControlPlanReadUpperBound": 15,
+    "childControlPlanBytesUpperBound": 85860,
+    "childImproverPlanReadUpperBound": 15,
+    "childImproverPlanBytesUpperBound": 59970,
+    "childBaseSourceBytesObservedOnSuccess": 49725,
+    "parentBaseSourceBytesCharged": 49725,
+    "moduleLoaderBytes": null
+  },
+  "repairMissionDeltaLimits": {
+    "candidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "summedProcessWallMs": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "retention": "CHARGE_ALL_SPAWN_ATTEMPTS_AND_PARENT_REVERIFICATION_ATTEMPTS_RETAIN_INTERRUPTED_UNKNOWN_WORK",
+  "execution": {
+    "candidateExecutionEnabled": false,
+    "repairResourceProposalApproved": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "legacyState": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "reservedNativeFieldCalls": 209784,
+    "epochs": 7
+  }
+}

@@ -1,0 +1,56 @@
+EXECUTOR-011 local validation, Node 24.19.0
+
+BASELINE SOURCE 24e47c6e887b47f666e72aaef3ec8c5b4d35e38c
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/bounded-file.test.mjs
+EXIT 1
+✔ reads a regular file through a bounded descriptor (2.769336ms)
+✔ rejects empty and oversized regular files (1.104778ms)
+✔ rejects a symlink without following it (0.724527ms)
+✖ rejects a FIFO before reading without blocking (1008.444489ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1103.528137
+
+Failure: the timeout-bounded Node validator returned ETIMEDOUT after openSync
+blocked on the FIFO. The validator child was killed with SIGKILL. Its callback
+never returned an assertion result.
+
+FIXED LOCAL SOURCE
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/bounded-file.test.mjs
+EXIT 0
+✔ reads a regular file through a bounded descriptor (1.750017ms)
+✔ rejects empty and oversized regular files (1.636216ms)
+✔ rejects a symlink without following it (0.791357ms)
+✔ rejects a FIFO before reading without blocking (58.026858ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 159.660754
+
+CURRENT-CONSUMER CHECK
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/executor.test.mjs v3/@claude-flow/cli/scripts/rsi/repair/runtime-layout.test.mjs v3/@claude-flow/cli/scripts/rsi/repair/runtime-snapshot.test.mjs
+EXIT 1
+The sparse local source snapshot lacks repair/admission.mjs, so executor.test.mjs
+failed to load with ERR_MODULE_NOT_FOUND. Runtime layout and snapshot tests still
+ran: total tests 28, pass 27, fail 1, duration_ms 138.690313. The sole failure was
+the executor test-file load; all 27 executed runtime-layout/snapshot cases passed.
+This retained local environment failure is not represented as a source failure.
+The complete GitHub checkout CI is required for final acceptance.
+
+FIRST COMPLETE-CHECKOUT CI
+RUN https://github.com/ruvnet/ruflo/actions/runs/34771590761
+EXIT 0
+262 existing tests passed and seven historical epochs replayed. Inspection of the
+workflow and logs showed the new bounded-file.test.mjs suite was not registered
+in the explicit CI file list. This run is retained as incomplete acceptance; it
+does not count as validating the new regression. The workflow is corrected for
+the reserved second run.

@@ -1,0 +1,20 @@
+{
+  "schema": "ruflo.public-task-spec/v1",
+  "taskId": "avoid-ai-writing-291",
+  "repository": "conorbronsdon/avoid-ai-writing",
+  "issueNumber": 291,
+  "issueUrl": "https://github.com/conorbronsdon/avoid-ai-writing/issues/291",
+  "title": "Keep title-case header matches within one physical line",
+  "body": "The fixed-corpus review for #290 exposed a pre-existing detector issue: `TITLE_CASE_HEADER` uses `\\s+` between words, so it can combine separate lines or paragraphs into one heading match.\n\nReproduced on main `fabd62d9c8785dd0edda35201359bcc635b7d3de`'s unchanged detector, also present at candidate `f1dfd940559ab8cf3041ec6465ac79a0ad0b9e72`:\n\n```js\nconst detector = require('./detector/patterns.js');\nconst body = Array.from({ length: 30 }, (_, i) => 'word' + i).join(' ');\nconst text = '## Benefits\\n\\nOf Good Writing\\n\\n' + body;\nconsole.log(detector.analyzeText(text).issues.filter(x => x.type === 'title-case-header'));\n```\n\nThe issue text is `## Benefits\\n\\nOf Good Writing\\n`: neither physical heading/title fragment independently meets the rule's word-count guard. Blank lines should not manufacture a longer heading.\n\nSuggested scope:\n\n- Restrict word separators and trailing heading whitespace to horizontal whitespace where the rule is intended to match one physical line.\n- Add the reproduction above as a must-not-fire regression, plus adjacent-line and CRLF variants.\n- Keep current should-fire tests, acronym/single-letter-A support, proper-noun guards, Markdown prefixes, and fenced-code exclusions passing.\n- Run `npm test` and add an Unreleased fix entry. No version bump or corpus hash changes.\n\nThe verified James Pragmatism slice also exposes a match spanning `Lecture IV`, a blank line, and the following title. The minimal synthetic fixture above avoids redistributing corpus text and makes the boundary requirement clear.\n\nThis is a focused follow-up, separate from #290's preprocessing repair. Please comment before starting so we can coordinate the first claimant and credit any follow-on work.",
+  "state": "open",
+  "comments": 0,
+  "createdAt": "2026-09-13T21:04:44.000Z",
+  "updatedAt": "2026-09-13T21:04:44.000Z",
+  "capturedAt": "2026-09-14T01:42:31.274Z",
+  "visibility": "PROPOSER_VISIBLE_PUBLIC_TASK_INPUT",
+  "selectedBeforeProposal": true,
+  "fixDataAcquired": false,
+  "outcomeRead": false,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

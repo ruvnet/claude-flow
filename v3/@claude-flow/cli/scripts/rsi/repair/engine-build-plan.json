@@ -1,0 +1,55 @@
+{
+  "schema": "ruflo.repair-isolation-engine-build-plan/v1",
+  "stagnationRule": {
+    "blockerRemoved": "The executor has no source-bound, content-addressed isolation engine with upstream native fd-bind support.",
+    "acceptance": "Trusted CI builds the reviewed patched source, validates its CLI and ELF identity, and publishes a hash-bound artifact while every execution gate remains closed."
+  },
+  "source": {
+    "repository": "https://github.com/containers/bubblewrap",
+    "releaseTag": "v0.12.0",
+    "releasePublishedAt": "2026-08-26T10:11:18Z",
+    "releaseAssetUrl": "https://github.com/containers/bubblewrap/releases/download/v0.12.0/bubblewrap-0.12.0.tar.xz",
+    "releaseAssetSha256": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314",
+    "releaseCommit": "2a76602a8c71f36c1527cf9fc3417d9149822e0c",
+    "releaseTree": "021e149edf2e8b9f4a0339e0b5cc0075d299c9a9",
+    "tagObject": "014a04330642e5c870418beb621532cb896e0002",
+    "commitSignatureVerified": false,
+    "rejectedVersion": "0.10.0",
+    "rejectionReason": "GHSA-pxhw-h44j-8pfx affects every version below 0.12.0"
+  },
+  "build": {
+    "runner": "ubuntu-24.04",
+    "nodeVersion": "24.19.0",
+    "aptPackages": ["binutils", "build-essential", "curl", "libcap-dev", "meson", "ninja-build", "pkg-config", "xz-utils"],
+    "mesonOptions": ["-Dselinux=disabled", "-Dtests=false", "-Dman=disabled", "-Dbash_completion=disabled", "-Dzsh_completion=disabled", "-Dbuildtype=release", "-Db_ndebug=true", "-Dstrip=true", "-Dbuild_rpath=", "-Dinstall_rpath=", "-Dassume_kernel="],
+    "networkScope": "EXACT_RELEASE_ASSET_ACQUISITION_AND_APT_BOOTSTRAP_ONLY",
+    "workflowActions": {
+      "checkout": "11d5960a326750d5838078e36cf38b85af677262",
+      "setupNode": "49933ea5288caeca8642d1e84afbd3f7d6820020",
+      "uploadArtifact": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    }
+  },
+  "artifact": {
+    "name": "rsi-bwrap-v0.12.0-linux-x64",
+    "expectedVersionStdout": "bubblewrap 0.12.0\n",
+    "requiredHelpArguments": ["--bind-fd", "--ro-bind-fd", "--ro-bind-data"],
+    "forbiddenLaunchArgument": "--not-a-security-boundary",
+    "maximumBytes": 4194304,
+    "retentionDays": 30
+  },
+  "proofBoundary": {
+    "engineArtifactOnly": true,
+    "nativeFdSemanticsVerified": false,
+    "runtimeCompatibilityVerified": false,
+    "osIsolationVerified": false,
+    "resourceAuthorizationPresent": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "legacyMission": {
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7,
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088"
+  }
+}

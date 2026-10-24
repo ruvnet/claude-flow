@@ -1,0 +1,107 @@
+{
+  "schema": "ruflo.repair-inherited-improver-engineering-plan/v1",
+  "purpose": "VERIFY_CHILD_OWNED_INHERITED_PROPOSAL_AND_TRAINING_TRACE_SCORING_BEFORE_REPAIR_TRIALS",
+  "implementationParent": "b9d30d3c4ef2befb83db18425e4b7d932069389a",
+  "task": {
+    "id": "p-limit-limit-function-clear-queue",
+    "repository": "sindresorhus/p-limit",
+    "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+    "fixCommit": "f3e7f9ba364a9357bd912d136367d06c46660917",
+    "baseTree": "21d1b1115ab955f499ca0de32b8819b936775dd9",
+    "fixTree": "15da3cf8d9426b331317aa3719e8a157721d3cbe",
+    "diffSha256": "265905aeb1727496ea8c41a8cf60e9826c8724d778a409b5d8233e23a562f818",
+    "exposure": "PUBLISHED_FIX_AND_UPSTREAM_TESTS_KNOWN",
+    "partition": "TRAINING_ONLY_CALIBRATION"
+  },
+  "failureTrace": {
+    "schema": "ruflo.repair-training-failure-trace/v1",
+    "taskId": "p-limit-limit-function-clear-queue",
+    "signals": ["LIMIT_FUNCTION_API_GAP", "CLEAR_QUEUE_NOT_FORWARDED", "ORDINARY_THROUGHPUT_MUST_REMAIN"],
+    "successfulFamily": "FORWARD_GENERATOR_CAPABILITY",
+    "requiredTests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "ORDINARY_THROUGHPUT"],
+    "source": "EXPOSED_HISTORICAL_FIX",
+    "freshTaskOutcome": false
+  },
+  "proposalLibrary": [
+    {
+      "id": "forward-generator-capability",
+      "family": "FORWARD_GENERATOR_CAPABILITY",
+      "signals": ["LIMIT_FUNCTION_API_GAP", "CLEAR_QUEUE_NOT_FORWARDED"],
+      "tests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "ORDINARY_THROUGHPUT"]
+    },
+    {
+      "id": "drain-queue-after-clear",
+      "family": "DRAIN_QUEUE_AFTER_CLEAR",
+      "signals": ["CLEAR_QUEUE_NOT_FORWARDED"],
+      "tests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "CONCURRENCY_BOUND"]
+    },
+    {
+      "id": "decrement-active-count",
+      "family": "DECREMENT_ACTIVE_COUNT",
+      "signals": ["ORDINARY_THROUGHPUT_MUST_REMAIN"],
+      "tests": ["CONCURRENCY_BOUND", "ORDINARY_THROUGHPUT"]
+    },
+    {
+      "id": "reject-cleared-promises",
+      "family": "REJECT_CLEARED_PROMISES",
+      "signals": ["CLEAR_QUEUE_NOT_FORWARDED"],
+      "tests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "REJECTION_PROPAGATION"]
+    }
+  ],
+  "parentState": {
+    "schema": "ruflo.repair-inherited-state/v1",
+    "generation": 0,
+    "parentStateHash": null,
+    "diagnosisRuleCredits": {
+      "CLEAR_QUEUE_NOT_FORWARDED": 0,
+      "LIMIT_FUNCTION_API_GAP": 0,
+      "ORDINARY_THROUGHPUT_MUST_REMAIN": 0
+    },
+    "patchFamilyCredits": {
+      "DECREMENT_ACTIVE_COUNT": 0,
+      "DRAIN_QUEUE_AFTER_CLEAR": 0,
+      "FORWARD_GENERATOR_CAPABILITY": 0,
+      "REJECT_CLEARED_PROMISES": 0
+    },
+    "testCredits": {
+      "CONCURRENCY_BOUND": 0,
+      "LIMIT_FUNCTION_CLEAR_QUEUE": 0,
+      "ORDINARY_THROUGHPUT": 0,
+      "REJECTION_PROPAGATION": 0
+    },
+    "trainingTraceHashes": []
+  },
+  "previousOptimizerState": {
+    "schema": "ruflo.repair-previous-optimizer-binding/v1",
+    "availability": "NO_PRIOR_REPAIR_OPTIMIZER",
+    "source": "PARENT_GENERATION_ZERO",
+    "stateHash": "233d04c725db644375aba499d3727fea3cad230e71b3d0835dbe10bcd0fa09d9"
+  },
+  "controls": ["inherited", "frozen", "static", "shuffled", "previous"],
+  "budgets": {
+    "childProcessesPerArm": 1,
+    "proposalDescriptorsPerArm": 2,
+    "descriptorScoresPerArm": 2,
+    "repairCandidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "frozenMechanism": {
+    "proposer": "DETERMINISTIC_RULE_PROPOSER_V1",
+    "evaluator": "TRAINING_TRACE_DESCRIPTOR_MATCH_V1",
+    "model": "NONE",
+    "permissions": "NO_NETWORK_NO_REPOSITORY_EXECUTION_NO_PATCH_APPLICATION",
+    "shuffleSeed": "ruflo-rsi-inheritance-control-v1"
+  },
+  "proofBoundary": {
+    "engineeringOnly": true,
+    "freshTaskOutcomesRead": false,
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "previousControlDegenerateWithFrozen": true,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}

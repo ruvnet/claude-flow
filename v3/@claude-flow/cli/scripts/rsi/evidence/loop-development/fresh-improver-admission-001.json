@@ -1,0 +1,105 @@
+{
+  "schema": "ruflo.development-evidence/v1",
+  "increment": "FRESH-IMPROVER-ADMISSION-001",
+  "recordedAt": "2026-09-14T03:00:00Z",
+  "decision": "RETAIN_NEGATIVE_CURRENT_IMPROVER_NOT_FRESH_TASK_ADMISSIBLE",
+  "source": {
+    "parentCommit": "97f01ac6d869109355725512d4d67b098e1f9b1e",
+    "commit": "46c331367dd19f713f392e4b086f99fc540345b5",
+    "tree": "9b9e770ee0e173197cf90157882e5c3d2bfad584"
+  },
+  "coordination": {
+    "resourceId": "ruvnet/ruflo/experiments/rsi-research-loop",
+    "claimEvent": "bcc8fb3b9f880fa0415d1ac9d21cf62082d906c92465ddf232105a9f68986c4c",
+    "reservationIssue": "ruvnet/core-memory#85",
+    "reservationCommentId": 5658391109,
+    "claimGrantsMergeDeployOrTrialAuthority": false
+  },
+  "bindings": {
+    "freshFreezeHash": "1ed08cdbc62d67392529b6bc8d02ae3e3a8f5f07e1432ca842382c36167830e3",
+    "improverPlanHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+    "materializerPlanHash": "a7a8df26ef90d815824234e064ea611fc926502f0eb904af81aade258df9287e",
+    "training": {
+      "taskId": "p-limit-limit-function-clear-queue",
+      "repository": "sindresorhus/p-limit",
+      "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+      "sourcePath": "index.js",
+      "partition": "TRAINING_ONLY_CALIBRATION",
+      "exposure": "PUBLISHED_FIX_AND_UPSTREAM_TESTS_KNOWN"
+    },
+    "fresh": {
+      "taskId": "avoid-ai-writing-291",
+      "repository": "conorbronsdon/avoid-ai-writing",
+      "baseCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+      "cluster": "js-regex-line-boundary"
+    }
+  },
+  "result": {
+    "blocker": "TRAINING_ONLY_MATERIALIZER_TASK_BINDING_MISMATCH",
+    "arms": {
+      "inherited": 0,
+      "frozen": 0,
+      "static": 0,
+      "shuffled": 0,
+      "previous": 0
+    },
+    "candidateDescriptorsProduced": 0,
+    "candidateBytesProduced": 0,
+    "freshTaskOutcomesRead": false,
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "validation": {
+    "testCommands": 2,
+    "testFileWorkers": 4,
+    "boundedCliHelperStarts": 3,
+    "testCases": 37,
+    "passed": 37,
+    "failed": 0,
+    "reportedSuiteDurationMs": 333.310896,
+    "readOnlyInspectionCommands": 1,
+    "githubActions": {
+      "runId": 34801502726,
+      "runUrl": "https://github.com/ruvnet/ruflo/actions/runs/34801502726",
+      "conclusion": "success",
+      "researchLoopTests": 301,
+      "experimentProofTests": 18,
+      "totalTests": 319,
+      "historicalEpochsReplayed": 7,
+      "boundedRsiEvidenceAccepted": false
+    }
+  },
+  "costs": {
+    "repairCandidateEvaluations": 0,
+    "proposerStarts": 0,
+    "evaluatorStarts": 0,
+    "isolatedProcessStarts": 0,
+    "summedRepairProcessWallMs": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "epochs": 0,
+    "piRequests": 0,
+    "externalProviderSpendUsd": 0,
+    "outerCodexAcquisitionCost": "unknown",
+    "totalEngineeringUsd": "unknown"
+  },
+  "mission": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeCallsConsumed": 209784,
+    "epochsConsumed": 7,
+    "repairEnvelopeApproved": false,
+    "piState": "BLOCKED_AUTH"
+  },
+  "guidanceChange": {
+    "prior": "prepare inherited controls before a fresh comparison without an executable task-binding admission requirement",
+    "proposed": "require every arm to pass exact fresh-task source binding before descriptor generation; prohibit placeholder candidates and relabeled training templates",
+    "expectedBenefit": "unmeasured",
+    "costScope": "one bounded read-only admission preflight per frozen task",
+    "acceptance": "all five arms pass only for a reviewed task-general proposer or independently frozen compatible training lineage without evaluator or outcome access",
+    "rollback": "retain this negative and replace only if independent review demonstrates the binding gate is unsound"
+  },
+  "nextExecutableStep": "implement and review a task-general proposer using training-only diagnosis rules, then rerun this admission gate before any resource trial"
+}

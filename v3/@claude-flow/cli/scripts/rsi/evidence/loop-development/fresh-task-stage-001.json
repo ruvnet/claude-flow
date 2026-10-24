@@ -1,0 +1,110 @@
+{
+  "schema": "ruflo.rsi-engineering-result/v1",
+  "increment": "FRESH-STAGE-001",
+  "recordedAt": "2026-09-13T23:53:08.758Z",
+  "implementationParent": "182e4ffdc1acd42f39b77f7fc45b03fd291dd158",
+  "reviewedSourceCommit": "8ca25fa38999556f698d75bedd7409a403fb39d2",
+  "reviewedSourceTree": "f0177145c30355f9d7527bee8172c7edbf546440",
+  "federationClaimEvent": "1a487bbb93f6d1b79f50540c99ffd5318edecb761b384c16ccc749a9babb2629",
+  "githubReservationComment": 5657140839,
+  "decision": "ACCEPT_SOURCE_ONLY_PROPOSER_STAGE",
+  "blockerRemoved": "The frozen task now has a mechanically constructed source-only proposer workspace and receipt rather than only a metadata promise that the parent evaluator will be withheld.",
+  "publicTaskReadback": {
+    "url": "https://github.com/conorbronsdon/avoid-ai-writing/issues/291",
+    "checkedAt": "2026-09-13T23:52:00.000Z",
+    "state": "open",
+    "comments": 0,
+    "fixDataAcquired": false,
+    "candidateOutcomeRead": false
+  },
+  "source": {
+    "freshTaskId": "avoid-ai-writing-291",
+    "baseCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+    "baseTree": "6381e6efd018f6994fa35d6a28d8664f48a0db4b",
+    "sourceArchiveSha256": "8695115e601005956e6442a58161724b2be6e5d169dbd2c108e64c41d4ba63d3",
+    "sourceArchiveBytes": 88498,
+    "sourceFiles": 4,
+    "sourceBytesPerStage": 296812,
+    "stageModuleSha256": "d11c37dee783df68739a80a64e91e4fc1e2bfd7e9c3f30f358b53034cd7d6191",
+    "stageTestSha256": "867ef1b7649853b70665a4a7d9f4c274160b087203c7426f01f2d9ee02c7889f",
+    "capsuleVerifierSha256": "9892aa423b40938bccc528f4f905aa07dd55ed8a0f0992fb81ba7db28cac52ab",
+    "capsuleVerifierTestSha256": "92e55c4f4933a7e25bae6016621ae6b665fac59440876ac6d94477746450dd53",
+    "workflowSha256": "421d7f9da205cf02684580988e5f2aa6bb74809c54c3147d5765709f99526192",
+    "repairLoopSha256": "e8e6f8ff1361dcc3ae2607d05552adc26f2bbe7c162f4339095a59410ac16048",
+    "githubBlobReadback": {
+      "stage": "ccf6c23dfb252e091eeee2787fb682912aecf6bb",
+      "capsuleVerifier": "e0550ec9f76f88c2ea1d617b5c73253b27b72004",
+      "workflow": "f856bcee640f80b78a6333d5c848ebef11993459"
+    }
+  },
+  "separation": {
+    "parentValidatesAllCapsulesBeforeStaging": true,
+    "newDestinationRequired": true,
+    "stagedSourceFiles": 4,
+    "stagedEvaluatorFiles": 0,
+    "fixedReadOnlyModes": true,
+    "proposerReceiptContainsEvaluatorIdentity": false,
+    "parentBindingContainsEvaluatorIdentity": true,
+    "proposerRuntimeStarted": false,
+    "osIsolationProved": false
+  },
+  "measurement": {
+    "localTestCommands": 5,
+    "testFileWorkerAttempts": 11,
+    "testCases": 90,
+    "passedCases": 83,
+    "failedCases": 7,
+    "summedReportedNodeMs": 730.291654,
+    "completedSourceStages": 24,
+    "temporarySourceBytesWritten": 7123488,
+    "retainedFirstStageResult": "2/8 assertions completed but six cleanup hooks failed because the test attempted to remove intentionally read-only directories.",
+    "correctedStageResult": "8/8",
+    "coverageBeforeRegistration": "4/5",
+    "combinedFinalResult": "36/36",
+    "repairCandidateEvaluations": 0,
+    "proposerOrEvaluatorStarts": 0,
+    "isolatedNamespaceStarts": 0,
+    "summedRepairProcessWallMs": 0,
+    "newNativeFieldCalls": 0,
+    "modelCalls": 0,
+    "newEpochs": 0,
+    "piRequests": 0,
+    "externalProviderSpendUsd": 0,
+    "ciProcesses": null,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null,
+    "totalEngineeringUsd": null
+  },
+  "mission": {
+    "initialAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7
+  },
+  "proofBoundary": {
+    "empiricalHypothesisAdmitted": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "guidanceChange": {
+    "prior": "The evaluator had to be withheld from proposer input and mounts, but no exact constructed proposer surface was defined.",
+    "proposed": "Validate all capsules in the parent, stage only fixed-mode source bytes into a new workspace, serialize a source-only receipt for the child, and retain evaluator paths and hashes only in a separate parent binding.",
+    "expectedBenefit": "Reduce accidental evaluator contamination and make the future child launch surface auditable.",
+    "benefitMeasured": false,
+    "measuredMechanics": "The proposer receipt and complete staged workspace were checked for parent-only identities; destination reuse and unsafe archive structure fail closed.",
+    "rollbackCondition": "Reject the staged task if parent-only bytes or identities reach the proposer receipt/workspace, capsule validation fails, the task exposes a solution before proposal, or sandbox mount separation cannot be enforced.",
+    "cadenceBefore": "HOURLY",
+    "cadenceAfter": "HOURLY",
+    "cadenceRationale": "Useful bounded integration work remains ready and no claim or writer contention was observed."
+  },
+  "pi": {
+    "state": "BLOCKED_AUTH",
+    "requestsThisIncrement": 0,
+    "memoriesAdmitted": 0
+  },
+  "largestRemainingUncertainty": "Whether inherited training-only failure-analysis state improves descendant successor productivity on genuinely fresh tasks at equal total cost.",
+  "nextBlocker": "Bind this proposer surface to a child launch on a compatible exclusive-UID isolation host and prove evaluator paths are absent from the sandbox mounts; explicit repair-resource approval is still required before any candidate trial.",
+  "acceptance": "node --test v3/@claude-flow/cli/scripts/rsi/repair/fresh-task-stage.test.mjs"
+}

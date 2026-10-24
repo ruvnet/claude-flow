@@ -1,0 +1,21 @@
+FRESH-ADMISSION-001 local red/green transcript summary
+
+Command 1, before workflow registration:
+node --test --test-isolation=none repair/fresh-task-admission.test.mjs repair/ci-coverage.test.mjs
+Result: 19 tests, 18 pass, 1 fail, 99.739032 ms.
+Retained failure: repair tests missing from executable workflow: fresh-task-admission.test.mjs.
+
+Command 2, after workflow registration:
+node --test --test-isolation=none repair/fresh-task-admission.test.mjs repair/ci-coverage.test.mjs
+Result: 19 tests, 19 pass, 0 fail, 104.040589 ms.
+
+Command 3, standalone acceptance:
+node --test repair/fresh-task-admission.test.mjs
+Result: 14 tests, 14 pass, 0 fail, 163.999445 ms.
+
+Summed reported Node duration: 367.779066 ms.
+Five test-file worker attempts. Fifty-two test-case attempts: 51 pass, 1 retained fail.
+No real fresh task was selected or admitted. No candidate evaluation, isolated
+namespace start, native field call, epoch, pi request, model-serving change or
+provider spend occurred. CI processes, outer model cost and total dollars are
+unknown.

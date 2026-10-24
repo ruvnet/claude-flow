@@ -1,0 +1,101 @@
+{
+  "schema": "ruflo.repair-control-materializer-engineering-plan/v1",
+  "purpose": "GIVE_EVERY_DECLARED_ARM_EQUAL_EXPOSED_TEMPLATE_PATCH_MATERIALIZATION_MECHANICS_BEFORE_TRIALS",
+  "implementationParent": "220ba9f08dea55ff50ff4b8e53ff739ecf644446",
+  "improverPlanSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+  "arms": ["inherited", "frozen", "static", "shuffled", "previous"],
+  "task": {
+    "id": "p-limit-limit-function-clear-queue",
+    "repository": "sindresorhus/p-limit",
+    "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+    "fixCommit": "f3e7f9ba364a9357bd912d136367d06c46660917",
+    "path": "index.js",
+    "partition": "TRAINING_ONLY_CALIBRATION",
+    "exposure": "PUBLISHED_FIX_AND_UPSTREAM_TESTS_KNOWN"
+  },
+  "source": {
+    "baseGitBlob": "5ecd39257c623b6dd4df204bbd7c94fbdf0b8d12",
+    "baseSha256": "30fa94b6aebe7f044f7383feee7931fc7c1a4912affadac97539cda67c14057d",
+    "baseBytes": 3315,
+    "knownFixGitBlob": "b74d48ab0e37788e657e5ad12d90e281ef1f39d1",
+    "knownFixSha256": "63239cd9ae80b1433e05014fe6ec501475c6fa59fad06418cb5972dbc7cc14e2",
+    "maxSourceBytes": 16384,
+    "oldSnippet": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\treturn (...arguments_) => limit(() => function_(...arguments_));\n}\n",
+    "oldSnippetSha256": "328b6c782efd078d98ba7fe6377a81c0878678bce0c03265159673ee509a34f8"
+  },
+  "rules": [
+    {
+      "family": "FORWARD_GENERATOR_CAPABILITY",
+      "origin": "RESEARCHER_AUTHORED_FROM_EXPOSED_FIX",
+      "replacement": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\tconst limitedFunction = (...arguments_) => limit(() => function_(...arguments_));\n\tObject.defineProperty(limitedFunction, 'clearQueue', {\n\t\tvalue: limit.clearQueue,\n\t});\n\n\treturn limitedFunction;\n}\n",
+      "replacementSha256": "1e02738030aa37e5e5e90e546f7e6a4e2b32173566631b767b90d88afdeed1e1",
+      "candidateSha256": "63239cd9ae80b1433e05014fe6ec501475c6fa59fad06418cb5972dbc7cc14e2",
+      "candidateGitBlob": "b74d48ab0e37788e657e5ad12d90e281ef1f39d1",
+      "candidateBytes": 3446,
+      "knownFixExact": true
+    },
+    {
+      "family": "DRAIN_QUEUE_AFTER_CLEAR",
+      "origin": "RESEARCHER_AUTHORED_NEGATIVE_CONTROL_TEMPLATE",
+      "replacement": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\treturn (...arguments_) => {\n\t\tconst result = limit(() => function_(...arguments_));\n\t\tlimit.clearQueue();\n\t\treturn result;\n\t};\n}\n",
+      "replacementSha256": "b3b3d3534f836d80fbec69d04fddfa7b1704698a4cee5a33aa572da4a8895c53",
+      "candidateSha256": "cf5c0a1c6311f3e03982ca0c389585276d2d81ff81d1d245bc5c5af95c1b9092",
+      "candidateGitBlob": "9b7d062daf53fb76f48d37c48305914c2906e8bf",
+      "candidateBytes": 3377,
+      "knownFixExact": false
+    },
+    {
+      "family": "DECREMENT_ACTIVE_COUNT",
+      "origin": "RESEARCHER_AUTHORED_NEGATIVE_CONTROL_TEMPLATE",
+      "replacement": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\tconst limitedFunction = (...arguments_) => limit(() => function_(...arguments_));\n\tObject.defineProperty(limitedFunction, 'activeCount', {\n\t\tget: () => Math.max(0, limit.activeCount - 1),\n\t});\n\n\treturn limitedFunction;\n}\n",
+      "replacementSha256": "9e5c096a96692a7fa6d4398fc3287a838a034d61b911fbf30729403674ce0f81",
+      "candidateSha256": "4c355ce607b648d31dbe02184599a39ef94fb25cfe97c1f5f144d1698a514033",
+      "candidateGitBlob": "14846a76f3f225ffe831029fd2dc09f4cfa3a80b",
+      "candidateBytes": 3469,
+      "knownFixExact": false
+    },
+    {
+      "family": "REJECT_CLEARED_PROMISES",
+      "origin": "RESEARCHER_AUTHORED_NEGATIVE_CONTROL_TEMPLATE",
+      "replacement": "export function limitFunction(function_, options) {\n\tconst limit = pLimit(options);\n\n\tconst limitedFunction = (...arguments_) => limit(() => function_(...arguments_));\n\tObject.defineProperty(limitedFunction, 'clearQueue', {\n\t\tvalue: () => Promise.reject(new Error('Queue cleared')),\n\t});\n\n\treturn limitedFunction;\n}\n",
+      "replacementSha256": "79a86b6826e85309133079f6a2d8ea77e0d962708bcd00f65762f488df02aaba",
+      "candidateSha256": "4de0002f437fe426d69d038193de2f56d397557cfc3ccbf3b243bc9356b258d5",
+      "candidateGitBlob": "fe51f63f5cb702560920faf720c40f573aebbc43",
+      "candidateBytes": 3478,
+      "knownFixExact": false
+    }
+  ],
+  "budgets": {
+    "childProcessesPerArm": 1,
+    "childProposalDescriptorsPerArm": 2,
+    "parentReverificationProposalDescriptorsPerArm": 2,
+    "retainedPatchArtifactsPerArm": 2,
+    "childArtifactConstructionsPerArm": 2,
+    "parentReverificationArtifactConstructionsPerArm": 2,
+    "childReplacementOperationsPerArm": 2,
+    "parentReverificationReplacementOperationsPerArm": 2,
+    "childDescriptorScoresPerArm": 2,
+    "parentReverificationDescriptorScoresPerArm": 2,
+    "childSourceBytesReadPerArm": 3315,
+    "parentReverificationSourceBytesReadPerArm": 3315,
+    "repairCandidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "proofBoundary": {
+    "engineeringOnly": true,
+    "sharedMaterializerMechanismAcrossArms": true,
+    "equalArtifactCountAcrossArms": true,
+    "templatesResearcherAuthoredFromExposedTask": true,
+    "freshTaskOutcomesRead": false,
+    "repositoryPatchApplied": false,
+    "repairCandidateEvaluated": false,
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}

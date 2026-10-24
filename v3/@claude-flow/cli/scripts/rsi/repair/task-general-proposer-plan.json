@@ -1,0 +1,75 @@
+{
+  "schema": "ruflo.task-general-proposer-engineering-plan/v1",
+  "purpose": "ADMIT_SOURCE_DERIVED_OPERATOR_FAMILIES_WITHOUT_CREDITING_INHERITED_STATE_OR_EXECUTING_CANDIDATES",
+  "implementationParent": "a4f50ce028b033c475b1e28a402eb598369b4309",
+  "trainingInputs": {
+    "inheritedImproverPlanHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+    "materializerPlanHash": "a7a8df26ef90d815824234e064ea611fc926502f0eb904af81aade258df9287e",
+    "role": "PROVENANCE_ONLY_NO_SELECTION_INFLUENCE",
+    "freshOutcomesAllowed": false
+  },
+  "admittedInputs": [
+    "PUBLIC_PRE_OUTCOME_TASK_PROMPT",
+    "FROZEN_PROPOSER_VISIBLE_SOURCE",
+    "EXPOSED_TRAINING_ONLY_STATE_IDENTITIES"
+  ],
+  "supportedClusters": ["js-regex-line-boundary"],
+  "operatorFamilies": [
+    {
+      "id": "narrow-regex-whitespace-class",
+      "family": "NARROW_REGEX_WHITESPACE_CLASS",
+      "requiredPromptSignals": ["HORIZONTAL_WHITESPACE_REQUESTED", "NAMED_SYMBOL_PRESENT"],
+      "requiredSourceSignals": ["NAMED_REGEX_SYMBOL", "BROAD_WHITESPACE_TOKEN"],
+      "origin": "CODEX_WRITTEN_GENERIC_OPERATOR"
+    },
+    {
+      "id": "exclude-crlf-from-whitespace",
+      "family": "EXCLUDE_CRLF_FROM_WHITESPACE",
+      "requiredPromptSignals": ["PHYSICAL_LINE_SCOPE", "NAMED_SYMBOL_PRESENT"],
+      "requiredSourceSignals": ["NAMED_REGEX_SYMBOL", "BROAD_WHITESPACE_TOKEN"],
+      "origin": "CODEX_WRITTEN_GENERIC_OPERATOR"
+    },
+    {
+      "id": "preserve-multiline-anchors-with-local-tokens",
+      "family": "PRESERVE_MULTILINE_ANCHORS_WITH_LINE_LOCAL_TOKENS",
+      "requiredPromptSignals": ["PHYSICAL_LINE_SCOPE", "NAMED_SYMBOL_PRESENT"],
+      "requiredSourceSignals": ["NAMED_REGEX_SYMBOL", "GLOBAL_MULTILINE_REGEX"],
+      "origin": "CODEX_WRITTEN_GENERIC_OPERATOR"
+    },
+    {
+      "id": "reject-linebreak-bearing-match",
+      "family": "POST_MATCH_REJECT_LINEBREAK",
+      "requiredPromptSignals": ["CROSS_LINE_REPRODUCTION", "NAMED_SYMBOL_PRESENT"],
+      "requiredSourceSignals": ["NAMED_REGEX_SYMBOL"],
+      "origin": "CODEX_WRITTEN_GENERIC_OPERATOR"
+    }
+  ],
+  "controls": ["inherited", "frozen", "static", "shuffled", "previous"],
+  "budgets": {
+    "admittedProposalFamiliesPerArm": 2,
+    "candidateDescriptors": 0,
+    "candidateBytes": 0,
+    "repairCandidateEvaluations": 0,
+    "proposerStarts": 0,
+    "evaluatorStarts": 0,
+    "isolatedProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "proofBoundary": {
+    "engineeringOnly": true,
+    "codexWrittenProposerEffect": true,
+    "inheritedStateInfluenceOnAdmission": false,
+    "inheritedStateInfluenceOnSelection": false,
+    "freshTaskOutcomesRead": false,
+    "evaluatorInputsRead": false,
+    "candidateDescriptorsProduced": false,
+    "candidateBytesProduced": false,
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}

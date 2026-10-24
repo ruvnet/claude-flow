@@ -1,0 +1,17 @@
+{
+  "schema": "ruflo.parent-only-test-plan/v1",
+  "taskId": "avoid-ai-writing-291",
+  "authoredAt": "2026-09-13T21:31:00.000Z",
+  "authoredBeforeProposal": true,
+  "proposerAccess": false,
+  "runtimeBoundary": "The executor stages the source archive for the proposer and mounts this evaluator only in the parent evaluation phase.",
+  "cases": [
+    { "id": "blank-line-lf", "expectedTitleCaseHeaderCount": 0 },
+    { "id": "adjacent-line-lf", "expectedTitleCaseHeaderCount": 0 },
+    { "id": "blank-line-crlf", "expectedTitleCaseHeaderCount": 0 },
+    { "id": "same-line-positive-control", "expectedTitleCaseHeaderCount": 1 }
+  ],
+  "admissionOnly": true,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

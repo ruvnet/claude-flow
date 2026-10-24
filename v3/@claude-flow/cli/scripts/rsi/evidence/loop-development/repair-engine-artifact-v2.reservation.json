@@ -1,0 +1,34 @@
+{
+  "schema": "ruflo.repair-engine-artifact-engineering-reservation/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "parentHead": "65474ab9916adb9959bbf5344193dacb43f69def",
+  "planSha256": "79053786821b04a80769ad62d2adaa463ea37f22df092d5653d4ece70a8ca865",
+  "plannedSourceFiles": {
+    "v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.mjs": "62c496d8c7b1e08d37dcae92929b058b62a4a7860b7a8ced68fc60303f97c103",
+    "v3/@claude-flow/cli/scripts/rsi/repair/engine-artifact.test.mjs": "6d9423f791bc462a903ff11613b98e7e90502e4a295550bc60018117d7081fa4",
+    ".github/workflows/rsi-engine-artifact.yml": "1fcf8193f561d2429164d5f5d99f75becaad3fc26ebc5c94d33301018f07e3c5"
+  },
+  "upstream": {
+    "rejectedVersion": "0.10.0",
+    "advisory": "GHSA-pxhw-h44j-8pfx",
+    "selectedVersion": "0.12.0",
+    "releaseCommit": "2a76602a8c71f36c1527cf9fc3417d9149822e0c",
+    "releaseTree": "021e149edf2e8b9f4a0339e0b5cc0075d299c9a9",
+    "releaseAssetSha256": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314"
+  },
+  "startedAt": "2026-09-13T12:43:40Z",
+  "scope": "SOURCE_BOUND_ENGINE_BUILD_AND_ATTESTATION_ONLY",
+  "reservedEngineeringParentProcessStarts": 4,
+  "reservedObservedChildProcessStarts": 32,
+  "reservedWallMs": 600000,
+  "repairCandidateEvaluations": 0,
+  "isolatedProcessStarts": 0,
+  "nativeFieldCalls": 0,
+  "externalProviderSpendUsd": 0,
+  "totalUsd": null,
+  "retainOnInterruption": true,
+  "missionBudgetChanged": false,
+  "resourceAuthorizationPresent": false,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

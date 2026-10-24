@@ -1,0 +1,101 @@
+{
+  "schema": "ruflo.fresh-development-task-freeze/v1",
+  "frozenAt": "2026-09-13T21:31:00.000Z",
+  "implementationParent": "6d99e11bfb093d2a37bf8ba56446166f39f1e91f",
+  "mission": {
+    "id": "rsi-ruflo-loop-20260912",
+    "initialAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7
+  },
+  "selection": {
+    "method": "Fixed GitHub search selected one open zero-comment public bug before proposal; no fix commit, patch, candidate outcome or task-solution bytes were acquired.",
+    "sampleFrozenBeforeProposal": true,
+    "outcomeBlind": true,
+    "taskCount": 1
+  },
+  "exclusions": {
+    "calibrationCorpusGitBlob": "a1360f54bad24ee605ca27fbdd768dd2ab850101",
+    "publicWorkloadsGitBlob": "09d5f3b295b8e5a4695529ec25dfe56fc692745f",
+    "forbiddenTaskIds": [
+      "receipt-fractions",
+      "receipt-roundtrip",
+      "receipt-unknown-fields",
+      "ruvector-cypher-not-precedence",
+      "p-limit-limit-function-clear-queue",
+      "click-sentinel-copy-pickle-identity"
+    ],
+    "forbiddenCommits": [
+      "a295c68703158377a6ce827738bf8f13b94bd695",
+      "ea2df4726cbeaa181d4f3bba8335b1c4160ebb35",
+      "fa13ee4ad60ac2090b1480656eb233521790d640",
+      "a38647e1f90f126cac0d23e452cfb2fa7fa3b196",
+      "7d0bb9c53b9d26dc32e08788608ace9b18f4f8a9",
+      "99ea97607acd3498e3b48aeaa708ecb5df5d8f25",
+      "df644e2a4050901fe8b75db9d2c512255b854f78",
+      "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+      "f3e7f9ba364a9357bd912d136367d06c46660917",
+      "420c8fb44eeadb537cae69d2fee3796e808558dd",
+      "f58ca3e81424a35626c8a475eb59ab95589008ce"
+    ]
+  },
+  "proofBoundary": {
+    "developmentOnly": true,
+    "freshOutcomesRead": false,
+    "fixDataAcquired": false,
+    "evaluatorKeys": [],
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "confirmationEligible": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "accounting": {
+    "repairCandidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "summedProcessWallMs": 0,
+    "newNativeFieldCalls": 0,
+    "newEpochs": 0,
+    "externalProviderSpendUsd": 0,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null
+  },
+  "tasks": [
+    {
+      "id": "avoid-ai-writing-291",
+      "repository": "conorbronsdon/avoid-ai-writing",
+      "cluster": "js-regex-line-boundary",
+      "license": "MIT",
+      "source": {
+        "baseCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+        "baseTree": "6381e6efd018f6994fa35d6a28d8664f48a0db4b",
+        "archiveSha256": "8695115e601005956e6442a58161724b2be6e5d169dbd2c108e64c41d4ba63d3",
+        "archiveBytes": 88498,
+        "sourceUrl": "https://github.com/conorbronsdon/avoid-ai-writing/tree/fabd62d9c8785dd0edda35201359bcc635b7d3de"
+      },
+      "prompt": {
+        "capsuleSha256": "91495813669034503c7db9bf723b0b7c2ef30b8561e5f3880f4560609d0ee7dc",
+        "capsuleBytes": 2448,
+        "sourceUrl": "https://github.com/conorbronsdon/avoid-ai-writing/issues/291",
+        "issueNumber": 291,
+        "visibility": "PROPOSER_VISIBLE_PUBLIC_TASK_INPUT",
+        "capturedBeforeProposal": true
+      },
+      "evaluator": {
+        "capsuleSha256": "3ae79a9217ece75129679e6de77df525fa2797b695d874daa960a5cc9769c19f",
+        "capsuleBytes": 1575,
+        "testPlanSha256": "4bed59910a502f036f67ccd68809c6107875f25de741fabb441c0a7be62a2a71",
+        "visibility": "PARENT_ONLY_UNREAD_BY_PROPOSER",
+        "authoredBeforeProposal": true
+      },
+      "provenance": {
+        "sourceKind": "PUBLIC_GITHUB_PRE_OUTCOME",
+        "selectedAt": "2026-09-13T21:25:30.000Z",
+        "selectedBeforeProposal": true,
+        "fixDataAcquired": false,
+        "outcomeRead": false,
+        "selectionQuerySha256": "0375d31e263915dfb936130e25e8d120d415423c1c6be83fcd34fd04b2b75d15"
+      }
+    }
+  ]
+}

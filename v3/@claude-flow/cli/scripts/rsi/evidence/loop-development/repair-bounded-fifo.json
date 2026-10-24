@@ -1,0 +1,97 @@
+{
+  "schema": "ruflo.shared-bounded-file-fifo/v1",
+  "increment": "EXECUTOR-011",
+  "decision": "FIX_SHARED_RUNTIME_ADMISSION_FIFO_BLOCK",
+  "recordedAt": "2026-09-13T17:24:19Z",
+  "baselineSource": "24e47c6e887b47f666e72aaef3ec8c5b4d35e38c",
+  "implementationSource": "8a199f78a0d559a9cba8fcddce9b966e76a57b44",
+  "reservationUrl": "https://github.com/ruvnet/core-memory/issues/85#issuecomment-5654847939",
+  "runtime": "Node 24.19.0",
+  "change": {
+    "file": "v3/@claude-flow/cli/scripts/rsi/repair/bounded-file.mjs",
+    "sha256": "baa04dfd5b3d262393118e7047626c8c3bc6de8fe46d9203ec0ae2c8d2ef6d67",
+    "bytes": 1442,
+    "operation": "add O_NONBLOCK to O_RDONLY|O_NOFOLLOW before fstat"
+  },
+  "testSource": {
+    "file": "v3/@claude-flow/cli/scripts/rsi/repair/bounded-file.test.mjs",
+    "sha256": "522f950661fe720cff8cf39a21be120c23277aa9f7673388accfcea134295868",
+    "bytes": 2563
+  },
+  "baseline": {
+    "tests": 4,
+    "pass": 3,
+    "fail": 1,
+    "durationMs": 1103.528137,
+    "fifoValidator": "ETIMEDOUT_AFTER_1000MS_SIGKILL"
+  },
+  "fixed": {
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "durationMs": 159.660754,
+    "fifoCaseMs": 58.026858,
+    "launchOrCandidateInvoked": false
+  },
+  "consumerCheck": {
+    "testsReported": 28,
+    "pass": 27,
+    "fail": 1,
+    "durationMs": 138.690313,
+    "retainedFailure": "LOCAL_SPARSE_SNAPSHOT_MISSING_REPAIR_ADMISSION_MODULE",
+    "executedRuntimeLayoutAndSnapshotCasesPassed": 27,
+    "fullCheckoutCiRequired": true
+  },
+  "firstCompleteCheckoutCi": {
+    "runId": 34771590761,
+    "testsPassed": 262,
+    "replayedEpochs": 7,
+    "newSuiteRegistered": false,
+    "decision": "INCOMPLETE_ACCEPTANCE_RETAIN_AND_REGISTER_NEW_SUITE"
+  },
+  "rawOutcomeFile": "repair-bounded-fifo.raw.txt",
+  "costs": {
+    "localTestCommands": 3,
+    "nodeTestFileWorkerAttempts": 5,
+    "mkfifoSuccessfulExits": 2,
+    "fifoValidatorSuccessfulExits": 1,
+    "fifoValidatorTimeouts": 1,
+    "summedReportedNodeTestDurationMs": 1401.879204,
+    "helperPidRecordsRetained": false,
+    "allDescendantStartsIndependentlyMetered": false,
+    "candidateEvaluations": 0,
+    "namespaceStarts": 0,
+    "missionNativeFieldCalls": 0,
+    "newEpochs": 0,
+    "providerSpendInitiatedUsd": 0,
+    "outerModelCostUsd": null,
+    "ciProcessCost": null,
+    "totalUsd": null
+  },
+  "guidanceAndCadence": {
+    "priorGuidanceSource": "24e47c6e887b47f666e72aaef3ec8c5b4d35e38c",
+    "proposedGuidance": "preserve nonblocking opens for every untrusted bounded regular-file admission path",
+    "expectedBenefit": "prevent pre-fstat FIFO denial of service in shared runtime admission",
+    "benefitMeasured": true,
+    "acceptance": "shared helper rejects an actual FIFO and every current consumer passes complete-checkout CI with the new suite explicitly registered",
+    "rollbackCondition": "revert if O_NONBLOCK changes admitted regular-file bytes or breaks a current consumer",
+    "priorSchedule": "hourly",
+    "proposedSchedule": "hourly",
+    "scheduleChanged": false,
+    "rationale": "useful bounded local engineering remains ready; no measured contention or idle dependency wait"
+  },
+  "legacyMission": {
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeCallsReserved": 209784,
+    "epochs": 7
+  },
+  "proofBoundary": {
+    "newEmpiricalHypothesis": false,
+    "freshTaskOutcome": false,
+    "osIsolationValidated": false,
+    "repairEnvelopeApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "schema": "ruflo.repair-isolation-engine-artifact/v1",
+  "planHash": "d2b437e2cab93b826359329a36a0da08da4a08aeab99a9cae2f97f58318fd882",
+  "invocation": {
+    "repository": "ruvnet/ruflo",
+    "headSha": "05384310a7cb063203f7e1844124531f095a1bf5",
+    "eventName": "pull_request",
+    "runId": "34758156847",
+    "runAttempt": "1",
+    "workflowRef": "ruvnet/ruflo/.github/workflows/rsi-engine-artifact.yml@refs/pull/3309/merge",
+    "workflowFileSha256": "1fcf8193f561d2429164d5f5d99f75becaad3fc26ebc5c94d33301018f07e3c5"
+  },
+  "reservation": {
+    "path": "v3/@claude-flow/cli/scripts/rsi/evidence/loop-development/repair-engine-artifact-v2.reservation.json",
+    "sha256": "69b06b00cacf739013bc87d5e710bcf5ba014956380f9daa1cadf449b174b810",
+    "parentHead": "65474ab9916adb9959bbf5344193dacb43f69def"
+  },
+  "source": {
+    "repository": "https://github.com/containers/bubblewrap",
+    "releaseTag": "v0.12.0",
+    "releasePublishedAt": "2026-08-26T10:11:18Z",
+    "releaseAssetUrl": "https://github.com/containers/bubblewrap/releases/download/v0.12.0/bubblewrap-0.12.0.tar.xz",
+    "releaseAssetSha256": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314",
+    "releaseCommit": "2a76602a8c71f36c1527cf9fc3417d9149822e0c",
+    "releaseTree": "021e149edf2e8b9f4a0339e0b5cc0075d299c9a9",
+    "tagObject": "014a04330642e5c870418beb621532cb896e0002",
+    "commitSignatureVerified": false,
+    "rejectedVersion": "0.10.0",
+    "rejectionReason": "GHSA-pxhw-h44j-8pfx affects every version below 0.12.0"
+  },
+  "observation": {
+    "sourceAssetSha256": "9760d007363e3abba7c747489910f9f82d9fca53ba3bd3282e396fa3c97a3314",
+    "sourceAssetBytes": 126452,
+    "versionStdout": "bubblewrap 0.12.0\n",
+    "helpStdout": "usage: /home/runner/work/_temp/rsi-engine-build/artifact/bwrap [OPTIONS...] [--] COMMAND [ARGS...]\n\n    --help                       Print this help\n    --version                    Print version\n    --args FD                    Parse NUL-separated args from FD\n    --argv0 VALUE                Set argv[0] to the value VALUE before running the program\n    --level-prefix               Prepend e.g. <3> to diagnostic messages\n    --unshare-all                Unshare every namespace we support by default\n    --share-net                  Retain the network namespace (can only combine with --unshare-all)\n    --unshare-user               Create new user namespace (may be automatically implied if not root)\n    --unshare-user-try           Create new user namespace if possible else continue by skipping it\n    --unshare-ipc                Create new ipc namespace\n    --unshare-pid                Create new pid namespace\n    --unshare-net                Create new network namespace\n    --unshare-uts                Create new uts namespace\n    --unshare-cgroup             Create new cgroup namespace\n    --unshare-cgroup-try         Create new cgroup namespace if possible else continue by skipping it\n    --userns FD                  Use this user namespace (cannot combine with --unshare-user)\n    --userns2 FD                 After setup switch to this user namespace, only useful with --userns\n    --disable-userns             Disable further use of user namespaces inside sandbox\n    --assert-userns-disabled     Fail unless further use of user namespace inside sandbox is disabled\n    --pidns FD                   Use this pid namespace (as parent namespace if using --unshare-pid)\n    --uid UID                    Custom uid in the sandbox (requires --unshare-user or --userns)\n    --gid GID                    Custom gid in the sandbox (requires --unshare-user or --userns)\n    --hostname NAME              Custom hostname in the sandbox (requires --unshare-uts)\n    --chdir DIR                  Change directory to DIR\n    --clearenv                   Unset all environment variables\n    --setenv VAR VALUE           Set an environment variable\n    --unsetenv VAR               Unset an environment variable\n    --lock-file DEST             Take a lock on DEST while sandbox is running\n    --sync-fd FD                 Keep this fd open while sandbox is running\n    --bind SRC DEST              Bind mount the host path SRC on DEST\n    --bind-try SRC DEST          Equal to --bind but ignores non-existent SRC\n    --dev-bind SRC DEST          Bind mount the host path SRC on DEST, allowing device access\n    --dev-bind-try SRC DEST      Equal to --dev-bind but ignores non-existent SRC\n    --ro-bind SRC DEST           Bind mount the host path SRC readonly on DEST\n    --ro-bind-try SRC DEST       Equal to --ro-bind but ignores non-existent SRC\n    --bind-fd FD DEST            Bind open directory or path fd on DEST\n    --ro-bind-fd FD DEST         Bind open directory or path fd read-only on DEST\n    --remount-ro DEST            Remount DEST as readonly; does not recursively remount\n    --overlay-src SRC            Read files from SRC in the following overlay\n    --overlay RWSRC WORKDIR DEST Mount overlayfs on DEST, with RWSRC as the host path for writes and\n                                 WORKDIR an empty directory on the same filesystem as RWSRC\n    --tmp-overlay DEST           Mount overlayfs on DEST, with writes going to an invisible tmpfs\n    --ro-overlay DEST            Mount overlayfs read-only on DEST\n    --exec-label LABEL           Exec label for the sandbox\n    --file-label LABEL           File label for temporary sandbox content\n    --proc DEST                  Mount new procfs on DEST\n    --dev DEST                   Mount new dev on DEST\n    --tmpfs DEST                 Mount new tmpfs on DEST\n    --mqueue DEST                Mount new mqueue on DEST\n    --dir DEST                   Create dir at DEST\n    --file FD DEST               Copy from FD to destination DEST\n    --bind-data FD DEST          Copy from FD to file which is bind-mounted on DEST\n    --ro-bind-data FD DEST       Copy from FD to file which is readonly bind-mounted on DEST\n    --symlink SRC DEST           Create symlink at DEST with target SRC\n    --seccomp FD                 Load and use seccomp rules from FD (not repeatable)\n    --add-seccomp-fd FD          Load and use seccomp rules from FD (repeatable)\n    --block-fd FD                Block on FD until some data to read is available\n    --userns-block-fd FD         Block on FD until the user namespace is ready\n    --info-fd FD                 Write information about the running container to FD\n    --json-status-fd FD          Write container status to FD as multiple JSON documents\n    --new-session                Create a new terminal session\n    --die-with-parent            Kills with SIGKILL child process (COMMAND) when bwrap or bwrap's parent dies.\n    --as-pid-1                   Do not install a reaper process with PID=1\n    --cap-add CAP                Add cap CAP when running as privileged user\n    --cap-drop CAP               Drop cap CAP when running as privileged user\n    --perms OCTAL                Set permissions of next argument (--bind-data, --file, etc.)\n    --size BYTES                 Set size of next argument (only for --tmpfs)\n    --chmod OCTAL PATH           Change permissions of PATH (must already exist)\n    --not-a-security-boundary    Do not fail hard when some sandbox setup steps fail;\n                                 use only when the sandbox is not a security boundary\n",
+    "binary": {
+      "path": "artifact/bwrap",
+      "sha256": "8d921da11eaa58abdbb707f2947bb038800c5f9f57809f11621da9f0cacd02ea",
+      "size": 96680,
+      "mode": 365,
+      "setuid": false,
+      "setgid": false,
+      "launchArguments": []
+    },
+    "elf": {
+      "machine": "x86_64",
+      "interpreter": "/lib64/ld-linux-x86-64.so.2",
+      "needed": [
+        "libcap.so.2",
+        "libc.so.6"
+      ],
+      "soname": null,
+      "rpath": [],
+      "runpath": []
+    },
+    "toolchain": {
+      "tools": {
+        "node": "v24.19.0",
+        "meson": "1.3.2",
+        "ninja": "1.13.2",
+        "cc": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+        "ld": "GNU ld (GNU Binutils for Ubuntu) 2.42",
+        "pkgConfig": "1.8.1"
+      },
+      "packages": [
+        {
+          "name": "binutils",
+          "version": "2.42-4ubuntu2.10"
+        },
+        {
+          "name": "build-essential",
+          "version": "12.10ubuntu1"
+        },
+        {
+          "name": "curl",
+          "version": "8.5.0-2ubuntu10.13"
+        },
+        {
+          "name": "libcap-dev",
+          "version": "1:2.66-5ubuntu2.4"
+        },
+        {
+          "name": "meson",
+          "version": "1.3.2-1ubuntu1"
+        },
+        {
+          "name": "ninja-build",
+          "version": "1.11.1-2"
+        },
+        {
+          "name": "pkg-config",
+          "version": "1.8.1-2build1"
+        },
+        {
+          "name": "xz-utils",
+          "version": "5.6.1+really5.4.5-1ubuntu0.3"
+        }
+      ],
+      "mesonArguments": [
+        "setup",
+        "/home/runner/work/_temp/rsi-engine-build/build",
+        "/home/runner/work/_temp/rsi-engine-build/source",
+        "-Dselinux=disabled",
+        "-Dtests=false",
+        "-Dman=disabled",
+        "-Dbash_completion=disabled",
+        "-Dzsh_completion=disabled",
+        "-Dbuildtype=release",
+        "-Db_ndebug=true",
+        "-Dstrip=true",
+        "-Dbuild_rpath=",
+        "-Dinstall_rpath=",
+        "-Dassume_kernel="
+      ]
+    },
+    "runner": {
+      "imageOS": "ubuntu24",
+      "imageVersion": "20260907.300.1",
+      "architecture": "x64"
+    },
+    "costs": {
+      "childAttempts": 20,
+      "observedChildProcessStarts": 20,
+      "summedChildWallMs": 2531.0874410000015,
+      "bootstrapProcessStarts": null,
+      "acquisitionBytes": 126452,
+      "acquisitionUsd": null,
+      "buildRunnerUsd": null,
+      "modelCalls": 0,
+      "candidateEvaluations": 0,
+      "isolatedProcessStarts": 0,
+      "nativeFieldCalls": 0,
+      "externalProviderSpendUsd": 0,
+      "totalUsd": null
+    }
+  },
+  "proofBoundary": {
+    "engineArtifactOnly": true,
+    "nativeFdSemanticsVerified": false,
+    "runtimeCompatibilityVerified": false,
+    "osIsolationVerified": false,
+    "resourceAuthorizationPresent": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "legacyMission": {
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7,
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088"
+  },
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

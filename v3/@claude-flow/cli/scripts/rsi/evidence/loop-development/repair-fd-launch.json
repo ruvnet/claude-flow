@@ -1,0 +1,95 @@
+{
+  "schema": "ruflo.repair-fd-launch-engineering-result/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "recordedAt": "2026-09-13T12:15:06Z",
+  "decision": "USEFUL_NEGATIVE_PINNED_ENGINE_UNSAFE_FAIL_CLOSED",
+  "stagnationCheck": {
+    "experimentalUncertaintyResolved": "WHETHER_PINNED_BUBBLEWRAP_0_9_0_CAN_ATOMICALLY_BIND_VALIDATED_RUNTIME_DIRECTORIES",
+    "answer": false,
+    "acceptanceDemonstrated": true,
+    "experimentalLearningProduced": false
+  },
+  "source": {
+    "commit": "7d78690fb90014216d212347ddb9c0bb0f41d488",
+    "tree": "368305311216d98045c90ee0771c3379410c1673",
+    "implementationParent": "576a2b6933d18ace01485a4aba41cdfd86d11e93",
+    "reservationCommit": "3d522ebeb8a32c65f4b5f36937be2c958f92a90d",
+    "reservationSha256": "66dfa346dd717d5568859fcb5656e71979ba5048793d36e6ff9b4fcdfe81b97d",
+    "fileSha256": {
+      "fdLaunch": "fff740d1a887cc97eb755b2bd27a021197dc6242d3d726444f319938a71d769d",
+      "fdLaunchTest": "c6748c1a09a41ecbc60052d1d59a1bfd6706434c35f12277777aaa8d044dbf51",
+      "executor": "27360d7677c89f944f21ee928f6db2c9cabbe1e1897d699b04adb8d9b3a5f631",
+      "executorTest": "c0c0426563bfcf337a68534c0c55fd7fe1556423db3266c614ff1781c2d23de1"
+    }
+  },
+  "upstreamEvidence": {
+    "bubblewrapV090": {"released": "2024-03-26", "commit": "8e51677abd7e3338e4952370bf7d902e37d8cbb6", "sourceBlob": "9b78a9ae30dd8f3361f95ae0132d1c32a4ac3329", "nativeBindFd": false},
+    "bubblewrapV0100": {"released": "2024-08-14", "commit": "dc63ec667e6546f34e0b6c088cdf8ae7c7dea0f3", "sourceBlob": "bc75da470aec092ec9bdd08c240870507acedd47", "nativeBindFd": true},
+    "finding": "V0_9_ORDINARY_BIND_CANONICALIZES_PROC_FD_TO_PATH_AND_LEAKS_UNTRACKED_INHERITED_DIRECTORY_FDS_TO_CHILD",
+    "v0100Mechanism": "NATIVE_BIND_FD_POST_MOUNT_IDENTITY_COMPARISON_AND_FD_CLOSE"
+  },
+  "implementation": {
+    "pinnedV090ProductionSpawnAllowed": false,
+    "negativeReceiptWrittenAfterVersionObservation": true,
+    "negativeReceiptBlocker": "PINNED_ENGINE_LACKS_NATIVE_BIND_FD",
+    "preparedNativeFdLaunchUnitTested": true,
+    "futureNativeSemanticsMustBindEngineHashVersionAndReviewedSource": true,
+    "concurrentSameUidMutationExcluded": false,
+    "concurrentPathnameCleanupReplacementExcluded": false,
+    "candidateExecutionEnabled": false
+  },
+  "registeredValidation": {
+    "runs": 3,
+    "successfulRuns": 3,
+    "testsPassed": 48,
+    "syntaxChecksPassed": 3,
+    "elapsedMsByRun": [138.352097, 141.301094, 158.020957],
+    "summedBatchElapsedMs": 437.674148,
+    "nodeParentInvocations": 6,
+    "testRunnerDescendantProcesses": null,
+    "repairCandidateEvaluations": 0,
+    "isolatedRepairProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionEvaluationEngineeringUsd": null
+  },
+  "interruptedEngineeringEvidence": {
+    "completedVersionChecks": 2,
+    "bubblewrapSmokeSpawnAttempts": 1,
+    "observedCompletion": false,
+    "elapsedMsLowerBound": 10300,
+    "lastObservedAliveMsLowerBound": 258000,
+    "candidateSourceExecuted": false,
+    "repairCandidateEvaluation": false,
+    "retainedAndNotRetried": true,
+    "fullCost": null
+  },
+  "review": {
+    "independentReadOnlyReview": true,
+    "pureTestsPassed": 16,
+    "reviewElapsedMs": 275,
+    "correctedFindings": ["V090_PROC_FD_CANONICALIZATION_REINTRODUCES_PATH_RACE", "V090_ORDINARY_DIRECTORY_FDS_LEAK_TO_SANDBOX_CHILD", "CONCURRENT_CLEANUP_TOCTOU_OVERCLAIM", "NEGATIVE_PRODUCTION_RECEIPT_MISSING", "NATIVE_SEMANTICS_BOOLEAN_NOT_IDENTITY_BOUND"],
+    "remainingHighOrMediumFindings": 0
+  },
+  "missionState": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "reservedNativeFieldCalls": 209784,
+    "epochs": 7,
+    "repairResourceProposalApproved": false,
+    "candidateExecutionEnabled": false
+  },
+  "proofBoundary": {
+    "pLimitIsolatedReproductionCompleted": false,
+    "freshTaskOutcomesRead": false,
+    "repairCandidateEvaluated": false,
+    "descendantImprovementCapacityMeasured": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "largestUncertainty": "WHETHER_INHERITED_FAILURE_ANALYSIS_STATE_IMPROVES_DESCENDANT_SUCCESSOR_PRODUCTIVITY_ON_FRESH_TASKS_AT_EQUAL_COST",
+  "actionableBlocker": "REVIEW_AND_PIN_A_BUBBLEWRAP_0_10_0_OR_LATER_EXECUTABLE_WITH_NATIVE_FD_BIND_SEMANTICS_THEN_VERIFY_OS_ISOLATION_ON_AN_EXCLUSIVE_UID_RUNNER",
+  "nextExecutableAcceptance": "PINNED_ENGINE_RECORDS_NATIVE_FD_SOURCE_RECEIPT_AND_CLEAN_OFFLINE_RUNNER_REPRODUCES_P_LIMIT_BASE_3_OF_4_AND_FIX_4_OF_4_WITHOUT_DESCRIPTOR_LEAKS"
+}

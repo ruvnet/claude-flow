@@ -1,0 +1,111 @@
+{
+  "schema": "ruflo.repair-runtime-engine-result/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "recordedAt": "2026-09-13T08:17:48Z",
+  "decision": "ACCEPT_BOUNDED_DESCRIPTOR_AND_PINNED_ENGINE_INCREMENT_ONLY",
+  "stagnationCheck": {
+    "blockerRemoved": "UNPINNED_MUTABLE_HOST_BUBBLEWRAP_AND_UNBOUNDED_RUNTIME_FILE_READS",
+    "acceptanceDemonstrated": true,
+    "experimentalLearningProduced": false
+  },
+  "source": {
+    "commit": "6d96051ca75c45f5aeb84825eeba2b58c0f91cf0",
+    "tree": "d4c275194731febef96a8a31cffebcd94e37d3c5",
+    "preliminaryCommitRetained": "5c0b3044df464e2da2f141c4f13673b2c9de7eb2",
+    "preliminaryTreeRetained": "16d4abdb178ab98859ea52c727e46ea93dbb63b4",
+    "runtimeLayoutHash": "ccf90161f686638f6409a6f187631e5848713ed2f5174df47466018c5c5ae8f8",
+    "snapshotHash": "f4e1a04ccab31069b6eccf241207e2f6c45efae9e83bcb5ebd3b293f9ff16529",
+    "engineSha256": "52231e1caf55bcbc667b269f49c63599a6f7db4767ae6a039580d0ff853db712",
+    "engineSizeBytes": 72160,
+    "engineVersionObservedPreviously": "bubblewrap 0.9.0"
+  },
+  "reservations": {
+    "preliminary": {
+      "path": "evidence/repair-runtime-descriptor.reservation.json",
+      "sha256": "9e16ba5331603803b1d6037f220ea21824a6ffa41514e956781a14d09e1e73f1",
+      "retained": true
+    },
+    "final": {
+      "path": "evidence/repair-runtime-engine-final.reservation.json",
+      "sha256": "6a28226d7afe5f43e741b68b6a9e3d17a99a281d289aaf3a5fb3469f2b086c83",
+      "retained": true
+    }
+  },
+  "registeredMeasurements": {
+    "preliminarySourceBound": {
+      "nodeProcesses": 4,
+      "summedWallMs": 1576,
+      "snapshotTestPasses": 24,
+      "hostSnapshotStages": 1
+    },
+    "finalSourceBound": {
+      "nodeProcesses": 5,
+      "summedWallMs": 1752,
+      "snapshotTestPasses": 27,
+      "runtimeLayoutTestPasses": 17,
+      "hostSnapshotStages": 1,
+      "hostEngineStages": 1,
+      "individualWallMs": [189, 180, 185, 155, 1043]
+    },
+    "failedTimerCommand": {
+      "shellCommands": 1,
+      "nodeProcesses": 0,
+      "reason": "ABSENT_USR_BIN_TIME",
+      "wallMs": null
+    },
+    "additionalEngineeringChecks": {
+      "observedNodeProcesses": 12,
+      "summedWallMs": null,
+      "includedInRegisteredSourceBoundWallMs": false
+    },
+    "externalProviderSpendUsd": 0,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null,
+    "totalEngineeringUsd": null
+  },
+  "ci": {
+    "runId": 34747206674,
+    "url": "https://github.com/ruvnet/ruflo/actions/runs/34747206674",
+    "conclusion": "success",
+    "focusedTestPasses": 205,
+    "researchLoopSuitePasses": 187,
+    "historicalEpochsReplayed": 7,
+    "originalAnchorVerified": true
+  },
+  "securityReview": {
+    "criticalFindings": 0,
+    "highGateBypassFindings": 0,
+    "candidateOrResourceGateBypassFound": false,
+    "locallyRepeatedSnapshotAndLayoutTests": 26,
+    "residuals": [
+      "PATHNAME_EXEC_AND_MOUNTS_NOT_ATOMIC_WITH_VALIDATION",
+      "SAME_UID_REPLACEMENT_NOT_EXCLUDED_ON_THIS_HOST",
+      "OUTPUT_INSPECTION_REMAINS_PATHNAME_BASED",
+      "PRODUCTION_STAGED_COMMAND_INTEGRATION_TEST_PENDING"
+    ],
+    "efficacyIndependenceClaimed": false
+  },
+  "legacyMission": {
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7,
+    "newNativeFieldCalls": 0,
+    "newEpochs": 0
+  },
+  "repairMission": {
+    "resourceProposalApproved": false,
+    "candidateEvaluations": 0,
+    "bubblewrapStarts": 0,
+    "isolatedProcessStarts": 0,
+    "candidateExecutionEnabled": false
+  },
+  "remainingBlockers": [
+    "EXCLUSIVE_UID_OR_OPENAT2_OPEN_TREE_ISOLATION_BOUNDARY",
+    "COMPATIBLE_CLEAN_OFFLINE_RUNNER",
+    "ACTUAL_P_LIMIT_BASE_AND_FIX_ISOLATED_REPRODUCTION",
+    "REPAIR_RESOURCE_ENVELOPE_APPROVAL"
+  ],
+  "largestUncertainty": "WHETHER_INHERITED_FAILURE_ANALYSIS_STATE_IMPROVES_DESCENDANT_SUCCESSOR_PRODUCTIVITY_ON_FRESH_TASKS",
+  "boundedRsiEvidenceAccepted": false
+}

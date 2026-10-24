@@ -1,0 +1,56 @@
+{
+  "schema": "ruflo.repair-engine-policy-reservation/v1",
+  "scope": "EXECUTOR_POLICY_AND_NATIVE_FD_SOURCE_REVIEW_ONLY",
+  "blockerRemoved": "The executor policy still pins Bubblewrap 0.9.0 and cannot bind the reviewed 0.12.0 artifact or its native fd-mount semantics.",
+  "initialHead": "2ac55f65a1ba15b1386ea100cfbf532fc2f8cfb1",
+  "upstreamSource": {
+    "repository": "https://github.com/containers/bubblewrap",
+    "releaseCommit": "2a76602a8c71f36c1527cf9fc3417d9149822e0c",
+    "releaseTree": "021e149edf2e8b9f4a0339e0b5cc0075d299c9a9",
+    "bubblewrapSourceBlob": "9192550540d3c4f173a7308c11e518e18ef4c303",
+    "bubblewrapSourceBytes": 113001,
+    "upstreamTestBlob": "e608d4a847014029d5c7c24e8f4db25cfe255a38",
+    "upstreamTestBytes": 28748
+  },
+  "artifact": {
+    "repositoryPath": "v3/@claude-flow/cli/scripts/rsi/repair/engine/bwrap-v0.12.0-linux-x64",
+    "sha256": "8d921da11eaa58abdbb707f2947bb038800c5f9f57809f11621da9f0cacd02ea",
+    "sizeBytes": 96680,
+    "finalEvidenceCommit": "2ac55f65a1ba15b1386ea100cfbf532fc2f8cfb1"
+  },
+  "plannedFiles": [
+    "v3/@claude-flow/cli/scripts/rsi/repair/executor-policy.json",
+    "v3/@claude-flow/cli/scripts/rsi/repair/executor.mjs",
+    "v3/@claude-flow/cli/scripts/rsi/repair/executor.test.mjs",
+    "v3/@claude-flow/cli/scripts/rsi/EXECUTOR-009.md",
+    "v3/@claude-flow/cli/scripts/rsi/evidence/loop-development/repair-engine-policy-v2.json",
+    "v3/@claude-flow/cli/scripts/rsi/evidence/loop-development/repair-engine-policy-v2.md"
+  ],
+  "engineeringBounds": {
+    "futureLocalParentTestStarts": 8,
+    "futureCiWorkflowRuns": 3,
+    "namespaceStarts": 0,
+    "candidateEvaluations": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0
+  },
+  "preReservationEngineeringObservation": {
+    "retained": true,
+    "localParentCommands": 2,
+    "nodeTestFileProcesses": 3,
+    "passingTests": 12,
+    "failedTestFiles": 1,
+    "failure": "Sparse local checkout lacked admission.mjs; executor test did not load.",
+    "wallMs": 110.837372
+  },
+  "legacyMission": {
+    "head": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7,
+    "originalAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088"
+  },
+  "repairResourceAuthorizationPresent": false,
+  "candidateExecutionEnabled": false,
+  "boundedRsiEvidenceAccepted": false
+}

@@ -1,0 +1,38 @@
+LOOP-GUIDANCE-002 local validation, Node 24.19.0
+
+AUTHORING ATTEMPT
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/ci-coverage.test.mjs
+EXIT 1
+The first authored test file contained escaped template delimiters and failed to
+parse. Node reported one failed test-file worker and duration_ms 67.898732. The
+file was replaced, not represented as experimental evidence, and the failed work
+is retained in costs.
+
+UNREGISTERED BASELINE
+SOURCE WORKFLOW 3ae06672d6d7735b47d9417078078c52f1998fb9
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/ci-coverage.test.mjs
+EXIT 1
+✖ every repository repair test has one executable workflow reference (2.523927ms)
+✔ missing repair tests fail closed (0.688904ms)
+✔ duplicate repair test references fail closed (0.330516ms)
+✔ comments and non-executable YAML text do not count as coverage (0.204447ms)
+✔ one command may explicitly execute multiple repair tests (0.243205ms)
+ℹ tests 5
+ℹ pass 4
+ℹ fail 1
+ℹ duration_ms 89.819529
+Failure: repair tests missing from executable workflow: ci-coverage.test.mjs
+
+REGISTERED FIXED WORKFLOW
+COMMAND node --test v3/@claude-flow/cli/scripts/rsi/repair/ci-coverage.test.mjs
+EXIT 0
+✔ every repository repair test has one executable workflow reference (1.907502ms)
+✔ missing repair tests fail closed (1.186991ms)
+✔ duplicate repair test references fail closed (0.337557ms)
+✔ comments and non-executable YAML text do not count as coverage (0.200711ms)
+✔ one command may explicitly execute multiple repair tests (0.344467ms)
+ℹ tests 5
+ℹ pass 5
+ℹ fail 0
+ℹ duration_ms 80.648173
+

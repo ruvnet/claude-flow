@@ -1,0 +1,38 @@
+{
+  "schema": "ruflo.repair-fd-launch-registered-raw/v1",
+  "sourceCommit": "7d78690fb90014216d212347ddb9c0bb0f41d488",
+  "sourceTree": "368305311216d98045c90ee0771c3379410c1673",
+  "reservationCommit": "3d522ebeb8a32c65f4b5f36937be2c958f92a90d",
+  "reservationSha256": "66dfa346dd717d5568859fcb5656e71979ba5048793d36e6ff9b4fcdfe81b97d",
+  "runs": [
+    {"run": 1, "complete": true, "testsPassed": 16, "syntaxCheckPassed": true, "elapsedMs": 138.352097},
+    {"run": 2, "complete": true, "testsPassed": 16, "syntaxCheckPassed": true, "elapsedMs": 141.301094},
+    {"run": 3, "complete": true, "testsPassed": 16, "syntaxCheckPassed": true, "elapsedMs": 158.020957}
+  ],
+  "registeredCosts": {
+    "nodeParentInvocations": 6,
+    "testRunnerDescendantProcesses": null,
+    "summedBatchElapsedMs": 437.674148,
+    "repairCandidateEvaluations": 0,
+    "isolatedRepairProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionEvaluationEngineeringUsd": null
+  },
+  "preReservationEngineering": {
+    "localPureOrMixedValidationCommands": 4,
+    "independentReviewPureValidation": {"testsPassed": 16, "elapsedMs": 275, "bubblewrapStarts": 0},
+    "sparseWorkspaceFullSuiteAttempt": {"completed": true, "passedTests": 16, "failedFiles": 1, "failure": "MISSING_LOCAL_ADMISSION_MODULE", "elapsedMs": 94.950108},
+    "completedBubblewrapVersionChecks": 2,
+    "interruptedBubblewrapSmokeSpawnAttempts": 1,
+    "interruptedBubblewrapSmokeObservedCompletion": false,
+    "interruptedBubblewrapSmokeElapsedMsLowerBound": 10300,
+    "interruptedBubblewrapSmokeLastObservedAliveMsLowerBound": 258000,
+    "failedOrInterruptedWorkUnknown": true,
+    "candidateSourceExecuted": false,
+    "repairCandidateEvaluations": 0
+  }
+}

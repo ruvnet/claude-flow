@@ -1,0 +1,90 @@
+{
+  "schema": "ruflo.rsi-engineering-result/v1",
+  "increment": "FRESH-ADMISSION-001",
+  "recordedAt": "2026-09-13T19:42:00.000Z",
+  "implementationParent": "af6996302c414529f88d9dbfaae0a4d66479df7b",
+  "federationClaimEvent": "23bfb15c67b0d74fd92e706557a5f255b3a62a52062c6ef985ad18298aeb0185",
+  "githubReservationComment": 5655497041,
+  "decision": "ACCEPT_FAIL_CLOSED_FRESH_PARTITION_ENGINEERING_ONLY",
+  "blockerRemoved": "Fresh development tasks now have an executable schema that cannot carry known exposed task identities, revisions, fix fields, outcome fields or training traces.",
+  "source": {
+    "freshTaskAdmissionSha256": "906cf66e999906e5882db0d33b90f7a53869b2bded908b578eaf00c1176db2d9",
+    "freshTaskAdmissionTestSha256": "633577419cbeb067a02b607b8b503aa6ad1a152b84acfc3036047e2557079aed",
+    "freshTaskFreezeSha256": "31d87f37c6616675fd9c863e2a8aeaa56e4a1da42a2df33dadd0380218758d33",
+    "workflowSha256": "5d55ab5b35aeede49522588a62fd6a64af58e1f012ff4e3b497e295eb36674f6",
+    "repairLoopSha256": "45c21e89f3bbe444bb564ae6d82f1a82e1b87dfcd802ea1dde30a9366a323aef",
+    "calibrationCorpusGitBlob": "a1360f54bad24ee605ca27fbdd768dd2ab850101",
+    "publicWorkloadsGitBlob": "09d5f3b295b8e5a4695529ec25dfe56fc692745f"
+  },
+  "measurement": {
+    "commands": 3,
+    "testFileWorkerAttempts": 5,
+    "testCasesAttempted": 52,
+    "testCasesPassed": 51,
+    "testCasesFailed": 1,
+    "summedReportedNodeDurationMs": 367.779066,
+    "baseline": {
+      "tests": 19,
+      "passed": 18,
+      "failed": 1,
+      "durationMs": 99.739032,
+      "failure": "fresh-task-admission.test.mjs missing from executable workflow"
+    },
+    "registered": {
+      "tests": 19,
+      "passed": 19,
+      "failed": 0,
+      "durationMs": 104.040589
+    },
+    "acceptance": {
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "durationMs": 163.999445
+    },
+    "freshTasksAdmitted": 0,
+    "knownTaskIdsExcluded": 6,
+    "knownRevisionsExcluded": 11,
+    "repairCandidateEvaluations": 0,
+    "isolatedNamespaceStarts": 0,
+    "newNativeFieldCalls": 0,
+    "newEpochs": 0,
+    "externalProviderSpendUsd": 0,
+    "ciProcesses": null,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionUsd": null,
+    "totalEvaluationUsd": null,
+    "totalEngineeringUsd": null
+  },
+  "mission": {
+    "initialAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeFieldCallsReserved": 209784,
+    "epochsConsumed": 7
+  },
+  "proofBoundary": {
+    "realFreshTasksSelected": 0,
+    "freshSolutionsOrOutcomesRead": false,
+    "empiricalHypothesisAdmitted": false,
+    "resourceProposalApproved": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "guidanceChange": {
+    "prior": "Freeze fresh samples before comparison and do not relabel exposed fixes, enforced only by prose and exposed-workload schemas.",
+    "proposed": "Require the fresh-task admission validator and its exclusion registry before any task is labelled fresh.",
+    "expectedBenefit": "Reduce accidental fix/outcome contamination and task relabelling before matched-control trials.",
+    "benefitMeasured": false,
+    "rollbackCondition": "Admit no task if its source, selection query, evaluator boundary or lack of fix/outcome exposure cannot be verified without inspecting solution bytes.",
+    "cadenceBefore": "HOURLY",
+    "cadenceAfter": "HOURLY",
+    "cadenceRationale": "Useful bounded local work remains ready and no writer contention was observed."
+  },
+  "pi": {
+    "state": "BLOCKED_AUTH",
+    "requestsThisIncrement": 0,
+    "memoriesAdmitted": 0
+  },
+  "largestRemainingUncertainty": "Whether inherited training-only failure-analysis state improves descendant successor productivity on genuinely fresh tasks at equal total cost.",
+  "nextAcceptance": "Freeze at least one independently reviewed pre-outcome public development task and parent-only evaluator capsule through this validator without acquiring fix or outcome bytes; then obtain compatible isolated-runner evidence and explicit repair-resource approval before any trial."
+}

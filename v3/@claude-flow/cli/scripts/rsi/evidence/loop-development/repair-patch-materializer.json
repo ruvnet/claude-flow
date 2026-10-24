@@ -1,0 +1,95 @@
+{
+  "schema": "ruflo.repair-patch-materializer-engineering-result/v1",
+  "mission": "rsi-ruflo-loop-20260912",
+  "recordedAt": "2026-09-13T09:50:01Z",
+  "decision": "ACCEPT_EXPOSED_TEMPLATE_PATCH_MATERIALIZER_ONLY",
+  "stagnationCheck": {
+    "executionBlockerRemoved": "INHERITED_DESCRIPTOR_COULD_NOT_PRODUCE_A_CONTENT_ADDRESSED_PATCH_ARTIFACT",
+    "acceptanceDemonstrated": true,
+    "experimentalLearningProduced": false
+  },
+  "source": {
+    "commit": "7f672c6689f33b9f2cf894fb724c4edb87daf1cd",
+    "tree": "c7fb9fa13e6d42f3f63391933b8b05e6aa24fd84",
+    "implementationParent": "8bf532221055dc62cecd9b007eaf5d17c9f5e9d7",
+    "reservationCommit": "c46eccd63756df2055c5f72c74e2862027ead77b",
+    "materializerPlanSemanticHash": "525b8e6f4818d76c314d68fa7c02a4b7f05c41249c7ed463063063ba19e5ea8b",
+    "materializerPlanRawSha256": "4aef281fdbe07346395a4a25367d9a126677e00e9044a7779f796f71ae417b33",
+    "inheritedImproverPlanSemanticHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0"
+  },
+  "reservation": {
+    "path": "evidence/loop-development/repair-patch-materializer.reservation.json",
+    "sha256": "0044a495b7d08c2c7c8e3434c289411138c82bbca1e6db711214e5527fd131b4",
+    "retained": true
+  },
+  "trainingLineage": {
+    "repository": "sindresorhus/p-limit",
+    "baseCommit": "df476048d023ff868cd45b35ee47f5fb0ca2b25a",
+    "fixCommit": "f3e7f9ba364a9357bd912d136367d06c46660917",
+    "path": "index.js",
+    "partition": "TRAINING_ONLY_CALIBRATION",
+    "publishedFixKnown": true,
+    "ruleResearcherAuthoredFromExposedFix": true,
+    "exposedFixDerivedRuleReadByChild": true,
+    "knownFixFixturePathProvided": false,
+    "knownFixFixtureReadAuditPerformed": false
+  },
+  "artifact": {
+    "schema": "ruflo.repair-single-replacement-artifact/v1",
+    "arm": "inherited",
+    "baseGitBlob": "5ecd39257c623b6dd4df204bbd7c94fbdf0b8d12",
+    "baseSha256": "30fa94b6aebe7f044f7383feee7931fc7c1a4912affadac97539cda67c14057d",
+    "candidateGitBlob": "b74d48ab0e37788e657e5ad12d90e281ef1f39d1",
+    "candidateSha256": "63239cd9ae80b1433e05014fe6ec501475c6fa59fad06418cb5972dbc7cc14e2",
+    "candidateBytes": 3446,
+    "insertedBytes": 284,
+    "selectedTests": ["LIMIT_FUNCTION_CLEAR_QUEUE", "ORDINARY_THROUGHPUT"],
+    "repositoryPatchApplied": false,
+    "candidateEvaluated": false
+  },
+  "registeredValidation": {
+    "runs": 3,
+    "testsPassed": 39,
+    "testsFailed": 0,
+    "outerWallMsByRun": [165, 164, 190],
+    "summedOuterWallMs": 519,
+    "nodeValidationProcesses": 3,
+    "nodeTestWorkers": 0,
+    "materializerChildProcesses": 3,
+    "fifoSetupProcesses": 3,
+    "trainingOnlyDescriptorScores": 96,
+    "completedPatchArtifacts": 15,
+    "replacementOperations": 15,
+    "repairCandidateEvaluations": 0,
+    "isolatedProcessStarts": 0,
+    "nativeFieldCalls": 0,
+    "epochs": 0,
+    "modelCalls": 0,
+    "externalProviderSpendUsd": 0,
+    "outerCodexModelCostUsd": null,
+    "totalAcquisitionEvaluationEngineeringUsd": null
+  },
+  "review": {
+    "independentReadOnlyReview": true,
+    "highFindingsCorrected": ["REHASHED_ARTIFACT_COULD_REBIND_REMOVAL_OR_SOURCE", "PARENT_TRUSTED_CHILD_SELF_VERIFICATION"],
+    "mediumFindingsCorrected": ["FIFO_OPEN_COULD_BLOCK_BEFORE_REGULAR_FILE_CHECK", "FIXTURE_READ_CLAIM_EXCEEDED_OBSERVATION"],
+    "remainingHighFindings": 0
+  },
+  "missionState": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "reservedNativeFieldCalls": 209784,
+    "epochs": 7,
+    "repairResourceProposalApproved": false,
+    "candidateExecutionEnabled": false
+  },
+  "proofBoundary": {
+    "freshTaskOutcomesRead": false,
+    "matchedControlPatchCoverage": false,
+    "empiricalHypothesisAdmitted": false,
+    "descendantImprovementCapacityMeasured": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "largestUncertainty": "WHETHER_INHERITED_FAILURE_ANALYSIS_STATE_IMPROVES_DESCENDANT_SUCCESSOR_PRODUCTIVITY_ON_FRESH_TASKS_AT_EQUAL_COST",
+  "nextExecutableAcceptance": "MATERIALIZE_AND_EVALUATE_PATCHES_FOR_INHERITED_FROZEN_STATIC_SHUFFLED_AND_PREVIOUS_CONTROLS_ON_FROZEN_FRESH_DEVELOPMENT_TASKS_USING_A_COMPATIBLE_ISOLATED_RUNNER_AND_APPROVED_REPAIR_RESOURCES"
+}

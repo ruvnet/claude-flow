@@ -1,0 +1,123 @@
+{
+  "schema": "ruflo.development-evidence/v1",
+  "increment": "TASK-GENERAL-PROPOSER-ADMISSION-001",
+  "recordedAt": "2026-09-14T03:45:00Z",
+  "decision": "ACCEPT_CODEX_WRITTEN_OPERATOR_AVAILABILITY_INCREASE_NOT_INHERITED_IMPROVEMENT",
+  "source": {
+    "parentCommit": "a4f50ce028b033c475b1e28a402eb598369b4309",
+    "commit": "ce26636e0a7fe240c82b74f76c6c8e8fbf793414",
+    "tree": "f0ee0350f1c4d4865e8820f8493b758ad4968c47"
+  },
+  "coordination": {
+    "resourceId": "ruvnet/ruflo/experiments/rsi-research-loop",
+    "claimEvent": "3e22d1d41666a8c11c36fa7ae15895b506d7c7de2bf88c114b5c0c5ea2614afe",
+    "reservationIssue": "ruvnet/core-memory#85",
+    "reservationCommentId": 5658616891,
+    "claimGrantsMergeDeployOrTrialAuthority": false
+  },
+  "ancestry": {
+    "initialSource": "b0be9e24b8d42ce89eb5d3606628cf6f1b15fa07",
+    "reviewedParent": "a4f50ce028b033c475b1e28a402eb598369b4309",
+    "status": "ahead",
+    "aheadBy": 82,
+    "behindBy": 0
+  },
+  "bindings": {
+    "freshFreezeHash": "1ed08cdbc62d67392529b6bc8d02ae3e3a8f5f07e1432ca842382c36167830e3",
+    "taskGeneralPlanHash": "8cf99c276596dc5d66f57b63bc0c1e77da1df3253310fe3a403652c8d93a9248",
+    "taskGeneralPlanRawSha256": "f1917c1720b42686fb5ad0f0887a8fdae9686ff60cdcf19d2da5ae7326c696a2",
+    "inheritedImproverPlanHash": "d9ff24763a9398763e79bde5741b8e5ec092b5da642f28c827bdd78008b002a0",
+    "materializerPlanHash": "a7a8df26ef90d815824234e064ea611fc926502f0eb904af81aade258df9287e",
+    "task": {
+      "id": "avoid-ai-writing-291",
+      "repository": "conorbronsdon/avoid-ai-writing",
+      "baseCommit": "fabd62d9c8785dd0edda35201359bcc635b7d3de",
+      "cluster": "js-regex-line-boundary",
+      "sourceArchiveSha256": "8695115e601005956e6442a58161724b2be6e5d169dbd2c108e64c41d4ba63d3",
+      "promptCapsuleSha256": "91495813669034503c7db9bf723b0b7c2ef30b8561e5f3880f4560609d0ee7dc"
+    }
+  },
+  "result": {
+    "previousPLimitMaterializerFamiliesPerArm": 0,
+    "genericOperatorFamiliesAvailablePerArm": 4,
+    "genericOperatorSlotsAdmittedPerArm": 2,
+    "arms": ["inherited", "frozen", "static", "shuffled", "previous"],
+    "families": [
+      "NARROW_REGEX_WHITESPACE_CLASS",
+      "EXCLUDE_CRLF_FROM_WHITESPACE",
+      "PRESERVE_MULTILINE_ANCHORS_WITH_LINE_LOCAL_TOKENS",
+      "POST_MATCH_REJECT_LINEBREAK"
+    ],
+    "codexWrittenProposerEffect": true,
+    "inheritedStateInfluenceOnAdmission": false,
+    "inheritedStateInfluenceOnSelection": false,
+    "candidateDescriptorsProduced": 0,
+    "candidateBytesProduced": 0,
+    "freshTaskOutcomesRead": false,
+    "evaluatorInputsRead": false,
+    "empiricalHypothesisAdmitted": false,
+    "improvementCapacityMeasured": false,
+    "candidateExecutionEnabled": false,
+    "boundedRsiEvidenceAccepted": false
+  },
+  "validation": {
+    "testCommands": 3,
+    "testFileWorkers": 5,
+    "boundedCliHelperStarts": 4,
+    "testCases": 49,
+    "passed": 49,
+    "failed": 0,
+    "reportedSuiteDurationMs": 657.852763,
+    "readOnlyAdmissionInspectionCommands": 1,
+    "sourceStageCommands": 1,
+    "sourceArchiveBytes": 88498,
+    "decodedSourceBytes": 296812,
+    "memorySearches": 1,
+    "memorySearchWallMs": 13206,
+    "githubActions": {
+      "runId": 34803373414,
+      "runUrl": "https://github.com/ruvnet/ruflo/actions/runs/34803373414",
+      "conclusion": "success",
+      "researchLoopTests": 313,
+      "experimentProofTests": 18,
+      "totalTests": 331,
+      "historicalEpochsReplayed": 7,
+      "lifetimeNativeCalls": 209784,
+      "boundedRsiEvidenceAccepted": false
+    }
+  },
+  "costs": {
+    "repairCandidateEvaluations": 0,
+    "candidateDescriptors": 0,
+    "candidateBytes": 0,
+    "proposerStarts": 0,
+    "evaluatorStarts": 0,
+    "isolatedProcessStarts": 0,
+    "summedRepairProcessWallMs": 0,
+    "nativeFieldCalls": 0,
+    "modelCalls": 0,
+    "epochs": 0,
+    "piRequests": 0,
+    "externalProviderSpendUsd": 0,
+    "outerCodexAcquisitionAndModelCost": "unknown",
+    "totalEngineeringUsd": "unknown"
+  },
+  "mission": {
+    "ledgerAnchor": "c5c6da0b728c52414f2dff86f9d23121776d600defff0f214f1502a091f69088",
+    "ledgerHead": "5a0e219e871fcf616209807c828c5793c29752f8d190fc38a0bc95e4db88422e",
+    "nativeCallsConsumed": 209784,
+    "epochsConsumed": 7,
+    "repairEnvelopeApproved": false,
+    "piState": "BLOCKED_AUTH"
+  },
+  "guidanceChange": {
+    "prior": "require a task-general proposer after the zero-family negative without a mechanical attribution field",
+    "proposed": "record Codex-written operator availability separately from inherited-state admission and selection influence",
+    "expectedBenefit": "unmeasured",
+    "costScope": "one bounded public prompt and proposer-visible source inspection per frozen task",
+    "acceptance": "a child-owned materializer creates bounded successors without evaluator access; inherited effects remain separately measurable",
+    "rollback": "retain both admission artifacts and replace only after independent review proves the generic signal derivation unsound"
+  },
+  "cadenceDecision": "UNCHANGED_USEFUL_CHILD_MATERIALIZER_IMPLEMENTATION_READY",
+  "nextExecutableStep": "implement and review child-owned generic operator materialization on synthetic fixtures before any real fresh-task candidate execution"
+}
