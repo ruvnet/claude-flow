@@ -143,6 +143,12 @@ interface PersistedModel {
     // totalRoutings by exactly 1). Optional for backward compatibility with
     // model files saved before this field existed.
     totalRoutings?: number;
+    // Running sum of this.probs[i] across every route() call, used to derive
+    // a true per-expert running-average probability for computeLoadBalanceLoss().
+    // Optional for backward compatibility with model files saved before this
+    // field existed -- loadWeights() falls back to a zero vector, matching
+    // the existing totalRoutings fallback convention.
+    probSums?: number[];
   };
   metadata: {
     savedAt: string;
@@ -340,6 +346,21 @@ export class MoERouter {
   // pre-allocating here (matching the other pre-allocated buffers above) is
   // safe even though it holds zeros until the first route().
   private lastLoadBalanceFractions: Float32Array = new Float32Array(NUM_EXPERTS);
+  // Running sum of this.probs[i] over every completed route() call (updated
+  // in the same statistics block as routingCounts/totalRoutings, so it uses
+  // the identical "before this call" timing as `fraction` in
+  // computeLoadBalanceLoss() -- see that method for why this matters).
+  //
+  // KNOWN LIMITATION (adversarial critique, 2026-10-22): this is a plain
+  // running sum, not a numerically-stabilized running mean (e.g. Welford's).
+  // At very large totalRoutings (roughly >=1e6, once per-call increments of
+  // ~0-1 fall below the accumulator's float32 ULP), small contributions get
+  // rounded away, biasing avgProb low in computeLoadBalanceLoss() for very
+  // long-lived persisted routers. Only the diagnostic loadBalanceLoss value
+  // is affected -- updateExpertWeights() never reads probSums/avgProb, so
+  // training is unaffected. Not fixed here; flag for a future night if a
+  // long-lived-router deployment is observed to hit this range.
+  private probSums: Float32Array = new Float32Array(NUM_EXPERTS);
 
   constructor(config: Partial<MoERouterConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -438,6 +459,9 @@ export class MoERouter {
     // Update statistics
     for (const idx of expertIndices) {
       this.routingCounts[idx]++;
+    }
+    for (let i = 0; i < NUM_EXPERTS; i++) {
+      this.probSums[i] += this.probs[i];
     }
     this.totalRoutings++;
 
@@ -658,6 +682,7 @@ export class MoERouter {
    */
   resetStats(): void {
     this.routingCounts.fill(0);
+    this.probSums.fill(0);
     this.totalRoutings = 0;
     this.updateCount = 0;
     this.avgReward = 0;
@@ -703,6 +728,14 @@ export class MoERouter {
         typeof model.stats.totalRoutings === 'number'
           ? model.stats.totalRoutings
           : this.routingCounts.reduce((a, b) => a + b, 0);
+      // probSums is new; older model files have no record of it. Falling
+      // back to zeros (rather than e.g. reconstructing from routingCounts,
+      // which carries no probability information at all) means avgProb
+      // reads as 0 until enough new route() calls accumulate -- an honest
+      // "unknown" rather than a fabricated value.
+      this.probSums = new Float32Array(
+        model.stats.probSums || new Array(NUM_EXPERTS).fill(0)
+      );
 
       return true;
     } catch (err) {
@@ -753,6 +786,7 @@ export class MoERouter {
           routingCounts: Array.from(this.routingCounts),
           avgReward: this.avgReward,
           totalRoutings: this.totalRoutings,
+          probSums: Array.from(this.probSums),
         },
         metadata: {
           savedAt: new Date().toISOString(),
@@ -805,6 +839,22 @@ export class MoERouter {
    * L_balance = N * sum(f_i * P_i)
    * where f_i = fraction of tokens routed to expert i
    *       P_i = average routing probability to expert i
+   *
+   * Both f_i and P_i must be averaged over the same historical window to be
+   * a coherent measure of load skew. f_i (`fraction` below) always was: a
+   * cumulative running average of routingCounts/totalRoutings. P_i previously
+   * was not -- it read `this.probs[i]`, the single most-recent route() call's
+   * instantaneous gate probability, not an average of anything, despite the
+   * docstring above and the variable's own former name ("avgProb") saying
+   * otherwise. That mixed a slow-moving historical fraction with a
+   * fast-moving single-sample probability, so the returned loss tracked
+   * whichever query happened to route last rather than real historical
+   * skew. Fixed by averaging `probSums` (accumulated in route(), same
+   * "before this call" timing as `routingCounts`) over `totalRoutings`,
+   * mirroring `fraction`'s own averaging exactly. This is a diagnostic-value
+   * fix only: updateExpertWeights()'s hand-derived REINFORCE gradient (see
+   * its own comment block) intentionally differentiates w.r.t. the current
+   * call's probability and is unaffected.
    */
   private computeLoadBalanceLoss(): number {
     if (this.totalRoutings === 0) return 0;
@@ -812,7 +862,7 @@ export class MoERouter {
     let loss = 0;
     for (let i = 0; i < NUM_EXPERTS; i++) {
       const fraction = this.routingCounts[i] / this.totalRoutings;
-      const avgProb = this.probs[i]; // Current routing prob
+      const avgProb = this.probSums[i] / this.totalRoutings;
       loss += fraction * avgProb;
     }
 
