@@ -12,7 +12,7 @@ ruRE grew over seven releases through eleven ADRs. Each one says what its own st
 
 ## 2. What ruRE reads
 
-Seven read-only MCP tools in `@claude-flow/cli`, all in `v3/@claude-flow/cli/src/mcp-tools/rure-tools.ts`. Each parses a file and returns an inventory. None runs, loads, compiles or writes what it reads (the one exception is stated in the next section).
+Seven read-only MCP tools in `@claude-flow/cli`, all in `v3/@claude-flow/cli/src/mcp-tools/rure-tools.ts` (ADR-501 adds an eighth, `rure_cuda_launch_plan`, which plans measurements from the CUDA reader's output). Each parses a file and returns an inventory. None runs, loads, compiles or writes what it reads (the one exception is stated in the next section).
 
 | Tool | Reads | Returns |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ A fresh program of four kernels (a streaming `saxpy`, a shared-memory reduction,
 | Static shared memory | 4 of 16 as reported; 16 of 16 reading "no section" as 0 |
 | Local memory | 0 of 16 as reported; 16 of 16 reading "no section" as 0 |
 
-The shared and local difference is one of representation: ruRE returns `null` for a kernel that has no static shared or local section, and `cuobjdump` prints `0`. The numbers never disagreed. The shared figure that exists (the reduction) matched on every architecture, including `sm_120`, where both tools report 5120 bytes against 4096 on the other architectures (I did not look into why). Register counts differ by architecture for the same source (the register-heavy kernel used 16, 17, 17 and 15 registers on `sm_80`, `sm_86`, `sm_89` and `sm_120`), which is the reason the numbers are read per architecture. The in-repository live test also passed on the same day (7 of 7).
+The shared and local difference is one of representation: ruRE returns `null` for a kernel that has no static shared or local section, and `cuobjdump` prints `0`. The numbers never disagreed. The shared figure that exists (the reduction) matched on every architecture, including `sm_120`, where both tools report 5120 bytes against 4096 on the other architectures. That is not a disagreement: from `sm_90` the compiler adds the driver's 1 KiB per-block reservation to each kernel's shared size, and the driver reports the size without it. ADR-501 section 2.2 has the hardware evidence. Register counts differ by architecture for the same source (the register-heavy kernel used 16, 17, 17 and 15 registers on `sm_80`, `sm_86`, `sm_89` and `sm_120`), which is the reason the numbers are read per architecture. The in-repository live test also passed on the same day (7 of 7).
 
 Run it from a clean directory: a leftover partial `.claude-flow/policy` store in the working directory makes every ruflo tool refuse with `policy-anchor-log-missing`, by design (tamper evidence), and it looks like a ruRE failure when it is not.
 
