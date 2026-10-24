@@ -1,0 +1,51 @@
+{
+  "state": "admitted",
+  "symbol": "confirm_b83",
+  "isa": "sm_89",
+  "parameters": [
+    {
+      "ordinal": 0,
+      "offset": 352,
+      "size": 8
+    },
+    {
+      "ordinal": 1,
+      "offset": 360,
+      "size": 8
+    },
+    {
+      "ordinal": 2,
+      "offset": 368,
+      "size": 8
+    },
+    {
+      "ordinal": 3,
+      "offset": 376,
+      "size": 4
+    },
+    {
+      "ordinal": 4,
+      "offset": 384,
+      "size": 8
+    }
+  ],
+  "frameSize": 0,
+  "minStackSize": 0,
+  "sharedBytes": 0,
+  "globalBytes": 0,
+  "specialRegisters": {
+    "SR_NTID.X": 0,
+    "SR_NTID.Y": 4,
+    "SR_NTID.Z": 8,
+    "SR_GRID_DIM.X": 12,
+    "SR_GRID_DIM.Y": 16,
+    "SR_GRID_DIM.Z": 20,
+    "SR_CTAID.X": 32,
+    "SR_CTAID.Y": 36,
+    "SR_CTAID.Z": 40,
+    "SR_TID.X": 44,
+    "SR_TID.Y": 48,
+    "SR_TID.Z": 52,
+    "SR_LANEID": 56
+  }
+}

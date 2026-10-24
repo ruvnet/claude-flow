@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "owner": "cuda_gpu_operator",
+  "task": "rure-sass-native-e2e",
+  "date": "2026-10-24",
+  "outcome": "VERIFIED DISCOVERY",
+  "hypothesis": "Frozen SASS+ELF-only recovery produces CUDA whose compiled native cubin matches the exact original cubin on independent integer cases.",
+  "scope": "SM89 synthetic integer programs; candidate receives only SASS+ELF, no source or oracle",
+  "deliveryState": "reproduced; not merged or deployed",
+  "promotionVerdicts": {
+    "supportedSubsetCorrectness": "ACCEPT",
+    "completeConfirmationCoverage": "REJECT",
+    "beyondSota": "REJECT",
+    "tenPercentPerformanceImprovement": "REJECT"
+  },
+  "candidate": {
+    "typescriptSha256": "99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0",
+    "executedStandaloneModuleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+    "nodeVersion": "20.20.2",
+    "node24DevelopmentParity": "4/4 code and complete result hashes match Node24.19.0; environment deviation retained"
+  },
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 4060 Ti, 595.84, 16380 MiB, 8.9",
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:58:59_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0\n",
+    "sanitizer": "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36400806) (public-release)\n",
+    "image": "nvidia/cuda@sha256:0eee3094c71518ad31d011a594ae6ed6de72959ee07e318cb31cffe71690e90c",
+    "executables": {
+      "nvcc": {
+        "path": "/usr/local/cuda-13.0/bin/nvcc",
+        "sha256": "b8e2347d9d7fcadf8812a27324d515de99d033d3e48611811ece7e66d7895f8a"
+      },
+      "ptxas": {
+        "path": "/usr/local/cuda-13.0/bin/ptxas",
+        "sha256": "daba837a68265cae38c832d13399b61dab811891de9b8914defddef143b849f2"
+      },
+      "cuobjdump": {
+        "path": "/usr/local/cuda-13.0/bin/cuobjdump",
+        "sha256": "1763b5367167e73939c853f6c71bdec7be0ea4a1cfb6625e4c81d7c7a1f801ae"
+      },
+      "compute-sanitizer": {
+        "path": "/usr/local/cuda-13.0/bin/compute-sanitizer",
+        "sha256": "5cba659e1cd603aa2370e103425f184368e6ed405da90ce85743c4399c324dbc"
+      }
+    }
+  },
+  "freeze": {
+    "nativeManifestSha256": "53f85b394e5e6d60c472878ea3f0cfece3d052b086a89bf882f902c63c00558e",
+    "translationInputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+    "nativeArchiveSha256": "0f297d35587a067b7f1216fada8f89fc8ac67ae8978890375188d4e6ffcabd2d",
+    "operatorFrozenAt": 1792806654.9236155,
+    "candidateNotInvoked": true,
+    "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3"
+  },
+  "development": {
+    "coverage": {
+      "status": "complete",
+      "frozenKernelCount": 4,
+      "admittedKernelCount": 4,
+      "frozenCaseCount": 28,
+      "excluded": [],
+      "promotionEligible": false,
+      "sotaClaim": false
+    },
+    "correctness": {
+      "status": "pass",
+      "claim": "exact original and recovered ELF cubins match frozen integer oracle",
+      "kernels": 4,
+      "cases": 28,
+      "elementComparisons": 1560,
+      "driver": 13020,
+      "gpu": "NVIDIA GeForce RTX 4060 Ti"
+    },
+    "timing": {
+      "unit": "microseconds",
+      "scope": "host cuLaunchKernel plus cuCtxSynchronize at frozen final case count; allocations, transfers and module loading excluded",
+      "warmupsPerVariant": 10,
+      "samplesPerVariant": 100,
+      "pairOrder": "alternating",
+      "clocksLocked": false,
+      "sotaClaim": false,
+      "geometricMeanMedianSpeedup": 1.002030063,
+      "regressionsAbove2Percent": 0,
+      "meetsProposed10PercentAndNoRegressionThreshold": false
+    },
+    "mutation": {
+      "exitCode": 1,
+      "log": "mismatch kernel=add7_wrap32 count=1 variant=1 byte=0 expected=7 actual=8\n",
+      "mutatedCudaSha256": "663d46034455648933da763853084cf1ca80da427097eec1df28ab99a2744c63",
+      "mutatedCubinSha256": "980551dcbab52a9f7a8a829991e63c8a079d66e1d3e6e5a9734a290d4909abe9"
+    },
+    "memcheckZeroErrors": true,
+    "postExecutionBinaryBindingVerified": true
+  },
+  "confirmation": {
+    "coverage": {
+      "status": "partial-incomplete",
+      "frozenKernelCount": 6,
+      "admittedKernelCount": 5,
+      "frozenCaseCount": 36,
+      "excluded": [
+        {
+          "id": "confirm_d29",
+          "status": "unsupported",
+          "recoverySha256": "d91d373a201c0555d18598e9850232df6f79daf90799cc447156947e37c5fbed"
+        }
+      ],
+      "promotionEligible": false,
+      "sotaClaim": false
+    },
+    "correctness": {
+      "status": "pass",
+      "claim": "exact original and recovered ELF cubins match frozen integer oracle",
+      "kernels": 5,
+      "cases": 30,
+      "elementComparisons": 1680,
+      "driver": 13020,
+      "gpu": "NVIDIA GeForce RTX 4060 Ti"
+    },
+    "timing": {
+      "unit": "microseconds",
+      "scope": "host cuLaunchKernel plus cuCtxSynchronize at frozen final case count; allocations, transfers and module loading excluded",
+      "warmupsPerVariant": 10,
+      "samplesPerVariant": 100,
+      "pairOrder": "alternating",
+      "clocksLocked": false,
+      "sotaClaim": false,
+      "geometricMeanMedianSpeedup": 0.987338329,
+      "regressionsAbove2Percent": 0,
+      "meetsProposed10PercentAndNoRegressionThreshold": false
+    },
+    "memcheckZeroErrors": true,
+    "postExecutionBinaryBindingVerified": true
+  },
+  "matchedBaseline": {
+    "project": "CuLifter",
+    "coverage": "6/6 reported by independent baseline evaluator; final linked audit is maintained by parent",
+    "candidateCoverage": "5/6",
+    "coverageSuperiority": "REJECT",
+    "runtimeCaution": "CPU baseline time is not comparable to GPU launch time"
+  },
+  "artifacts": {
+    "publicArchiveSha256": "b00df4709e9da7bea1d262bfcd1895baf07b3e164008475722504a0397be0750",
+    "artifactManifestSha256": "31f000497d8be7bb85753a974043ee1bbe383b43009b7f82daf55fa7998adbec",
+    "developmentRawSha256": "16c5508954f35c938ee0e361c1918ef83f88eac0761d1dc428db66a31eaf1a80",
+    "confirmationRawSha256": "43c8b4a88d2d58ab88afea864b4222c3bcaa3cdb5313f20fbcf568c54d4b0535",
+    "executorCompletionProjectionSha256": "d595e58aa776c24fc13cd73323b9f834f8662ef56cd6bece9846423d6f417852",
+    "repacking": "Original gzip archives were extracted and repacked without changing contained bytes. Their original archive hashes remain in raw receipts.",
+    "filesIncludingManifest": 382,
+    "developmentSupplementSha256": "da6107c529e1aaf5ec12d04068f3314a758cac2424be9168ddd6c34d995853e1",
+    "developmentCpuReceiptSha256": "66ef6461714c383dca69e35a61442170ba5999a13fca5c3847a5789bdd4f0c6b",
+    "developmentTranslationReceiptSha256": "1185a4050bf86f131ed8e2bb21280048572088556896c1aaa4e7ba444fc3ea3a"
+  },
+  "cost": {
+    "attemptRentalSeconds": 265.0720889568329,
+    "cumulativeRentalSeconds": 817.8257973194122,
+    "attemptQuotedUsd": 0.011044670373201372,
+    "cumulativeQuotedUsd": 0.0341155421372917,
+    "cumulativeConservativeReserveUsd": 0.3314577437814739,
+    "actualBilledUsd": null,
+    "actualNetworkCostUsd": null,
+    "fullComputeAndApiCostUsd": null
+  },
+  "cleanup": {
+    "verified_absent": true,
+    "exact_instance_absent": true,
+    "label_absent": true,
+    "at": 1792806746.9175498,
+    "elapsed_seconds": 265.0720889568329,
+    "quoted_cost_usd": 0.011044670373201372,
+    "actual_billed_usd": null
+  },
+  "freshProviderReconciliation": {
+    "at": 1792806836.2335014,
+    "exact_instance_absent": true,
+    "label_absent": true,
+    "total_instances": 0
+  },
+  "independentReview": {
+    "status": "PASS: independent byte and arithmetic audit",
+    "scope": "381 primary files,28 supplemental files,174 vector files,19 cubin artifacts,1800 raw timing samples,full memcheck and mutation observations",
+    "auditSha256": "b49918c96892703b152e369e41020537ba8b654ca6f88a6560d75e4729d86099",
+    "auditAuthenticationLimitation": "Integrity and arithmetic audit; executor authentication is a separate connector observation, not established by file hashes",
+    "nativeApprovalSha256": "4266429881cd88a7a17911adb0e12a3522cda30a5cc949352a670dc84acfcbb0",
+    "automatedAuditorStatus": "Independent audit completed; reusable auditor negative controls/review tracked separately by evaluator"
+  },
+  "risk": "Only five of six fresh programs are supported; synthetic integer cases and unlocked short-kernel timing do not establish broad decompilation correctness or SOTA.",
+  "nextAction": "Integrate independently audited exact-cubin evidence and equal-input CuLifter comparison into existing PR; improve unsupported coverage only against a newly frozen confirmation cohort.",
+  "rollback": "No production change; all owned rentals destroyed and verified absent. Frozen source remains reviewable in existing PR.",
+  "privacyScan": {
+    "status": "no targeted sensitive markers found",
+    "scope": "primary and supplemental archives",
+    "limitations": "Targeted scan plus explicit artifact allowlist; not a comprehensive secret-detection guarantee"
+  }
+}

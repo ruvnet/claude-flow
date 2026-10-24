@@ -7,8 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+const screening = vi.hoisted(() => ({ flagKey: '' }));
 vi.mock('@claude-flow/aidefence', () => ({ createAIDefence: () => ({
-  quickScan: (text: string) => ({ threat: text.includes('evil_marker'), confidence: 0.99 }),
+  quickScan: (text: string) => ({ threat: text.includes('evil_marker') || (screening.flagKey !== '' && text === screening.flagKey), confidence: 0.99 }),
   hasPII: () => false,
 }) }));
 const { rureTools } = await import('../src/mcp-tools/rure-tools.js');
@@ -25,9 +26,16 @@ async function run(path: string, output?: unknown): Promise<any> {
   const result: any = await tool.handler({ path, ...(output === undefined ? {} : { output }) });
   return JSON.parse(result.content[0].text);
 }
-afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
+afterEach(() => { screening.flagKey = ''; for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 const ptx = '.version 8.0\n.target sm_80\n.address_size 64\n.visible .entry test() { ret; }';
 describe('PTX MCP boundary', () => {
+  it.each(['code', 'status'])('withholds the entire recovery when screening changes the %s key', async key => {
+    screening.flagKey = key;
+    const result = await run(input(ptx), 'cuda');
+    expect(result).toMatchObject({ success: true, status: 'unsupported', code: null, presentationModified: true });
+    expect(JSON.stringify(result)).not.toContain('__global__');
+    expect(JSON.stringify(result)).not.toContain('"emitted"');
+  });
   it('emits CUDA only on explicit request, without executing or proving it', async () => {
     const path = input(ptx);
     const result = await run(path, 'cuda');

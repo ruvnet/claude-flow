@@ -125,6 +125,28 @@ try {
   assert.deepEqual(recovery.functions.map(f => f.name), ['affine_i32', 'sum_i32']);
   assert.ok(recovery.code.includes('__global__'));
   assert.ok(!recovery.code.includes('asm(') && !recovery.code.includes('.version'));
+  const sassTool = listing.tools.find(t => t.name === 'rure_recover_sass');
+  assert.ok(sassTool, 'built MCP registry must expose rure_recover_sass');
+  assert.deepEqual(sassTool.inputSchema.required, ['sassPath', 'elfPath']);
+  assert.equal(sassTool.inputSchema.additionalProperties, false);
+  const dumpRoot = join(repository, 'plugins/ruflo-rure/scripts/baselines/culifter/crosspath-inputs');
+  const sassBytes = readFileSync(join(dumpRoot, 'copy32.sass'));
+  const elfBytes = readFileSync(join(dumpRoot, 'copy32.elf'));
+  const sassPath = join(sandbox, 'copy32.sass'), elfPath = join(sandbox, 'copy32.elf');
+  writeFileSync(sassPath, sassBytes, { flag: 'wx' });
+  writeFileSync(elfPath, elfBytes, { flag: 'wx' });
+  const { result: sassRecovery } = unwrap(await request('tools/call', {
+    name: sassTool.name, arguments: { sassPath, elfPath },
+  }));
+  assert.equal(sassRecovery.success, true);
+  assert.equal(sassRecovery.status, 'emitted');
+  assert.equal(sassRecovery.proofStatus, 'not-proven');
+  assert.equal(sassRecovery.sourceSha256, createHash('sha256').update(sassBytes).digest('hex'));
+  assert.equal(sassRecovery.elfSha256, createHash('sha256').update(elfBytes).digest('hex'));
+  assert.equal(sassRecovery.presentationModified, false);
+  assert.deepEqual(sassRecovery.functions.map(f => f.name), ['copy32']);
+  assert.ok(sassRecovery.code.includes('__global__'));
+  assert.ok(!sassRecovery.code.includes('asm('));
   console.log(JSON.stringify({
     status: 'pass', transport: 'stdio', builtEntrypoint: entrypoint,
     sourceSha256, functions: result.functions.length, tool: tool.name,
@@ -133,6 +155,10 @@ try {
     recovery: { status: recovery.status, proofStatus: recovery.proofStatus,
       codeSha256: createHash('sha256').update(recovery.code).digest('hex'),
       codeBytes: Buffer.byteLength(recovery.code), screened: recovery.screened },
+    sassRecovery: { tool: sassTool.name, status: sassRecovery.status,
+      proofStatus: sassRecovery.proofStatus, sourceSha256: sassRecovery.sourceSha256,
+      elfSha256: sassRecovery.elfSha256, codeSha256: createHash('sha256').update(sassRecovery.code).digest('hex'),
+      screened: sassRecovery.screened },
     elapsedMs: performance.now() - start, node: process.version,
   }, null, 2));
 } catch (error) {

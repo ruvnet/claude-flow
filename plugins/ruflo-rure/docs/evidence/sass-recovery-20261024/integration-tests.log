@@ -1,0 +1,13 @@
+
+ RUN  v4.1.12 /workspace/scratch/16fc07be6201/ruflo-cuda/v3/@claude-flow/cli
+
+8:37:31 PM [vite] (ssr) warning: Invalid file URL: must not contain hostname file://${modulepath}${cachebust}/
+  Plugin: builtin:vite-resolve
+(node:39) ExperimentalWarning: Importing WebAssembly module instances is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  4 passed (4)
+      Tests  151 passed (151)
+   Start at  20:37:30
+   Duration  17.28s (transform 1.49s, setup 0ms, import 2.01s, tests 17.19s, environment 0ms)
+

@@ -1,0 +1,14 @@
+✔ frozen oracle counts separate kernels, cases, and comparisons (5.084948ms)
+✔ compiled semantic mutation and output corruption fail unchanged independent oracle (311.664476ms)
+✔ input-only adapter refuses tampered inputs, optimistic proof, and output overwrite (243.346201ms)
+✔ translator descriptor reads reject FIFOs, symlinks, large and growing files (10.317207ms)
+✔ partial GPU package preserves denominator and requires all admitted negative controls (632.69381ms)
+✔ GPU driver rejects renamed PTX bytes before module loading (CPU API stub) (653.836401ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1945.286131

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "scope": "CPU shim only; no GPU or confirmation evidence",
+  "sourceSha256": "99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "probeManifestSha256": "6977dadb6f61d0eb375cc50a97f03c8100c7af6489bdebae9ada1d9a5498aa93",
+  "compiler": {
+    "exitCode": 0,
+    "stdout": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "stderr": ""
+  },
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-fsanitize=undefined",
+    "-fno-sanitize-recover=all"
+  ],
+  "cases": [
+    {
+      "name": "copy32",
+      "sourceSha256": "077d811670f3312129c02647fcdfffaa0ba464422c87c8013c172626858690c1",
+      "compile": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "execute": {
+        "exitCode": 0,
+        "stdout": "copy32: 5400 comparisons passed\n",
+        "stderr": ""
+      },
+      "comparisons": 5400
+    },
+    {
+      "name": "add7_wrap32",
+      "sourceSha256": "01635fcb2f5d04d808d9b51d6c18982352bfb361cd25e1ab80c865ad62e67a14",
+      "compile": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "execute": {
+        "exitCode": 0,
+        "stdout": "add7_wrap32: 5400 comparisons passed\n",
+        "stderr": ""
+      },
+      "comparisons": 5400
+    },
+    {
+      "name": "multiply_low64",
+      "sourceSha256": "6922a07c54e67e4c2c6abd14678fc8f2087cd47283162ddfb5ae836e17a8cad5",
+      "compile": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "execute": {
+        "exitCode": 0,
+        "stdout": "multiply_low64: 5400 comparisons passed\n",
+        "stderr": ""
+      },
+      "comparisons": 5400
+    },
+    {
+      "name": "wide_signed",
+      "sourceSha256": "8e5fde703753995b13b42583eb5e0c12c3cb24791918feecf61e441a12943a23",
+      "compile": {
+        "exitCode": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      "execute": {
+        "exitCode": 0,
+        "stdout": "wide_signed: 5400 comparisons passed\n",
+        "stderr": ""
+      },
+      "comparisons": 5400
+    }
+  ],
+  "status": "pass",
+  "comparisons": 21600
+}

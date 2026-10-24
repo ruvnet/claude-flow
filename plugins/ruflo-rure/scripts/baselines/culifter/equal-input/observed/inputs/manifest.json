@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "architecture": "sm_89",
+  "sourceTranslationInputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+  "artifacts": [
+    {
+      "id": "confirm_a71",
+      "symbol": "confirm_a71",
+      "sassFile": "confirm_a71.sass",
+      "sassSha256": "da3e79a03b18d5c480e5ec8242c202f56d6d6e0cd9fe396c4402c4925541fa1f",
+      "elfFile": "confirm_a71.elf",
+      "elfSha256": "908e5bacccaf2ad85b2a7311500b9887127f68a3e9af9ac04dbd5742a40115af"
+    },
+    {
+      "id": "confirm_b83",
+      "symbol": "confirm_b83",
+      "sassFile": "confirm_b83.sass",
+      "sassSha256": "7c6ed0b254f47716dccafabfa6ec3ad3ecdb5360e18b52206bcc7169b1dc4b24",
+      "elfFile": "confirm_b83.elf",
+      "elfSha256": "41785215576b6e46841a26fd4cacccf5455f017e073956ccfbc281d415f50b44"
+    },
+    {
+      "id": "confirm_c97",
+      "symbol": "confirm_c97",
+      "sassFile": "confirm_c97.sass",
+      "sassSha256": "e38e26863114bd58f1dc8282b1399308eb1df851c13bfa8564718c726c9e721b",
+      "elfFile": "confirm_c97.elf",
+      "elfSha256": "8a2de301f86a4e29123fd493a3bb9d9a109abca4258adc5eb31bb09cb938f536"
+    },
+    {
+      "id": "confirm_d29",
+      "symbol": "confirm_d29",
+      "sassFile": "confirm_d29.sass",
+      "sassSha256": "2226d91493cf96fccbdacc5008be516930b0f92cd4f8fb889d729b50935ef798",
+      "elfFile": "confirm_d29.elf",
+      "elfSha256": "8d87e591389face843f94a4e1bd3e158cab848285de15564c1d78b396868fbe4"
+    },
+    {
+      "id": "confirm_e43",
+      "symbol": "confirm_e43",
+      "sassFile": "confirm_e43.sass",
+      "sassSha256": "5900940e8757965a6de00892202d495831a3049912e5c3fabdbfafebbaf485df",
+      "elfFile": "confirm_e43.elf",
+      "elfSha256": "7d6bb15df003a6374bc6aa24377cb4720bddab7fb0b6c21633bdbce436f24154"
+    },
+    {
+      "id": "confirm_f61",
+      "symbol": "confirm_f61",
+      "sassFile": "confirm_f61.sass",
+      "sassSha256": "263f7348036432a83abe45ec1b0bb6b20b6adebcd44ccda8a60cc613983fbac8",
+      "elfFile": "confirm_f61.elf",
+      "elfSha256": "f6c127b3f04edc5e3afd523d29cd049c9668215ecf31b417140e81eb4d76f491"
+    }
+  ]
+}

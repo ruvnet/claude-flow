@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "status": "translated",
+  "startedAt": "2026-10-24T01:52:03.022Z",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "inputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+  "node": "v20.20.2",
+  "translatorInput": [
+    "sass",
+    "elf"
+  ],
+  "proofStatus": "not-proven",
+  "kernels": [
+    {
+      "id": "confirm_a71",
+      "status": "emitted",
+      "sourceSha256": "da3e79a03b18d5c480e5ec8242c202f56d6d6e0cd9fe396c4402c4925541fa1f",
+      "elfSha256": "908e5bacccaf2ad85b2a7311500b9887127f68a3e9af9ac04dbd5742a40115af",
+      "recoverySha256": "359dc25f12e72dca714f3e03d234f09968bf28e0d2df3483fda7861171aa5c55",
+      "codeSha256": "43db3c730f7ad0999baef456e834794deb328b11bc849405ef531e986b24f608"
+    },
+    {
+      "id": "confirm_b83",
+      "status": "emitted",
+      "sourceSha256": "7c6ed0b254f47716dccafabfa6ec3ad3ecdb5360e18b52206bcc7169b1dc4b24",
+      "elfSha256": "41785215576b6e46841a26fd4cacccf5455f017e073956ccfbc281d415f50b44",
+      "recoverySha256": "b965e88cdd69aca0721d55e8ea3301a1045835a038557b4fba88ee334f807248",
+      "codeSha256": "f934a1d2aa21d951a94b30e95d12f2977a20b75ef0320d4b88d0a42c80da9ae8"
+    },
+    {
+      "id": "confirm_c97",
+      "status": "emitted",
+      "sourceSha256": "e38e26863114bd58f1dc8282b1399308eb1df851c13bfa8564718c726c9e721b",
+      "elfSha256": "8a2de301f86a4e29123fd493a3bb9d9a109abca4258adc5eb31bb09cb938f536",
+      "recoverySha256": "2ab49946fb86721b816920bc1bb26f1bd80d68c9cd4f40a17c8c8e897656d932",
+      "codeSha256": "d2c28dcbb91e7ed325ad2ae7ab46ccc81c7368ae017c7b38d99ba07290b10347"
+    },
+    {
+      "id": "confirm_d29",
+      "status": "unsupported",
+      "sourceSha256": "2226d91493cf96fccbdacc5008be516930b0f92cd4f8fb889d729b50935ef798",
+      "elfSha256": "8d87e591389face843f94a4e1bd3e158cab848285de15564c1d78b396868fbe4",
+      "recoverySha256": "d91d373a201c0555d18598e9850232df6f79daf90799cc447156947e37c5fbed",
+      "codeSha256": null
+    },
+    {
+      "id": "confirm_e43",
+      "status": "emitted",
+      "sourceSha256": "5900940e8757965a6de00892202d495831a3049912e5c3fabdbfafebbaf485df",
+      "elfSha256": "7d6bb15df003a6374bc6aa24377cb4720bddab7fb0b6c21633bdbce436f24154",
+      "recoverySha256": "c8862cf6b6410134bf30f6fd9552598bfa3fa1afc21addf76b99ade912b2e39c",
+      "codeSha256": "928343dbebf12d279e096290bba50fb4ebc393840a1e447982e35e3d8d571bbc"
+    },
+    {
+      "id": "confirm_f61",
+      "status": "emitted",
+      "sourceSha256": "263f7348036432a83abe45ec1b0bb6b20b6adebcd44ccda8a60cc613983fbac8",
+      "elfSha256": "f6c127b3f04edc5e3afd523d29cd049c9668215ecf31b417140e81eb4d76f491",
+      "recoverySha256": "58847bc8f5a4d0e5586356e1b54dd0834bbf6014e0240aedf6e0fefb463577f5",
+      "codeSha256": "44283c67dd5271c78902dec55bb12b48df4d567a635f7ac0f22ea63fd891eba8"
+    }
+  ],
+  "completedAt": "2026-10-24T01:52:03.045Z",
+  "coverage": {
+    "total": 6,
+    "emitted": 5,
+    "unsupported": 1,
+    "invalid": 0
+  }
+}

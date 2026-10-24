@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe('ruRE MCP tools (end-to-end)', () => {
-  it('registers the eight tools including PTX reconstruction', () => {
+  it('registers the nine tools including SASS text recovery', () => {
     expect(rureTools.map((t) => t.name).sort()).toEqual([
       'rure_analyze_binary',
       'rure_analyze_cuda',
@@ -50,6 +50,7 @@ describe('ruRE MCP tools (end-to-end)', () => {
       'rure_decompile_ptx',
       'rure_extract_asar',
       'rure_find_feature',
+      'rure_recover_sass',
     ]);
   });
 

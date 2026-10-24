@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "files": [
+    {
+      "file": "README.md",
+      "sha256": "67eb4cc979e9b9c73d082a01837291a2b59980eebee37e5a97a516ed66d4592d",
+      "bytes": 2977
+    },
+    {
+      "file": "replay.mjs",
+      "sha256": "0b3ec0180380799768347b4c9a18f56c7ec5c7095b212a6f46540832d81236b0",
+      "bytes": 8991
+    },
+    {
+      "file": "run-cpu.py",
+      "sha256": "4c870f6070a8ff9fd8f98cc48807f8918786fc4c6d3c9bfcdf7a95c6252f2006",
+      "bytes": 2742
+    },
+    {
+      "file": "review-results.json",
+      "sha256": "6977dadb6f61d0eb375cc50a97f03c8100c7af6489bdebae9ada1d9a5498aa93",
+      "bytes": 13463
+    },
+    {
+      "file": "cpu-results.json",
+      "sha256": "062e36f39a382b13c2743c9f181b1bcfff8a31d9a4addc01cc25f2a7cc59b85e",
+      "bytes": 2375
+    },
+    {
+      "file": "review-receipt.json",
+      "sha256": "237c629c7a7ce06685ff9d00c5b024cbfb882e66a82c1a00c42169ca45496814",
+      "bytes": 3185
+    }
+  ]
+}

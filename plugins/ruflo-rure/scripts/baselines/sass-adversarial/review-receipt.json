@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-24",
+  "reviewType": "independent security and ABI review",
+  "candidateStatus": "clear for frozen narrow text-lifter scope",
+  "executionStatus": "clear for one bounded SM89/CUDA13 run at the exact listed revisions",
+  "gpuExecutedByReviewer": false,
+  "confirmationCorpusAccessed": false,
+  "candidateEditedByReviewer": false,
+  "upstreamLifterImplementationRead": false,
+  "sourceHashes": {
+    "candidateSource": "99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0",
+    "candidateStandaloneModule": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+    "controller_attempt4.py": "0bb75985dc9640958e629bd61e48eb5c5b5b9b3330694fe65ea7a39ae251bd16",
+    "run_sass_stage.py": "774a1d8ed4e8ed4163a34be37763ef60d971300db8a66da4d822be6ab5511cd8",
+    "prepare_native_worker.py": "5580d1009ed3fad392d6ad87cd1ef377c48cd442639e028a49e175de48f72e6a",
+    "execute_cubin_worker.py": "923919bddf7bab10d0b386b3130e7e9afd7579d32d39631c6517a7e7f097da0a",
+    "bounded_process.py": "3cca05f6f518c6a704336376f8a2d38702dff77ec6049d0e9b07ed1b8c430dcb",
+    "sass-recovery-prepare-native.py": "502b25818d4d5f079a6fec64a19aea38efee9671758a20d185f49167417c2e23",
+    "sass-recovery-translate.mjs": "a464137ae041c469d8a9292421b3f833d0fbc41fbb731f7503042ae3d594f353",
+    "sass-recovery-e2e.mjs": "2468e244aaed1ed1206f6a42b85f9060a4bcdaad4330a7fcfaf9d09a8c3df94d",
+    "sass-recovery-gpu.cu": "b192f10ae51c47e338c74531b7238daa801b91aae75c752004b1ee2b0ac2aa05"
+  },
+  "verification": {
+    "developmentExportPairs": 8,
+    "rejectionProbes": 45,
+    "cpuPrograms": 4,
+    "cpuComparisons": 21600,
+    "cpuUbsan": "pass",
+    "driverIngressAndCaseTests": 15,
+    "translatorBoundaryAndModuleSwapTests": 6,
+    "boundedProcessTests": 5,
+    "cleanupIdentityAndCollisionProbes": "pass",
+    "optimizedPythonRefusal": "five operator scripts pass",
+    "portableReplaySelfCheck": "pass"
+  },
+  "resolvedFindings": [
+    "Stack setup elision retained stale R1 initialization.",
+    "ELF relocation, numeric token, and parameter-bank symbol admission gaps.",
+    "Ambiguous 64-bit immediate extension was declined.",
+    "GPU driver file caps applied after reading, and truncated final cases were accepted.",
+    "Translator module path could change after hashing; descriptor reads were not capped during ingress.",
+    "Child processes survived parent-only command timeout."
+  ],
+  "limits": [
+    "Text is not authenticated or independently decoded from binary; authentic matching cuobjdump exports remain a precondition.",
+    "Runtime descriptor and parameter-bank mappings remain explicit narrow CUDA ABI assumptions.",
+    "CPU-shim results do not establish GPU equivalence, performance, or state of the art.",
+    "Partial confirmation preserves the full frozen denominator and exclusions; it is not complete recovery.",
+    "Execution clearance is not an execution result, billing receipt, provider deletion guarantee, or remote attestation.",
+    "Native execution requires exact frozen byte bindings, isolated translator/evaluator environments, command-tree timeouts, existing time/cost caps, and exact-ID cleanup."
+  ]
+}

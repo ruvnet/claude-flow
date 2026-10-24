@@ -1,0 +1,61 @@
+{
+  "status": "approved-input-bindings",
+  "reviewedAt": 1792806704.114467,
+  "scope": "native input integrity and frozen oracle policy, not execution authentication or promotion",
+  "nativeArchiveSha256": "0f297d35587a067b7f1216fada8f89fc8ac67ae8978890375188d4e6ffcabd2d",
+  "nativeManifestSha256": "53f85b394e5e6d60c472878ea3f0cfece3d052b086a89bf882f902c63c00558e",
+  "translationInputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+  "frozenPlanSha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3",
+  "filesVerified": 32,
+  "kernels": [
+    {
+      "id": "confirm_a71",
+      "oracleSha256": "29e36ca39f0e7742a4046b0f08308d70c2108b7e2db57ffc096acb1a04fee215",
+      "sourceSha256": "b1112961ae41135a28a86738f7e83e1ce221fa381eeec7c45203eda72685a238",
+      "sassSha256": "da3e79a03b18d5c480e5ec8242c202f56d6d6e0cd9fe396c4402c4925541fa1f",
+      "elfSha256": "908e5bacccaf2ad85b2a7311500b9887127f68a3e9af9ac04dbd5742a40115af",
+      "cubinSha256": "3ee82d0a1dc0a8dbe3fad505ef7401330dcb42458274e5f2172346a70f88ddb7"
+    },
+    {
+      "id": "confirm_b83",
+      "oracleSha256": "9b1c6ae4d0980a481b90aacb465ab43d9c4153011e6509c0c8b9e70dd67956bf",
+      "sourceSha256": "72ce2eb1be63a5eec072a436bfc27a8de9707309f68f9986ba01a9f37428d0cf",
+      "sassSha256": "7c6ed0b254f47716dccafabfa6ec3ad3ecdb5360e18b52206bcc7169b1dc4b24",
+      "elfSha256": "41785215576b6e46841a26fd4cacccf5455f017e073956ccfbc281d415f50b44",
+      "cubinSha256": "88bb9db61606df6fd785edd2f84dc5f2c06bb17be2ae462077e99b7323fb6cc7"
+    },
+    {
+      "id": "confirm_c97",
+      "oracleSha256": "8b3ec8532b91e34c1cb4aaf81b6b1121726e45ebc10484064429536d7cf3d6ed",
+      "sourceSha256": "2e467e35863810ad37d6fd9be5cde3d07fd66c820ebbd61c5a1fc4f514d50379",
+      "sassSha256": "e38e26863114bd58f1dc8282b1399308eb1df851c13bfa8564718c726c9e721b",
+      "elfSha256": "8a2de301f86a4e29123fd493a3bb9d9a109abca4258adc5eb31bb09cb938f536",
+      "cubinSha256": "5cb26059f53ab59532ffc4d4b55dfb8bd1b07d34a565ac4bf3aeb21c60ddd43a"
+    },
+    {
+      "id": "confirm_d29",
+      "oracleSha256": "203eb8c7d8257fe6915721a5e74d56c4133739efc8d1bc441542614fa6654445",
+      "sourceSha256": "29b2a311831956cdc10b21f72ed455a04dcf1d454c2f6454d2aeac8254c61331",
+      "sassSha256": "2226d91493cf96fccbdacc5008be516930b0f92cd4f8fb889d729b50935ef798",
+      "elfSha256": "8d87e591389face843f94a4e1bd3e158cab848285de15564c1d78b396868fbe4",
+      "cubinSha256": "cc74ad1c3db8ed4c07b49d4a1c3fb4704ed90e2b793ea64376ad18e1e62940e9"
+    },
+    {
+      "id": "confirm_e43",
+      "oracleSha256": "b267333991248e75ad69c2525130added98bf6b728675a29bd08b67396b722a1",
+      "sourceSha256": "70185613646871a15163ebb76c59f29ad3fa53d0aabbeb3a5a5e0abdd2c8cee7",
+      "sassSha256": "5900940e8757965a6de00892202d495831a3049912e5c3fabdbfafebbaf485df",
+      "elfSha256": "7d6bb15df003a6374bc6aa24377cb4720bddab7fb0b6c21633bdbce436f24154",
+      "cubinSha256": "e18fd3969b3d27ca243fbd382decd084c8f137499cefb737b9e70705c43ffd45"
+    },
+    {
+      "id": "confirm_f61",
+      "oracleSha256": "109f1ebfc767d769a54877192e640759257d627f821ab90a3b0e6fbb4c2b7157",
+      "sourceSha256": "128230f7d9200d7a52a5140f58b7e2aa893783a8792ed769a2c97bd2d394f677",
+      "sassSha256": "263f7348036432a83abe45ec1b0bb6b20b6adebcd44ccda8a60cc613983fbac8",
+      "elfSha256": "f6c127b3f04edc5e3afd523d29cd049c9668215ecf31b417140e81eb4d76f491",
+      "cubinSha256": "bde981a45bfa37b15fef010e6fda34075b92e620df61e1e9d95332047c06bdb3"
+    }
+  ],
+  "confirmationCandidateInvocationsByReviewer": 0
+}

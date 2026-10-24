@@ -9,6 +9,7 @@
 
 import { openSync, fstatSync, readFileSync, readSync, closeSync, constants } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validatePath, validateText } from './validate-input.js';
 import { extractAsarWithCaps, DEFAULT_ASAR_LIMITS } from '../rure/extract-asar.js';
@@ -21,6 +22,7 @@ import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
 import { analyzeCuda } from '../rure/cuda-parse.js';
 import { decompilePtx, MAX_PTX_DECOMPILE_BYTES } from '../rure/ptx-decompile.js';
 import { recoverPtx } from '../rure/ptx-recover.js';
+import { recoverSass, MAX_SASS_RECOVERY_BYTES } from '../rure/sass-recover.js';
 import type { ModuleAnalysis, Evidence } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -30,6 +32,27 @@ function fail(error: string): MCPToolResult {
 function ok(data: Record<string, unknown>): MCPToolResult {
   return { content: [{ type: 'text', text: JSON.stringify({ success: true, ...data }) }] };
 }
+
+function withheldRecovery(): Record<string, unknown> {
+  // Discard the screened object entirely: screening may rename "code" or
+  // "status", so assigning only result.code=null could retain executable text
+  // under a renamed key. These fields contain no attacker-derived strings.
+  return { schemaVersion: 1, status: 'unsupported', language: 'cuda-cpp', code: null,
+    proofStatus: 'not-proven', functions: [],
+    diagnostics: ['CUDA emission withheld because presentation screening modified the recovery result.'] };
+}
+
+// cli-core's shared schema interface omits this standard JSON Schema field.
+// Keep the stricter SASS contract local without changing the shared package.
+const sassRecoverySchema: MCPTool['inputSchema'] & { additionalProperties: false } = {
+  type: 'object',
+  properties: {
+    sassPath: { type: 'string', description: 'Absolute path to a UTF-8 cuobjdump -sass export, at most 256 KiB' },
+    elfPath: { type: 'string', description: 'Absolute path to its matching UTF-8 cuobjdump -elf export, at most 256 KiB' },
+  },
+  required: ['sassPath', 'elfPath'],
+  additionalProperties: false,
+};
 
 /**
  * Screens untrusted extracted text through AIDefence. Every attacker-derived string in a
@@ -95,14 +118,13 @@ function readCapped(path: string, cap: number): { ok: true; bytes: Buffer } | { 
   }
 }
 
-/** PTX reads remain bounded even if another process grows the open file. */
-function readPtxCapped(path: string): { ok: true; bytes: Buffer } | { ok: false; error: string } {
+/** Text reads remain bounded even if another process grows the open file. */
+function readStaticTextCapped(path: string, cap = MAX_PTX_DECOMPILE_BYTES): { ok: true; bytes: Buffer } | { ok: false; error: string } {
   // Nonblocking open lets fstat reject a FIFO without waiting for a writer.
   const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
     const st = fstatSync(fd);
     if (!st.isFile()) return { ok: false, error: 'path is not a regular file' };
-    const cap = MAX_PTX_DECOMPILE_BYTES;
     const tooLarge = { ok: false as const, error: `file exceeds the ${cap}-byte analysis cap` };
     if (st.size > cap) return tooLarge;
     const bytes = Buffer.alloc(cap + 1);
@@ -119,6 +141,72 @@ function readPtxCapped(path: string): { ok: true; bytes: Buffer } | { ok: false;
 }
 
 export const rureTools: MCPTool[] = [
+  {
+    name: 'rure_recover_sass',
+    description:
+      'Lift one kernel from matching NVIDIA cuobjdump SASS and ELF text into experimental scalar integer CUDA C++ (ADR-0010). Requires authentic matching disassembler exports; this is not a raw binary decoder or authentication check. Unsupported semantics return no code. Emitted code is unproven and requires separate compilation and independent validation. Use only for kernels you are authorized to study. Parses only; never executes, compiles, invokes disassemblers or writes files. Extracted strings are untrusted and screened by AIDefence; consult screened and presentationModified.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'cuda', 'sass', 'decompiler', 'static-analysis'],
+    inputSchema: sassRecoverySchema,
+    handler: async (input): Promise<MCPToolResult> => {
+      const sassPath = validatePath(input.sassPath, 'sassPath');
+      if (!sassPath.valid) return fail(sassPath.error!);
+      const elfPath = validatePath(input.elfPath, 'elfPath');
+      if (!elfPath.valid) return fail(elfPath.error!);
+      if (!isAbsolute(sassPath.sanitized) || !isAbsolute(elfPath.sanitized)) return fail('sassPath and elfPath must be absolute paths');
+      if (Object.keys(input).some(key => key !== 'sassPath' && key !== 'elfPath')) return fail('only sassPath and elfPath are accepted');
+      let presentationCollision = false;
+      try {
+        const sass = readStaticTextCapped(sassPath.sanitized, MAX_SASS_RECOVERY_BYTES);
+        if (!sass.ok) return fail(sass.error);
+        const elf = readStaticTextCapped(elfPath.sanitized, MAX_SASS_RECOVERY_BYTES);
+        if (!elf.ok) return fail(elf.error);
+        const decode = (bytes: Buffer) => new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+        const info = recoverSass(decode(sass.bytes), decode(elf.bytes));
+        const sc = new Screener();
+        let presentationModified = false;
+        const screen = async (value: unknown): Promise<unknown> => {
+          if (typeof value === 'string') {
+            const lines: string[] = [];
+            for (const line of value.split('\n')) lines.push(await sc.one(line));
+            const shown = lines.join('\n');
+            presentationModified ||= shown !== value;
+            return shown;
+          }
+          if (Array.isArray(value)) {
+            const result: unknown[] = [];
+            for (const item of value) result.push(await screen(item));
+            return result;
+          }
+          if (value !== null && typeof value === 'object') {
+            const result: Record<string, unknown> = Object.create(null);
+            for (const [key, item] of Object.entries(value)) {
+              const shown = await sc.one(key);
+              presentationModified ||= shown !== key;
+              if (Object.hasOwn(result, shown)) {
+                presentationCollision = true;
+                throw new Error('presentation collision');
+              }
+              result[shown] = await screen(item);
+            }
+            return result;
+          }
+          return value;
+        };
+        let result = await screen(info) as Record<string, unknown>;
+        if (presentationModified) {
+          result = { ...withheldRecovery(), architecture: null, binaryDecoder: false, assumptions: [], elisions: [], semanticScope: [] };
+        }
+        return ok({ ...result,
+          sourceSha256: createHash('sha256').update(sass.bytes).digest('hex'),
+          elfSha256: createHash('sha256').update(elf.bytes).digest('hex'),
+          redactedCount: sc.redacted, screened: sc.screened, presentationModified });
+      } catch {
+        if (presentationCollision) return fail('SASS presentation could not preserve distinct identifiers after screening');
+        return fail('SASS recovery failed: inputs must be readable UTF-8 SASS and ELF text exports');
+      }
+    },
+  },
   {
     name: 'rure_decompile_ptx',
     description:
@@ -139,7 +227,7 @@ export const rureTools: MCPTool[] = [
       if (input.output !== undefined && input.output !== 'pseudocode' && input.output !== 'cuda') return fail('output must be pseudocode or cuda');
       let presentationCollision = false;
       try {
-        const r = readPtxCapped(v.sanitized);
+        const r = readStaticTextCapped(v.sanitized);
         if (!r.ok) return fail(r.error);
         const source = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(r.bytes);
         // Parse original bytes before screening: display clipping must never change analysis input.
@@ -177,13 +265,11 @@ export const rureTools: MCPTool[] = [
           }
           return value;
         };
-        const result = await screen(info) as Record<string, unknown>;
+        let result = await screen(info) as Record<string, unknown>;
         // Presentation screening can change identifiers or executable text. Never
         // hand out modified code while retaining an emitted status.
         if (input.output === 'cuda' && presentationModified) {
-          result.status = 'unsupported';
-          result.code = null;
-          result.diagnostics = ['CUDA emission withheld because presentation screening modified the recovery result.'];
+          result = withheldRecovery();
         }
         return ok({ ...result, sourceSha256: createHash('sha256').update(r.bytes).digest('hex'), redactedCount: sc.redacted, screened: sc.screened, presentationModified });
       } catch {

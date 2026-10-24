@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "taskId": "rure-sass-recovery-20261024",
+  "parentTaskId": "rure-executable-recovery-20261024",
+  "parentRevision": "9d8348e953321bf41431d3bf9191d48f49111f60",
+  "parentTree": "49fc817d927b086c55661c5359204c3d9c2021bf",
+  "pullRequest": "https://github.com/ruvnet/ruflo/pull/4448",
+  "owner": "Codex integration coordinator",
+  "hypothesis": "A conservative scalar integer SASS and ELF text lifter can recover executable CUDA C++ on the same binary-derived inputs already passed by CuLifter, without original PTX or source as translation inputs.",
+  "baseline": {
+    "candidateCapabilityBefore": "Executable PTX recovery; no executable SASS recovery",
+    "competitor": "CuLifter",
+    "revision": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+    "developmentProgramsPassed": 4,
+    "developmentProgramsTotal": 4,
+    "inputManifestSha256": "60a59e193d2c509b2e37046f45c94f55b3beca33bb0a944bd06c69288f9791fe",
+    "programs": ["copy32", "add7_wrap32", "multiply_low64", "wide_signed"]
+  },
+  "frozenAcceptance": {
+    "sameInputDevelopmentProgramsRequired": 4,
+    "incorrectAcceptedOutputsAllowed": 0,
+    "requireRealCompilationAndExecution": true,
+    "requireMutationRejection": true,
+    "requireIndependentReview": true,
+    "requireMalformedAndUnsupportedRefusal": true,
+    "requireActualCubinExecutionForGpuClaim": true,
+    "confirmation": "Independent evaluator freezes six new synthetic source/oracle specifications before candidate results and native SASS/ELF/cubin bytes before evaluating the frozen candidate. Unsupported counts remain in the denominator. Reuse after a repair is regression evidence.",
+    "sotaClaim": false,
+    "performanceClaim": false
+  },
+  "scope": {
+    "input": "One kernel's NVIDIA cuobjdump SASS and ELF text, each bounded to 256 KiB",
+    "architectures": ["sm_86", "sm_89"],
+    "semantics": "Explicit scalar 32-bit registers and 64-bit pairs, validated parameter ABI, integer arithmetic, global memory, predicates and supported control flow",
+    "unsupported": "Float, shared memory, synchronization, atomics, calls and unknown instruction or modifier semantics return no code",
+    "systemState": "Dead stack setup must be proved unused. Canonical descriptor setup requires an explicit reviewed CUDA flat-global-memory assumption; no fake register values.",
+    "binaryDecoder": false,
+    "mcpExecutesCode": false,
+    "inlinePtxAllowed": false
+  },
+  "ownership": {
+    "integration": "Root integration worktree: MCP wrapper, ADR, documentation, package checks",
+    "backend": "Isolated backend worktree: new SASS module and focused tests only",
+    "evaluation": "Independent evaluator worktree: frozen fixtures and harnesses only",
+    "review": "Independent adversarial worktree: ABI/security probes and review only",
+    "gpu": "Existing sole ruOS GPU operator after source and evaluator review"
+  },
+  "budget": {
+    "maxCumulativeGpuMinutes": 45,
+    "maxHourlyUsd": 0.20,
+    "maxCumulativeEstimatedUsd": 1,
+    "alreadyConsumedRentalSeconds": 552.7537083625793,
+    "alreadyConsumedComputeStorageQuoteUsd": 0.023070871764090325,
+    "priorConservativeReserveUsd": 0.24198914829658136,
+    "actualBillingUsd": null,
+    "credentialTransferAllowed": false,
+    "simultaneousRentals": 1
+  },
+  "rollback": "Revert only new SASS recovery commits on the existing draft. Keep PTX recovery and historical receipts unchanged. Destroy any task-owned rental and independently verify absence. No merge, package release or deployment.",
+  "broaderGate": "ADR-0009 and the frozen 100-kernel comparison policy remain unchanged. Four development programs or six new synthetic kernels cannot prove superiority."
+}

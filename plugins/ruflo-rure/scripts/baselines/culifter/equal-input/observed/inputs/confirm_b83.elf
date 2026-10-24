@@ -1,0 +1,243 @@
+
+64-bit ELF: type=ET_EXEC, ABI=8, sm=89, toolkit=13.0, flags=0x6005904
+Sections:
+Index Offset   Size ES Align                      Type    Flags Link     Info Name
+    1     40    123  0  1                       STRTAB        0    0        0 .shstrtab
+    2    163    12f  0  1                       STRTAB        0    0        0 .strtab
+    3    298     d8 18  8                       SYMTAB        0    2        8 .symtab
+    4    370     70  0  1                     PROGBITS        0    0        0 .debug_frame
+    5    3e0     a4  0  4                         NOTE  2000000    0        0 .note.nv.tkinfo
+    6    484     20  0  4                         NOTE  1000000    5        0 .note.nv.cuinfo
+    7    4a4     24  0  4                    CUDA_INFO        0    3        0 .nv.info
+    8    4c8     7c  0  4                    CUDA_INFO       40    3        d .nv.info.confirm_b83
+    9    544     20  8  4               CUDA_CALLGRAPH        0    3        0 .nv.callgraph
+    a    568     10  8  8               CUDA_RELOCINFO        0    0        0 .nv.rel.action
+    b    578     10 10  8                          REL       40    3        4 .rel.debug_frame
+    c    588    188  0  4                     PROGBITS       42    0        d .nv.constant0.confirm_b83
+    d    780    200  0 80                     PROGBITS        6    3  c000008 .text.confirm_b83
+
+.section .strtab
+
+.section .shstrtab
+
+.section .symtab
+ index           value           size      info    other  shndx    name  
+   0               0               0        0        0      0     (null)
+ 0x1               0               0      0x3        0    0x5     .note.nv.tkinfo
+ 0x2               0               0      0x3        0    0x6     .note.nv.cuinfo
+ 0x3               0               0      0x3        0    0xd     .text.confirm_b83
+ 0x4               0               0      0x3        0    0xc     .nv.constant0.confirm_b83
+ 0x5               0               0      0x3        0    0x4     .debug_frame
+ 0x6               0               0      0x3        0    0x9     .nv.callgraph
+ 0x7               0               0      0x3        0    0xa     .nv.rel.action
+ 0x8               0           0x200     0x12     0x10    0xd     confirm_b83
+
+
+.nv.constant0.confirm_b83
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 
+
+
+.section .note.nv.tkinfo
+Entry: 1
+  Owner                  Data size        Description
+  NVIDIA Corp            140              NVIDIA CUDA Toolkit Information
+	Note Version: 2
+	Tool Name: ptxas
+	Tool Version: Cuda compilation tools, release 13.0, V13.0.88
+	Tool Branch: Build cuda_13.0.r13.0/compiler.36424714_0
+	Tool Command Line Arguments: -arch sm_89 -m 64 
+
+
+.section .note.nv.cuinfo
+Entry: 1
+  Owner                  Data size        Description
+  NVIDIA Corp            8                NVIDIA CUDA Information
+	Note Version: 2
+	CUDA Virtual SM: sm_89
+	CUDA Tool Kit Version: 13.0
+
+
+.nv.info
+	<0x1>
+	Attribute:	EIATTR_REGCOUNT
+	Format:	EIFMT_SVAL
+	Value:	function: confirm_b83(0x8)	register count: 12
+	<0x2>
+	Attribute:	EIATTR_FRAME_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: confirm_b83(0x8)	frame size: 0x0
+	<0x3>
+	Attribute:	EIATTR_MIN_STACK_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: confirm_b83(0x8)	min stack size: 0x0
+
+
+.nv.info.confirm_b83
+	<0x1>
+	Attribute:	EIATTR_CUDA_API_VERSION
+	Format:	EIFMT_SVAL
+	Value:	0x82 
+	<0x2>
+	Attribute:	EIATTR_PARAM_CBANK
+	Format:	EIFMT_SVAL
+	Value:	0x4 0x280160 
+	<0x3>
+	Attribute:	EIATTR_CBANK_PARAM_SIZE
+	Format:	EIFMT_HVAL
+	Value:	0x28
+	<0x4>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x4	Offset  : 0x20	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x5>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x3	Offset  : 0x18	Size    : 0x4
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x6>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x2	Offset  : 0x10	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x7>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x1	Offset  : 0x8	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x8>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x0	Offset  : 0x0	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x9>
+	Attribute:	EIATTR_MAXREG_COUNT
+	Format:	EIFMT_HVAL
+	Value:	0xff
+	<0x10>
+	Attribute:	EIATTR_MERCURY_ISA_VERSION
+	Format:	EIFMT_HVAL
+	Value:	0.0
+	<0x11>
+	Attribute:	EIATTR_EXIT_INSTR_OFFSETS
+	Format:	EIFMT_SVAL
+	Value:	0x50 0xf0 
+
+
+.nv.callgraph
+ <0,-1>
+ <0,-2>
+ <0,-3>
+ <0,-4>
+
+
+.nv.rel.action
+Header : Base Relocation : R_CUDA_CONST_FIELD22_37
+Reloc type : Symbol Kind,Addend Shift,Source Position1,length1,Destination Position1,Source Position2,length2,Destination Position2
+R_CUDA_CONST_FIELD22_37 : EIVALUE_SYM_KIND_ADDR,0,0,17,37,0,5,54
+
+
+.text.confirm_b83
+lmem=0	smem=0
+0x00017a02 0x00000a00 0x00000f00 0x000fe400
+0x00007919 0x00000000 0x00002500 0x000e2800
+0x00037919 0x00000000 0x00002100 0x000e2400
+0x00007a24 0x00000000 0x078e0203 0x001fca00
+0x00007a0c 0x00005e00 0x03f06070 0x000fda00
+0x0000094d 0x00000000 0x03800000 0x000fea00
+0x00077802 0x00000004 0x00000f00 0x000fe200
+0x00047ab9 0x00004600 0x00000a00 0x000fc800
+0x00047625 0x00005a00 0x078e0007 0x000fc800
+0x00027625 0x00005800 0x078e0007 0x0c0fe400
+0x04057981 0x00000004 0x0c1e1900 0x000ea800
+0x02027981 0x00000004 0x0c1e1900 0x000ea200
+0x00067625 0x00005c00 0x078e0007 0x000fc800
+0x05097224 0x00000002 0x078e0200 0x004fca00
+0x06007986 0x00000009 0x0c101904 0x000fe200
+0x0000794d 0x00000000 0x03800000 0x000fea00
+0x00007947 0xfffffff0 0x0383ffff 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+
+
+.section .debug_frame
+decodeDebugFrame, frameBuf 0xffffffff, total_length 112
+CIE length 36, cie_id -1
+version 3
+augmentation slen 1
+augmentation 
+code_align_factor slen 1
+data_align_factor slen 1
+ Debug Frame Common Information Entry
+  length:                 36
+  CIE_id :                -1
+  version:                3
+  augmentation:           
+  code align factor:      4
+  data align factor:      -4
+  return address register 0xffffffff
+  initial instructions: 19 bytes, ptr = 0x8080810c, frameBuf = 0xffffffff
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_same_value R255
+  DW_CFA_same_value R1
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+ Debug Frame Description Entry
+  length:                 52
+  CIE_pointer:            0
+  initial_location:       0x0
+  address_range:          0x200
+  function:               confirm_b83
+  instructions: 28 bytes
+  DW_CFA_advance_loc4 delta 4
+  DW_CFA_advance_loc4 delta 20
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_advance_loc4 delta 36
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+
+.section .rel.debug_frame	REL
+0x44    confirm_b83    R_CUDA_64

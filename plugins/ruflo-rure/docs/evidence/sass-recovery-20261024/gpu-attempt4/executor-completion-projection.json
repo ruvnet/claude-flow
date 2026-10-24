@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "evidenceOrigin": "Observed executor-owned structured tool completion; distinct from worker stdout",
+  "authenticationLimitation": "This projection records the authenticated connector observation, not a portable signed attestation. Hashes provide integrity only.",
+  "privateObservationSha256": "6f6030e15dc0032dbf5e96ce21f9292cf515b11aec2dc20f5dc3fb1c12867240",
+  "events": [
+    {
+      "event": "sassPrepareExec",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    },
+    {
+      "event": "sassDevelopmentExec",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    },
+    {
+      "event": "sassConfirmationExec",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    },
+    {
+      "event": "sassAllocationExec",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    },
+    {
+      "event": "sassFinalPreflight",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    },
+    {
+      "event": "sassFreshReconciliation",
+      "status": "ok",
+      "exitCode": 0,
+      "completionVersion": 1,
+      "completionVerified": true,
+      "outputCompleteObserved": true
+    }
+  ],
+  "machineIdentityRedacted": true
+}

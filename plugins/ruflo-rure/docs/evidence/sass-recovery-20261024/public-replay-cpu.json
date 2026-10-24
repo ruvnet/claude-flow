@@ -1,0 +1,351 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T01:47:23.757Z",
+  "status": "pass",
+  "split": "development",
+  "scope": "four previously exposed development regressions",
+  "evaluatorSha256": "2468e244aaed1ed1206f6a42b85f9060a4bcdaad4330a7fcfaf9d09a8c3df94d",
+  "oracleSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+  "translationReceiptSha256": "00547be710e2f176157c577243e7712b4f333f0f5e025d00ac53f9fcf5992b99",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "nativeManifestSha256": null,
+  "compiler": {
+    "argv": [
+      "g++",
+      "--version"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "error": null,
+    "stdout": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "stderr": "",
+    "elapsedMs": 2.4235049999999987
+  },
+  "cases": 28,
+  "elementComparisons": 780,
+  "kernels": [
+    {
+      "id": "copy32",
+      "status": "pass",
+      "recoverySha256": "00ce280c76dec53b9695d4afa86e27ae2f126d207a63e5f9cca7467c926af35d",
+      "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0",
+      "execution": {
+        "sourceSha256": "e94023c8e6e357c899a67221e105ef770035af6b31e578f3e3b4434150e8978a",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/copy32/independent.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/copy32/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 270.587855
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/copy32/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":195}\n",
+          "stderr": "",
+          "elapsedMs": 3.4154550000000086
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "2424ff9221e70ecc283a1b7cc5fd3d0a38adc9e7fe5514666bd68470fbbf0fe5",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/copy32/negative.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/copy32/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 280.684196
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/copy32/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=copy32 count=1 i=0 expected=0 actual=1\n",
+          "stderr": "",
+          "elapsedMs": 2.2675520000000233
+        }
+      }
+    },
+    {
+      "id": "add7_wrap32",
+      "status": "pass",
+      "recoverySha256": "ebac323c7fdddb0803253daed7d72129a0bf01ba4ebf0ebe6c68f15b2fa76d47",
+      "codeSha256": "a98b111f24c032849db370f6ebbace4a91a77cc650dadcfb43ed59678d260fd4",
+      "execution": {
+        "sourceSha256": "d9f13339eaec1efd4d4ebc3139354a1d780dc3df38e114570875cf57e49fd95e",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/independent.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 271.112538
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":195}\n",
+          "stderr": "",
+          "elapsedMs": 3.6873059999999214
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "742261cd2bd77b7e8868be068d929715eec4a756dc67cb27c6d1dacee034082f",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/negative.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 280.5617870000001
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=add7_wrap32 count=1 i=0 expected=7 actual=6\n",
+          "stderr": "",
+          "elapsedMs": 2.786045999999942
+        }
+      },
+      "semanticMutation": {
+        "kind": "compiled emitted arithmetic constant 7 to 8",
+        "codeSha256": "663d46034455648933da763853084cf1ca80da427097eec1df28ab99a2744c63",
+        "sourceSha256": "1b311debeedb671738950420f4f3ac658be97b1853014c64d7a4f3f7df7dc72e",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/semantic-mutation.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/semantic-mutation"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 271.990554
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/add7_wrap32/semantic-mutation"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=add7_wrap32 count=1 i=0 expected=7 actual=8\n",
+          "stderr": "",
+          "elapsedMs": 2.850212000000056
+        }
+      }
+    },
+    {
+      "id": "multiply_low64",
+      "status": "pass",
+      "recoverySha256": "d6ac5c790a7b0e94fd0ce2ef0b923f7bd27b27be5061883bccadfd7c7aa8b85b",
+      "codeSha256": "cd4dabe331dad3205fae96e995c93205675d1efd203273a11c54e4f4002737e0",
+      "execution": {
+        "sourceSha256": "319386335b98ff92619fdcb4ee48c9e3edc816bb5da846d03222913cddaa7aca",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/independent.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 218.60257000000001
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":195}\n",
+          "stderr": "",
+          "elapsedMs": 3.1766050000001087
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "9380ce2bafeec396f356664f250edd39e47c0120ccac1e46554322f8b08dbc49",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/negative.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 248.1213029999999
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/multiply_low64/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=multiply_low64 count=1 i=0 expected=0 actual=1\n",
+          "stderr": "",
+          "elapsedMs": 2.4664630000002035
+        }
+      }
+    },
+    {
+      "id": "wide_signed",
+      "status": "pass",
+      "recoverySha256": "c1a54f50b45f4fd8cfe061a6c6cee00a7c3c6ce7a06b8bdcb30d14ae283aae9a",
+      "codeSha256": "369d67576dba6e53c55c025935c233dd01742d20ff7422a915fadd82c5c933f0",
+      "execution": {
+        "sourceSha256": "c322624c6b155af338dbabc3f09fcddc24be01ac2b86e1eee76b612c6a0a4b5e",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/independent.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 302.3748340000002
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":195}\n",
+          "stderr": "",
+          "elapsedMs": 10.014863000000332
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "145680c591a5d38a8720b7b23855835367c0af000ac64816949ce28913a5a22c",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/negative.cpp",
+            "-o",
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 306.8049249999999
+        },
+        "execute": {
+          "argv": [
+            "/tmp/rure-sass-public-replay-cpu/wide_signed/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=wide_signed count=1 i=0 expected=0 actual=1\n",
+          "stderr": "",
+          "elapsedMs": 2.859817000000021
+        }
+      }
+    }
+  ],
+  "proofStatus": "not-proven",
+  "sotaClaim": false,
+  "completedAt": "2026-10-24T01:47:26.251Z",
+  "coverage": {
+    "total": 4,
+    "correct": 4,
+    "unsupported": 0,
+    "invalid": 0
+  }
+}

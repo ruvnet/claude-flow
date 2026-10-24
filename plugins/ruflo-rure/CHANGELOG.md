@@ -2,6 +2,13 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets. Built from git history; see `git log -- plugins/ruflo-rure` for the full record.
 
+## 0.8.0 — 2026-10-24
+
+- Validation: [SASS recovery evidence](docs/evidence/sass-recovery-20261024/README.md) records four development kernels and five of six fresh confirmation kernels passing direct original/recovered cubin execution on SM89/CUDA 13, 3,240 comparisons, zero memcheck errors and an independently rejected arithmetic mutation. The excluded `SHF.L.U32` kernel remains unsupported. Matched CuLifter CPU recovery passed all six, so no coverage advantage is claimed; both frozen GPU timing gates failed.
+- feat: `rure_recover_sass` accepts bounded matching SASS and ELF text exports and attempts scalar integer CUDA C++ recovery. It never invokes a disassembler, compiles, executes or writes code.
+- security: malformed or unsupported inputs return no code; presentation modifications discard the entire recovery object, including when screening renames a code/status key. This withholding fix also covers PTX CUDA output. Authentic disassembler text is an explicit precondition, not a property proved by hashes.
+- docs: ADR-0010 freezes the same-input CuLifter comparison and distinguishes text lifting, binary execution evidence and the unchanged broad SOTA gate.
+
 ## 0.7.0 — 2026-10-23
 
 - Validation: [executable recovery evidence](docs/evidence/recovery-20261024/README.md) records the same 24 synthetic programs executed as original PTX and recovered CUDA on SM86/CUDA 12.8 and SM89/CUDA 13, 9,360 exact GPU comparisons per environment, passing bounded memchecks and two failed speed gates. The independently reproduced CuLifter baseline also passes four shared development programs. Broad SOTA remains INCONCLUSIVE.

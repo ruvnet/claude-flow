@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "scope": "six fresh hand-authored small integer CUDA programs; synthetic confirmation, not SOTA coverage",
+  "independence": "Authored by independent evaluator before candidate outputs. Source and oracle withheld from translator; shared filesystem is not a secret boundary.",
+  "nativeArtifacts": "CUDA source and exact oracle frozen first; native cubin/SASS/ELF hashes must be frozen before candidate evaluation. Generated textual mutations do not count as native artifacts.",
+  "compile": {
+    "language": "cuda-cpp",
+    "flags": [
+      "-std=c++17",
+      "-cubin"
+    ],
+    "architecture": "selected authorized GPU architecture; bind exact before compilation"
+  },
+  "acceptance": {
+    "translationInput": [
+      "sass",
+      "elf"
+    ],
+    "forbidTranslatorInput": [
+      "cudaSource",
+      "ptx",
+      "oracle",
+      "expectedOutputs"
+    ],
+    "requiredNumericalEquality": "all emitted outputs and sentinel tails exactly match",
+    "unsupported": "count as unsupported, never as a correct recovery",
+    "cpu": "compile generated C++ with UBSan and independent BigInt references",
+    "gpu": "load exact retained original.cubin and newly compiled recovered.cubin via cuModuleLoad; bind both byte hashes",
+    "mutation": "deliberately incorrect recovered arithmetic or output must fail the independent oracle",
+    "sotaClaim": false
+  },
+  "launch": {
+    "blockX": 8,
+    "extraBlocks": 1
+  },
+  "kernels": [
+    {
+      "id": "confirm_a71",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "b1112961ae41135a28a86738f7e83e1ce221fa381eeec7c45203eda72685a238",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "3159d10acc85f17281994af2846d3ad53a871c27d6996bee185ebc7c6234c927"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "41bca0cd82e2e6dfeb71d9761ffab37f32ab03014db1e5953b0bbece34426703"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "fa564863c93f00d4cde405081f9d120ece002eefe190bedf3183fb7dd9a26655"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "482330388441379230875ecb57929d47b6ce8cc0a3dcf8f84d2885719e39579d"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "6a9803be39cc1007fabddf08369ce5eaac32e37a35839d30e5d65e92b60fe510"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "d724b25a6a20bbb923eb5a960dc55063539372a6cccc9896fc6f28dad15b3c36"
+        }
+      ]
+    },
+    {
+      "id": "confirm_b83",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "72ce2eb1be63a5eec072a436bfc27a8de9707309f68f9986ba01a9f37428d0cf",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "3159d10acc85f17281994af2846d3ad53a871c27d6996bee185ebc7c6234c927"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "cc85aabf923ef1f949690f3a95d7e3e00245a6184356f7fd0aabe36d25eab504"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "0f162b3fdd839ac4a40801589b326b894f9f872c1d462be95e85e9f8efc27b31"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "ce47c663adcbe11db2c1f3f930645f8c3dd224bc538f0c033fd06afa61686bda"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "9aaf7592a2e93f1c0529713acb14824e137b285ad641f681d463d8c31e1a229c"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "b65532aee17aff8cb135369054a5193079017c3783e90efed4e1c07b5defecde"
+        }
+      ]
+    },
+    {
+      "id": "confirm_c97",
+      "inputBits": 32,
+      "outputBits": 64,
+      "sourceSha256": "2e467e35863810ad37d6fd9be5cde3d07fd66c820ebbd61c5a1fc4f514d50379",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "c23bd6e4726613775e28a9e2af7c5ac9763a0b7d6a655b45aa54d7b682c92589"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "3221329c8a8e37a2bf69e3b165f1ea50d3cba7cd7a75571a9a7e5fd5a01967ef"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "aacc349d23d23e54ae95098c20f9fe9d32a3a58180c23f9f9deb290ef17f9c3c"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "156442f32dda5eaddbf8644da6f8136dc9376ad80652109f5055a1bc02ea43a1"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "ab58ced729574a0b6845d5680c3c72ec755e58b599c485ce0095fd1c2bd4efd1"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "714a93574af0cee3ef3d75c324b2b023eab248ffd59de8360c017147a3297a3d"
+        }
+      ]
+    },
+    {
+      "id": "confirm_d29",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "29b2a311831956cdc10b21f72ed455a04dcf1d454c2f6454d2aeac8254c61331",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "3159d10acc85f17281994af2846d3ad53a871c27d6996bee185ebc7c6234c927"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "7abda3d51accb3df5567933dd270f576bb9508674c3fac4055cd01a0a94cf7f6"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "8ec865ebfa29c49db1027e4ec8b1c2ae6c46c8bb73126d7c64a77ad07686bf71"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "a8011e009c764d4fea4e6deb2a336f11826b5c13c90fd4b37e2248fdae3f5ac4"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "1a803486745e7b7d4fe73d2df17cf1af018ff18bb31ce66ad03c130d17e0bc3d"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "83127cd1427ba7d2eada0348494dba3cd05f740bb2977cb71e565ab3ea06812e"
+        }
+      ]
+    },
+    {
+      "id": "confirm_e43",
+      "inputBits": 32,
+      "outputBits": 64,
+      "sourceSha256": "70185613646871a15163ebb76c59f29ad3fa53d0aabbeb3a5a5e0abdd2c8cee7",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "c23bd6e4726613775e28a9e2af7c5ac9763a0b7d6a655b45aa54d7b682c92589"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "7f8c41740cbc2b7d75b935a3618494f6bd04fc5e71f0cb3c19a8aa196da9b15f"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "7e1eca612313f486775a10595ea8991d470f6f5e847b2f6ba87ca43944759c33"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "2b1236a0d01a2a35e77996080e64fb6d990d5c0e0b7e0f81d3c39ac4b59c2b3f"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "8c2a46dbb872665c455e3e711bced5e889883c05b8bf72cd8b8ee752cf5ca3ba"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "43ac6882f96178bf5a8890b4c85041fc71569efd644a707b63abad5a785cfae3"
+        }
+      ]
+    },
+    {
+      "id": "confirm_f61",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "128230f7d9200d7a52a5140f58b7e2aa893783a8792ed769a2c97bd2d394f677",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "8fa2b51e83597c59f5d1bcb96c8fa63497a2866efd1f2a9a919a9afd6ae2dfcb"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "4aecdc3e5972d6ee6f09ac2c703ff3e289587cd8623ee36660b062b4222714b4"
+        },
+        {
+          "count": 3,
+          "oracleSha256": "7f277c8709a7bd60b54230d24855ae478c07c3159a7c5909c9d4e1fd6321422a"
+        },
+        {
+          "count": 17,
+          "oracleSha256": "b9737b35b642b844c14fe32c6f6719e2ff816d0a7f0875cd55473db1f81c0981"
+        },
+        {
+          "count": 32,
+          "oracleSha256": "4c65839d7b53825c77bfdaa16ecc5f8ebdefdaecec827b750cffbb7b6e262921"
+        },
+        {
+          "count": 67,
+          "oracleSha256": "6c992151539d95e7774863acff76db3f1e70a9147040b2788b5e02024a04c6de"
+        }
+      ]
+    }
+  ]
+}

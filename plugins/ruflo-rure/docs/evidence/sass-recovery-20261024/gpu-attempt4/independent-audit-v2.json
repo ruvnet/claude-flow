@@ -1,0 +1,149 @@
+{
+  "status": "pass",
+  "scope": "byte bindings and arithmetic rederived; no GPU rerun or execution authentication",
+  "auditorSha256": "dc4daaf176c1fecd0fde5ad2d853047fc00f550821be9531b388b97a854be9c1",
+  "archiveSha256": "b00df4709e9da7bea1d262bfcd1895baf07b3e164008475722504a0397be0750",
+  "artifactFilesVerified": 381,
+  "vectorFilesVerified": 174,
+  "originalDevelopmentSupplementFilesVerified": 28,
+  "originalDevelopmentReceiptsMatchGpuManifest": true,
+  "sourceRecoveryCoverageVerdict": "INCONCLUSIVE: 5/6 confirmation; unsupported d29 retained",
+  "optimizationVerdict": "REJECT: neither frozen 10 percent gate met",
+  "actualBilledUsd": null,
+  "confirmationStartedAt": "2026-10-24T01:52:03.022Z",
+  "nativeFrozenAt": 1792806654.9236155,
+  "firstExposureOnly": "one recorded confirmation translation; later checks only inspect saved artifacts",
+  "results": [
+    {
+      "split": "development",
+      "rawSha256": "16c5508954f35c938ee0e361c1918ef83f88eac0761d1dc428db66a31eaf1a80",
+      "frozenKernels": 4,
+      "admittedKernels": 4,
+      "cases": 28,
+      "elementComparisons": 1560,
+      "rawTimingSamples": 800,
+      "geometricMedianSpeedup": 1.0020300627730239,
+      "regressionsAbove2Percent": [],
+      "performanceGate": false,
+      "workerElapsedSeconds": 9.179674863815308,
+      "perKernelTimingUs": [
+        {
+          "id": "copy32",
+          "originalP50": 6.142,
+          "recoveredP50": 6.052,
+          "originalP95": 6.512,
+          "recoveredP95": 6.432
+        },
+        {
+          "id": "add7_wrap32",
+          "originalP50": 6.051,
+          "recoveredP50": 6.152,
+          "originalP95": 6.392,
+          "recoveredP95": 6.573
+        },
+        {
+          "id": "multiply_low64",
+          "originalP50": 6.192,
+          "recoveredP50": 6.132,
+          "originalP95": 6.572,
+          "recoveredP95": 6.462
+        },
+        {
+          "id": "wide_signed",
+          "originalP50": 5.992,
+          "recoveredP50": 5.991,
+          "originalP95": 6.312,
+          "recoveredP95": 6.442
+        }
+      ]
+    },
+    {
+      "split": "confirmation",
+      "rawSha256": "43c8b4a88d2d58ab88afea864b4222c3bcaa3cdb5313f20fbcf568c54d4b0535",
+      "frozenKernels": 6,
+      "admittedKernels": 5,
+      "cases": 30,
+      "elementComparisons": 1680,
+      "rawTimingSamples": 1000,
+      "geometricMedianSpeedup": 0.9873383285844474,
+      "regressionsAbove2Percent": [],
+      "performanceGate": false,
+      "workerElapsedSeconds": 9.509780406951904,
+      "perKernelTimingUs": [
+        {
+          "id": "confirm_a71",
+          "originalP50": 6.102,
+          "recoveredP50": 6.202,
+          "originalP95": 6.442,
+          "recoveredP95": 6.593
+        },
+        {
+          "id": "confirm_b83",
+          "originalP50": 6.032,
+          "recoveredP50": 6.121,
+          "originalP95": 6.452,
+          "recoveredP95": 6.423
+        },
+        {
+          "id": "confirm_c97",
+          "originalP50": 6.132,
+          "recoveredP50": 6.181,
+          "originalP95": 6.493,
+          "recoveredP95": 6.472
+        },
+        {
+          "id": "confirm_e43",
+          "originalP50": 6.021,
+          "recoveredP50": 6.112,
+          "originalP95": 6.442,
+          "recoveredP95": 6.602
+        },
+        {
+          "id": "confirm_f61",
+          "originalP50": 6.061,
+          "recoveredP50": 6.121,
+          "originalP95": 6.372,
+          "recoveredP95": 6.372
+        }
+      ]
+    }
+  ],
+  "lifecycleProjection": {
+    "cleanup": {
+      "verified_absent": true,
+      "exact_instance_absent": true,
+      "label_absent": true,
+      "at": 1792806746.9175498,
+      "elapsed_seconds": 265.0720889568329,
+      "quoted_cost_usd": 0.011044670373201372,
+      "actual_billed_usd": null
+    },
+    "reconciliation": {
+      "at": 1792806836.2335014,
+      "exact_instance_absent": true,
+      "label_absent": true,
+      "total_instances": 0
+    },
+    "quote": {
+      "start": 1792806481.845461,
+      "deadline": 1792807321.845461,
+      "hourly_usd": 0.15000000000000002,
+      "image": "nvidia/cuda@sha256:0eee3094c71518ad31d011a594ae6ed6de72959ee07e318cb31cffe71690e90c",
+      "network_usd_per_gb": {
+        "up": 0.0,
+        "down": 0.0
+      },
+      "remaining_time_quote_reserve_usd": 0.08946859548489254,
+      "cumulative_prior_seconds": 552.7537083625793,
+      "cumulative_prior_quote_reserve_usd": 0.24198914829658136,
+      "actual_billed_usd": null,
+      "actual_network_cost_usd": null
+    }
+  },
+  "limitations": [
+    "Post-execution JSON and hashes are not execution authentication.",
+    "Original per-split gzip containers are represented by recorded hashes; this audit verifies their retained member bytes in a checked xz repack.",
+    "GPU results cover admitted synthetic integer kernels only; the excluded sixth kernel is not counted as executed.",
+    "Timing excludes provisioning, compilation, allocation and transfers; clocks were not locked."
+  ]
+}

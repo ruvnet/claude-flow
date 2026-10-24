@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "frozenAt": "2026-10-24T01:36:07.661873+00:00",
+  "independentPlanSha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3",
+  "evaluatorHashes": {
+    "run-equal-input.py": "9e315efcd954b5ee466bb1eef73847f97addc3a184e4663b0f57efa609973e77",
+    "generate-driver.py": "a386612cef5935b2bd22ad0da92e5957f28ac0cf334b5b4d35f66bc2ddb30d82",
+    "inspect-abi.py": "7ef9bc46e39d4f798e2f5be3a55aaf9d4820e1a320bd61a655f91a5628d8e99e",
+    "../emit-object.py": "7d33f90900914aa6e4587d688a8be9314d7802bc343b6ca5e74a1edf98fba127"
+  },
+  "controlTestSha256": "325ae2d06fa8d2f52b70906e66ccb9c61da1e26ab53a42e285eabc3d6b8b13e1",
+  "scope": {
+    "expectedKernels": 6,
+    "casesPerKernel": 6,
+    "comparisonsPerKernel": 168,
+    "execution": "scalar CPU; same SASS/ELF bytes; no GPU or broad SOTA claim"
+  },
+  "independentReview": {
+    "reviewer": "cuda_baseline_review",
+    "status": "approved_for_bounded_evaluation",
+    "syntheticTestsPassed": 9,
+    "benchmarkHoldoutViewed": false,
+    "authority": "review evidence only; no promotion grant or cryptographic signature"
+  },
+  "oracleOrNativeInputsReadBeforeFreeze": false,
+  "nextTrigger": "independent evaluator approves exact native manifest and oracle digests; no tuning against results"
+}

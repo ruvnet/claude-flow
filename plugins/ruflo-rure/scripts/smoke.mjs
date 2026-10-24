@@ -65,11 +65,14 @@ check('rure-tools.ts references MAX_BINARY_BYTES', /MAX_BINARY_BYTES/.test(tools
 
 // Tool names referenced by the skill/command/agent docs must exist on the tool list.
 const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].map((m) => m[1]));
-check('exactly eight tools including bounded PTX reconstruction', toolNames.size === 8);
+check('exactly nine tools including SASS text recovery', toolNames.size === 9);
+check('SASS recovery is registered', toolNames.has('rure_recover_sass'));
+check('SASS byte cap is wired', toolsSrc.includes('MAX_SASS_RECOVERY_BYTES'));
+check('ADR-0010 exists', existsSync(new URL('docs/adrs/0010-executable-sass-text-recovery.md', root)));
 check('PTX decompiler is registered', toolNames.has('rure_decompile_ptx'));
 check('PTX decompiler byte cap is wired', toolsSrc.includes('MAX_PTX_DECOMPILE_BYTES'));
 check('CUDA recovery is explicit and never executed by tool', toolsSrc.includes("['pseudocode', 'cuda']") && toolsSrc.includes('recoverPtx(source)'));
-check('modified CUDA presentation is withheld', toolsSrc.includes("input.output === 'cuda' && presentationModified") && toolsSrc.includes('result.code = null'));
+check('modified CUDA presentation is withheld', toolsSrc.includes("input.output === 'cuda' && presentationModified") && toolsSrc.includes('result = withheldRecovery()'));
 for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm', 'rure_analyze_cuda']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }

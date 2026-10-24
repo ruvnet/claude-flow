@@ -1,0 +1,29 @@
+{
+  "status": "pass",
+  "transport": "stdio",
+  "builtEntrypoint": "/tmp/rure-sass-clean-install/node_modules/@claude-flow/cli/bin/mcp-server.js",
+  "sourceSha256": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+  "functions": 2,
+  "tool": "rure_decompile_ptx",
+  "resultEnvelopeDepth": 2,
+  "screened": false,
+  "presentationModified": false,
+  "recovery": {
+    "status": "emitted",
+    "proofStatus": "not-proven",
+    "codeSha256": "d4410609abafd3a9b9b8abc281b6aff950d15e5bd800737cb1203910b9e586c8",
+    "codeBytes": 5577,
+    "screened": false
+  },
+  "sassRecovery": {
+    "tool": "rure_recover_sass",
+    "status": "emitted",
+    "proofStatus": "not-proven",
+    "sourceSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+    "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0",
+    "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0",
+    "screened": false
+  },
+  "elapsedMs": 194.24057100000002,
+  "node": "v24.19.0"
+}

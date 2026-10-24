@@ -1,0 +1,95 @@
+{
+  "status": "pass",
+  "scope": "independent byte/log audit and unchanged-binary replay; not fresh holdout or GPU baseline",
+  "baselineSourceCommit": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+  "receiptSha256": "cc7c76976d22f7eb51a62763cdc7cf984449f9e4afeaa542b73ffacc58740949",
+  "policySha256": "983e072b8edb98f4b19dd8d7a35c1ab75dd9649adc3d3ccd7ea9c2a1cb708195",
+  "sourceInputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+  "kernels": 6,
+  "cases": 36,
+  "comparisons": 1008,
+  "all37RecordedCommandsSucceeded": true,
+  "all37StderrEmpty": true,
+  "baselinePreparationExecutionSeconds": 2.632177582978329,
+  "actualCostUsd": null,
+  "results": [
+    {
+      "id": "confirm_a71",
+      "binarySha256": "502ee9d6602a6bc1eb99880fd1e9dc6befdb2a406169fa82edad5960fd84c697",
+      "driverSha256": "75c31c4c6b59ddb3051d42598161f76e66808dfcc5bdb80a9eee20a4e8ee6637",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_a71",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.0010240759947919287
+    },
+    {
+      "id": "confirm_b83",
+      "binarySha256": "6f766cb133a8d21b3d8b6e3f55d37fb674e3959371523a39ba8234c14d7066d6",
+      "driverSha256": "8950aa84778cc73c5e77b32d13fd29d699077b1fa1fad85acc17347379692637",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_b83",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.0009280109952669591
+    },
+    {
+      "id": "confirm_c97",
+      "binarySha256": "8069286557a1f4b03f7dfd710cd995792aa6883713ca7e03a94df2252dbdc718",
+      "driverSha256": "d8cfd2e3f9bada882b43966968641ea168952e35cc9122e1d38793b0d46c0b3c",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_c97",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.000961632002145052
+    },
+    {
+      "id": "confirm_d29",
+      "binarySha256": "e4ea6f9c146a76676e13a95dafa0b3f1feac458b62bab42b1910941b8db53f70",
+      "driverSha256": "8df43e1718e2c700095df2fbe859098b5b4466e34f76c568996ebebbb9fbbf51",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_d29",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.0008275790023617446
+    },
+    {
+      "id": "confirm_e43",
+      "binarySha256": "8db851b201432331a5c1b9e4cffb97341bf6b76b3d46836d2430313dcf88cc64",
+      "driverSha256": "ef3f285d06bab80de4256f0d82538b58a9e3d3809c3db1ab201bf4b82921c7f5",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_e43",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.0007204779976746067
+    },
+    {
+      "id": "confirm_f61",
+      "binarySha256": "cee1f7390d59becec76971fa745eaf147d5dae7b25d4aa6e77e666bebd595746",
+      "driverSha256": "9fb69ec270ea56bad8c16f111763eecb657971a2e0ff2ec45cb3a94fc34e5c93",
+      "replayExitCode": 0,
+      "replayStdout": {
+        "status": "pass",
+        "kernel": "confirm_f61",
+        "cases": 6,
+        "comparisons": 168
+      },
+      "replaySeconds": 0.0009121179973590188
+    }
+  ]
+}

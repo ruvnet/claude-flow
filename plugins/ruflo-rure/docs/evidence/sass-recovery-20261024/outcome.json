@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-24T02:00:45.998648+00:00",
+  "taskId": "rure-sass-recovery-20261024",
+  "parentTaskId": "rure-executable-recovery-20261024",
+  "parentRevision": "9d8348e953321bf41431d3bf9191d48f49111f60",
+  "owner": "Codex integration coordinator",
+  "pr": "https://github.com/ruvnet/ruflo/pull/4448",
+  "materialOutcome": "REVIEW-READY IMPROVEMENT",
+  "deliveryState": "reviewable draft code and measured evidence; not merged, released or deployed",
+  "capability": "Conservative SASS and ELF text to executable CUDA C++, without original source or PTX as translation input",
+  "hypothesis": "Frozen scalar integer recovery emits correct CUDA on independently authored kernels and preserves explicit unsupported outcomes",
+  "candidateModuleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "baselineRevision": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+  "matchedConfirmation": {
+    "kernels": 6,
+    "candidateCorrect": 5,
+    "candidateUnsupported": 1,
+    "candidateWrongAccepted": 0,
+    "baselineCorrect": 6,
+    "baselineInput": "same SASS and ELF bytes",
+    "baselineRuntime": "CPU LLVM22.1.0, not GPU",
+    "candidateCpuComparisons": 840,
+    "baselineCpuComparisons": 1008
+  },
+  "gpu": {
+    "architecture": "sm_89",
+    "compiler": "CUDA13.0.88",
+    "developmentKernels": 4,
+    "confirmationAdmittedKernels": 5,
+    "exactComparisons": 3240,
+    "memcheckErrors": 0,
+    "compiledMutationRejected": true,
+    "developmentGeometricMedianSpeedup": 1.0020300627730239,
+    "confirmationGeometricMedianSpeedup": 0.9873383285844474,
+    "regressionsAbove2Percent": 0
+  },
+  "verdicts": {
+    "supportedSubsetCorrectness": "ACCEPT",
+    "completeSixKernelCoverage": "REJECT",
+    "matchedCoverageSuperiority": "REJECT",
+    "tenPercentPerformanceGain": "REJECT",
+    "broadSota": "INCONCLUSIVE"
+  },
+  "independentReview": {
+    "sourceAndAdversarial": "complete for frozen scope",
+    "packageAndMcp": "complete",
+    "nativeInputs": "complete",
+    "matchedBaseline": "complete with unchanged-binary replay",
+    "gpuArtifactArithmetic": "complete; no GPU rerun or authentication claim"
+  },
+  "cost": {
+    "cumulativeRentalSeconds": 817.8257973194122,
+    "cumulativeQuotedUsd": 0.0341155421372917,
+    "actualBilledUsd": null,
+    "networkUsd": null,
+    "totalResearchAndEvaluationUsd": null
+  },
+  "cleanup": "task-owned rental destroyed; fresh exact ID and unique-label absence verified; zero remaining instances",
+  "nextAction": "Review SHF.L.U32 semantics on training data, then freeze fresh independent families before any new confirmation; retain this consumed cohort as regressions",
+  "keyRisk": "Authentic disassembler text and narrow CUDA ABI assumptions are prerequisites; five synthetic successes do not prove broad equivalence or superiority",
+  "acceptanceTest": "node --test plugins/ruflo-rure/scripts/sass-recovery-e2e.test.mjs",
+  "fullReplay": "README.md#portable-acceptance-replay",
+  "rollback": "Revert SASS recovery additions on the draft while preserving PTX recovery and historical evidence",
+  "memoryIntentId": "rure-sass-recovery-20261024:intent-7dd2dadb",
+  "memoryIntentContentHash": "85643fd2c1e61b9aae6f5e51b1a5a6fa37dfa55f7ff74ec2e89a14f4bfd6b093",
+  "memoryAuthority": "Evidence only; lexical retrieval degraded; no learned-strategy or promotion-authority claim"
+}
