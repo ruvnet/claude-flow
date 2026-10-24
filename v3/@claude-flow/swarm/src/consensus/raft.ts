@@ -485,7 +485,16 @@ export class RaftConsensus extends EventEmitter {
     );
 
     const threshold = this.config.threshold ?? 0.66;
-    const quorum = Math.floor(totalVoters * threshold);
+    // Dream Cycle 2026-10-24 (swarm): Math.ceil, not Math.floor. `threshold`
+    // is a supermajority requirement — flooring let it degenerate to a
+    // quorum the leader's own unconditional self-vote (added in propose())
+    // already satisfies alone for any cluster of 2 or 3 total voters at the
+    // default 0.66 threshold, so the FIRST peer vote processed by
+    // checkConsensus() (called from vote()) could accept the proposal
+    // regardless of that vote's own approve/reject value. Ceil guarantees
+    // quorum always needs at least one real approving vote beyond the
+    // leader's, for every cluster size and threshold in (0,1].
+    const quorum = Math.ceil(totalVoters * threshold);
 
     if (approvingWeight >= quorum) {
       proposal.status = 'accepted';
