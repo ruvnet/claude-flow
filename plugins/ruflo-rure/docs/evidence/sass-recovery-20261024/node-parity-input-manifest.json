@@ -1,0 +1,25 @@
+{
+  "scope": "four previously exposed development fixtures only",
+  "kernels": [
+    {
+      "id": "copy32",
+      "sassSha256": "38aa45840c1708cd56c988bcaa2e87817d3b538ec685d7bf99f1bfff5103a9c8",
+      "elfSha256": "9ccacaa50375d1ac1af2a850e8488f44f9c4f86b1961f586a13e3cd8b8d5b3e1"
+    },
+    {
+      "id": "add7_wrap32",
+      "sassSha256": "9757d7880ae6531ad9b0e088a37841175e545f5c61a6b263b577e89f55ffa902",
+      "elfSha256": "5e96acd333056c77ada4e2f3476b0b01c604d91b638e21c2ed8d1a4cb3c22e7f"
+    },
+    {
+      "id": "multiply_low64",
+      "sassSha256": "bdd9bcd5af291ac534b40e9380f85c2e2819fcec3b6e4b015508e223f2a5fb6f",
+      "elfSha256": "ee6d331f028713bfa126d13ec8c901c73613e60edd060f61ee866ce414784f81"
+    },
+    {
+      "id": "wide_signed",
+      "sassSha256": "3e8f9aeb2427f79308adc5f22ca67c4ab4b6f646798bd1d3a8f92dc80eb4afa6",
+      "elfSha256": "b98764de34c875f0ff0b8df3f876d5fc48dfb8a60b3a0715a4ece902b742dbef"
+    }
+  ]
+}

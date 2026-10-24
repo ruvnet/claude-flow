@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-24T01:52:03.319Z",
+  "status": "coverage-incomplete",
+  "split": "confirmation",
+  "scope": "six frozen new synthetic confirmation kernels; not SOTA coverage",
+  "evaluatorSha256": "2468e244aaed1ed1206f6a42b85f9060a4bcdaad4330a7fcfaf9d09a8c3df94d",
+  "oracleSha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3",
+  "translationReceiptSha256": "61d62d8f6c3390afa3c1aa394b36370daff6efd1a2fc554df19f3a9815f57e20",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "nativeManifestSha256": "53f85b394e5e6d60c472878ea3f0cfece3d052b086a89bf882f902c63c00558e",
+  "compiler": {
+    "argv": [
+      "g++",
+      "--version"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "error": null,
+    "stdout": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "stderr": "",
+    "elapsedMs": 2.8240399999999966
+  },
+  "cases": 30,
+  "elementComparisons": 840,
+  "kernels": [
+    {
+      "id": "confirm_a71",
+      "status": "pass",
+      "recoverySha256": "359dc25f12e72dca714f3e03d234f09968bf28e0d2df3483fda7861171aa5c55",
+      "codeSha256": "43db3c730f7ad0999baef456e834794deb328b11bc849405ef531e986b24f608",
+      "execution": {
+        "sourceSha256": "7b562fcd62e0935705a6c5368c0399fc08e866697d2cb6a6316392fa1491189e",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_a71/independent.cpp",
+            "-o",
+            "/output/cpu/confirm_a71/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 305.99991
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_a71/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":168}\n",
+          "stderr": "",
+          "elapsedMs": 2.124580000000037
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "8d53ea67ffbeef90ab20870711d3179f7bcc6c88649238dae18fb615b05e0d03",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_a71/negative.cpp",
+            "-o",
+            "/output/cpu/confirm_a71/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 284.17362999999995
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_a71/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=confirm_a71 count=1 i=0 expected=65556 actual=65557\n",
+          "stderr": "",
+          "elapsedMs": 1.9804200000000947
+        }
+      }
+    },
+    {
+      "id": "confirm_b83",
+      "status": "pass",
+      "recoverySha256": "b965e88cdd69aca0721d55e8ea3301a1045835a038557b4fba88ee334f807248",
+      "codeSha256": "f934a1d2aa21d951a94b30e95d12f2977a20b75ef0320d4b88d0a42c80da9ae8",
+      "execution": {
+        "sourceSha256": "19a67705898122a1b7af29b48581e22e5f8ce41fdfd99f114f254f466f14cd3e",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_b83/independent.cpp",
+            "-o",
+            "/output/cpu/confirm_b83/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 289.62959
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_b83/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":168}\n",
+          "stderr": "",
+          "elapsedMs": 1.9184099999999944
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "b3efb8e7347ef5cc1cd7b13faf5b421e1cf8f7114840a0ee3653744d4f7be393",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_b83/negative.cpp",
+            "-o",
+            "/output/cpu/confirm_b83/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 287.2576399999999
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_b83/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=confirm_b83 count=1 i=0 expected=65536 actual=65537\n",
+          "stderr": "",
+          "elapsedMs": 2.5105600000001687
+        }
+      }
+    },
+    {
+      "id": "confirm_c97",
+      "status": "pass",
+      "recoverySha256": "2ab49946fb86721b816920bc1bb26f1bd80d68c9cd4f40a17c8c8e897656d932",
+      "codeSha256": "d2c28dcbb91e7ed325ad2ae7ab46ccc81c7368ae017c7b38d99ba07290b10347",
+      "execution": {
+        "sourceSha256": "f1ae7928b462b23994fa2b20bd7dfb56ae8b604242e43e68505869f8ab9ad387",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_c97/independent.cpp",
+            "-o",
+            "/output/cpu/confirm_c97/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 281.8007600000001
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_c97/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":168}\n",
+          "stderr": "",
+          "elapsedMs": 2.1136200000000827
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "fe6c01c13b60651086f7600da085a4a9f5cd366af1cd1d21e45feeadeab7af5a",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_c97/negative.cpp",
+            "-o",
+            "/output/cpu/confirm_c97/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 287.49109
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_c97/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=confirm_c97 count=1 i=0 expected=65537 actual=65536\n",
+          "stderr": "",
+          "elapsedMs": 1.9483900000000176
+        }
+      }
+    },
+    {
+      "id": "confirm_d29",
+      "status": "unsupported",
+      "recoverySha256": "d91d373a201c0555d18598e9850232df6f79daf90799cc447156947e37c5fbed",
+      "codeSha256": null
+    },
+    {
+      "id": "confirm_e43",
+      "status": "pass",
+      "recoverySha256": "c8862cf6b6410134bf30f6fd9552598bfa3fa1afc21addf76b99ade912b2e39c",
+      "codeSha256": "928343dbebf12d279e096290bba50fb4ebc393840a1e447982e35e3d8d571bbc",
+      "execution": {
+        "sourceSha256": "80326e1047ce4456cbb43804745e9fcb2f8e7d29ecf6b32ba64a53c984938a0b",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_e43/independent.cpp",
+            "-o",
+            "/output/cpu/confirm_e43/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 281.88194999999996
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_e43/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":168}\n",
+          "stderr": "",
+          "elapsedMs": 2.17363000000023
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "946d74dbe8868d951baec68d2c9c3f9cf2fe94353310c7c9ae9510f2c70b1a0c",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_e43/negative.cpp",
+            "-o",
+            "/output/cpu/confirm_e43/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 292.61925999999994
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_e43/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=confirm_e43 count=1 i=0 expected=851982 actual=851983\n",
+          "stderr": "",
+          "elapsedMs": 2.1402799999996205
+        }
+      }
+    },
+    {
+      "id": "confirm_f61",
+      "status": "pass",
+      "recoverySha256": "58847bc8f5a4d0e5586356e1b54dd0834bbf6014e0240aedf6e0fefb463577f5",
+      "codeSha256": "44283c67dd5271c78902dec55bb12b48df4d567a635f7ac0f22ea63fd891eba8",
+      "execution": {
+        "sourceSha256": "12118da586c5685102a82611c9e8827a47409850ed643301b70bf265d8f9399a",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_f61/independent.cpp",
+            "-o",
+            "/output/cpu/confirm_f61/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 265.36947999999984
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_f61/independent"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "{\"status\":\"pass\",\"comparisons\":168}\n",
+          "stderr": "",
+          "elapsedMs": 1.963839999999891
+        }
+      },
+      "negativeControl": {
+        "sourceSha256": "c54228abdb0b29b5876e4796804eba9a8f653c05e7afecf893369860f345c6ba",
+        "compile": {
+          "argv": [
+            "g++",
+            "-std=c++17",
+            "-O2",
+            "-fsanitize=undefined",
+            "-fno-sanitize-recover=all",
+            "/output/cpu/confirm_f61/negative.cpp",
+            "-o",
+            "/output/cpu/confirm_f61/negative"
+          ],
+          "exitCode": 0,
+          "signal": null,
+          "error": null,
+          "stdout": "",
+          "stderr": "",
+          "elapsedMs": 272.74978999999985
+        },
+        "execute": {
+          "argv": [
+            "/output/cpu/confirm_f61/negative"
+          ],
+          "exitCode": 1,
+          "signal": null,
+          "error": null,
+          "stdout": "mismatch kernel=confirm_f61 count=1 i=0 expected=4294967297 actual=4294967296\n",
+          "stderr": "",
+          "elapsedMs": 2.0926500000000487
+        }
+      }
+    }
+  ],
+  "proofStatus": "not-proven",
+  "sotaClaim": false,
+  "completedAt": "2026-10-24T01:52:06.202Z",
+  "coverage": {
+    "total": 6,
+    "correct": 5,
+    "unsupported": 1,
+    "invalid": 0
+  }
+}

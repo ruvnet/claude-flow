@@ -1,0 +1,476 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "scope": "development only; no confirmation or GPU execution",
+  "positive": [
+    {
+      "arch": "sm86",
+      "name": "copy32",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+      "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0"
+    },
+    {
+      "arch": "sm86",
+      "name": "add7_wrap32",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "6a9acc2bd9fbdf9364c738d470f29422ebda8fdc586fba9190b02742c81cd007",
+      "elfSha256": "6e2a7a2a8ca1d9360bc0f824be13663904b4af113bc69cd08c93dc3c7b9acbcb",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "a98b111f24c032849db370f6ebbace4a91a77cc650dadcfb43ed59678d260fd4"
+    },
+    {
+      "arch": "sm86",
+      "name": "multiply_low64",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "e12e06e5bc18f52633cffa4cfd72e71f9e2a4c5d792dce49aae6f025749404eb",
+      "elfSha256": "e25f77a8a28dffe3e2aa4954d4deac928473367d250cb36e03805392012c5976",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "cd4dabe331dad3205fae96e995c93205675d1efd203273a11c54e4f4002737e0"
+    },
+    {
+      "arch": "sm86",
+      "name": "wide_signed",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "3ede41eb6247566636dd5137be81931a1216111119a8632ec7ba6e5d77c1d96d",
+      "elfSha256": "e5a13d2d0a0be8f1297e1cbaeba4e606c6e51d8606b537b8b5c3278e0a5efa14",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "369d67576dba6e53c55c025935c233dd01742d20ff7422a915fadd82c5c933f0"
+    },
+    {
+      "arch": "sm89",
+      "name": "copy32",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "38aa45840c1708cd56c988bcaa2e87817d3b538ec685d7bf99f1bfff5103a9c8",
+      "elfSha256": "9ccacaa50375d1ac1af2a850e8488f44f9c4f86b1961f586a13e3cd8b8d5b3e1",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0"
+    },
+    {
+      "arch": "sm89",
+      "name": "add7_wrap32",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "9757d7880ae6531ad9b0e088a37841175e545f5c61a6b263b577e89f55ffa902",
+      "elfSha256": "5e96acd333056c77ada4e2f3476b0b01c604d91b638e21c2ed8d1a4cb3c22e7f",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "a98b111f24c032849db370f6ebbace4a91a77cc650dadcfb43ed59678d260fd4"
+    },
+    {
+      "arch": "sm89",
+      "name": "multiply_low64",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "bdd9bcd5af291ac534b40e9380f85c2e2819fcec3b6e4b015508e223f2a5fb6f",
+      "elfSha256": "ee6d331f028713bfa126d13ec8c901c73613e60edd060f61ee866ce414784f81",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "cd4dabe331dad3205fae96e995c93205675d1efd203273a11c54e4f4002737e0"
+    },
+    {
+      "arch": "sm89",
+      "name": "wide_signed",
+      "status": "emitted",
+      "diagnostics": [],
+      "sassSha256": "3e8f9aeb2427f79308adc5f22ca67c4ab4b6f646798bd1d3a8f92dc80eb4afa6",
+      "elfSha256": "b98764de34c875f0ff0b8df3f876d5fc48dfb8a60b3a0715a4ece902b742dbef",
+      "sameCodeAsCpuTestedSm86": true,
+      "codeSha256": "369d67576dba6e53c55c025935c233dd01742d20ff7422a915fadd82c5c933f0"
+    }
+  ],
+  "negative": [
+    {
+      "name": "stale_r1",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x30"
+      ]
+    },
+    {
+      "name": "initial_r1",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x20"
+      ]
+    },
+    {
+      "name": "implicit_r1",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x80"
+      ]
+    },
+    {
+      "name": "missing_descriptor",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x90"
+      ]
+    },
+    {
+      "name": "predicated_descriptor",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "only unconditional canonical global descriptor setup is supported"
+      ]
+    },
+    {
+      "name": "descriptor_clobber",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "unsupported register UR5"
+      ]
+    },
+    {
+      "name": "wrong_descriptor",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "only validated hidden-descriptor 64-bit global address syntax is supported"
+      ]
+    },
+    {
+      "name": "explicit_descriptor",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "only validated hidden-descriptor 64-bit global address syntax is supported"
+      ]
+    },
+    {
+      "name": "modifier",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "unsupported SASS opcode LDG.E.STRONG.SYS"
+      ]
+    },
+    {
+      "name": "predicated_only_definition",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x30"
+      ]
+    },
+    {
+      "name": "branch_skips_descriptor",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x80"
+      ]
+    },
+    {
+      "name": "undefined_predicate",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "undefined register/pair/predicate or unestablished global descriptor at instruction 0x50"
+      ]
+    },
+    {
+      "name": "padding_read",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "constant read is outside a complete parameter word or supported launch field"
+      ]
+    },
+    {
+      "name": "crossing_param",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "constant read is outside a complete parameter word or supported launch field"
+      ]
+    },
+    {
+      "name": "arbitrary_const",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "constant read is outside a complete parameter word or supported launch field"
+      ]
+    },
+    {
+      "name": "name_injection",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "expected exactly one valid kernel name"
+      ]
+    },
+    {
+      "name": "unreachable_opcode",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "unsupported SASS opcode ATOM"
+      ]
+    },
+    {
+      "name": "trailing_content",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "unexpected SASS content"
+      ]
+    },
+    {
+      "name": "bad_branch",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "branch destination is not an instruction"
+      ]
+    },
+    {
+      "name": "register_overflow",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "register R255 exceeds declared range"
+      ]
+    },
+    {
+      "name": "odd_pair",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "64-bit pairs must start at an even general-purpose register below R254"
+      ]
+    },
+    {
+      "name": "wrong_words",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "SASS encoding comments and ELF text words/extents differ"
+      ]
+    },
+    {
+      "name": "wrong_architecture",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "ELF architecture/type/ABI/toolkit does not match supported SASS export format"
+      ]
+    },
+    {
+      "name": "wrong_abi",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "ELF architecture/type/ABI/toolkit does not match supported SASS export format"
+      ]
+    },
+    {
+      "name": "wrong_toolkit",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "ELF architecture/type/ABI/toolkit does not match supported SASS export format"
+      ]
+    },
+    {
+      "name": "wrong_api",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "unsupported CUDA API metadata version"
+      ]
+    },
+    {
+      "name": "wrong_bank_size",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "parameter bank size mismatch"
+      ]
+    },
+    {
+      "name": "wrong_bank_symbol",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "PARAM_CBANK symbol does not identify matching constant bank"
+      ]
+    },
+    {
+      "name": "wrong_param_gap",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "parameter ordinals/offsets do not match natural CUDA scalar ABI"
+      ]
+    },
+    {
+      "name": "wrong_param_size",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "constant read is outside a complete parameter word or supported launch field"
+      ]
+    },
+    {
+      "name": "duplicate_param_ordinal",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "parameter ordinals/offsets do not match natural CUDA scalar ABI"
+      ]
+    },
+    {
+      "name": "short_constant_section",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "constant bank section binding or extent mismatch"
+      ]
+    },
+    {
+      "name": "short_text_section",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "SASS encoding comments and ELF text words/extents differ"
+      ]
+    },
+    {
+      "name": "wrong_merc_version",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "unsupported Mercury ISA version"
+      ]
+    },
+    {
+      "name": "wrong_target",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "invalid or conflicting .target"
+      ]
+    },
+    {
+      "name": "dialect_mismatch",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "ELF architecture/type/ABI/toolkit does not match supported SASS export format"
+      ]
+    },
+    {
+      "name": "oversize_sass",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "input exceeds bounded dump size"
+      ]
+    },
+    {
+      "name": "oversize_elf",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "input exceeds bounded dump size"
+      ]
+    },
+    {
+      "name": "nonascii",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "only printable ASCII and tab/newline exports are supported"
+      ]
+    },
+    {
+      "name": "text_relocation_section",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "code or constant-bank relocation section is outside recovery scope"
+      ]
+    },
+    {
+      "name": "invalid_size_token",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "invalid section numeric field"
+      ]
+    },
+    {
+      "name": "nonsection_bank_symbol",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "PARAM_CBANK must reference a zero-valued local section symbol"
+      ]
+    },
+    {
+      "name": "offset_bank_symbol",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "PARAM_CBANK must reference a zero-valued local section symbol"
+      ]
+    },
+    {
+      "name": "ambiguous_64bit_immediate",
+      "status": "unsupported",
+      "codeNull": true,
+      "diagnostics": [
+        "64-bit immediate extension semantics are outside the validated subset"
+      ]
+    },
+    {
+      "name": "overlong_line",
+      "status": "invalid",
+      "codeNull": true,
+      "diagnostics": [
+        "dump line exceeds 2048 characters"
+      ]
+    }
+  ],
+  "cpuSources": [
+    {
+      "name": "copy32",
+      "file": "cpu/copy32.cpp",
+      "sha256": "077d811670f3312129c02647fcdfffaa0ba464422c87c8013c172626858690c1",
+      "expectedComparisons": 5400
+    },
+    {
+      "name": "add7_wrap32",
+      "file": "cpu/add7_wrap32.cpp",
+      "sha256": "01635fcb2f5d04d808d9b51d6c18982352bfb361cd25e1ab80c865ad62e67a14",
+      "expectedComparisons": 5400
+    },
+    {
+      "name": "multiply_low64",
+      "file": "cpu/multiply_low64.cpp",
+      "sha256": "6922a07c54e67e4c2c6abd14678fc8f2087cd47283162ddfb5ae836e17a8cad5",
+      "expectedComparisons": 5400
+    },
+    {
+      "name": "wide_signed",
+      "file": "cpu/wide_signed.cpp",
+      "sha256": "8e5fde703753995b13b42583eb5e0c12c3cb24791918feecf61e441a12943a23",
+      "expectedComparisons": 5400
+    }
+  ]
+}

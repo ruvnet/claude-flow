@@ -1,0 +1,21 @@
+{
+  "auditorSha256": "89510e9e6ca07ebcded5cbe4cafd33124fa1c6fd5dc21fc9e8115c9c66f464d8",
+  "cases": [
+    {
+      "case": "raw receipt mutation",
+      "exitCode": 1
+    },
+    {
+      "case": "frozen vector mutation",
+      "exitCode": 1
+    },
+    {
+      "case": "archive mutation",
+      "exitCode": 1
+    },
+    {
+      "case": "optimized Python refuses",
+      "exitCode": 1
+    }
+  ]
+}

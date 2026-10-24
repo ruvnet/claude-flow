@@ -1,0 +1,9 @@
+
+ RUN  v4.1.12 /workspace/scratch/16fc07be6201/ruflo-cuda/v3/@claude-flow/cli
+
+
+ Test Files  17 passed | 1 skipped (18)
+      Tests  278 passed | 7 skipped (285)
+   Start at  20:36:32
+   Duration  1.72s (transform 1.97s, setup 0ms, import 2.84s, tests 4.66s, environment 2ms)
+

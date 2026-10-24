@@ -40,15 +40,17 @@ afterEach(() => {
 });
 
 describe('ruRE MCP tools (end-to-end)', () => {
-  it('registers exactly the seven tools (three Phase 1, one each Phase 2, 3, 4 and 5)', () => {
+  it('registers the nine tools including SASS text recovery', () => {
     expect(rureTools.map((t) => t.name).sort()).toEqual([
       'rure_analyze_binary',
       'rure_analyze_cuda',
       'rure_analyze_dotnet',
       'rure_analyze_evm',
       'rure_analyze_js_app',
+      'rure_decompile_ptx',
       'rure_extract_asar',
       'rure_find_feature',
+      'rure_recover_sass',
     ]);
   });
 

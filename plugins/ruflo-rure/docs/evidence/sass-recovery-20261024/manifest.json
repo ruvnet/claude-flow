@@ -1,0 +1,683 @@
+{
+  "schemaVersion": 1,
+  "taskId": "rure-sass-recovery-20261024",
+  "parentRevision": "9d8348e953321bf41431d3bf9191d48f49111f60",
+  "parentTree": "49fc817d927b086c55661c5359204c3d9c2021bf",
+  "scope": "All changed/new files for this SASS continuation, excluding this manifest; earlier PTX evidence remains unchanged",
+  "integrityOnly": true,
+  "selfHashExcluded": true,
+  "fileCount": 134,
+  "totalBytes": 1687482,
+  "files": [
+    {
+      "path": "plugins/ruflo-rure/.claude-plugin/plugin.json",
+      "bytes": 942,
+      "sha256": "6e4cc66477225810d202cadafbb4b7ca1b4222b878410b15c494a570eeda803c"
+    },
+    {
+      "path": "plugins/ruflo-rure/CHANGELOG.md",
+      "bytes": 12334,
+      "sha256": "a9b4a17fd103193b058d20be3ba277302f579f69e66bf17170b893b016d43638"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/adrs/0010-executable-sass-text-recovery.md",
+      "bytes": 5883,
+      "sha256": "ac38c4b0c52d43c61f544dc8ed99753dfb1b3fc781fef6b1e10906e5ab8c9791"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/README.md",
+      "bytes": 18044,
+      "sha256": "ba0ab18af11d37f2e0e9831c00d731b6acf4f071811e908196d4cad8390f30ef"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/artifact-parity.json",
+      "bytes": 1002,
+      "sha256": "bfe9fd08a0517d320ed64e8c3db966f16aac7a8b4bd2bf70b658c7e3bd8e53bb"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/build.log",
+      "bytes": 257,
+      "sha256": "105200f01d5daec1b1c2e6e77f674c323a66b7632467826dd984db5a8ac2a2d2"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/candidate.mjs",
+      "bytes": 28450,
+      "sha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-description-fixed.txt",
+      "bytes": 362,
+      "sha256": "06854f3c110f06f6f92ebdbd68dcb3d2e9675f4bee9b2955c88f981f741c458f"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-description-independent-review.md",
+      "bytes": 1902,
+      "sha256": "082654eb363687687b0bdbf5f0ab6bdd190c5893dfeace68a196c06d3f642533"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-build.txt",
+      "bytes": 257,
+      "sha256": "105200f01d5daec1b1c2e6e77f674c323a66b7632467826dd984db5a8ac2a2d2"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-description.json",
+      "bytes": 757,
+      "sha256": "0f9277b35dc875ec64b14764ed8e8d4868e63f5440193c8ad0394ddadba3beba"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-mcp.json",
+      "bytes": 1026,
+      "sha256": "50970204edb0645d211d94c46dc98a9c81471298b2221e4736e7ceb7eaccf303"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-tests.txt",
+      "bytes": 249,
+      "sha256": "f770095d04248094178500064c79c202fe767a6133100d0cb2e790db26b7824e"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/comparison-gate-tests.log",
+      "bytes": 2601,
+      "sha256": "4addbabd4e3b5dd5937e5697fcd6237bf52099ba4ad4d403b4cab0d048c99fd0"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/culifter-independent-audit.json",
+      "bytes": 3282,
+      "sha256": "2d37b4f802afd83fdd457cc6d9948a5f187dc862dd1afc8337a4b75248f59caa"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/evaluator-tests.log",
+      "bytes": 690,
+      "sha256": "d50a5ff1c2cadc59020d2fe5a7455677da91967f478a35443fb1afab5cd054f3"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/feature-tests.log",
+      "bytes": 277,
+      "sha256": "8e0340fc3fde1e5a584a2047d46d639c4620657ab4c9447b965edfbfd6a796fa"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/final-evaluator.txt",
+      "bytes": 689,
+      "sha256": "0d81bad947b307f4183e7d13e7348516899a19a1122d9a88c9b15225a9e062cb"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/final-smoke.txt",
+      "bytes": 20,
+      "sha256": "9b80b7864c706c2119d47964c821f55ea867167d498b162d9dfce29188a3caef"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/archive-manifest.json",
+      "bytes": 60066,
+      "sha256": "31f000497d8be7bb85753a974043ee1bbe383b43009b7f82daf55fa7998adbec"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/audit-negative-controls-v2.json",
+      "bytes": 467,
+      "sha256": "8467329d6d8b9af5c689c3332c25f29a6b937de3bf42f1641cfc5c99467ae956"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/audit-negative-controls.json",
+      "bytes": 393,
+      "sha256": "1172394bb76bb67115e3d3a35bd91b77a4ac2d781a1748dca8536b4ab4ca8686"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/auditor-original.py",
+      "bytes": 16312,
+      "sha256": "89510e9e6ca07ebcded5cbe4cafd33124fa1c6fd5dc21fc9e8115c9c66f464d8"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/confirmation-cpu.json",
+      "bytes": 12268,
+      "sha256": "05b40282f43484c1796d98c47a93f28992354e2e1f97eef5cff04cfc32f9282e"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/confirmation-gpu.json",
+      "bytes": 179781,
+      "sha256": "43c8b4a88d2d58ab88afea864b4222c3bcaa3cdb5313f20fbcf568c54d4b0535"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/confirmation-translation.json",
+      "bytes": 3014,
+      "sha256": "61d62d8f6c3390afa3c1aa394b36370daff6efd1a2fc554df19f3a9815f57e20"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/development-gpu.json",
+      "bytes": 145792,
+      "sha256": "16c5508954f35c938ee0e361c1918ef83f88eac0761d1dc428db66a31eaf1a80"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/development-supplement.tar.xz",
+      "bytes": 33108,
+      "sha256": "da6107c529e1aaf5ec12d04068f3314a758cac2424be9168ddd6c34d995853e1"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/executor-completion-projection.json",
+      "bytes": 1612,
+      "sha256": "d595e58aa776c24fc13cd73323b9f834f8662ef56cd6bece9846423d6f417852"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/independent-audit-v2.json",
+      "bytes": 4946,
+      "sha256": "b5996ad259f18a8b93bff6be37d2183d214bc4749949ee7e72f1e308c5546846"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/independent-audit.json",
+      "bytes": 4946,
+      "sha256": "b49918c96892703b152e369e41020537ba8b654ca6f88a6560d75e4729d86099"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/public-evidence.tar.xz",
+      "bytes": 364076,
+      "sha256": "b00df4709e9da7bea1d262bfcd1895baf07b3e164008475722504a0397be0750"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/receipt.json",
+      "bytes": 9105,
+      "sha256": "f4ee59652f8d152b2e67f047f4a864c296177fe1931b7c4377aaff171ff0041d"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/gpu-attempt4/saved-evidence-independent-review.json",
+      "bytes": 2897,
+      "sha256": "f41530a3c59aae55e9a34d04f149d89facbad9a2bb6e3216d737940e17299be1"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/independent-integration-review.md",
+      "bytes": 5303,
+      "sha256": "8fa4c2d25c9f279aec6ceed5eafabf14d8dee71c0780d55d456e31cd42d6c819"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/install-fresh.log",
+      "bytes": 125,
+      "sha256": "0b5ec7b8cf6c77ab523289daacdf97ea2f8c7ff884190d23dcc9b5c0a4878453"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/install-inherited-lock-failure.log",
+      "bytes": 1528,
+      "sha256": "b371f1f17b56ee6748e941425da0c3b70e7a77ca9a96924780448c2c0fa694ed"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/install-lock-delta.json",
+      "bytes": 1811,
+      "sha256": "6917cfb8b1edd53ea710959dab40389e9f002846f4230cfc47428fce0558bf5e"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/install-locked-replay.log",
+      "bytes": 125,
+      "sha256": "023c2852422d7755e791292a82609e64c1b3127fe83ccde793d7898b6863fa04"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/installed-cpu.json",
+      "bytes": 11370,
+      "sha256": "0bf7305c28e0c412117f7fecb215ce21004f34a59c2924c451d500a1e4e80f26"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/integration-tests.log",
+      "bytes": 593,
+      "sha256": "b50c782b79252cd584d3acd47b18306f1b6db3323c94ec2919b51a5d755b626c"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/mcp-built.json",
+      "bytes": 1034,
+      "sha256": "e52b738ed2987c72921cb17cdb66ba434567d9ead1722ef023fc86ab46496d1e"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/mcp-installed.json",
+      "bytes": 1030,
+      "sha256": "cc71fd312d509e48ebb389351a626f737582c528783b85fbd4063c897a960193"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/native-input-independent-approval.json",
+      "bytes": 3554,
+      "sha256": "4266429881cd88a7a17911adb0e12a3522cda30a5cc949352a670dc84acfcbb0"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/node-parity-input-manifest.json",
+      "bytes": 940,
+      "sha256": "039fc188439a35672472f818d3a446f49eef2d94afc94e711dd6afdf7183e1f3"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/node-parity-runner.mjs",
+      "bytes": 1341,
+      "sha256": "f34daadb58026a41d9e64cae44c45f88e79da081703f57036c858fba18b7ffd5"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/node-parity.json",
+      "bytes": 1323,
+      "sha256": "8ed16e1170a63e7740ed6e14d1425abc11626a251103f935833e4b92747140a5"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/node20-raw.json",
+      "bytes": 1104,
+      "sha256": "f6689bcb605d6bb2a501e1d991d750d613b973c2f671ac1a6697af7ffb1f09b4"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/node24-raw.json",
+      "bytes": 920,
+      "sha256": "20d264e3d2cc446a04033a2928006ceba1b34f7cb62e6404444f79d307cd05e2"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/outcome.json",
+      "bytes": 3379,
+      "sha256": "038b7fba128c3df23b5a74baa049a8949d64918f3742cf119c28567eaa1cbcce"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/package-artifact.json",
+      "bytes": 1188,
+      "sha256": "991f56bcb9add35476a2be5a50af75423efb6c66dc0b832023e400ec6601ed89"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/public-replay-cpu.json",
+      "bytes": 11474,
+      "sha256": "6925dd2e90cfb2ffff2f8ae664235aecce0fc9963436e6c0aeb5eef0f547313a"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/public-replay-translation.json",
+      "bytes": 2224,
+      "sha256": "00547be710e2f176157c577243e7712b4f333f0f5e025d00ac53f9fcf5992b99"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-plan-20261024.json",
+      "bytes": 3683,
+      "sha256": "7dd2dadbd62d826bc5a1aa1ed77ac404496bdf14669c662dc3f5527600599ec9"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/README.md",
+      "bytes": 6651,
+      "sha256": "76137069361b82ebd3ed33cb6360aab605af65a8075bcaf36da020e11f042ec5"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/chronology.json",
+      "bytes": 967,
+      "sha256": "1d1929a92bb1a2b796ca02f315a5b9494f9d38db01e1f2ebe5179a817c202dcc"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/export-evidence.py",
+      "bytes": 6092,
+      "sha256": "19475348e75e3dabc2986e0cf295ae7d1083715002106fd92cb8e26f2df7ac73"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/freeze.json",
+      "bytes": 1282,
+      "sha256": "027aab0e7d29c0541bcd6724671f5e1ab3155440d25a360b24ab2d6f5402cd46"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/generate-driver.py",
+      "bytes": 9474,
+      "sha256": "a386612cef5935b2bd22ad0da92e5957f28ac0cf334b5b4d35f66bc2ddb30d82"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/inspect-abi.py",
+      "bytes": 1990,
+      "sha256": "7ef9bc46e39d4f798e2f5be3a55aaf9d4820e1a320bd61a655f91a5628d8e99e"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_a71.abi.json",
+      "bytes": 832,
+      "sha256": "9e1d3ed3e2ce2b681c9ee9118dedc5f0817037a232df46efead45cea662d0378"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_b83.abi.json",
+      "bytes": 832,
+      "sha256": "54208c9e08733b0de120947ecca1900c50350c7fef4fbf25629e72c554428140"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_c97.abi.json",
+      "bytes": 832,
+      "sha256": "11e3f0f5f31c293d9c77fa634453f4b2246e7889a58f4495a95d42d9ff5be304"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_d29.abi.json",
+      "bytes": 832,
+      "sha256": "170b948fe4457e42d99d753425938761b28ecd948b898a54185c07143ed05581"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_e43.abi.json",
+      "bytes": 832,
+      "sha256": "fac1ec34e3f30bf9b73ea6985ef0d9f40a53e448fccbc5e5740337e191f2c670"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/abi/confirm_f61.abi.json",
+      "bytes": 832,
+      "sha256": "09a8cb7b38992422863a4016b4d5b39993f438778684eb1d0e72c241be6e4868"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/commands.json",
+      "bytes": 13024,
+      "sha256": "525e8e2a850824231ef2ad39c06b9ca70f247bd41154d3ea83d75869a034a7d6"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_a71.cpp",
+      "bytes": 16816,
+      "sha256": "75c31c4c6b59ddb3051d42598161f76e66808dfcc5bdb80a9eee20a4e8ee6637"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_b83.cpp",
+      "bytes": 16701,
+      "sha256": "8950aa84778cc73c5e77b32d13fd29d699077b1fa1fad85acc17347379692637"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_c97.cpp",
+      "bytes": 19667,
+      "sha256": "d8cfd2e3f9bada882b43966968641ea168952e35cc9122e1d38793b0d46c0b3c"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_d29.cpp",
+      "bytes": 16754,
+      "sha256": "8df43e1718e2c700095df2fbe859098b5b4466e34f76c568996ebebbb9fbbf51"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_e43.cpp",
+      "bytes": 19302,
+      "sha256": "ef3f285d06bab80de4256f0d82538b58a9e3d3809c3db1ab201bf4b82921c7f5"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/drivers/confirm_f61.cpp",
+      "bytes": 23443,
+      "sha256": "9fb69ec270ea56bad8c16f111763eecb657971a2e0ff2ec45cb3a94fc34e5c93"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/equal-input-result.public.json",
+      "bytes": 28654,
+      "sha256": "4b6479040d512337814e73e2a03d898fd3569d60b2bcf0cb5f0cc0dbe1725421"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/independent-audit.json",
+      "bytes": 3282,
+      "sha256": "2d37b4f802afd83fdd457cc6d9948a5f187dc862dd1afc8337a4b75248f59caa"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/input-approval.json",
+      "bytes": 3554,
+      "sha256": "4266429881cd88a7a17911adb0e12a3522cda30a5cc949352a670dc84acfcbb0"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_a71.elf",
+      "bytes": 8672,
+      "sha256": "908e5bacccaf2ad85b2a7311500b9887127f68a3e9af9ac04dbd5742a40115af"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_a71.sass",
+      "bytes": 7496,
+      "sha256": "da3e79a03b18d5c480e5ec8242c202f56d6d6e0cd9fe396c4402c4925541fa1f"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_b83.elf",
+      "bytes": 8671,
+      "sha256": "41785215576b6e46841a26fd4cacccf5455f017e073956ccfbc281d415f50b44"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_b83.sass",
+      "bytes": 7496,
+      "sha256": "7c6ed0b254f47716dccafabfa6ec3ad3ecdb5360e18b52206bcc7169b1dc4b24"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_c97.elf",
+      "bytes": 8672,
+      "sha256": "8a2de301f86a4e29123fd493a3bb9d9a109abca4258adc5eb31bb09cb938f536"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_c97.sass",
+      "bytes": 7176,
+      "sha256": "e38e26863114bd58f1dc8282b1399308eb1df851c13bfa8564718c726c9e721b"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_d29.elf",
+      "bytes": 8672,
+      "sha256": "8d87e591389face843f94a4e1bd3e158cab848285de15564c1d78b396868fbe4"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_d29.sass",
+      "bytes": 7496,
+      "sha256": "2226d91493cf96fccbdacc5008be516930b0f92cd4f8fb889d729b50935ef798"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_e43.elf",
+      "bytes": 8672,
+      "sha256": "7d6bb15df003a6374bc6aa24377cb4720bddab7fb0b6c21633bdbce436f24154"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_e43.sass",
+      "bytes": 7176,
+      "sha256": "5900940e8757965a6de00892202d495831a3049912e5c3fabdbfafebbaf485df"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_f61.elf",
+      "bytes": 8672,
+      "sha256": "f6c127b3f04edc5e3afd523d29cd049c9668215ecf31b417140e81eb4d76f491"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/confirm_f61.sass",
+      "bytes": 7176,
+      "sha256": "263f7348036432a83abe45ec1b0bb6b20b6adebcd44ccda8a60cc613983fbac8"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/inputs/manifest.json",
+      "bytes": 2097,
+      "sha256": "b1128c44620b2559a824dcf812533b65fc40d49847e5c5d688843c081f41a4b9"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/policy.json",
+      "bytes": 1882,
+      "sha256": "983e072b8edb98f4b19dd8d7a35c1ab75dd9649adc3d3ccd7ea9c2a1cb708195"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/process-logs.json",
+      "bytes": 26128,
+      "sha256": "c124e14c06aa82829d662ec9d81802dd656ca34ddf618c6e79701c561c00975a"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/projection-receipt.json",
+      "bytes": 2968,
+      "sha256": "1b5bf397e0d64f15645e8487c040bb5d5a84dce7359003f78d8f3b4b1138c21f"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/publication-manifest.json",
+      "bytes": 13033,
+      "sha256": "ef707d15c579aa553b92213a96d1c2606d3ed99554c8dca83b3152bb3cbfefec"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/observed/translation-input.json",
+      "bytes": 1355,
+      "sha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/project-inputs.py",
+      "bytes": 4749,
+      "sha256": "4ad853d23921ffea51e1173c156f9d822311e914cb6637e97c10a3103546d8af"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/run-equal-input.py",
+      "bytes": 12566,
+      "sha256": "9e315efcd954b5ee466bb1eef73847f97addc3a184e4663b0f57efa609973e77"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/culifter/equal-input/test-adapter.py",
+      "bytes": 13460,
+      "sha256": "325ae2d06fa8d2f52b70906e66ccb9c61da1e26ab53a42e285eabc3d6b8b13e1"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/README.md",
+      "bytes": 2977,
+      "sha256": "67eb4cc979e9b9c73d082a01837291a2b59980eebee37e5a97a516ed66d4592d"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/cpu-results.json",
+      "bytes": 2375,
+      "sha256": "062e36f39a382b13c2743c9f181b1bcfff8a31d9a4addc01cc25f2a7cc59b85e"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/public-allowlist.json",
+      "bytes": 936,
+      "sha256": "9b242db2c9bd911d0e2d481920e0431f03746642841247a282cc045cef66d6d6"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/replay.mjs",
+      "bytes": 8991,
+      "sha256": "0b3ec0180380799768347b4c9a18f56c7ec5c7095b212a6f46540832d81236b0"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/review-receipt.json",
+      "bytes": 3185,
+      "sha256": "237c629c7a7ce06685ff9d00c5b024cbfb882e66a82c1a00c42169ca45496814"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/review-results.json",
+      "bytes": 13463,
+      "sha256": "6977dadb6f61d0eb375cc50a97f03c8100c7af6489bdebae9ada1d9a5498aa93"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/baselines/sass-adversarial/run-cpu.py",
+      "bytes": 2742,
+      "sha256": "4c870f6070a8ff9fd8f98cc48807f8918786fc4c6d3c9bfcdf7a95c6252f2006"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_a71.cu",
+      "bytes": 458,
+      "sha256": "b1112961ae41135a28a86738f7e83e1ce221fa381eeec7c45203eda72685a238"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_a71.oracle.json",
+      "bytes": 15554,
+      "sha256": "29e36ca39f0e7742a4046b0f08308d70c2108b7e2db57ffc096acb1a04fee215"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_b83.cu",
+      "bytes": 428,
+      "sha256": "72ce2eb1be63a5eec072a436bfc27a8de9707309f68f9986ba01a9f37428d0cf"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_b83.oracle.json",
+      "bytes": 15439,
+      "sha256": "9b1c6ae4d0980a481b90aacb465ab43d9c4153011e6509c0c8b9e70dd67956bf"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_c97.cu",
+      "bytes": 453,
+      "sha256": "2e467e35863810ad37d6fd9be5cde3d07fd66c820ebbd61c5a1fc4f514d50379"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_c97.oracle.json",
+      "bytes": 16785,
+      "sha256": "8b3ec8532b91e34c1cb4aaf81b6b1121726e45ebc10484064429536d7cf3d6ed"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_d29.cu",
+      "bytes": 429,
+      "sha256": "29b2a311831956cdc10b21f72ed455a04dcf1d454c2f6454d2aeac8254c61331"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_d29.oracle.json",
+      "bytes": 15492,
+      "sha256": "203eb8c7d8257fe6915721a5e74d56c4133739efc8d1bc441542614fa6654445"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_e43.cu",
+      "bytes": 468,
+      "sha256": "70185613646871a15163ebb76c59f29ad3fa53d0aabbeb3a5a5e0abdd2c8cee7"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_e43.oracle.json",
+      "bytes": 16420,
+      "sha256": "b267333991248e75ad69c2525130added98bf6b728675a29bd08b67396b722a1"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_f61.cu",
+      "bytes": 440,
+      "sha256": "128230f7d9200d7a52a5140f58b7e2aa893783a8792ed769a2c97bd2d394f677"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirm_f61.oracle.json",
+      "bytes": 20561,
+      "sha256": "109f1ebfc767d769a54877192e640759257d627f821ab90a3b0e6fbb4c2b7157"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirmation-plan.json",
+      "bytes": 7584,
+      "sha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/fixtures/sass-recovery/confirmation-specs.mjs",
+      "bytes": 4269,
+      "sha256": "24ad2e0ac7686f927aa865dae0984b62b1c409c98e2ef1d68702963093329499"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/ptx-mcp-e2e.mjs",
+      "bytes": 9019,
+      "sha256": "58e04f7e5115959b83be4bd12ed1ec9beb0cd9340571028a293dd9d38d503e4f"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-e2e.mjs",
+      "bytes": 19888,
+      "sha256": "2468e244aaed1ed1206f6a42b85f9060a4bcdaad4330a7fcfaf9d09a8c3df94d"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-e2e.test.mjs",
+      "bytes": 12059,
+      "sha256": "c655b6953fb6b3d3eb7f4c69d66b2b561b68eca11d2bb7458e431bc55af29b28"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-evaluation.md",
+      "bytes": 7672,
+      "sha256": "8ac2c853cc7ca7b77f81c63d6177528ecb6e153d9aa12e97cbf6f1faa53e97aa"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-gpu.cu",
+      "bytes": 11515,
+      "sha256": "b192f10ae51c47e338c74531b7238daa801b91aae75c752004b1ee2b0ac2aa05"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-prepare-native.py",
+      "bytes": 7931,
+      "sha256": "502b25818d4d5f079a6fec64a19aea38efee9671758a20d185f49167417c2e23"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-receipt-audit.py",
+      "bytes": 16327,
+      "sha256": "dc4daaf176c1fecd0fde5ad2d853047fc00f550821be9531b388b97a854be9c1"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/sass-recovery-translate.mjs",
+      "bytes": 6574,
+      "sha256": "a464137ae041c469d8a9292421b3f833d0fbc41fbb731f7503042ae3d594f353"
+    },
+    {
+      "path": "plugins/ruflo-rure/scripts/smoke.mjs",
+      "bytes": 5953,
+      "sha256": "220d8f0b92f5dd0e66f37fce4fabd828a3af0d4cbaf795931d9b6af4223912ac"
+    },
+    {
+      "path": "plugins/ruflo-rure/skills/analyze-app/SKILL.md",
+      "bytes": 6613,
+      "sha256": "0efa03cf837d16099dd06bc4f5baec3676bf9aeaf84628308ae217a47d7bbe7f"
+    },
+    {
+      "path": "v3/@claude-flow/cli/__tests__/rure-ptx-tool.test.ts",
+      "bytes": 6790,
+      "sha256": "e6f990f26aae143902b223ed8cf8f5cbe88a5071a4379c0f212dfc5f79afdb64"
+    },
+    {
+      "path": "v3/@claude-flow/cli/__tests__/rure-sass-recover.test.ts",
+      "bytes": 8093,
+      "sha256": "fbc59886e168159f2625997a2f73f6d2d7965fccf0d47ad5a8347ea869ba011d"
+    },
+    {
+      "path": "v3/@claude-flow/cli/__tests__/rure-sass-tool.test.ts",
+      "bytes": 6405,
+      "sha256": "327a57e8a6772df732984626a00b28a0de4b429de39b01b421dfddccd7d46f72"
+    },
+    {
+      "path": "v3/@claude-flow/cli/__tests__/rure-tools.test.ts",
+      "bytes": 12395,
+      "sha256": "68ca3eddb7263c1d3a514714c18a32c7ae57a52b7617372f72fed2d457b72fb3"
+    },
+    {
+      "path": "v3/@claude-flow/cli/src/mcp-tools/rure-tools.ts",
+      "bytes": 32001,
+      "sha256": "c784677c4630df11ebddbbb14ed12da8ddff2921643fed1690d0488a368e2a32"
+    },
+    {
+      "path": "v3/@claude-flow/cli/src/rure/sass-recover.ts",
+      "bytes": 30012,
+      "sha256": "99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0"
+    }
+  ]
+}

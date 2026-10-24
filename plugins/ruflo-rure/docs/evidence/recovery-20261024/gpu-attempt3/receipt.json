@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "correctnessVerdict": "ACCEPT",
+  "performanceVerdict": "REJECT",
+  "sotaVerdict": "INCONCLUSIVE",
+  "claimScope": "Unchanged 24 public synthetic scalar integer PTX kernels recompiled from recovered CUDA C++ and independently checked on RTX 4060 Ti/CUDA 13.0; architecture/toolkit replication, not a new independent holdout",
+  "kernels": 24,
+  "cases": 168,
+  "elementComparisons": 9360,
+  "baseline": "Driver JIT of original PTX",
+  "candidate": "nvcc compilation of emitted CUDA C++ to recovered PTX, then Driver JIT",
+  "negativeControl": {
+    "exitCode": 1,
+    "stderr": "mismatch kernel=add7_wrap32 count=1 variant=1 byte=0 expected=7 actual=8\n",
+    "detected": true
+  },
+  "memcheck": {
+    "status": "pass",
+    "scope": "counts 0, 1 and 33 of each kernel; timing omitted",
+    "cases": 72,
+    "elementComparisons": 2784,
+    "errors": 0,
+    "version": "NVIDIA (R) Compute Sanitizer\nCopyright (c) 2020-2025 NVIDIA Corporation\nVersion 2025.3.1.0 (build 36400806) (public-release)"
+  },
+  "timing": {
+    "unit": "microseconds",
+    "scope": "host cuLaunchKernel plus cuCtxSynchronize at count 65; allocations, transfers and module loading excluded",
+    "warmupsPerVariant": 10,
+    "samplesPerVariant": 100,
+    "pairOrder": "alternating",
+    "clocksLocked": false,
+    "sotaClaim": false,
+    "geometricMeanMedianSpeedup": 0.993683563,
+    "regressionsAbove2Percent": 3,
+    "meetsProposed10PercentAndNoRegressionThreshold": false
+  },
+  "timingRegressions": [
+    {
+      "id": "add7_wrap32",
+      "originalP50": 4.222,
+      "recoveredP50": 4.358,
+      "originalP95": 4.469,
+      "recoveredP95": 4.647,
+      "medianSpeedup": 0.968793024
+    },
+    {
+      "id": "multiply_add64",
+      "originalP50": 4.24,
+      "recoveredP50": 4.374,
+      "originalP95": 4.43,
+      "recoveredP95": 4.593,
+      "medianSpeedup": 0.969364426
+    },
+    {
+      "id": "signed_wide_accumulate",
+      "originalP50": 4.236,
+      "recoveredP50": 4.347,
+      "originalP95": 4.31,
+      "recoveredP95": 4.502,
+      "medianSpeedup": 0.974465148
+    }
+  ],
+  "environment": "NVIDIA GeForce RTX 4060 Ti, 595.99.02, 16380 MiB, 8.9",
+  "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:58:59_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+  "ptxas": "ptxas: NVIDIA (R) Ptx optimizing assembler\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Wed_Aug_20_01:55:12_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.88\nBuild cuda_13.0.r13.0/compiler.36424714_0",
+  "cuobjdump": "cuobjdump: NVIDIA (R) fat binary listing tool\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Thu_Aug_14_07:26:37_PM_PDT_2025\nCuda compilation tools, release 13.0, V13.0.85\nBuild cuda_13.0.r13.0/compiler.36400806_0",
+  "image": "nvidia/cuda@sha256:0eee3094c71518ad31d011a594ae6ed6de72959ee07e318cb31cffe71690e90c",
+  "inputs": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "b5c3f69f922043770df44cc1f0cd738df6f09f922082bffa54d3d67508abe41c",
+    "ptx-recovery-gpu.cu": "5db3c5391663b5fae4952a1bd02c63256eb85bc77b22d284fb0dd4a26069b44f"
+  },
+  "hostControllerSha256": "3231a119381debb42afed6e809265b7227a58ceecd89da9f47e081e891591fe2",
+  "hostRunnerSha256": "8e62c14adf2ed83840757eb9a40d3dd004e9aa5cb2f3fe44f1113d9de3b2b0dd",
+  "rawReceiptSha256": "932a0787cad179d044de1d6c25518e63b3faf757a6481ddd32f4e7142ed3303f",
+  "compiledArtifactArchiveSha256": "62f1acc98b0f0e81c3679f4f719a273cb0307a6027b16a1bbeb7bfdf25e64a48",
+  "compiledArtifactArchiveBytes": 47869,
+  "compiledArtifactFileCount": 98,
+  "compiledArtifactReadbackVerified": true,
+  "compiledArtifactScope": "24 auxiliary ptxas original cubins + 24 executed recovered PTX files + 1 mutated PTX + 48 SASS/ELF texts + manifest. Auxiliary cubins are not actual Driver JIT machine code.",
+  "cleanup": {
+    "verified_absent": true,
+    "exact_instance_absent": true,
+    "label_absent": true,
+    "at": 1792804588.1773639,
+    "elapsed_seconds": 269.2040102481842,
+    "quoted_cost_usd": 0.014581883888443312,
+    "actual_billed_usd": null,
+    "freshExactIdAbsent": true,
+    "freshLabelAbsent": true,
+    "freshTotalInstances": 0,
+    "freshObservedAt": 1792804620.8680735
+  },
+  "lifecycleSeconds": 269.2040102481842,
+  "hourlyQuoteUsd": 0.195,
+  "planned15MinuteQuoteUsd": 0.048945312500000004,
+  "conservativeRemainingTimeQuoteReserveUsd": 0.1310863705188036,
+  "computeStorageQuoteEstimateUsd": 0.014581883888443312,
+  "actualBilledUsd": null,
+  "actualNetworkCostUsd": null,
+  "executor": {
+    "completionVersion": 1,
+    "completionVerified": true,
+    "status": "ok",
+    "exitCode": 0
+  },
+  "cumulative": {
+    "rentalSeconds": 552.7537083625793,
+    "computeStorageQuoteEstimateUsd": 0.023070871764090325,
+    "conservativeQuoteReserveUsd": 0.24198914829658136,
+    "actualBilledUsd": null,
+    "actualNetworkCostUsd": null
+  },
+  "independentReview": {
+    "status": "PASS",
+    "kind": "Independent manual receipt and artifact review",
+    "frozenVectorFilesVerified": 504,
+    "exportedArtifactFilesVerified": 98,
+    "timingSamplesRecomputed": 4800,
+    "scope": "Receipt consistency, exact artifact readback, frozen vector binding and timing recomputation; not an independent second GPU execution or SOTA validation",
+    "reportedBy": "cuda_independent_eval, confirmed by integrating reviewer"
+  },
+  "limitations": [
+    "24 scalar integer synthetic kernels; not a representative SOTA corpus",
+    "Same workload repeated on a second architecture/compiler, not a new untouched confirmation set",
+    "No 10% performance gain on either tested architecture/compiler",
+    "No executed strongest external head-to-head GPU baseline",
+    "Host launch plus synchronization timings exclude allocation, transfer and module loading; clocks unlocked",
+    "Actual billing and network cost unknown",
+    "Exported original cubins represent auxiliary ptxas compilation; the executed original kernel is Driver JIT of PTX"
+  ],
+  "nextAction": "Evaluate the unchanged candidate on a representative external corpus against a matched strong baseline before any SOTA claim; preserve both failed performance verdicts.",
+  "rollback": "Completed: exactownedinstance destroyed and fresh ID+label absence verified",
+  "sanitization": {
+    "removedFields": [
+      "executor.machineId"
+    ],
+    "originalReceiptSha256": "ad9acfb320cb8419ed3fe58343102be152c54a8b585c0481d378b1a1f7f1def1"
+  }
+}

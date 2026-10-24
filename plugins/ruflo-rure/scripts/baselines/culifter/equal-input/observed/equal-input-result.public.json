@@ -1,0 +1,790 @@
+{
+  "schemaVersion": 1,
+  "claim": "Equal-input six-fixture SASS/ELF CPU baseline; no broad SOTA or GPU performance claim.",
+  "sourceCommit": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+  "sourceManifestSha256": "0bf6cfe997e8cef489102a0b7aa9dedbff40db05b500e3f29fae01e3dbc3ac9d",
+  "independentPlanSha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3",
+  "policySha256": "983e072b8edb98f4b19dd8d7a35c1ab75dd9649adc3d3ccd7ea9c2a1cb708195",
+  "inputManifestSha256": "b1128c44620b2559a824dcf812533b65fc40d49847e5c5d688843c081f41a4b9",
+  "inputBindings": {
+    "confirm_a71": {
+      "id": "confirm_a71",
+      "symbol": "confirm_a71",
+      "oracleSha256": "29e36ca39f0e7742a4046b0f08308d70c2108b7e2db57ffc096acb1a04fee215",
+      "sassSha256": "da3e79a03b18d5c480e5ec8242c202f56d6d6e0cd9fe396c4402c4925541fa1f",
+      "elfSha256": "908e5bacccaf2ad85b2a7311500b9887127f68a3e9af9ac04dbd5742a40115af"
+    },
+    "confirm_b83": {
+      "id": "confirm_b83",
+      "symbol": "confirm_b83",
+      "oracleSha256": "9b1c6ae4d0980a481b90aacb465ab43d9c4153011e6509c0c8b9e70dd67956bf",
+      "sassSha256": "7c6ed0b254f47716dccafabfa6ec3ad3ecdb5360e18b52206bcc7169b1dc4b24",
+      "elfSha256": "41785215576b6e46841a26fd4cacccf5455f017e073956ccfbc281d415f50b44"
+    },
+    "confirm_c97": {
+      "id": "confirm_c97",
+      "symbol": "confirm_c97",
+      "oracleSha256": "8b3ec8532b91e34c1cb4aaf81b6b1121726e45ebc10484064429536d7cf3d6ed",
+      "sassSha256": "e38e26863114bd58f1dc8282b1399308eb1df851c13bfa8564718c726c9e721b",
+      "elfSha256": "8a2de301f86a4e29123fd493a3bb9d9a109abca4258adc5eb31bb09cb938f536"
+    },
+    "confirm_d29": {
+      "id": "confirm_d29",
+      "symbol": "confirm_d29",
+      "oracleSha256": "203eb8c7d8257fe6915721a5e74d56c4133739efc8d1bc441542614fa6654445",
+      "sassSha256": "2226d91493cf96fccbdacc5008be516930b0f92cd4f8fb889d729b50935ef798",
+      "elfSha256": "8d87e591389face843f94a4e1bd3e158cab848285de15564c1d78b396868fbe4"
+    },
+    "confirm_e43": {
+      "id": "confirm_e43",
+      "symbol": "confirm_e43",
+      "oracleSha256": "b267333991248e75ad69c2525130added98bf6b728675a29bd08b67396b722a1",
+      "sassSha256": "5900940e8757965a6de00892202d495831a3049912e5c3fabdbfafebbaf485df",
+      "elfSha256": "7d6bb15df003a6374bc6aa24377cb4720bddab7fb0b6c21633bdbce436f24154"
+    },
+    "confirm_f61": {
+      "id": "confirm_f61",
+      "symbol": "confirm_f61",
+      "oracleSha256": "109f1ebfc767d769a54877192e640759257d627f821ab90a3b0e6fbb4c2b7157",
+      "sassSha256": "263f7348036432a83abe45ec1b0bb6b20b6adebcd44ccda8a60cc613983fbac8",
+      "elfSha256": "f6c127b3f04edc5e3afd523d29cd049c9668215ecf31b417140e81eb4d76f491"
+    }
+  },
+  "evaluatorHashes": {
+    "run-equal-input.py": "9e315efcd954b5ee466bb1eef73847f97addc3a184e4663b0f57efa609973e77",
+    "generate-driver.py": "a386612cef5935b2bd22ad0da92e5957f28ac0cf334b5b4d35f66bc2ddb30d82",
+    "inspect-abi.py": "7ef9bc46e39d4f798e2f5be3a55aaf9d4820e1a320bd61a655f91a5628d8e99e",
+    "../emit-object.py": "7d33f90900914aa6e4587d688a8be9314d7802bc343b6ca5e74a1edf98fba127"
+  },
+  "architecture": "sm_89",
+  "environment": {
+    "python": "3.12.14",
+    "llvm": [
+      22,
+      1,
+      0
+    ],
+    "nativeCompiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+    "nativeCompilerPath": "/usr/bin/g++",
+    "nativeCompilerVersionSha256": "78b5d66fa8e53c3cfadb14889dfb5936f1c58888ad49c019e15d3dc59fc64e30"
+  },
+  "results": [
+    {
+      "kernel": "confirm_a71",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "75c31c4c6b59ddb3051d42598161f76e66808dfcc5bdb80a9eee20a4e8ee6637"
+    },
+    {
+      "kernel": "confirm_b83",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "8950aa84778cc73c5e77b32d13fd29d699077b1fa1fad85acc17347379692637"
+    },
+    {
+      "kernel": "confirm_c97",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "d8cfd2e3f9bada882b43966968641ea168952e35cc9122e1d38793b0d46c0b3c"
+    },
+    {
+      "kernel": "confirm_d29",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "8df43e1718e2c700095df2fbe859098b5b4466e34f76c568996ebebbb9fbbf51"
+    },
+    {
+      "kernel": "confirm_e43",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "ef3f285d06bab80de4256f0d82538b58a9e3d3809c3db1ab201bf4b82921c7f5"
+    },
+    {
+      "kernel": "confirm_f61",
+      "state": "passed",
+      "cases": 6,
+      "comparisons": 168,
+      "semanticAccuracy": 1.0,
+      "driverSha256": "9fb69ec270ea56bad8c16f111763eecb657971a2e0ff2ec45cb3a94fc34e5c93"
+    }
+  ],
+  "expectedKernelCount": 6,
+  "expectedCaseCount": 36,
+  "expectedComparisonCount": 1008,
+  "measuredCaseCount": 36,
+  "measuredComparisonCount": 1008,
+  "semanticAccuracy": 1.0,
+  "gpuExecutedByThisProbe": false,
+  "costUSD": null,
+  "promotionVerdict": "INCONCLUSIVE",
+  "runs": [
+    {
+      "label": "native-compiler-version",
+      "argv": [
+        "/usr/bin/g++",
+        "--version"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0017120449992944486
+    },
+    {
+      "label": "confirm_a71-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_a71.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_a71.elf",
+        "--symbol",
+        "confirm_a71",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_a71.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11964730500039877
+    },
+    {
+      "label": "confirm_a71-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_a71.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_a71.abi.json",
+        "--symbol",
+        "confirm_a71",
+        "--output",
+        "${OUTPUT}/confirm_a71.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.02991607500007376
+    },
+    {
+      "label": "confirm_a71-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_a71.sass",
+        "${OUTPUT}/admitted/confirm_a71.elf",
+        "-o",
+        "${OUTPUT}/confirm_a71",
+        "-name",
+        "confirm_a71",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.22886247700080276
+    },
+    {
+      "label": "confirm_a71-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_a71.ll",
+        "${OUTPUT}/confirm_a71.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07958677099668421
+    },
+    {
+      "label": "confirm_a71-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_a71.cpp",
+        "${OUTPUT}/confirm_a71.o",
+        "-o",
+        "${OUTPUT}/confirm_a71"
+      ],
+      "exitCode": 0,
+      "seconds": 0.13189866600441746
+    },
+    {
+      "label": "confirm_a71-execute",
+      "argv": [
+        "${OUTPUT}/confirm_a71"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009962740004993975
+    },
+    {
+      "label": "confirm_b83-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_b83.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_b83.elf",
+        "--symbol",
+        "confirm_b83",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_b83.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08635740500176325
+    },
+    {
+      "label": "confirm_b83-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_b83.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_b83.abi.json",
+        "--symbol",
+        "confirm_b83",
+        "--output",
+        "${OUTPUT}/confirm_b83.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03817491700465325
+    },
+    {
+      "label": "confirm_b83-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_b83.sass",
+        "${OUTPUT}/admitted/confirm_b83.elf",
+        "-o",
+        "${OUTPUT}/confirm_b83",
+        "-name",
+        "confirm_b83",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0876207930050441
+    },
+    {
+      "label": "confirm_b83-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_b83.ll",
+        "${OUTPUT}/confirm_b83.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08827827600180171
+    },
+    {
+      "label": "confirm_b83-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_b83.cpp",
+        "${OUTPUT}/confirm_b83.o",
+        "-o",
+        "${OUTPUT}/confirm_b83"
+      ],
+      "exitCode": 0,
+      "seconds": 0.12433635600609705
+    },
+    {
+      "label": "confirm_b83-execute",
+      "argv": [
+        "${OUTPUT}/confirm_b83"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0011164660027134232
+    },
+    {
+      "label": "confirm_c97-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_c97.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_c97.elf",
+        "--symbol",
+        "confirm_c97",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_c97.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08653033199516358
+    },
+    {
+      "label": "confirm_c97-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_c97.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_c97.abi.json",
+        "--symbol",
+        "confirm_c97",
+        "--output",
+        "${OUTPUT}/confirm_c97.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.032565976995101664
+    },
+    {
+      "label": "confirm_c97-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_c97.sass",
+        "${OUTPUT}/admitted/confirm_c97.elf",
+        "-o",
+        "${OUTPUT}/confirm_c97",
+        "-name",
+        "confirm_c97",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09222943199711153
+    },
+    {
+      "label": "confirm_c97-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_c97.ll",
+        "${OUTPUT}/confirm_c97.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.061982492996321525
+    },
+    {
+      "label": "confirm_c97-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_c97.cpp",
+        "${OUTPUT}/confirm_c97.o",
+        "-o",
+        "${OUTPUT}/confirm_c97"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11900765899918042
+    },
+    {
+      "label": "confirm_c97-execute",
+      "argv": [
+        "${OUTPUT}/confirm_c97"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009644460005802102
+    },
+    {
+      "label": "confirm_d29-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_d29.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_d29.elf",
+        "--symbol",
+        "confirm_d29",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_d29.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09196060599788325
+    },
+    {
+      "label": "confirm_d29-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_d29.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_d29.abi.json",
+        "--symbol",
+        "confirm_d29",
+        "--output",
+        "${OUTPUT}/confirm_d29.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03512104499532143
+    },
+    {
+      "label": "confirm_d29-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_d29.sass",
+        "${OUTPUT}/admitted/confirm_d29.elf",
+        "-o",
+        "${OUTPUT}/confirm_d29",
+        "-name",
+        "confirm_d29",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08901114199397853
+    },
+    {
+      "label": "confirm_d29-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_d29.ll",
+        "${OUTPUT}/confirm_d29.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08163676699768985
+    },
+    {
+      "label": "confirm_d29-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_d29.cpp",
+        "${OUTPUT}/confirm_d29.o",
+        "-o",
+        "${OUTPUT}/confirm_d29"
+      ],
+      "exitCode": 0,
+      "seconds": 0.13454589799948735
+    },
+    {
+      "label": "confirm_d29-execute",
+      "argv": [
+        "${OUTPUT}/confirm_d29"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009237749982276
+    },
+    {
+      "label": "confirm_e43-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_e43.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_e43.elf",
+        "--symbol",
+        "confirm_e43",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_e43.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09058688199729659
+    },
+    {
+      "label": "confirm_e43-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_e43.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_e43.abi.json",
+        "--symbol",
+        "confirm_e43",
+        "--output",
+        "${OUTPUT}/confirm_e43.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.028525624999019783
+    },
+    {
+      "label": "confirm_e43-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_e43.sass",
+        "${OUTPUT}/admitted/confirm_e43.elf",
+        "-o",
+        "${OUTPUT}/confirm_e43",
+        "-name",
+        "confirm_e43",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08862303700152552
+    },
+    {
+      "label": "confirm_e43-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_e43.ll",
+        "${OUTPUT}/confirm_e43.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07416699799796334
+    },
+    {
+      "label": "confirm_e43-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_e43.cpp",
+        "${OUTPUT}/confirm_e43.o",
+        "-o",
+        "${OUTPUT}/confirm_e43"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1104564319975907
+    },
+    {
+      "label": "confirm_e43-execute",
+      "argv": [
+        "${OUTPUT}/confirm_e43"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0010444770014146343
+    },
+    {
+      "label": "confirm_f61-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_f61.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_f61.elf",
+        "--symbol",
+        "confirm_f61",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_f61.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.10584596899570897
+    },
+    {
+      "label": "confirm_f61-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_f61.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_f61.abi.json",
+        "--symbol",
+        "confirm_f61",
+        "--output",
+        "${OUTPUT}/confirm_f61.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03599590600060765
+    },
+    {
+      "label": "confirm_f61-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_f61.sass",
+        "${OUTPUT}/admitted/confirm_f61.elf",
+        "-o",
+        "${OUTPUT}/confirm_f61",
+        "-name",
+        "confirm_f61",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07625694799935445
+    },
+    {
+      "label": "confirm_f61-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_f61.ll",
+        "${OUTPUT}/confirm_f61.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07738773099845275
+    },
+    {
+      "label": "confirm_f61-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_f61.cpp",
+        "${OUTPUT}/confirm_f61.o",
+        "-o",
+        "${OUTPUT}/confirm_f61"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0970982489961898
+    },
+    {
+      "label": "confirm_f61-execute",
+      "argv": [
+        "${OUTPUT}/confirm_f61"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0012059310029144399
+    }
+  ],
+  "artifactHashes": {
+    "confirm_a71-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43.o": "7197871986c4d6041667f44b0c7ceff730c3d321bb2ef1c1717a9a294aadb666",
+    "confirm_b83-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29.ll": "b458ae5917c7661074ce50bb0068eab86e2a3f799077936ec750273f2771ca7a",
+    "confirm_c97-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29.cpp": "8df43e1718e2c700095df2fbe859098b5b4466e34f76c568996ebebbb9fbbf51",
+    "confirm_c97-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29-driver.stdout": "b924169d737effe20c9fa48748cd49aaf6563fc74591c27e2719ba71882da4b3",
+    "confirm_d29-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-object.stdout": "8caea357d3a97cb80fc3973a0af60564c5d38e7d7408ef59582f1a608035648f",
+    "confirm_f61-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97-execute.stdout": "4d084c752687bebb35724c5a6f875445a57851bb57dbb3818ddaace318290d1a",
+    "confirm_f61-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43.abi.json": "fac1ec34e3f30bf9b73ea6985ef0d9f40a53e448fccbc5e5740337e191f2c670",
+    "confirm_b83.cpp": "8950aa84778cc73c5e77b32d13fd29d699077b1fa1fad85acc17347379692637",
+    "confirm_b83-abi.stdout": "029d72f3249de1b8c2b9b1871cb419421e0929169630d16df6ff1b4835e96455",
+    "confirm_d29-abi.stdout": "c8fa81620a46108c3a4d6d4cb3d2a941e947eb6c6f4fafd541021f9a569ca09f",
+    "confirm_e43-abi.stdout": "a16f8256b8a0dc1d620daa0ab71504f42f4c2145eb47ae1df8d6f372c57d0907",
+    "confirm_e43": "8db851b201432331a5c1b9e4cffb97341bf6b76b3d46836d2430313dcf88cc64",
+    "confirm_e43-driver.stdout": "e791d8190c8018a909716c01ad98cfcc2041adfe3f976bb082806590f0924c05",
+    "confirm_b83-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29-object.stdout": "b6ba303e1cd7300d4dbf97f7f8e045b85dfc515df5402af07fa5f737e4eb6227",
+    "confirm_b83.o": "ab2725a6db0bde1ac2d92e676bc975a888e3475c60590acf3ac0b45de5e9d059",
+    "confirm_a71.cpp": "75c31c4c6b59ddb3051d42598161f76e66808dfcc5bdb80a9eee20a4e8ee6637",
+    "confirm_a71-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71": "502ee9d6602a6bc1eb99880fd1e9dc6befdb2a406169fa82edad5960fd84c697",
+    "confirm_e43.cpp": "ef3f285d06bab80de4256f0d82538b58a9e3d3809c3db1ab201bf4b82921c7f5",
+    "confirm_b83.abi.json": "54208c9e08733b0de120947ecca1900c50350c7fef4fbf25629e72c554428140",
+    "confirm_b83-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97-driver.stdout": "34484d77e15d79e065f5d6cade8bb489d6ae81360fa42233859e05d87b90c4e4",
+    "confirm_e43-execute.stdout": "6fdc0ba3813ce3851c9efa87e9be100591fa3411a94ace7504201ca6620dab8d",
+    "confirm_f61.cpp": "9fb69ec270ea56bad8c16f111763eecb657971a2e0ff2ec45cb3a94fc34e5c93",
+    "confirm_c97-abi.stdout": "a12f0f1d2acbf0090235f643397d1e041659e6527572a2397838a786c675fcb0",
+    "confirm_d29-execute.stdout": "f58db9a37b0c735b177149ccc6fd2627a345380d628128935c6185e224f07158",
+    "confirm_a71-abi.stdout": "c7b5e28a8992771691286078ad8ba676cca5029ea0cfa747bb0f689de93d8e6a",
+    "confirm_c97.ll": "3c7398198052dcbe7233bbfebf4f622596d549a14748514fff9fa97ad3ca5105",
+    "confirm_c97-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71.o": "e9e73dd7b09c6b1983b62c45941eed1a103de685491b1d21de1f08da1c2d9577",
+    "confirm_c97.o": "b69e374360d3441367e2cdc0a51d708182aa1b66ad7978a7d308168ec8590bb9",
+    "confirm_a71-execute.stdout": "e7245184b5bc6c7177f2bc8f2efb7fb94f2adc9b40eea9de733f86c369da93ac",
+    "native-compiler-version.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-object.stdout": "05cf91b8440a2449a82ee3d75faf803a64e84c3c430d58ec36debe2616a0d587",
+    "confirm_e43-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83": "6f766cb133a8d21b3d8b6e3f55d37fb674e3959371523a39ba8234c14d7066d6",
+    "confirm_f61.abi.json": "09a8cb7b38992422863a4016b4d5b39993f438778684eb1d0e72c241be6e4868",
+    "confirm_f61.ll": "cf0aa518d980c54aa0613132f4e8a81a8b4a96de37006db6eaf5875e57bcbc4a",
+    "confirm_f61-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-abi.stdout": "ace6040ff3e3db7823be796cbab4bcd9bf8e9e7a5b180c97660cda31a08acb2a",
+    "confirm_f61-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-driver.stdout": "334b30e68c53590b60ed7059c803ac63c608da5172d1f88aed8f53acafed89c2",
+    "confirm_b83-execute.stdout": "c2c538aa4b7e8471f6769dc25f35d23381d710a40ba938f03b682db9fca9d7e3",
+    "confirm_c97.cpp": "d8cfd2e3f9bada882b43966968641ea168952e35cc9122e1d38793b0d46c0b3c",
+    "confirm_c97-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-driver.stdout": "3702ed9599d4d7a31dc7faac8c7661cb1560dfa199209fa2192a2c71b12be4ab",
+    "confirm_a71-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83.ll": "e4ab7da415d08234a63ef6441fc0533a07a7aaaa7324f631d03293e8fc9c1cec",
+    "confirm_d29-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_b83-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71.abi.json": "9e1d3ed3e2ce2b681c9ee9118dedc5f0817037a232df46efead45cea662d0378",
+    "confirm_f61-driver.stdout": "eaf5c9b50ff5d1e6563af46cf81792764eb2b5f60751bca4f3121e14147a19fd",
+    "confirm_d29-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29.abi.json": "170b948fe4457e42d99d753425938761b28ecd948b898a54185c07143ed05581",
+    "confirm_e43-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29.o": "f66e7aa22b3455cfbc4fb634b0d0b2497432c4ea65eb161c547c4f12f77d11a5",
+    "confirm_d29-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_e43-object.stdout": "05cf91b8440a2449a82ee3d75faf803a64e84c3c430d58ec36debe2616a0d587",
+    "confirm_c97": "8069286557a1f4b03f7dfd710cd995792aa6883713ca7e03a94df2252dbdc718",
+    "confirm_a71-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_a71-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-execute.stdout": "00b18b9878524d44450ef7796ec38d3bff7c16e73106e0f75f21cdc9528e61f8",
+    "confirm_c97-object.stdout": "05cf91b8440a2449a82ee3d75faf803a64e84c3c430d58ec36debe2616a0d587",
+    "confirm_c97-driver.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_f61-object.stdout": "a67fdfb578c528d1c8b88f5e79d6209bbb6466b89455ac39e220910cb8e7354a",
+    "native-compiler-version.stdout": "78b5d66fa8e53c3cfadb14889dfb5936f1c58888ad49c019e15d3dc59fc64e30",
+    "confirm_d29": "e4ea6f9c146a76676e13a95dafa0b3f1feac458b62bab42b1910941b8db53f70",
+    "confirm_e43.ll": "efdb1617f489f597c2b02f977dba0eb7c276f42772ccb011e165be19934604fd",
+    "confirm_d29-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_c97.abi.json": "11e3f0f5f31c293d9c77fa634453f4b2246e7889a58f4495a95d42d9ff5be304",
+    "confirm_a71.ll": "67901407c4566076e3d4b4d6f8e6dc18441c21e824dc57efddcdb30c7ab4d8fe",
+    "confirm_f61.o": "4001f6f060174244d45892fdf730b7a9d48f74dbf86d1f107d63d294817e6fd7",
+    "confirm_f61": "cee1f7390d59becec76971fa745eaf147d5dae7b25d4aa6e77e666bebd595746",
+    "confirm_e43-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "confirm_d29-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "publication": {
+    "rawReceiptSha256": "cc7c76976d22f7eb51a62763cdc7cf984449f9e4afeaa542b73ffacc58740949",
+    "transformation": "workspace/interpreter path placeholders only; measurements and original artifact hashes unchanged",
+    "placeholders": [
+      "${PYTHON}",
+      "${BASELINE_DIR}",
+      "${OUTPUT}"
+    ]
+  }
+}

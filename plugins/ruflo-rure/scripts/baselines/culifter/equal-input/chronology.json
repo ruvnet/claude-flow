@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "scope": "recorded evaluation chronology; local timestamps are evidence, not authentication",
+  "evaluatorFrozenAt": "2026-10-24T01:36:07.661873+00:00",
+  "evaluatorFreezeSha256": "027aab0e7d29c0541bcd6724671f5e1ab3155440d25a360b24ab2d6f5402cd46",
+  "nativeInputReviewRecordedAt": "2026-10-24T01:51:44.114467+00:00",
+  "metadataProjectionPolicyFileMtime": "2026-10-24T01:53:22.595846+00:00",
+  "firstExecutionReceiptFileMtime": "2026-10-24T01:53:50.774449+00:00",
+  "firstExecutionReceiptSha256": "cc7c76976d22f7eb51a62763cdc7cf984449f9e4afeaa542b73ffacc58740949",
+  "independentAuditSha256": "2d37b4f802afd83fdd457cc6d9948a5f187dc862dd1afc8337a4b75248f59caa",
+  "candidateSha256VerifiedBeforeBaselineExecution": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "baselineRuns": 1,
+  "independentUnchangedBinaryReplays": 1,
+  "repairsAfterBenchmarkExposure": 0,
+  "oracleOrNativeInputsReadBeforeEvaluatorFreeze": false
+}

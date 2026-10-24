@@ -1,0 +1,24 @@
+{
+  "id": "@claude-flow/cli@3.60.1",
+  "size": 3519137,
+  "unpackedSize": 14069167,
+  "shasum": "a2a34eb9a2f4cad95ea9264bbcdbbd4830707c42",
+  "integrity": "sha512-Ar/KWgfjFvpd1OuaG2M4DJa3o6+kf6RPLsw0HoHMJFTZVYq2+R1UYVwMR9QmPKzEnTovlONpKiGElVcDpYy8Gw==",
+  "filename": "claude-flow-cli-3.60.1.tgz",
+  "published": false,
+  "installation": "offline, ignore-scripts, omit-optional; fresh install then locked npm ci replay",
+  "knownSecurityFinding": "Existing Zod/runtime and wider optional dependency findings remain unresolved; not a clean release audit.",
+  "sourcePackageMetadataUnchangedFromPriorArtifact": true,
+  "dependencyChangesInRepository": false,
+  "packedSassJsSha256": "be1981275d519361b11b853d539d34eae95c77025945ed0b72477285c69a080a",
+  "standaloneCandidateSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "standaloneRebuild": {
+    "tool": "esbuild",
+    "version": "0.28.2",
+    "command": "esbuild src/rure/sass-recover.ts --platform=node --format=esm --target=node20 --outfile=candidate.mjs",
+    "byteIdentical": true
+  },
+  "packagesAddedReportedByNpm": 191,
+  "installedNonoptionalNondevPackageEntries": 195,
+  "totalLockEntries": 734
+}

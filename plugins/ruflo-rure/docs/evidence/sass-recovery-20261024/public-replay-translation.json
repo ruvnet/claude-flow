@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "status": "translated",
+  "startedAt": "2026-10-24T01:47:20.459Z",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "inputManifestSha256": "bc4ac358842671cc1fff6d8d07a77f8380999abb9ad68670fcc70d642f9ef087",
+  "node": "v24.19.0",
+  "translatorInput": [
+    "sass",
+    "elf"
+  ],
+  "proofStatus": "not-proven",
+  "kernels": [
+    {
+      "id": "copy32",
+      "status": "emitted",
+      "sourceSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+      "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0",
+      "recoverySha256": "00ce280c76dec53b9695d4afa86e27ae2f126d207a63e5f9cca7467c926af35d",
+      "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0"
+    },
+    {
+      "id": "add7_wrap32",
+      "status": "emitted",
+      "sourceSha256": "6a9acc2bd9fbdf9364c738d470f29422ebda8fdc586fba9190b02742c81cd007",
+      "elfSha256": "6e2a7a2a8ca1d9360bc0f824be13663904b4af113bc69cd08c93dc3c7b9acbcb",
+      "recoverySha256": "ebac323c7fdddb0803253daed7d72129a0bf01ba4ebf0ebe6c68f15b2fa76d47",
+      "codeSha256": "a98b111f24c032849db370f6ebbace4a91a77cc650dadcfb43ed59678d260fd4"
+    },
+    {
+      "id": "multiply_low64",
+      "status": "emitted",
+      "sourceSha256": "e12e06e5bc18f52633cffa4cfd72e71f9e2a4c5d792dce49aae6f025749404eb",
+      "elfSha256": "e25f77a8a28dffe3e2aa4954d4deac928473367d250cb36e03805392012c5976",
+      "recoverySha256": "d6ac5c790a7b0e94fd0ce2ef0b923f7bd27b27be5061883bccadfd7c7aa8b85b",
+      "codeSha256": "cd4dabe331dad3205fae96e995c93205675d1efd203273a11c54e4f4002737e0"
+    },
+    {
+      "id": "wide_signed",
+      "status": "emitted",
+      "sourceSha256": "3ede41eb6247566636dd5137be81931a1216111119a8632ec7ba6e5d77c1d96d",
+      "elfSha256": "e5a13d2d0a0be8f1297e1cbaeba4e606c6e51d8606b537b8b5c3278e0a5efa14",
+      "recoverySha256": "c1a54f50b45f4fd8cfe061a6c6cee00a7c3c6ce7a06b8bdcb30d14ae283aae9a",
+      "codeSha256": "369d67576dba6e53c55c025935c233dd01742d20ff7422a915fadd82c5c933f0"
+    }
+  ],
+  "completedAt": "2026-10-24T01:47:20.473Z",
+  "coverage": {
+    "total": 4,
+    "emitted": 4,
+    "unsupported": 0,
+    "invalid": 0
+  }
+}

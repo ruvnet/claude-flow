@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "status": "INCONCLUSIVE",
+  "reason": "GPU_IMAGE_READINESS_TIMEOUT",
+  "scope": "24 synthetic PTX kernels recovered to CUDA C++",
+  "inputSha256": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "875ba47c6701bbaa702397024003f37c7fcc6eb151c1db4b15ab1b79a09a3830",
+    "ptx-recovery-gpu.cu": "9736c2f988c69e5a3a25f6851bb4b6503b0b8c7fb56eafc875e02edc0838b8a3"
+  },
+  "controllerSha256": "9066f2480a02b273d737a67cf478bc09255efc9dfece886535077d73404132ad",
+  "image": "nvidia/cuda@sha256:6617a625f4090c76c545a0e7d63f2e441718ef9af7f4efe7dd1242a29e289fd7",
+  "gpuQuote": "RTX 3060",
+  "hourlyQuoteUsd": 0.10777777777777778,
+  "quoted45MinuteUpperBoundUsd": 0.08239583333333333,
+  "lastObservedStatus": "loading",
+  "lastObservedImageProgress": "6b2035e8b73e: Verifying Checksum\n",
+  "readyObserved": false,
+  "gpuExecutionOccurred": false,
+  "kernelCasesExecuted": 0,
+  "timingSamples": 0,
+  "memcheck": "not_run",
+  "errorType": "AssertionError",
+  "lifecycleSeconds": 188.3000831604004,
+  "quotedComputeStorageCostUsd": 0.00563737903288853,
+  "actualBilledUsd": null,
+  "actualNetworkCostUsd": null,
+  "cleanup": {
+    "verifiedAbsent": true,
+    "exactInstanceAbsent": true,
+    "labelAbsent": true,
+    "totalInstances": 0,
+    "observedAtUnix": 1792803014.5143473
+  },
+  "sotaClaim": false,
+  "executor": {
+    "completionVersion": 1,
+    "completionVerified": true,
+    "status": "ok",
+    "exitCode": 0
+  },
+  "retry": {
+    "eligible": false,
+    "reason": "previously verified cached offer unavailable",
+    "queriedAtUnix": 1792803052.4766457,
+    "eligibleOffers": 0,
+    "additionalAllocation": false
+  },
+  "redaction": {
+    "fields": [
+      "executor.machineId"
+    ],
+    "originalReceiptSha256": "77e9ac4e9718855b13fc6de98a0aa63b2dddfac7d78653e9d7fb1861ff852ca8"
+  }
+}

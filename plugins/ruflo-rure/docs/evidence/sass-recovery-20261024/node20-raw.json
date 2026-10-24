@@ -1,0 +1,30 @@
+{
+  "node": "v20.20.2",
+  "moduleSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "results": [
+    {
+      "id": "copy32",
+      "status": "emitted",
+      "codeSha256": "20aa71d5afc0d1440cfdea2b9dec02543934ef257d87bc8d3198bba063a3cff0",
+      "resultSha256": "2efc8145bb7399f21f0b411525ed2b5e42493ddd986bc91712f992fa31889dbb"
+    },
+    {
+      "id": "add7_wrap32",
+      "status": "emitted",
+      "codeSha256": "a98b111f24c032849db370f6ebbace4a91a77cc650dadcfb43ed59678d260fd4",
+      "resultSha256": "a6305409b5a09fe547837c4d2ca7ab103816a7b0f62e43cdc882269da6367c9f"
+    },
+    {
+      "id": "multiply_low64",
+      "status": "emitted",
+      "codeSha256": "cd4dabe331dad3205fae96e995c93205675d1efd203273a11c54e4f4002737e0",
+      "resultSha256": "c1e2b818adb2414bb906fa9e7b3a889fe77d8f749e5db84b4c80a55e9f4e1483"
+    },
+    {
+      "id": "wide_signed",
+      "status": "emitted",
+      "codeSha256": "369d67576dba6e53c55c025935c233dd01742d20ff7422a915fadd82c5c933f0",
+      "resultSha256": "8e31749659d1c222958d8db53dedc97f22e085fb42f2f1a41a3ce2697ce4defb"
+    }
+  ]
+}

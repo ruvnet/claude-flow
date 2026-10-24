@@ -1,0 +1,344 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "claim": "CPU-compiled CUDA C++ recovery on frozen synthetic integer programs",
+  "sotaClaim": false,
+  "semanticProof": false,
+  "split": "development",
+  "recordedAt": "2026-10-24T00:46:28.478Z",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "arch": "x64",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+  "compilerFlags": [
+    "-std=c++17",
+    "-O2",
+    "-fsanitize=undefined",
+    "-fno-sanitize-recover=all"
+  ],
+  "manifestSha256": "8f3e3e24e6791b0cf1deb992f3a72c49e7388a915a71433a958815b16666f606",
+  "corpusSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+  "evaluatorSha256": "bbe49c3dc001d11caefba935dd27ae49242f02a30cb4d49fa848300d67435f94",
+  "candidate": {
+    "modulePath": "/tmp/rure-recovery-clean-install/node_modules/@claude-flow/cli/dist/src/rure/ptx-recover.js",
+    "moduleSha256": "6fca9c2f5c05dc7b46b3c00c293481874a38ecfcca21a582af01be8964f82266",
+    "dependencies": [
+      {
+        "name": "ptx-decompile",
+        "artifactSha256": "54461d89d82c21afb25a95a524f36073690b2abe2d3f107565aff0b46d4451ac"
+      }
+    ]
+  },
+  "kernelCount": 16,
+  "passedKernels": 16,
+  "cases": 112,
+  "elementComparisons": 3120,
+  "rejectionCases": [
+    {
+      "id": "float",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "barrier",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "shared",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "unknown",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "uninitialized_data",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "uninitialized_predicate",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "undeclared_register",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "width_mismatch",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "path_uninitialized",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "predicated_definition",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "oversized_register_array",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "malformed",
+      "status": "pass",
+      "observedStatus": "invalid",
+      "codeAbsent": true
+    }
+  ],
+  "negativeControl": {
+    "expected": "wrong arithmetic rejected by output oracle",
+    "mutatedSourceSha256": "22c1d772dc52b5ef2eac8663458bf7e03a006ba34ad1d9b47318afa4b889540e",
+    "status": "execution-failed",
+    "codeSha256": "56e4d06788b12c5fd7ab35ebc9f24b9ff1276a7bb9079dd464f93cbfe96560e2",
+    "compileMs": 199.1640379999999,
+    "executeMs": 2.519192000000203,
+    "run": {
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "mismatch add7_wrap32 count=1 index=0 expected=7 actual=8\n"
+    },
+    "gateStatus": "pass"
+  },
+  "results": [
+    {
+      "id": "copy32",
+      "split": "development",
+      "sourceSha256": "aa8090c6219ba1376100444179eae79ffe91415b3c9b78e1a9c29bf5cc1a3916",
+      "emittedSha256": "6501b043888b6a9b991a4559840f9320dbd90c266ea8bae907a5843494202645",
+      "recoveryMs": 4.409883999999991,
+      "status": "pass",
+      "codeSha256": "9d6d113e42cc1b02e19c9a32eea3df30015c075a754feb441f34c314979e07fc",
+      "compileMs": 202.005356,
+      "executeMs": 3.0803280000000086,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "add7_wrap32",
+      "split": "development",
+      "sourceSha256": "fce7405c95a7861a389ac7b2ec44ffdfff40c43b2d9534e9fb50cdfefcea5129",
+      "emittedSha256": "26f842ffa63654e7946f6fcd6d6449e091712f6273533f556073325c88b56cf4",
+      "recoveryMs": 1.2630159999999933,
+      "status": "pass",
+      "codeSha256": "184c46342b1d21d5783aeda5236272de2b494fa40e71687ac0a1c5e542464ca9",
+      "compileMs": 196.402923,
+      "executeMs": 2.4402620000000184,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "subtract32",
+      "split": "development",
+      "sourceSha256": "9610200b5ea38d5bc09e8fba7f8dd4124cb689ec47164ae3f5aebcb6383e2e25",
+      "emittedSha256": "4560844a3cb9ef92bf27a3a340e6401f01eddcad888a87f57a365e453c3ce85b",
+      "recoveryMs": 0.832176000000004,
+      "status": "pass",
+      "codeSha256": "af57a5ac6b019f324c241ec2cfe14e6895658e813628e385ffdaa3c510cf8866",
+      "compileMs": 223.370316,
+      "executeMs": 2.5362370000000283,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "multiply_low32",
+      "split": "development",
+      "sourceSha256": "85d860402d11641fe34b2f0db1ffb6ce7c84b723adb9a8a3afdd4fcb5f45726c",
+      "emittedSha256": "a5bfe95e810b13d7b1232209405469fc9c92ea625dd0614bed9c7ceead80e3e0",
+      "recoveryMs": 0.6925960000000941,
+      "status": "pass",
+      "codeSha256": "a9519c90a307c9198655b86c51b5df710de8d874cea0d9991fe7e07769956ea2",
+      "compileMs": 220.868291,
+      "executeMs": 2.7064129999999977,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "multiply_add32",
+      "split": "development",
+      "sourceSha256": "eb323588b490e55b951c5b4628ae888ba5fdc44810af354f7e798f7214990347",
+      "emittedSha256": "8bf742ba0ecd288efa4ee9531c21d380fa99e0702e16ab3e97fa87fe27db477b",
+      "recoveryMs": 0.5571700000000419,
+      "status": "pass",
+      "codeSha256": "e346b02cf7fa95cbca02b4ba28af2a0cd57caa13d0ddd8dfccc63916fb60e1dd",
+      "compileMs": 208.04298699999993,
+      "executeMs": 2.3808630000000903,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "signed_min32",
+      "split": "development",
+      "sourceSha256": "80f9dc30f52af8b92a26f7d41b15e57b6b14e00b34dbf428dfb4e12d64e0503b",
+      "emittedSha256": "5bcd72818e74730c81461a5d312f3ff0dfba2c7d3c9c7d5e618da58bcb5cebf4",
+      "recoveryMs": 0.9166030000001228,
+      "status": "pass",
+      "codeSha256": "7ea253e88cf8e0f167246dee523527a0f389e937a1fbdb5b4b870fbff25ffbff",
+      "compileMs": 201.81551000000013,
+      "executeMs": 2.6193130000001474,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "unsigned_max32",
+      "split": "development",
+      "sourceSha256": "11dddf45e1aac6f7d90fa4f49370f6898f4424bc360d8843639319d046be5c7d",
+      "emittedSha256": "6860edeb58fb5d67a757580d4baeeeb916bbd9101dae07821d9eebdd877af5de",
+      "recoveryMs": 1.13542399999983,
+      "status": "pass",
+      "codeSha256": "cd9619e0f58870a2d0539d63bc8643b233692a9779bee2677de2767cb7683aa3",
+      "compileMs": 213.91620899999998,
+      "executeMs": 2.813466000000062,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "absolute_wrap32",
+      "split": "development",
+      "sourceSha256": "73a7c4a1c69320c396202af1c26e6276b38245cb1bb74283c6f840cb6c9e5874",
+      "emittedSha256": "566fd61e16cb38cc21a856c3db1acddb501f2dd7decf2fc9c9662e4b1110c86b",
+      "recoveryMs": 0.529739999999947,
+      "status": "pass",
+      "codeSha256": "ac1780a6efbd92db97cb0af4a2eddbd2500f0c08d39026ead66c2695495be20d",
+      "compileMs": 198.79462200000012,
+      "executeMs": 2.9466370000000097,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "branch_clamp32",
+      "split": "development",
+      "sourceSha256": "7ccb09ea9ab468cf5a8182487c855b176da223bc681a1a633144cf510404aac5",
+      "emittedSha256": "a95a06a60e5a20109fa011f72797f19ef6d4f6baf9bb3e50c644aab4ce20cc76",
+      "recoveryMs": 0.7235220000000027,
+      "status": "pass",
+      "codeSha256": "a6e58996671cb158e2c6017a05128bc5184cc2f3e8190477af86edfd2ab0cb95",
+      "compileMs": 193.89489600000002,
+      "executeMs": 2.6420680000001084,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "conditional_sum32",
+      "split": "development",
+      "sourceSha256": "5ff9165d01af0c31d7d20c69c93c5298f255769f62d2288712cfc7b602c0b380",
+      "emittedSha256": "ac802bf84eda749e580d30233a953c7800192c335af77243403e3601ef31f151",
+      "recoveryMs": 0.7327259999999569,
+      "status": "pass",
+      "codeSha256": "ffcf67cfe81046486b2ef4c831c12aebaac38df202878fa2970af7cf2b301c71",
+      "compileMs": 202.53344300000003,
+      "executeMs": 2.5936139999998886,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "wide_unsigned",
+      "split": "development",
+      "sourceSha256": "a01b1a7366353e32affdba10087961588b48c6f7e5bce21229e57b2bd44696fa",
+      "emittedSha256": "51359bf02faa347359284da1cb9beaa494d2dd80e73eebcf277be8f30ccb698a",
+      "recoveryMs": 0.649529999999686,
+      "status": "pass",
+      "codeSha256": "de3e71f9c4081509065b700a271fc79bc1a3df370db66c3e5a0d10d9a4afd70d",
+      "compileMs": 183.03589899999997,
+      "executeMs": 2.5154959999999846,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "wide_signed",
+      "split": "development",
+      "sourceSha256": "334200d779718cc9a9b0cd0d2e1bb527b71e645a0c30945e012c401b65a1bcb8",
+      "emittedSha256": "16a6805f3f1e7e1fc78ed20cedc982cc6053bd0d52e1c490360046f7098fb1d6",
+      "recoveryMs": 1.4813850000000457,
+      "status": "pass",
+      "codeSha256": "4dfe1fd49ebbf6f8c54929f9a0b69da9dbc7e9ab1d8744fa48f20284c7e070fd",
+      "compileMs": 182.1131620000001,
+      "executeMs": 2.8571569999999156,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "add64",
+      "split": "development",
+      "sourceSha256": "97c9a1f5b0de185878d618cafd1d1ec40c06b16e60cf240caa19793b9ca76596",
+      "emittedSha256": "bd2af61c77d7b239dfbd8c00e68064e9e706e91522b853aed88d3f2b3e887b84",
+      "recoveryMs": 0.5796949999999015,
+      "status": "pass",
+      "codeSha256": "b042dee25b871b05ea6b6df975680e645174dbc8ece2d488a3ef48cfcd1bf400",
+      "compileMs": 184.54527699999971,
+      "executeMs": 2.338279000000057,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "subtract64",
+      "split": "development",
+      "sourceSha256": "cad4c572d2d42b659eadd91002abea3790655445d51a5d1d546510131823a76d",
+      "emittedSha256": "2dab490c24217bba4585afe63f891d97815251c2e1df78468ef29832db963593",
+      "recoveryMs": 0.8201180000000932,
+      "status": "pass",
+      "codeSha256": "90179019d73e6559afce4a66687486550d94a1b22cc1525debabb5ba4defe254",
+      "compileMs": 162.22468200000003,
+      "executeMs": 2.419951999999739,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "multiply_low64",
+      "split": "development",
+      "sourceSha256": "c634c3512729655e79ea5e00915cecd4452fe76a36bc4c61d90858054543b9eb",
+      "emittedSha256": "340595fb4b1d3ca50d6c88e02552e6b3a89da7f959ed43a4670c5cb564bfae24",
+      "recoveryMs": 0.5761689999999362,
+      "status": "pass",
+      "codeSha256": "aa5330c8b86551e68e65c6cccbaa4381c61021ba653a3f61a9352d049c93f211",
+      "compileMs": 161.49827800000003,
+      "executeMs": 2.7276160000001255,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "multiply_add64",
+      "split": "development",
+      "sourceSha256": "f6dcefebd3e23cb13406ba3adcb7d191ac2117135f75be38072a861465df2f76",
+      "emittedSha256": "4b7f538063f15c75a40ccab185b0023511e7046ee7d5d8839ec5cd9f7d99033b",
+      "recoveryMs": 0.4711609999999382,
+      "status": "pass",
+      "codeSha256": "da0674a8f9e4551ca3611825405f7b0fc77fe2c9267ec8127acd0adea234108c",
+      "compileMs": 157.24743100000023,
+      "executeMs": 2.4130409999997937,
+      "cases": 7,
+      "elementComparisons": 195
+    }
+  ],
+  "limitations": [
+    "Synthetic integer programs only; no external competitor reproduced.",
+    "CPU builtins stubs do not establish GPU scheduling or concurrency.",
+    "Finite test evidence is not a semantic equivalence proof.",
+    "Compile and execution times include process overhead and are not kernel latency.",
+    "Confirmation is independent-context once-only evaluation, not inaccessible secret storage."
+  ],
+  "rawDirectory": "/tmp/rure-recovery-installed-dev"
+}

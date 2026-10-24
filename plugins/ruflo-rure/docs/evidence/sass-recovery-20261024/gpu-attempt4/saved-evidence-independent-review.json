@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-24",
+  "reviewType": "independent post-execution saved-evidence checker review",
+  "verdict": "PASS for required-archive saved-evidence audit; five refusal controls pass",
+  "auditorSha256": "dc4daaf176c1fecd0fde5ad2d853047fc00f550821be9531b388b97a854be9c1",
+  "auditorCommit": "de8c9c9754f84caadc324d187da7d03cf616f2d0",
+  "auditResultSha256": "b5996ad259f18a8b93bff6be37d2183d214bc4749949ee7e72f1e308c5546846",
+  "expectedPriorAuditResultSha256": "b5996ad259f18a8b93bff6be37d2183d214bc4749949ee7e72f1e308c5546846",
+  "publicArchiveSha256": "b00df4709e9da7bea1d262bfcd1895baf07b3e164008475722504a0397be0750",
+  "verification": {
+    "exactAuditReplayMatch": true,
+    "artifactFiles": 381,
+    "developmentSupplementFiles": 28,
+    "vectorFiles": 174,
+    "cubinFiles": 19,
+    "timingSamples": 1800,
+    "negativeControls": [
+      {
+        "case": "raw_receipt_mutation",
+        "exitCode": 1,
+        "successReportEmitted": false
+      },
+      {
+        "case": "vector_mutation",
+        "exitCode": 1,
+        "successReportEmitted": false
+      },
+      {
+        "case": "archive_mutation",
+        "exitCode": 1,
+        "successReportEmitted": false
+      },
+      {
+        "case": "optimized_python",
+        "exitCode": 1,
+        "successReportEmitted": false
+      },
+      {
+        "case": "archive_omitted",
+        "exitCode": 2,
+        "successReportEmitted": false
+      }
+    ]
+  },
+  "unchangedConclusions": {
+    "confirmationRecovery": "INCONCLUSIVE: 5/6; excluded unsupported kernel remains excluded",
+    "optimization": "REJECT: neither frozen 10 percent performance gate met"
+  },
+  "candidateInvoked": false,
+  "gpuInvoked": false,
+  "translationRerun": false,
+  "evidenceModified": false,
+  "negativeControlMethod": "Private disposable copies only; original evidence and archive untouched",
+  "reviewedCommand": "python3 sass-recovery-receipt-audit.py <evidence-directory> --archive <pinned-public-evidence.tar.xz> --development-supplement <development-supplement-directory>",
+  "limitations": [
+    "Checks retained byte bindings, vectors, and arithmetic; does not authenticate remote execution or grant promotion.",
+    "Preserves the frozen confirmation denominator of six; five admitted kernels do not become complete coverage.",
+    "Retained timing and memcheck records were checked, not rerun.",
+    "Review applies to the immutable known snapshot and pinned archive; the checker is not a general hostile-filesystem resource sandbox."
+  ],
+  "archiveArgumentRequired": true,
+  "historicalReplay": {
+    "auditorSha256": "89510e9e6ca07ebcded5cbe4cafd33124fa1c6fd5dc21fc9e8115c9c66f464d8",
+    "auditResultSha256": "b49918c96892703b152e369e41020537ba8b654ca6f88a6560d75e4729d86099",
+    "commit": "b7311ea",
+    "originalFourControlsPreservedAndRepeated": true,
+    "allMeasuredFieldsUnchanged": true
+  }
+}

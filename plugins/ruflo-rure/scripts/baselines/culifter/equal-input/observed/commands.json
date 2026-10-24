@@ -1,0 +1,549 @@
+{
+  "scope": "recorded stage argv with documented path placeholders",
+  "rawReceiptSha256": "cc7c76976d22f7eb51a62763cdc7cf984449f9e4afeaa542b73ffacc58740949",
+  "runs": [
+    {
+      "label": "native-compiler-version",
+      "argv": [
+        "/usr/bin/g++",
+        "--version"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0017120449992944486
+    },
+    {
+      "label": "confirm_a71-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_a71.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_a71.elf",
+        "--symbol",
+        "confirm_a71",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_a71.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11964730500039877
+    },
+    {
+      "label": "confirm_a71-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_a71.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_a71.abi.json",
+        "--symbol",
+        "confirm_a71",
+        "--output",
+        "${OUTPUT}/confirm_a71.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.02991607500007376
+    },
+    {
+      "label": "confirm_a71-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_a71.sass",
+        "${OUTPUT}/admitted/confirm_a71.elf",
+        "-o",
+        "${OUTPUT}/confirm_a71",
+        "-name",
+        "confirm_a71",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.22886247700080276
+    },
+    {
+      "label": "confirm_a71-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_a71.ll",
+        "${OUTPUT}/confirm_a71.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07958677099668421
+    },
+    {
+      "label": "confirm_a71-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_a71.cpp",
+        "${OUTPUT}/confirm_a71.o",
+        "-o",
+        "${OUTPUT}/confirm_a71"
+      ],
+      "exitCode": 0,
+      "seconds": 0.13189866600441746
+    },
+    {
+      "label": "confirm_a71-execute",
+      "argv": [
+        "${OUTPUT}/confirm_a71"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009962740004993975
+    },
+    {
+      "label": "confirm_b83-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_b83.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_b83.elf",
+        "--symbol",
+        "confirm_b83",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_b83.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08635740500176325
+    },
+    {
+      "label": "confirm_b83-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_b83.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_b83.abi.json",
+        "--symbol",
+        "confirm_b83",
+        "--output",
+        "${OUTPUT}/confirm_b83.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03817491700465325
+    },
+    {
+      "label": "confirm_b83-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_b83.sass",
+        "${OUTPUT}/admitted/confirm_b83.elf",
+        "-o",
+        "${OUTPUT}/confirm_b83",
+        "-name",
+        "confirm_b83",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0876207930050441
+    },
+    {
+      "label": "confirm_b83-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_b83.ll",
+        "${OUTPUT}/confirm_b83.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08827827600180171
+    },
+    {
+      "label": "confirm_b83-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_b83.cpp",
+        "${OUTPUT}/confirm_b83.o",
+        "-o",
+        "${OUTPUT}/confirm_b83"
+      ],
+      "exitCode": 0,
+      "seconds": 0.12433635600609705
+    },
+    {
+      "label": "confirm_b83-execute",
+      "argv": [
+        "${OUTPUT}/confirm_b83"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0011164660027134232
+    },
+    {
+      "label": "confirm_c97-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_c97.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_c97.elf",
+        "--symbol",
+        "confirm_c97",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_c97.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08653033199516358
+    },
+    {
+      "label": "confirm_c97-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_c97.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_c97.abi.json",
+        "--symbol",
+        "confirm_c97",
+        "--output",
+        "${OUTPUT}/confirm_c97.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.032565976995101664
+    },
+    {
+      "label": "confirm_c97-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_c97.sass",
+        "${OUTPUT}/admitted/confirm_c97.elf",
+        "-o",
+        "${OUTPUT}/confirm_c97",
+        "-name",
+        "confirm_c97",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09222943199711153
+    },
+    {
+      "label": "confirm_c97-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_c97.ll",
+        "${OUTPUT}/confirm_c97.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.061982492996321525
+    },
+    {
+      "label": "confirm_c97-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_c97.cpp",
+        "${OUTPUT}/confirm_c97.o",
+        "-o",
+        "${OUTPUT}/confirm_c97"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11900765899918042
+    },
+    {
+      "label": "confirm_c97-execute",
+      "argv": [
+        "${OUTPUT}/confirm_c97"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009644460005802102
+    },
+    {
+      "label": "confirm_d29-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_d29.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_d29.elf",
+        "--symbol",
+        "confirm_d29",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_d29.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09196060599788325
+    },
+    {
+      "label": "confirm_d29-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_d29.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_d29.abi.json",
+        "--symbol",
+        "confirm_d29",
+        "--output",
+        "${OUTPUT}/confirm_d29.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03512104499532143
+    },
+    {
+      "label": "confirm_d29-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_d29.sass",
+        "${OUTPUT}/admitted/confirm_d29.elf",
+        "-o",
+        "${OUTPUT}/confirm_d29",
+        "-name",
+        "confirm_d29",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08901114199397853
+    },
+    {
+      "label": "confirm_d29-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_d29.ll",
+        "${OUTPUT}/confirm_d29.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08163676699768985
+    },
+    {
+      "label": "confirm_d29-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_d29.cpp",
+        "${OUTPUT}/confirm_d29.o",
+        "-o",
+        "${OUTPUT}/confirm_d29"
+      ],
+      "exitCode": 0,
+      "seconds": 0.13454589799948735
+    },
+    {
+      "label": "confirm_d29-execute",
+      "argv": [
+        "${OUTPUT}/confirm_d29"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0009237749982276
+    },
+    {
+      "label": "confirm_e43-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_e43.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_e43.elf",
+        "--symbol",
+        "confirm_e43",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_e43.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09058688199729659
+    },
+    {
+      "label": "confirm_e43-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_e43.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_e43.abi.json",
+        "--symbol",
+        "confirm_e43",
+        "--output",
+        "${OUTPUT}/confirm_e43.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.028525624999019783
+    },
+    {
+      "label": "confirm_e43-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_e43.sass",
+        "${OUTPUT}/admitted/confirm_e43.elf",
+        "-o",
+        "${OUTPUT}/confirm_e43",
+        "-name",
+        "confirm_e43",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.08862303700152552
+    },
+    {
+      "label": "confirm_e43-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_e43.ll",
+        "${OUTPUT}/confirm_e43.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07416699799796334
+    },
+    {
+      "label": "confirm_e43-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_e43.cpp",
+        "${OUTPUT}/confirm_e43.o",
+        "-o",
+        "${OUTPUT}/confirm_e43"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1104564319975907
+    },
+    {
+      "label": "confirm_e43-execute",
+      "argv": [
+        "${OUTPUT}/confirm_e43"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0010444770014146343
+    },
+    {
+      "label": "confirm_f61-abi",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/inspect-abi.py",
+        "--source",
+        "${OUTPUT}/source",
+        "--sass",
+        "${OUTPUT}/admitted/confirm_f61.sass",
+        "--elf",
+        "${OUTPUT}/admitted/confirm_f61.elf",
+        "--symbol",
+        "confirm_f61",
+        "--architecture",
+        "sm_89",
+        "--output",
+        "${OUTPUT}/confirm_f61.abi.json"
+      ],
+      "exitCode": 0,
+      "seconds": 0.10584596899570897
+    },
+    {
+      "label": "confirm_f61-driver",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/generate-driver.py",
+        "--oracle",
+        "${OUTPUT}/admitted/confirm_f61.oracle.json",
+        "--abi",
+        "${OUTPUT}/confirm_f61.abi.json",
+        "--symbol",
+        "confirm_f61",
+        "--output",
+        "${OUTPUT}/confirm_f61.cpp"
+      ],
+      "exitCode": 0,
+      "seconds": 0.03599590600060765
+    },
+    {
+      "label": "confirm_f61-lift",
+      "argv": [
+        "${PYTHON}",
+        "${OUTPUT}/source/main.py",
+        "-i",
+        "${OUTPUT}/admitted/confirm_f61.sass",
+        "${OUTPUT}/admitted/confirm_f61.elf",
+        "-o",
+        "${OUTPUT}/confirm_f61",
+        "-name",
+        "confirm_f61",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07625694799935445
+    },
+    {
+      "label": "confirm_f61-object",
+      "argv": [
+        "${PYTHON}",
+        "${BASELINE_DIR}/../emit-object.py",
+        "${OUTPUT}/confirm_f61.ll",
+        "${OUTPUT}/confirm_f61.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07738773099845275
+    },
+    {
+      "label": "confirm_f61-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "${OUTPUT}/confirm_f61.cpp",
+        "${OUTPUT}/confirm_f61.o",
+        "-o",
+        "${OUTPUT}/confirm_f61"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0970982489961898
+    },
+    {
+      "label": "confirm_f61-execute",
+      "argv": [
+        "${OUTPUT}/confirm_f61"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0012059310029144399
+    }
+  ]
+}

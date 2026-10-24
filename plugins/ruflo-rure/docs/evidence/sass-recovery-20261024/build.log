@@ -1,0 +1,6 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn Unknown project config "prefer-workspace-packages". This will stop working in the next major version of npm.
+
+> @claude-flow/cli@3.60.1 build
+> tsc
+

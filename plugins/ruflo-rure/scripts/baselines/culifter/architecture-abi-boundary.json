@@ -1,0 +1,62 @@
+{
+  "scope": "Parser dispatch and ABI metadata only, not semantic architecture validation",
+  "architectures": [
+    {
+      "arch": "sm_75",
+      "parserAdmitted": true,
+      "offsets": [
+        0,
+        32,
+        44
+      ]
+    },
+    {
+      "arch": "sm_86",
+      "parserAdmitted": true,
+      "offsets": [
+        0,
+        32,
+        44
+      ]
+    },
+    {
+      "arch": "sm_90",
+      "parserAdmitted": true,
+      "offsets": [
+        0,
+        32,
+        44
+      ]
+    },
+    {
+      "arch": "sm_120",
+      "parserAdmitted": true,
+      "offsets": [
+        0,
+        32,
+        44
+      ]
+    },
+    {
+      "arch": "sm_121",
+      "parserAdmitted": false
+    }
+  ],
+  "shippedSm90Args": [
+    {
+      "ordinal": 0,
+      "offset": 528,
+      "size": 8
+    },
+    {
+      "ordinal": 1,
+      "offset": 536,
+      "size": 8
+    },
+    {
+      "ordinal": 2,
+      "offset": 544,
+      "size": 4
+    }
+  ]
+}

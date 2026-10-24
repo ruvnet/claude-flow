@@ -1,0 +1,946 @@
+{
+  "schemaVersion": 1,
+  "evidenceClass": "synthetic-correctness",
+  "independence": "Authored by a separate evaluator before viewing candidate implementation; not a blinded external laboratory.",
+  "scope": "24 small hand-authored integer programs; seven launch sizes; edge-value arrays. Not project-disjoint real-world coverage and not a SOTA comparison.",
+  "kernels": [
+    {
+      "id": "copy32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "aa8090c6219ba1376100444179eae79ffe91415b3c9b78e1a9c29bf5cc1a3916",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "31e1b4563c627d841078a2814eba7bb4a67918bc909e269b9e5616d134cf2427"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "d33a39f2602dbd7198ed4835280100571e438bc4f1fbb5a5022352a9766059cc"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "0c5a04c2129aa3eccd0c0163ebca6fee98bdc51c8d17502180d453ba4c7314b1"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "661ba4d54d27724a87ad98f0b6a03066097c39eb8fb59a7844350506cf9f5883"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "025e5b214937b873af7b62ba449b4c21df721fe9ddd2f133dd117f7167a47f53"
+        }
+      ]
+    },
+    {
+      "id": "add7_wrap32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "fce7405c95a7861a389ac7b2ec44ffdfff40c43b2d9534e9fb50cdfefcea5129",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "84900fa88a4d922020f585c35cd21f74fc34f68bcc4afcdfb1f42baeebe10c1c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "e1af943a48c6ca121101dcf83701a55141f5692b69dee8a7968756539edf5858"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "0ff344130fee8861704865e725badb3065f8412fe80ef2706df9ff733c9b3fb3"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "f6a49b878cc820d42d88aeb6ecf579df54d8878d420a2a519b678e7eb114d5ba"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "4cacb413ad3a72504b578e9f628dd40310120e3aa399bb1e1d82dccc7a1771ca"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "71f1875916bd3b4d3014b2a49910170bb17732993743b6847945f94353e4ccb6"
+        }
+      ]
+    },
+    {
+      "id": "subtract32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "9610200b5ea38d5bc09e8fba7f8dd4124cb689ec47164ae3f5aebcb6383e2e25",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "6b3a6d7c83875b91577c283cff4167ed7cd1d2a10a9761f95157249294401a55"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "5aacc75ab26b3d48a64af1f05b2dfc8ece345963962209ee31b3d1cb93a61c70"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "85044c7193acbe5db3e3276914e6cfb8b2d8bb52d5b3f9ecd4c008d395a8488b"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "d4008d2c60011eca28a6b804eaece8178cb87f330229114fce483e8e11d19843"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "903c89f5598cc5eea90e166439a00d3e140263b35846290686b3bc24f25024ab"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "9467aa036fdd596a7a39257ae0ba4c36ea038ba82199f16d495e0ada4a5c658c"
+        }
+      ]
+    },
+    {
+      "id": "multiply_low32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "85d860402d11641fe34b2f0db1ffb6ce7c84b723adb9a8a3afdd4fcb5f45726c",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "a0259ad87791d2d5fd61898010c0e9038fc95f2632c84adc288d20ffc867d1f5"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "de59c3f2480ee977fab1b23b08d6c2cd7d2c0f1a81a7060ebaf38a7b6ad109d9"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "a892023445385e30e33c2b2083d7b9f6197fa3bb6b6562eff7e39e30a81c83b5"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "6b1a3aa50fc3e7be1e5ab0d401edd0d64a5bfd66f08bfab242aeb61763d470e5"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "cb1629fc44d7ea26c4e7654f6de5f522067a903a66f4474608523265c03cf994"
+        }
+      ]
+    },
+    {
+      "id": "multiply_add32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "eb323588b490e55b951c5b4628ae888ba5fdc44810af354f7e798f7214990347",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "9d82ceeada6465cdb2a48edfc3c95214a66775e9e807db03ea8d03e50b15320a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "c9d38f55992b33b7e935d9f3481de373c1e9578c0cc7d161f88309a2eca52bbd"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "ef8d8275b7f5b69651b983c8568745d113334db72cd6e6b306536aad20d5bf5e"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "d744130705fcda69432c383619d9a0afc159764b84fcc962d67b713514a9c18b"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "839f09c8572b8c1703a3ee915fad44e347e7833ea40c7b71b399968e85331dbb"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "270ea6a014c8c2270ea6ed9ec2e674365733ad424d08ff51dcd1d2c080b9657b"
+        }
+      ]
+    },
+    {
+      "id": "signed_min32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "80f9dc30f52af8b92a26f7d41b15e57b6b14e00b34dbf428dfb4e12d64e0503b",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "6b3a6d7c83875b91577c283cff4167ed7cd1d2a10a9761f95157249294401a55"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "35fa28720c55add24d7b5a58a194f3325f42725b0d7f480f45a3a327c13a7391"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "3b3f079bdf114d43fa76b1643e5dbf5d5bdb0eef5611795fa30edf83b5384b17"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "9547485e779939f7d49f2d5494a7f30ebb6a53e971ff6d7618e055d88ca693bd"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "f914a18879fe13096e45187f48e8270152c9b7f5a0346a9f7400682e51d93029"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "26746f4cd569145968b8afee72da0cd68a70d6e19ad03cf4c580f0e1c99942eb"
+        }
+      ]
+    },
+    {
+      "id": "unsigned_max32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "11dddf45e1aac6f7d90fa4f49370f6898f4424bc360d8843639319d046be5c7d",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "6b3a6d7c83875b91577c283cff4167ed7cd1d2a10a9761f95157249294401a55"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "35fa28720c55add24d7b5a58a194f3325f42725b0d7f480f45a3a327c13a7391"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "fddd9eadbd0890a9ecd17213985a405cd911402ddf7c6dd1041cd974ba6e0be9"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "c9a28b3b798fc47ead37e2048d32b6ba4f1623cd6b2e2401a10d965ad5d427f7"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "36d9e480b763b6b2dfef98b9f844ed7fa726a768aa473fb802fc23f3408889a8"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "4110c27aa83543f1b4b14bf57f8fc8fa8878fa04477bb5ce1bd57a5fa649c0c3"
+        }
+      ]
+    },
+    {
+      "id": "absolute_wrap32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "73a7c4a1c69320c396202af1c26e6276b38245cb1bb74283c6f840cb6c9e5874",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "31e1b4563c627d841078a2814eba7bb4a67918bc909e269b9e5616d134cf2427"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "d19b2c5f38dbdc128704e45ac98eb021526fe8001e66de78d75846c25fce1e54"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "5086cfb444ebbb86d492ab43d5dec449aa398119a224201ecead92c4bd2ecca7"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "627ade3a6a256a3a2db55225a59ce7629289b39b171e239bfbc68232d1f918ce"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "94734ad6b2cb3f65802fbf0a675130d041e5dc16bf6b09a2e9b2363e913bbff5"
+        }
+      ]
+    },
+    {
+      "id": "branch_clamp32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "7ccb09ea9ab468cf5a8182487c855b176da223bc681a1a633144cf510404aac5",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "31e1b4563c627d841078a2814eba7bb4a67918bc909e269b9e5616d134cf2427"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "44f2e173dab7ffafa9ac3c3c5daf19dd6283c98217ff5e77e50c55bfbf5153c0"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "aee1f88eae42a140162a3e593839243ae62cbc163ed426b7e0c7c261fbe05afa"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "125d7dd5bb09bf1ca7aef61a9f974a636171702b60a0d693c8272ce37ed3f612"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "8849f2a61c18d096cb2d2dc04acb045608529614d967dcffbae6f0cf3cfe05ba"
+        }
+      ]
+    },
+    {
+      "id": "conditional_sum32",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "5ff9165d01af0c31d7d20c69c93c5298f255769f62d2288712cfc7b602c0b380",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "6b3a6d7c83875b91577c283cff4167ed7cd1d2a10a9761f95157249294401a55"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "99638084d232c6a8d649f4058c33405c04bac0243bffd94eaf052a39b4b0db01"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "d5238273af54d9750e80f7f9476ce820f2f4ff3de523ac63ae1a3fef284903e7"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "928c50e876ad57b3e8696b5514f27ccad4d2be1a104cedb262083c7f3342449c"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "15b186030114ca0321e5ee51b6e18d4a4ac5d9ad1f6ad0caccdd4b050ae6e91e"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "6c141a46b464e2fcd5019bfb460197d36d98e9e1a30200e74ed7227aaec307a3"
+        }
+      ]
+    },
+    {
+      "id": "wide_unsigned",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 64,
+      "sourceSha256": "a01b1a7366353e32affdba10087961588b48c6f7e5bce21229e57b2bd44696fa",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "fae95e27f213db0afcc271a939d0dc51859d6bcff5f54f100a0f61b1900d3906"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "01546ab7ecd2ad6a37f96816713c202f214695dbeeaa38b079d438f89589e0b8"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "f6c907843019494fe31abec3511d46f4e0e057f4df8ce07b9225434c8ab830a6"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "d027e0b80a6712091d9929ae78971031528707a62a5a566575ab4fc8e90da5d1"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "f218ba92fe07f5ca17471079eb53a120757540d656f894da08c0575c71c0244c"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "4791e2cca939931e0a60bd3f652564d879ff6ccb1cbc74b614ca6e00d62d55bd"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "56dc578b8dda052c184dfcbe0c47708f39f300324537bfadc840aa8c1237150c"
+        }
+      ]
+    },
+    {
+      "id": "wide_signed",
+      "split": "development",
+      "inputBits": 32,
+      "outputBits": 64,
+      "sourceSha256": "334200d779718cc9a9b0cd0d2e1bb527b71e645a0c30945e012c401b65a1bcb8",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "fae95e27f213db0afcc271a939d0dc51859d6bcff5f54f100a0f61b1900d3906"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "01546ab7ecd2ad6a37f96816713c202f214695dbeeaa38b079d438f89589e0b8"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "23a8c1c87d6987d6a19a0031641a4460deb4e0493eca02348a2c4a1363b42a4a"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "07596dc6f0039201e44d0e0a27a497d3b71ac3857fbafebdb5227b4bec7e09cf"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "d7bf841242ea120380f3197e02fc93536413afafac006d60165b5230045d5f21"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "cdf80824527787c4c0d136b7b0d368eb58cc2c2f27786ceafec910008050ed87"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "db0c985c5400a4e00365f465888058688d68d63b3bcee094204c61bf5d98c14c"
+        }
+      ]
+    },
+    {
+      "id": "add64",
+      "split": "development",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "97c9a1f5b0de185878d618cafd1d1ec40c06b16e60cf240caa19793b9ca76596",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "01c2c0f1828d9bc169068d888d71d8204006f9ed326519a02d1e3018c0eb5e6c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "f6c41d4db08b995bbcea093052f10cba84e6878d6167b9548f08bdececdab76e"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "331fe81014b42fe6b682f12e8f41ec47fe15de05b434b87b56d8e942840fb4a5"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "82b963ff26e53e4bd98026af4097fa203d2063d6846a8f603e3a14b8b9fd1309"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "86d55a2042481de9dba5a1a7dee96944d03b7ed82326eba4749f4184e05500a5"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "ee25408017a95321c6003df3b5031550fa0c8bc6807a4c1519f6be459e1ca520"
+        }
+      ]
+    },
+    {
+      "id": "subtract64",
+      "split": "development",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "cad4c572d2d42b659eadd91002abea3790655445d51a5d1d546510131823a76d",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "01c2c0f1828d9bc169068d888d71d8204006f9ed326519a02d1e3018c0eb5e6c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "3fe3ac58063b0b282e1cc4a23a545cb79f289d2829e07d97c518d7864ac2a31d"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "4c409c09214ee97258555c359638cd27fae2c4cc7067dab2cb3d57209132f919"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "6c7450a26902806f4b94f9410d789b2d56debe92b533ba16cc302643b4ec0de4"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "7250817c030b39481b21895488bdd7249913e68eb802cceeba3f1164bd2350aa"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "a6b8552669a5510da57b919b13cb6b49c851a22d12875a27dfafbcfe1b9b67ac"
+        }
+      ]
+    },
+    {
+      "id": "multiply_low64",
+      "split": "development",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "c634c3512729655e79ea5e00915cecd4452fe76a36bc4c61d90858054543b9eb",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "f7e65aa024b0d4e1e296e56adac024fac0220e6b714b9c6c57ce3126f7b7c4d8"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "1c5e6c20607a5c3d335d3cdf420626ff7b5f279b41f54b71cc7ea551b2d4fb29"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "69214a81cd54443f066914617e86f29d94e81fcdc847cd2db9bb1c73630bcf9a"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "2605205d0cfd0c0a1c8745d0c0ce3c9c4383941903bb63938fee97cea073b4f3"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "bcbd55184c0c9fd91fb1ac490de04ce501d2beb9536b0e254e4effe74df013a3"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "154f5dd97616d781e3f21a5a8554536d74f052d6dc4e91310eaf2a7d941c2f75"
+        }
+      ]
+    },
+    {
+      "id": "multiply_add64",
+      "split": "development",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "f6dcefebd3e23cb13406ba3adcb7d191ac2117135f75be38072a861465df2f76",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "cd5bf85821c7ab87b68b4a0ca030118edd6ff7862edbe6441830625c7ecbcafd"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "255bc1bdad8b5c8c738b4c9c26ef26a91b582a091b924d4b2c67214448394cb6"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "fd9e456b335ac2dca3e008e7d35f03a701d0ecb81284f0172a7dc438e5d7c270"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "4a7a69a533db7802d2ba62beb039b4b8b44084f504822d4458f64c47ab219fe6"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "c07a9796eb0becdb5fc9e6cb38251656e9f3f431c8b167d5f0509eb6c22ad91c"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "1989bf3c287bb2cdc1c795bd0667d2dedd21f8b078a56f8860408cb05b25c7c2"
+        }
+      ]
+    },
+    {
+      "id": "prefix_loop32",
+      "split": "confirmation",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "395b71fdcc98201a794ed510e10085aac053ef5a6cc333a3b7014339e8573c04",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "523069c30b2757da64bd0c99af871f7f4b27f505e2415439f760a87aa21acc0f"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "46bc8a8b5a3457f3f843dbbf8a964d7a83b1ca2bfe12827a1c34632152925f09"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "14b2f6177225101c70dba8d0818bc3b35ad8f063fe08de8d5293f014df4254c7"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "b3c83cc31949b6f7f8ac49921c383931a1fa5ee296001fe8710ce68e63d06c4b"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "07d8df8057a77a03f63f6ef4e881135fa18b4278bfcfcac3c9233c7823fb729f"
+        }
+      ]
+    },
+    {
+      "id": "memory_offset32",
+      "split": "confirmation",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "1b46175bb7066c848ee4ac939c52ffab44bfdf8efca4b1c60c3427e45c22e0d9",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "a4be794a42a1b3e4163f547a7191050438de7d71059956b6f081b7ec7ddef36c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "b22ff1e5a0c7e4d9959ba706d09fbd6f198ad5888278002fef70bf32940a199f"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "67c3573172a9f375c234ae672a26841901fb680f955bed9fa732a9bc69ef98a5"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "59edd169f7e9416e35d1ed8f8e7fd07ae5ee222ce44251d79f057d4245060e85"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "631d352bcfa0fe3af109cf5bea0d50f44f27a1b7e1e120296293a873d5406cfe"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "abac0abafdf091a9f4fd339da13272a28e0a480b3861b1d3f16915b3ccfc5676"
+        }
+      ]
+    },
+    {
+      "id": "memory_offset64",
+      "split": "confirmation",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "26d7109c0ffb8693fb09e284a3821c798691109885f4ebcd008ba3985cc8c83b",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "f2951462e0d952736cce43f11f19c01e1b5061d7a4c781708e8797198eabfc2c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "cdd140b0776d3bbc65f1703a6b8e45acf3fe8c651f7d084fdb82b86a0d640332"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "c8a1a22825a35255a9419de2a8e017f98abe9e44b2b730e0369a797c8b3ea5db"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "488827b698f5dcfaf2f0855ffa86b53100290adc414265b86855fa87b58faa0d"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "bde1f8fcea48cd1fec6dbf0dd17243055175dce71c11d91a7f473d24a3e43a82"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "3f4a0eace32e5e02e9a992d6b38a75e49d05cc53e95885522809613a9c92283f"
+        }
+      ]
+    },
+    {
+      "id": "signed_select64",
+      "split": "confirmation",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "63f33ffb8523f8ae605b913fd448505a27e6aefbd1fe26e298ef604e30beaab9",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "01c2c0f1828d9bc169068d888d71d8204006f9ed326519a02d1e3018c0eb5e6c"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "059c829ff986d04990ba69ea47d5915d8a0de052f73e3a0f61bdaba5fb7ad759"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "2d2aa685f3f6518705d48bebc91709c2e18f07b33317ca269ea4ce7eaf28c416"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "563e79d9c180d0c26d002e833476c54353c3f755d29993e73f501c5e43d4719d"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "96030e59f7a0ed1545e2a0b37e787b7c183e350bd8bb652cd43ad557da42a1c9"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "26b6158e88013c9b12623fd2c9ebe51eca7c8edc56ec8317fc9753c2f9bdf88c"
+        }
+      ]
+    },
+    {
+      "id": "unsigned_select64",
+      "split": "confirmation",
+      "inputBits": 64,
+      "outputBits": 64,
+      "sourceSha256": "ff30ef26d19ea3ea8da4d42ebdc207cb0cde783dd4dfc39c029ae433dbd25c57",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "6ae5385b43b7eb8d34b347bf2a416a4d3a0079f7daddd65153c895a69a56c0cf"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "f7e65aa024b0d4e1e296e56adac024fac0220e6b714b9c6c57ce3126f7b7c4d8"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "061cce7d989332ea2fe54b35741844ff65fe2c2f53d0984e1876d356c4156059"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "9617cb90efe511d479561637f368caede7e85db89d8112d67be20a2a91a76445"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "6de0779ab6dc40bc910a929de40c0b820cd81b30793e8446b24d443ae0d1a646"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "87f9353d52408fd2a43792c00ea1874fe67b4036c3894ca8f9682250b4da17cb"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "55809f3344d4dae4430c06fd9afcbdf69dfaa927bf34dc9afdc98e58cdff557f"
+        }
+      ]
+    },
+    {
+      "id": "predicate_branch_diamond",
+      "split": "confirmation",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "d757ff21ffd0dcb965ae1a71eb64026e0bfa5e652308a62ed3db8cd8c7594fc7",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "d5371b52fea7808493b9e39168bb3d69ad73c249514a56b83f07d580d816ecb8"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "922d07926b9d10164077f67b73697642420c927638d4d19dbf9a6680682b2451"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "68803bc23c5dea8d6c3f03eb92725981429338615c9b74e0d9b6d1b5071598c0"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "e64a7b21a2dd59475e8e1e96c956b5c09806a352579af3add15b47e6bc77a54c"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "b2326150cd619ece9b63485957ceec1d5b6a27b6de5a18e42fa060397f574d6b"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "b09b20e1999c1093b718e2da1eb0bb9b8674446cb5a5f9280dea6a96276a069e"
+        }
+      ]
+    },
+    {
+      "id": "global_index32",
+      "split": "confirmation",
+      "inputBits": 32,
+      "outputBits": 32,
+      "sourceSha256": "e26eeeaae5069c96ad14507fee6ba4f3946f40dd65eb8a734755ef06547477a8",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "873eb97a46a4b9cbed3228a6cc387b76379a40089f2f1e3f0fc5602ac0ffba56"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee4ff85f3a92ad7e51b2261ec9a890aedc11a84803a42b337ef87cd5a84482a"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "f5017b51ef3e50d0fe29d363758dec7e3ff8c03f2f77e96ea4856213405ad027"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "b04e4805c2228f76313a6c1d050af757918b613f1ecc71814a25e5d304f6dd07"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "1ae412d13c2be73913223087b6f688955d6e9a8ab3cd5cd4ca85d76d4dff40f2"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "3910d622648f2104900292b0969ef350ec70599cd77579cf374c8c3329638b38"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "ce72f2d28fb23351d4e119816a3d9f48ef305b170367d37f054931750a44e1d4"
+        }
+      ]
+    },
+    {
+      "id": "signed_wide_accumulate",
+      "split": "confirmation",
+      "inputBits": 32,
+      "outputBits": 64,
+      "sourceSha256": "ae5dc2d288a54dda6d8a18a1da632304b802d685ae1ef4784fa03fd6c81710aa",
+      "cases": [
+        {
+          "count": 0,
+          "oracleSha256": "fae95e27f213db0afcc271a939d0dc51859d6bcff5f54f100a0f61b1900d3906"
+        },
+        {
+          "count": 1,
+          "oracleSha256": "bee8ad24a92e60b092e7b90d70ffc4a123a3feba44527fe952bbcbc73d1f5078"
+        },
+        {
+          "count": 2,
+          "oracleSha256": "ebc88642c2f94a3d707f253335c5d48ca900f63348f1cf1d6872b197e9c47515"
+        },
+        {
+          "count": 7,
+          "oracleSha256": "6e4d9b7f07392b8e645c169fcd257baba335b4ee30a23bb08fb51ce2134dc5c6"
+        },
+        {
+          "count": 31,
+          "oracleSha256": "efa3d5ea4bad3a75ff16038ac40745be34a212aa0ecfcf234b13de6912d2b05e"
+        },
+        {
+          "count": 33,
+          "oracleSha256": "a4c0eab2e5e0b0d30b18da98e385faa38515f5ccf2c77b009779c832043637b5"
+        },
+        {
+          "count": 65,
+          "oracleSha256": "4eabdd9b5c12381a5afedf746f74b02364eb79bca02860fc51f2da9dac105837"
+        }
+      ]
+    }
+  ],
+  "rejections": [
+    {
+      "id": "float",
+      "sourceSha256": "93367c9799b9e9a4a7132814f4c401253398c93e8b8a961c66efd88245e46ece"
+    },
+    {
+      "id": "barrier",
+      "sourceSha256": "08c85344dfa0fae4c60f389da9c7a023c54c66dae1853fadd4c74d05669d2233"
+    },
+    {
+      "id": "shared",
+      "sourceSha256": "61d66ede9a68f78f032843a8867b37b80e36f2cd0b82df49879db2360204a318"
+    },
+    {
+      "id": "unknown",
+      "sourceSha256": "e0f7274fdd523b9c73a82c9ee888836a5afb5219a068e354417bd77de766292e"
+    },
+    {
+      "id": "uninitialized_data",
+      "sourceSha256": "a5a8e08d4e4dddb4427d783e2d102275eb761426e1dd0a72dcaa8d4533d99ce5"
+    },
+    {
+      "id": "uninitialized_predicate",
+      "sourceSha256": "607f8635054a5f916995e8ea5d761d64d4a6c9d160226d5c0cbd6e518dabc6ab"
+    },
+    {
+      "id": "undeclared_register",
+      "sourceSha256": "8cf9a42fbda7ce12cb30298ff1be3fa00c8be0ceaa66677c4592871db493778b"
+    },
+    {
+      "id": "width_mismatch",
+      "sourceSha256": "a6aaf4c3e95f7a1756ec0d2caf2c06fe09a2d76e1e6178a2d99e1b208fd52e25"
+    },
+    {
+      "id": "path_uninitialized",
+      "sourceSha256": "7b68f6ab2c5fe2ce1d45974c06641cc82c7d5f8f3244d01cd5fa685ba42c0b9d"
+    },
+    {
+      "id": "predicated_definition",
+      "sourceSha256": "95a3e3e8d6d781bea9d5a5549989224b4be255d1c7a451940d7ac579c2b2c722"
+    },
+    {
+      "id": "oversized_register_array",
+      "sourceSha256": "f5548ca9c97835454cf601973a44752c89e46bbfffd451ca8f4fd4b6102304e5"
+    },
+    {
+      "id": "malformed",
+      "sourceSha256": "bb63a82de2d80fc201ad7473252bd2a16fe4f63e098e24fba0ee073a0e2aac6a"
+    }
+  ]
+}

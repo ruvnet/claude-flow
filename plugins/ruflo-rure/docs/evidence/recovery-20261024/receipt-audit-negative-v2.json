@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "scope": "audit replay negative tests only; not CUDA workload cases",
+  "auditorSha256": "47b5c949f868bfc3fdaf6700f2678a93c39a9ac8b603d00cd07e0a3a5792e809",
+  "tests": [
+    {
+      "attempt": 2,
+      "mutation": "raw_receipt",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "ValueError: not a reviewed frozen receipt digest"
+    },
+    {
+      "attempt": 2,
+      "mutation": "frozen_vector",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "AssertionError: frozen input/reference vector changed"
+    },
+    {
+      "attempt": 2,
+      "mutation": "export_archive",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "AssertionError"
+    },
+    {
+      "attempt": 3,
+      "mutation": "raw_receipt",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "ValueError: not a reviewed frozen receipt digest"
+    },
+    {
+      "attempt": 3,
+      "mutation": "frozen_vector",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "AssertionError: frozen input/reference vector changed"
+    },
+    {
+      "attempt": 3,
+      "mutation": "export_archive",
+      "expected": "refused",
+      "exitCode": 1,
+      "lastError": "AssertionError"
+    },
+    {
+      "mutation": "optimized_python_-O",
+      "expected": "refused_before_io",
+      "exitCode": 1,
+      "lastError": "RuntimeError: This receipt replay requires Python assertions; do not run with -O."
+    },
+    {
+      "mutation": "optimized_python_environment",
+      "expected": "refused_before_io",
+      "exitCode": 1,
+      "lastError": "RuntimeError: This receipt replay requires Python assertions; do not run with -O."
+    }
+  ]
+}

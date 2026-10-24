@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "taskId": "rure-executable-recovery-20261024",
+  "scope": "Public synthetic CPU/GPU recovery evidence, failed speed gate, external baseline capability checks and independent review; no SOTA proof",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 17750,
+      "sha256": "fbf6d08779f5cff1390385493c37b0df99015c8c3bad9f3279f9c4749243ebba"
+    },
+    {
+      "path": "auditor-independent-review.md",
+      "bytes": 5247,
+      "sha256": "65e25063ea959731b60d4b2aa9d7cbf23076e85f49d5a7acc12e26c5085d982f"
+    },
+    {
+      "path": "auditor-negative-results.jsonl",
+      "bytes": 6786,
+      "sha256": "783fc58f77eeeb31d4c44f9a2b21cceeac595140004b92a247bed99caeaeb796"
+    },
+    {
+      "path": "confirmation-exposure.json",
+      "bytes": 1332,
+      "sha256": "86b45979d92fdbbfe2d5693396f14ab1a0c7de5bac1ff0da69ed49a134913d62"
+    },
+    {
+      "path": "confirmation.json",
+      "bytes": 8657,
+      "sha256": "1d4ec61fc80ece40a359fd745723acb1a6cb64ed9cc54fec44e8ae785f885466"
+    },
+    {
+      "path": "culifter-crosspath-hardened-integration-replay.json",
+      "bytes": 23139,
+      "sha256": "444318e7d999a2a2773ae757d8ab4da3751bcc46742c7d1ab91dfb51b9ea8d4a"
+    },
+    {
+      "path": "culifter-crosspath-integration-replay.json",
+      "bytes": 22259,
+      "sha256": "8226e2c5b818c894f9fac038acf3698e59cb6f7f212b972d50cf9e0c64219af9"
+    },
+    {
+      "path": "culifter-integration-replay.json",
+      "bytes": 11663,
+      "sha256": "64f2f8f74eabc85e976fd88532b9b083e4580a913c379ef624194601a381fe82"
+    },
+    {
+      "path": "culifter-reproduction.json",
+      "bytes": 7291,
+      "sha256": "791c93b3c6a1223e4a9c63554b885b66ebc8bd3ddce405cfbb2a652eefafa72c"
+    },
+    {
+      "path": "description-followup-mcp.json",
+      "bytes": 629,
+      "sha256": "b9bfdb6fc142f7b5a24924265c03e1546d3fffb55f4c35605219332ac5c8d39b"
+    },
+    {
+      "path": "development.json",
+      "bytes": 12863,
+      "sha256": "448b1c29a899afccf605094c7a04fea2cb0ef1e67d2be7656dcb3a5c16a46681"
+    },
+    {
+      "path": "directives-fixed.jsonl",
+      "bytes": 1038,
+      "sha256": "73b5fb59f81aa115b79df6987ecdb5740700a8cba65e597e77abc166db596090"
+    },
+    {
+      "path": "gpu-attempt.json",
+      "bytes": 1871,
+      "sha256": "e6538fc7c39fa6bf00ced4ef39304c4019278ef5ec6d7b3d0241907c04327bc0"
+    },
+    {
+      "path": "gpu-attempt2/README.md",
+      "bytes": 1219,
+      "sha256": "9d1bf2e0fac32217b7c8058f392764fe8309d5d1959cea2c977463c1b663ee85"
+    },
+    {
+      "path": "gpu-attempt2/baseline-inputs.tar.gz",
+      "bytes": 27316,
+      "sha256": "9bccdd41c91e87c37460a9367dff5a1a2c314e1ea4316327b0250d600570aea4"
+    },
+    {
+      "path": "gpu-attempt2/executed-worker.py",
+      "bytes": 6828,
+      "sha256": "875ba47c6701bbaa702397024003f37c7fcc6eb151c1db4b15ab1b79a09a3830"
+    },
+    {
+      "path": "gpu-attempt2/gpu-raw.json",
+      "bytes": 323560,
+      "sha256": "311f899315944390d1d65bd8dcf0e068aa0249f16351924f316c712debbffbf6"
+    },
+    {
+      "path": "gpu-attempt2/gpu-results.json",
+      "bytes": 1413,
+      "sha256": "f432e8810d8dbeda84dac1f2a8d9cb3c244a56f4868759bee3effc80cb330508"
+    },
+    {
+      "path": "gpu-attempt2/independent-audit-v2.json",
+      "bytes": 2224,
+      "sha256": "5d741d95870a880f76c5bbd0ce7397c99371a08b08a7168ad8dde15bdd0319e6"
+    },
+    {
+      "path": "gpu-attempt2/independent-audit.json",
+      "bytes": 1869,
+      "sha256": "b7a2e05034bf4aa389cc2e016b46ad80ed78ae9934e67232d7fa145a6d7c3e57"
+    },
+    {
+      "path": "gpu-attempt2/plan.json",
+      "bytes": 1007,
+      "sha256": "c9939080d055b69c8e272a3d475e4541a478fdcf47d29fd1d9135391856e2ada"
+    },
+    {
+      "path": "gpu-attempt2/receipt.json",
+      "bytes": 2929,
+      "sha256": "34e43300092fb8d0306d645b14c86562db70146bb37f8655933254af17d6538b"
+    },
+    {
+      "path": "gpu-attempt2/retained-replay.json",
+      "bytes": 1869,
+      "sha256": "dc1fb9d9883181308690cdebe6a6916e6048fd095577efa14f7ded28033d9bfe"
+    },
+    {
+      "path": "gpu-attempt2/workload-lock.json",
+      "bytes": 270,
+      "sha256": "c0719404e18340da26ca0017aeb456f532a2792deee4ce31790b50f653aeca30"
+    },
+    {
+      "path": "gpu-attempt3/baseline-inputs.tar.gz",
+      "bytes": 47869,
+      "sha256": "62f1acc98b0f0e81c3679f4f719a273cb0307a6027b16a1bbeb7bfdf25e64a48"
+    },
+    {
+      "path": "gpu-attempt3/cleanup-public.json",
+      "bytes": 353,
+      "sha256": "babba140cd414c171a519d969b4bc120b5d5df82c510071eddb3d652b3076f21"
+    },
+    {
+      "path": "gpu-attempt3/executed-worker.py",
+      "bytes": 8487,
+      "sha256": "b5c3f69f922043770df44cc1f0cd738df6f09f922082bffa54d3d67508abe41c"
+    },
+    {
+      "path": "gpu-attempt3/gpu-raw.json",
+      "bytes": 323707,
+      "sha256": "932a0787cad179d044de1d6c25518e63b3faf757a6481ddd32f4e7142ed3303f"
+    },
+    {
+      "path": "gpu-attempt3/gpu-results.json",
+      "bytes": 1415,
+      "sha256": "48ef2742949b354ff614cc92adc260fae8401e5f0db3c61da452b0de672bed1a"
+    },
+    {
+      "path": "gpu-attempt3/independent-audit.json",
+      "bytes": 2242,
+      "sha256": "61c34ee88f7359545313a3a3348b1b5eac29762f8a376258e5a163d869b9b516"
+    },
+    {
+      "path": "gpu-attempt3/plan.json",
+      "bytes": 2208,
+      "sha256": "79f7f552c2501558b324fe120a3152824509331a136a1fb2d59e7907cba11df6"
+    },
+    {
+      "path": "gpu-attempt3/receipt.json",
+      "bytes": 6561,
+      "sha256": "7319b13a33f653bbb833bf69c83f743f1663d8725cd7787a39dbf0ea608b44ff"
+    },
+    {
+      "path": "gpu-attempt3/workload-lock.json",
+      "bytes": 270,
+      "sha256": "a472f1874e456715461a835aea1ab458f83e11d1291c7b05f73210604de0338e"
+    },
+    {
+      "path": "gpu-frozen-inputs.tar.gz",
+      "bytes": 38847,
+      "sha256": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f"
+    },
+    {
+      "path": "independent-review.md",
+      "bytes": 6987,
+      "sha256": "4f2137a1d76889d129adb21a9946bb94ca617c234d6a89372d3031b108ea9436"
+    },
+    {
+      "path": "installed-development.json",
+      "bytes": 12373,
+      "sha256": "4c24f3f44cf4019368ef807a8cb0f49ce46289bb5436697be14e719898bc7f3b"
+    },
+    {
+      "path": "installed-mcp.json",
+      "bytes": 637,
+      "sha256": "e40e8a92480f17d1c36353b5d7637065fa56face76ce622dfa6bfd210cbd39b1"
+    },
+    {
+      "path": "negative-and-bounds.jsonl",
+      "bytes": 3698,
+      "sha256": "a9feb7a20eae342895d1d31c9725f4dcf0fc50c69b83729da61e8eb99e3ac1a6"
+    },
+    {
+      "path": "receipt-audit-negative-v2.json",
+      "bytes": 1732,
+      "sha256": "2646311afcdc71314e73e1c82a485289be6f81185e7ca3b5d62c0560f4febf1d"
+    }
+  ]
+}

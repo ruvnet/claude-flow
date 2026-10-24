@@ -1,0 +1,41 @@
+✔ missing evidence and self-declared ACCEPT never prove SOTA (4.952205ms)
+✔ exact ten percentage points is eligible for review only (59.684909ms)
+✔ real-file audit rejects empty source, binary, receipts and outputs (273.494887ms)
+✔ candidate and baseline cannot choose independent reference outputs (40.630398ms)
+✔ missing frozen workloads, test manifests and original outputs fail closed (87.088303ms)
+✔ missing author and wrong baseline-availability types fail closed (27.636345ms)
+✔ unexecuted baseline admission false is unknown, never zero observed coverage (27.03699ms)
+✔ receipt prose or a nonempty JSON object cannot stand in for execution bindings (31.625336ms)
+✔ stale recorded inputs and executed case IDs fail closed (55.068291ms)
+✔ original program must produce the shared frozen reference (27.923708ms)
+✔ required validation categories must occur in the bound executed test manifests (42.928617ms)
+✔ GPU check status cannot replace a bound nonempty receipt (30.99862ms)
+✔ below frozen ten points rejects without retuning (46.532037ms)
+✔ development gains cannot hide a confirmation regression (33.685164ms)
+✔ an unavailable stronger baseline stays unknown (25.126596ms)
+✔ missing matrix rows cannot inflate correct kernel coverage (25.624507ms)
+✔ duplicate observations reject (21.00172ms)
+✔ wrong observed output rejects despite reported pass (25.138115ms)
+✔ PTX passthrough cannot become executable source recovery (29.616374ms)
+✔ stale artifact hash fails closed (23.660503ms)
+✔ missing license and reused confirmation fail closed (23.609296ms)
+✔ changed frozen threshold fails policy binding (31.286605ms)
+✔ source variants and confirmation leakage reject (21.996833ms)
+✔ cost regression uses an exact integer ratio (33.704303ms)
+✔ unknown cost is not zero (28.252635ms)
+✔ performance is a separate unfulfilled claim (19.873507ms)
+✔ negative-control prose cannot replace a measured mismatch (19.747226ms)
+✔ oversized environment matrix fails before expansion (7.408122ms)
+✔ invalid duplicate kernels cannot amplify frozen matrix expansion (21.301443ms)
+✔ aggregate case processing stops at the frozen work budget (651.342585ms)
+✔ artifact reader rejects changed files, traversal, symlinks and directories (1.94135ms)
+✔ aggregate bytes and reference attempts are bounded, including cache hits (1.395727ms)
+✔ top-level report and bindings reads reject oversized files before allocation (120.427245ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2098.749516

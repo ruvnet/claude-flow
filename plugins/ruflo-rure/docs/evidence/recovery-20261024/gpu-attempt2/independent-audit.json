@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "audit": "pass",
+  "auditScope": "post-execution consistency, not authentication",
+  "auditorSha256": "0a4cabf05ddc89604d403b5b0f03355e8969bd060a1359daf944603096cb52e7",
+  "python": "3.12.14",
+  "rawReceiptSha256": "311f899315944390d1d65bd8dcf0e068aa0249f16351924f316c712debbffbf6",
+  "baselineArchiveSha256": "9bccdd41c91e87c37460a9367dff5a1a2c314e1ea4316327b0250d600570aea4",
+  "kernelCount": 24,
+  "cases": 168,
+  "elementComparisons": 9360,
+  "compiledRecoveredCudaCount": 24,
+  "originalCubinCount": 24,
+  "independentlyRehashedSassElfFiles": 48,
+  "timingSamples": 4800,
+  "geometricMeanMedianSpeedup": 0.9927974844898435,
+  "regressionsAbove2Percent": [
+    {
+      "id": "add7_wrap32",
+      "originalP50Us": 7.014,
+      "recoveredP50Us": 7.182,
+      "regressionPercent": 2.39520958083832
+    },
+    {
+      "id": "subtract64",
+      "originalP50Us": 7.032,
+      "recoveredP50Us": 7.275,
+      "regressionPercent": 3.455631399317416
+    },
+    {
+      "id": "unsigned_select64",
+      "originalP50Us": 7.084,
+      "recoveredP50Us": 7.296,
+      "regressionPercent": 2.9926595143986434
+    }
+  ],
+  "performanceThresholdVerdict": "REJECT",
+  "mutationRejected": true,
+  "memcheck": {
+    "cases": 72,
+    "elementComparisons": 2784,
+    "errors": 0,
+    "scope": "counts 0, 1, 33; memcheck only, not racecheck"
+  },
+  "workerCompileAndValidationSeconds": 32.051509618759155,
+  "hostTransferAndExecutionSeconds": 40.41723155975342,
+  "actualBilledUsd": null,
+  "limitations": [
+    "Compiled cubin/PTX bytes were not retained; their hashes are worker-observed.",
+    "Executor authentication requires the separate authenticated ruOS completion.",
+    "One architecture and small synthetic programs, not real-world SOTA coverage.",
+    "Warm host launch plus synchronization latency; allocation, transfer and loading excluded."
+  ]
+}

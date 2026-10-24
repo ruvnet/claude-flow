@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-24T00:47:18.432902+00:00",
+  "owner": "cuda_culifter_reproduction",
+  "claim": "A bounded public CuLifter SASS-to-LLVM-to-x86 capability reproduction, not a SOTA comparison or GPU-equivalence proof.",
+  "source": {
+    "repository": "https://github.com/gthparch/CuLifter",
+    "commit": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+    "tree": "0f0964a41c17f0c532e53c19a7e54584875a00c6",
+    "license": "unknown: GitHub metadata license:null and no root LICENSE; source not vendored into RuRE",
+    "sourceFilesVerifiedAgainstGitBlobSha1": 98,
+    "hashes": {
+      "main.py": "89b60c88028959e435cf03c72ae82a454ec07ab9b6531320cff483ff60eb6934",
+      "environment.yml": "0c210abc70d84280bc751e156b26f61c752c6b18d531ee413405b8d361bce435",
+      "lift/lifter_cpu.py": "9d029cc7ae0ac083264f3bcac388b534c6d100aa1ea21182f619b924235646dc",
+      "lift/lifter.py": "0e3b9ab2bfc3eda8d03a2307b0b5f6db0eb01e7afe7a81074c261d46b7853ca8",
+      "transform/typeanalysis.py": "f203b97a02788d27c691f939b9fcd57356b781c0401cef15c21bf56a3e40ad27",
+      "test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.sass": "6284fad4bcd0f9f6e7068f7691a1b32ec747bc0ea2828d2b5b879bd2e4d32788",
+      "test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.elf": "3516e1c33cfb87a1b85391c35781dca2a287e5add6eac62f6c361ddc89e3e87b",
+      "test/addrtest/A5_two_input/A5_two_input_sm90.sass": "b29a94727db97c12d6d571f7f847c5856a84ba6b66e601ddfd91f514d77231cc",
+      "test/addrtest/A5_two_input/A5_two_input_sm90.elf": "ae91adda294b7751fd8f191da9b109b358ebc59407b5da6b89f4b2fff6e5a1f0",
+      "test/addrtest/B28c_int_div_pow2/B28c_int_div_pow2_sm90.sass": "67c7304540625c3b32d829352046ff70b8f948f32cfbca2d751b2f54c208dcd3",
+      "test/addrtest/B28c_int_div_pow2/B28c_int_div_pow2_sm90.elf": "768c9b33a70982281fc2f8ff1e79da271d4a2bb0e60156328bdd71be8d7ef86d"
+    }
+  },
+  "environment": {
+    "python": "3.12.14",
+    "llvmlite": "0.48.0",
+    "embeddedLLVM": "22.1.0",
+    "hostCompiler": "g++13.3.0",
+    "target": "x86_64-unknown-linux-gnu",
+    "pinnedUpstreamPythonDependencies": {
+      "pyelftools": "0.31",
+      "pyyaml": "6.0.3",
+      "libcst": "1.8.5",
+      "pytest": "8.4.1"
+    },
+    "deviations": [
+      "Upstream environment.yml also pins clang/llvmdev20.1.8; unavailable locally. Native object emitted with pinned llvmlite0.48 wheel using embeddedLLVM22.1.0.",
+      "Independent sequential scalar runtime used for thread-independent kernels instead of upstream threaded wrapper. No concurrency claim."
+    ]
+  },
+  "frozenWorkload": {
+    "kernels": [
+      "addr_A1_copy_1d_int",
+      "A5_two_input",
+      "B28c_int_div_pow2"
+    ],
+    "sizes": [
+      0,
+      1,
+      31,
+      32,
+      33,
+      127,
+      129,
+      257,
+      1025
+    ],
+    "threadsPerBlock": 128,
+    "extraBlock": true,
+    "guardElementsPerCase": 32,
+    "integerInputs": "fixed LCG seed0x05eede11 plus zero, allones, highbit",
+    "floatInputs": "finite exactly representable dyadic values only",
+    "reference": "independently authored C++ copy, elementwise addition, unsigned division/shift arithmetic"
+  },
+  "results": {
+    "kernelCount": 3,
+    "caseCount": 27,
+    "exactComparisons": 5769,
+    "correctCases": 27,
+    "falseAcceptancesObserved": 0,
+    "mutation": {
+      "change": "LLVM copied value incremented by1 before store",
+      "expectedExit": 1,
+      "observedExit": 1,
+      "firstMismatch": {
+        "status": "fail",
+        "n": 1,
+        "index": 0,
+        "expected": 0,
+        "actual": 1
+      }
+    },
+    "gpuExecuted": false,
+    "irVerified": true,
+    "nativeExecuted": true
+  },
+  "commands": [
+    "python -m venv ../culifter-baseline-venv",
+    "../culifter-baseline-venv/bin/python -m pip install --only-binary=:all: llvmlite==0.48.0 pyelftools==0.31 pyyaml==6.0.3 libcst==1.8.5 pytest==8.4.1",
+    "env -i PATH=/usr/bin:/bin HOME=$PWD/evidence PYTHONHASHSEED=0 timeout 60 ../culifter-baseline-venv/bin/python connector-source/main.py -i connector-source/test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.sass connector-source/test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.elf -o evidence/copy -name addr_A1_copy_1d_int --lifter x86",
+    "../culifter-baseline-venv/bin/python evidence/emit-object.py evidence/copy.ll evidence/copy.o",
+    "g++ -std=c++20 -O2 evidence/copy-independent.cpp evidence/copy.o -o evidence/copy-independent",
+    "timeout 10 evidence/copy-independent",
+    "Same lift/emit/link/run pipeline for A5_two_input and B28c_int_div_pow2; see per-stage files."
+  ],
+  "evidenceClass": "independently reproduced on a narrow CPU workload",
+  "promotionVerdict": "INCONCLUSIVE for any beyond-SOTA claim",
+  "comparison": null,
+  "fullBenchmark": "not run",
+  "costUSD": null,
+  "gpuSpendUSD": 0,
+  "limitations": [
+    "Three shipped originating-team fixtures are not an untouched project-disjoint corpus.",
+    "PTX input and SASS input are different recovery problems; no cross-level coverage superiority inferred.",
+    "Finite tests do not prove semantic equivalence.",
+    "No GPU execution, memory ordering, atomics, warp/barrier, NaN or tensor-core coverage.",
+    "All performance, broader coverage and paper-level reproduction claims remain unverified."
+  ],
+  "artifactHashes": {
+    "copy.ll": "b1cea849da64122ad0e550fa970473ada8af378b4df5aab2471290b8b3877808",
+    "copy.o": "cbc64315a06f484f8c828545b0c83efa587e9595913d9bd50f68fd5b6512112d",
+    "copy-independent.cpp": "f6dfebd612e26f8ba024645f8240f75c5d30ba7cce2088a45ccd03fdcd9d591d",
+    "copy-independent": "c322acbb41bc6b54f5112bda470622b4c16030955f16a3f23d17b22bcba09bb3",
+    "copy-result.json": "c07f0b091a5ff600c90be9d9e4b21ad652cbe9ce59036a207ce26058619d1711",
+    "copy-mutated.ll": "7b4eae314868d9bf74d08b6a24a7f1de99cf4a9695f60a52d6be6d0aa10d16ce",
+    "copy-mutated.o": "3c09a43977a9ad6689640cf84e283e57dff7a8d6617c5be94347effaf83a769a",
+    "copy-mutated": "5fb4aac17cb0d5de3fc3404a01a22898d2cc2720c8e8b841cb36967029f3af08",
+    "mutation-result.json": "cf365e20cfd320ef58e90f756bc0e2af856593f167db16fdaa605bf4e29d7db1",
+    "A5_two_input.ll": "40c3d1050d3fd207ce47c54963953ce5d3b16d1f0ba37e7294521755071c78bf",
+    "A5_two_input.o": "b362b36b9cf37870fc26b82c5cf17007d26b687db5ece2ab325e787a22e3fa04",
+    "float-sum-independent.cpp": "4c8bf63bf26c71a629237dd12c7166df7d3aba425a0005fc8667b7b21ddb2870",
+    "float-sum-independent": "3974fcac4ccff52f2ebd90a029ac46f2a394ec55196906af9148974956b4dab6",
+    "float-sum-result.json": "6ad3e66159186fa45ab86e34a95fdbae408cb3114ea2fe13f82ccfc8133ee152",
+    "B28c_int_div_pow2.ll": "bf6c756a8cbb831ce7f18512db80a0098393632cfa7b336d4893333f657c044e",
+    "B28c_int_div_pow2.o": "4f31c47e17c733b8175b2fcd1522348b72266b559043a6513580b3beb9b011c1",
+    "div-independent.cpp": "6534a46cb158761b825fb705af51d60783fd2af107f0c3c958d1fce58ba5d7f9",
+    "div-independent": "9b25659a4426d321f603e5a1faf755a5ea2deac7041be63695ebcf4531ca1635",
+    "div-result.json": "c07f0b091a5ff600c90be9d9e4b21ad652cbe9ce59036a207ce26058619d1711",
+    "emit-object.py": "7d33f90900914aa6e4587d688a8be9314d7802bc343b6ca5e74a1edf98fba127",
+    "pip-freeze.txt": "857df874617540faec968fdc856b9523c4169cac0f2f0fed4652f7758088c41a",
+    "gcc-version.txt": "78b5d66fa8e53c3cfadb14889dfb5936f1c58888ad49c019e15d3dc59fc64e30"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+  "gpu_worker.py": "b5c3f69f922043770df44cc1f0cd738df6f09f922082bffa54d3d67508abe41c",
+  "ptx-recovery-gpu.cu": "5db3c5391663b5fae4952a1bd02c63256eb85bc77b22d284fb0dd4a26069b44f"
+}

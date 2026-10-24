@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "protocolId": "rure-cuda-recovery-20261023-v1",
+  "status": "frozen-protocol-no-sota-result",
+  "frozenAt": "2026-10-24T00:42:00Z",
+  "owner": "RuRE independent evaluation",
+  "scope": "Executable CUDA recovery on an independently frozen, input-equivalent cohort",
+  "tracks": ["ptx-to-cuda-cpp", "sass-to-executable-ir"],
+  "trackSeparation": "PTX availability is extra information. Do not score a PTX emitter against a SASS-only lifter on unmatched inputs.",
+  "corpus": {
+    "minimumDistinctKernels": 100,
+    "minimumDevelopmentKernels": 70,
+    "minimumConfirmationKernels": 30,
+    "split": "project-and-family-disjoint",
+    "deduplication": "source and independently reviewed canonical-program SHA-256; sizes, seeds, compiler outputs and renamed kernels are not new kernels",
+    "minimumCompilerVersions": 2,
+    "minimumGpuArchitectures": 2,
+    "requiredMatrix": "Every kernel on every frozen compiler/GPU pair; unsupported rows remain in the denominator",
+    "datasetSha256": null,
+    "candidateSha256": null,
+    "evaluatorSha256": null,
+    "reasonBindingsAreNull": "No 100-kernel corpus or final candidate has been frozen or executed by this protocol yet. Bind these in a separate preregistration before testing."
+  },
+  "recovery": {
+    "minimumCoverageGainPercentagePoints": 10,
+    "coverageEvaluation": "Require the same gain on the complete cohort and independently on the untouched confirmation cohort; development gains cannot conceal confirmation failure",
+    "maximumObservedIncorrectAcceptances": 0,
+    "maximumCostPerValidatedKernelRatio": 1,
+    "baseline": "Strongest independently reproduced, licensed, input-equivalent baseline selected before confirmation",
+    "unavailableBaseline": "unknown; never zero and never silently excluded from a broad SOTA claim",
+    "correctExecutable": "Candidate emits CUDA C++ or executable IR without original-program passthrough, compiles, executes and agrees with independent references on all frozen cases",
+    "statistics": "Report exact counts and uncertainty. Zero observed errors is not a universal correctness proof."
+  },
+  "performance": {
+    "separateClaim": true,
+    "minimumGeometricMeanSpeedup": 1.1,
+    "maximumPerWorkloadLatencyRatio": 1.02,
+    "timingScope": "complete-invocation",
+    "baseline": "original binary, current compiler and strongest applicable library on the same admitted workload",
+    "fullCosts": ["development", "search", "compilation", "validation", "inference", "compute", "review", "serving"],
+    "unknownCost": "blocks cost superiority"
+  },
+  "validation": {
+    "independentEvaluator": true,
+    "independentReproduction": true,
+    "requiredCases": ["integer-boundaries", "predication-and-joins", "loop-boundaries", "memory-guards", "unsupported-rejection", "deliberate-mutation-negative-control"],
+    "requiredGpuChecks": ["original-versus-recovered-versus-reference", "memcheck", "synccheck-if-synchronization-admitted"],
+    "confirmationReuse": "One exposure per frozen candidate; further tuning consumes a new disjoint holdout",
+    "authority": "A JSON result, digest, local gate or consensus is not authenticated executor evidence, a semantic proof, approval or release permission."
+  },
+  "currentState": {
+    "sotaProven": false,
+    "promotionVerdict": "INCONCLUSIVE",
+    "blockedBy": ["unfrozen-broad-corpus", "missing-matched-competitor-reproduction", "missing-two-compiler-two-architecture-confirmation", "missing-full-cost-and-independent-promotion-evidence"]
+  },
+  "rollback": "Retain original artifacts; disable experimental executable recovery; preserve static inspection. No automatic merge, package publication or deployment."
+}

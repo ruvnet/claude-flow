@@ -1,0 +1,5 @@
+{"name":"loc_same_line","status":"emitted","diagnostics":[],"tail":["extern \"C\" __global__ void rure_kernel_0(uint64_t rure_arg_0) {","  uint64_t rure_reg_0;","  uint32_t rure_reg_1;","  rure_reg_0 = rure_arg_0;","  rure_reg_1 = static_cast<uint32_t>(0x1ULL);","  rure_reg_1 = static_cast<uint32_t>(0x2ULL);","  rure_detail::store32(rure_reg_0, rure_reg_1);","  return;","}",""]}
+{"name":"loc_missing","status":"invalid","diagnostics":["unsupported debug integer at line 11"]}
+{"name":"loc_fake","status":"invalid","diagnostics":["unsupported debug integer at line 10"]}
+{"name":"loc_hidden_unknown","status":"unsupported","diagnostics":["structural parser reported unsupported constructs"]}
+{"name":"loc_control","status":"emitted","diagnostics":[],"tail":["extern \"C\" __global__ void rure_kernel_0(uint64_t rure_arg_0) {","  uint64_t rure_reg_0;","  uint32_t rure_reg_1;","  rure_reg_0 = rure_arg_0;","  rure_reg_1 = static_cast<uint32_t>(0x1ULL);","  return;","  rure_detail::store32(rure_reg_0, rure_reg_1);","  return;","}",""]}

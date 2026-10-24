@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "independentPlanSha256": "2274fd56eb38d830c195e4be9d454731c1be2527c04d2d67d56bd377140fb1f3",
+  "inputManifestSha256": "b1128c44620b2559a824dcf812533b65fc40d49847e5c5d688843c081f41a4b9",
+  "sourceTranslationInputManifestSha256": "d832f654f51d6155bda360bf947a0d88392166f52c83b48244b511439775bd98",
+  "inputApprovalSha256": "4266429881cd88a7a17911adb0e12a3522cda30a5cc949352a670dc84acfcbb0",
+  "candidateSha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3",
+  "evaluatorHashes": {
+    "run-equal-input.py": "9e315efcd954b5ee466bb1eef73847f97addc3a184e4663b0f57efa609973e77",
+    "generate-driver.py": "a386612cef5935b2bd22ad0da92e5957f28ac0cf334b5b4d35f66bc2ddb30d82",
+    "inspect-abi.py": "7ef9bc46e39d4f798e2f5be3a55aaf9d4820e1a320bd61a655f91a5628d8e99e",
+    "../emit-object.py": "7d33f90900914aa6e4587d688a8be9314d7802bc343b6ca5e74a1edf98fba127"
+  },
+  "kernels": [
+    {
+      "id": "confirm_a71",
+      "symbol": "confirm_a71",
+      "oracleSha256": "29e36ca39f0e7742a4046b0f08308d70c2108b7e2db57ffc096acb1a04fee215"
+    },
+    {
+      "id": "confirm_b83",
+      "symbol": "confirm_b83",
+      "oracleSha256": "9b1c6ae4d0980a481b90aacb465ab43d9c4153011e6509c0c8b9e70dd67956bf"
+    },
+    {
+      "id": "confirm_c97",
+      "symbol": "confirm_c97",
+      "oracleSha256": "8b3ec8532b91e34c1cb4aaf81b6b1121726e45ebc10484064429536d7cf3d6ed"
+    },
+    {
+      "id": "confirm_d29",
+      "symbol": "confirm_d29",
+      "oracleSha256": "203eb8c7d8257fe6915721a5e74d56c4133739efc8d1bc441542614fa6654445"
+    },
+    {
+      "id": "confirm_e43",
+      "symbol": "confirm_e43",
+      "oracleSha256": "b267333991248e75ad69c2525130added98bf6b728675a29bd08b67396b722a1"
+    },
+    {
+      "id": "confirm_f61",
+      "symbol": "confirm_f61",
+      "oracleSha256": "109f1ebfc767d769a54877192e640759257d627f821ab90a3b0e6fbb4c2b7157"
+    }
+  ]
+}

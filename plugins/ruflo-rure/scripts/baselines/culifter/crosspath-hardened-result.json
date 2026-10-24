@@ -1,0 +1,570 @@
+{
+  "schemaVersion": 1,
+  "claim": "Cross-information-level capability evidence only: RuRE PTX input versus CuLifter SASS+ELF input. No SOTA claim.",
+  "sourceCommit": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+  "corpusSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+  "sourceManifestSha256": "0bf6cfe997e8cef489102a0b7aa9dedbff40db05b500e3f29fae01e3dbc3ac9d",
+  "inputManifestSha256": "60a59e193d2c509b2e37046f45c94f55b3beca33bb0a944bd06c69288f9791fe",
+  "inputBindings": {
+    "copy32": {
+      "id": "copy32",
+      "originalPtxSha256": "aa8090c6219ba1376100444179eae79ffe91415b3c9b78e1a9c29bf5cc1a3916",
+      "originalCubinSha256": "15fe042cdbf23c96415c93677f1f40c6babaae072d5f1ea3aa69ca845096a08a",
+      "recoveredCudaSha256": "6501b043888b6a9b991a4559840f9320dbd90c266ea8bae907a5843494202645",
+      "compiledRecoveredPtxSha256": "a0773fb260ae1f12434f3ae61ef6c112857a061ffdc87a6f9c2f960170b1d1b5",
+      "sassSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+      "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0"
+    },
+    "add7_wrap32": {
+      "id": "add7_wrap32",
+      "originalPtxSha256": "fce7405c95a7861a389ac7b2ec44ffdfff40c43b2d9534e9fb50cdfefcea5129",
+      "originalCubinSha256": "0bdafb6268f49f7c640dd8f867e0468cf85425b7bab7b67ed267370ef1658f06",
+      "recoveredCudaSha256": "26f842ffa63654e7946f6fcd6d6449e091712f6273533f556073325c88b56cf4",
+      "compiledRecoveredPtxSha256": "0cdb2a0460c34c1b50045131649eee16d9be044fc2cf0b41fc0efe4c16d4396e",
+      "sassSha256": "6a9acc2bd9fbdf9364c738d470f29422ebda8fdc586fba9190b02742c81cd007",
+      "elfSha256": "6e2a7a2a8ca1d9360bc0f824be13663904b4af113bc69cd08c93dc3c7b9acbcb"
+    },
+    "wide_signed": {
+      "id": "wide_signed",
+      "originalPtxSha256": "334200d779718cc9a9b0cd0d2e1bb527b71e645a0c30945e012c401b65a1bcb8",
+      "originalCubinSha256": "48c579c78a76dd0d85eec7303f9ae5fa522f7202b39e151aa7b3e561c5249019",
+      "recoveredCudaSha256": "16a6805f3f1e7e1fc78ed20cedc982cc6053bd0d52e1c490360046f7098fb1d6",
+      "compiledRecoveredPtxSha256": "2146b478a58056f3c7ad1191a544e5356103856d1aef07518668fbf275be08a3",
+      "sassSha256": "3ede41eb6247566636dd5137be81931a1216111119a8632ec7ba6e5d77c1d96d",
+      "elfSha256": "e5a13d2d0a0be8f1297e1cbaeba4e606c6e51d8606b537b8b5c3278e0a5efa14"
+    },
+    "multiply_low64": {
+      "id": "multiply_low64",
+      "originalPtxSha256": "c634c3512729655e79ea5e00915cecd4452fe76a36bc4c61d90858054543b9eb",
+      "originalCubinSha256": "8cad618ce4e47ff4cf25c517bf35907501d1d086ce38253a8ffa0ed5979b3218",
+      "recoveredCudaSha256": "340595fb4b1d3ca50d6c88e02552e6b3a89da7f959ed43a4670c5cb564bfae24",
+      "compiledRecoveredPtxSha256": "6d893831d30bee8d78610828d6aa7b742611dd7a4372de5e36887287321aa1f6",
+      "sassSha256": "e12e06e5bc18f52633cffa4cfd72e71f9e2a4c5d792dce49aae6f025749404eb",
+      "elfSha256": "e25f77a8a28dffe3e2aa4954d4deac928473367d250cb36e03805392012c5976"
+    }
+  },
+  "inputCompiler": {
+    "architecture": "sm_86",
+    "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+    "cuobjdump": "cuobjdump: NVIDIA (R) fat binary listing tool\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Thu_Feb_13_02:19:26_PST_2025\nCuda compilation tools, release 12.8, V12.8.90\nBuild cuda_12.8.r12.8/compiler.35538042_0\n"
+  },
+  "abi": {
+    "copy32": {
+      "isa": "sm_86",
+      "parameters": [
+        {
+          "ordinal": 0,
+          "offset": 352,
+          "size": 8
+        },
+        {
+          "ordinal": 1,
+          "offset": 360,
+          "size": 8
+        },
+        {
+          "ordinal": 2,
+          "offset": 368,
+          "size": 8
+        },
+        {
+          "ordinal": 3,
+          "offset": 376,
+          "size": 4
+        },
+        {
+          "ordinal": 4,
+          "offset": 384,
+          "size": 8
+        }
+      ],
+      "sassSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+      "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0",
+      "frameSize": 0,
+      "minStackSize": 0,
+      "sharedBytes": 0
+    },
+    "add7_wrap32": {
+      "isa": "sm_86",
+      "parameters": [
+        {
+          "ordinal": 0,
+          "offset": 352,
+          "size": 8
+        },
+        {
+          "ordinal": 1,
+          "offset": 360,
+          "size": 8
+        },
+        {
+          "ordinal": 2,
+          "offset": 368,
+          "size": 8
+        },
+        {
+          "ordinal": 3,
+          "offset": 376,
+          "size": 4
+        },
+        {
+          "ordinal": 4,
+          "offset": 384,
+          "size": 8
+        }
+      ],
+      "sassSha256": "6a9acc2bd9fbdf9364c738d470f29422ebda8fdc586fba9190b02742c81cd007",
+      "elfSha256": "6e2a7a2a8ca1d9360bc0f824be13663904b4af113bc69cd08c93dc3c7b9acbcb",
+      "frameSize": 0,
+      "minStackSize": 0,
+      "sharedBytes": 0
+    },
+    "multiply_low64": {
+      "isa": "sm_86",
+      "parameters": [
+        {
+          "ordinal": 0,
+          "offset": 352,
+          "size": 8
+        },
+        {
+          "ordinal": 1,
+          "offset": 360,
+          "size": 8
+        },
+        {
+          "ordinal": 2,
+          "offset": 368,
+          "size": 8
+        },
+        {
+          "ordinal": 3,
+          "offset": 376,
+          "size": 4
+        },
+        {
+          "ordinal": 4,
+          "offset": 384,
+          "size": 8
+        }
+      ],
+      "sassSha256": "e12e06e5bc18f52633cffa4cfd72e71f9e2a4c5d792dce49aae6f025749404eb",
+      "elfSha256": "e25f77a8a28dffe3e2aa4954d4deac928473367d250cb36e03805392012c5976",
+      "frameSize": 0,
+      "minStackSize": 0,
+      "sharedBytes": 0
+    },
+    "wide_signed": {
+      "isa": "sm_86",
+      "parameters": [
+        {
+          "ordinal": 0,
+          "offset": 352,
+          "size": 8
+        },
+        {
+          "ordinal": 1,
+          "offset": 360,
+          "size": 8
+        },
+        {
+          "ordinal": 2,
+          "offset": 368,
+          "size": 8
+        },
+        {
+          "ordinal": 3,
+          "offset": 376,
+          "size": 4
+        },
+        {
+          "ordinal": 4,
+          "offset": 384,
+          "size": 8
+        }
+      ],
+      "sassSha256": "3ede41eb6247566636dd5137be81931a1216111119a8632ec7ba6e5d77c1d96d",
+      "elfSha256": "e5a13d2d0a0be8f1297e1cbaeba4e606c6e51d8606b537b8b5c3278e0a5efa14",
+      "frameSize": 0,
+      "minStackSize": 0,
+      "sharedBytes": 0
+    }
+  },
+  "drivers": {
+    "corpusSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+    "kernels": [
+      {
+        "id": "copy32",
+        "sourceSha256": "aa8090c6219ba1376100444179eae79ffe91415b3c9b78e1a9c29bf5cc1a3916",
+        "driverSha256": "c0ebaca1ce94afb65ba5881cab4658d4dc4d730772ce0753fd2c909228865dbe"
+      },
+      {
+        "id": "add7_wrap32",
+        "sourceSha256": "fce7405c95a7861a389ac7b2ec44ffdfff40c43b2d9534e9fb50cdfefcea5129",
+        "driverSha256": "0b043cb1ae8f74609e4f81b4ffebd1a833de05454ebb344e0527219fd3df9965"
+      },
+      {
+        "id": "wide_signed",
+        "sourceSha256": "334200d779718cc9a9b0cd0d2e1bb527b71e645a0c30945e012c401b65a1bcb8",
+        "driverSha256": "9fff31b71816269400286c9abee4f155c693a293177190b1db9f03704e1fc8f4"
+      },
+      {
+        "id": "multiply_low64",
+        "sourceSha256": "c634c3512729655e79ea5e00915cecd4452fe76a36bc4c61d90858054543b9eb",
+        "driverSha256": "a4338cacecf2500c4f24f8b51c778127c68e4a62df7b1a0857f3e5471cafcbbf"
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.12.14",
+    "llvm": [
+      22,
+      1,
+      0
+    ],
+    "nativeCompiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+    "nativeCompilerPath": "/usr/bin/g++",
+    "nativeCompilerVersionSha256": "78b5d66fa8e53c3cfadb14889dfb5936f1c58888ad49c019e15d3dc59fc64e30"
+  },
+  "selectedDevelopmentKernels": [
+    "copy32",
+    "add7_wrap32",
+    "multiply_low64",
+    "wide_signed"
+  ],
+  "results": [
+    {
+      "kernel": "copy32",
+      "state": "passed",
+      "cases": 7,
+      "comparisons": 195
+    },
+    {
+      "kernel": "add7_wrap32",
+      "state": "passed",
+      "cases": 7,
+      "comparisons": 195
+    },
+    {
+      "kernel": "multiply_low64",
+      "state": "passed",
+      "cases": 7,
+      "comparisons": 195
+    },
+    {
+      "kernel": "wide_signed",
+      "state": "passed",
+      "cases": 7,
+      "comparisons": 195
+    }
+  ],
+  "caseCount": 28,
+  "comparisonCount": 780,
+  "gpuExecutedByThisProbe": false,
+  "costUSD": null,
+  "promotionVerdict": "INCONCLUSIVE",
+  "runs": [
+    {
+      "label": "native-compiler-version",
+      "argv": [
+        "/usr/bin/g++",
+        "--version"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0017006380003294908
+    },
+    {
+      "label": "abi",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/inspect-crosspath-abi.py",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/source",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11174417300208006
+    },
+    {
+      "label": "drivers",
+      "argv": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/generate-crosspath.mjs",
+        "/workspace/scratch/16fc07be6201/rure-recovery-eval/plugins/ruflo-rure/scripts/fixtures/ptx-recovery/corpus.mjs",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/parameter-offsets.json",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay"
+      ],
+      "exitCode": 0,
+      "seconds": 0.04728875599539606
+    },
+    {
+      "label": "copy32-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/source/main.py",
+        "-i",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/copy32.sass",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/copy32.elf",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32",
+        "-name",
+        "copy32",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.2465698070009239
+    },
+    {
+      "label": "copy32-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/emit-object.py",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32.ll",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.06469984600698808
+    },
+    {
+      "label": "copy32-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32-independent.cpp",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32.o",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1417878540014499
+    },
+    {
+      "label": "copy32-execute",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/copy32"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0029830279963789508
+    },
+    {
+      "label": "add7_wrap32-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/source/main.py",
+        "-i",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/add7_wrap32.sass",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/add7_wrap32.elf",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32",
+        "-name",
+        "add7_wrap32",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07903206899936777
+    },
+    {
+      "label": "add7_wrap32-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/emit-object.py",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32.ll",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.06545287700282643
+    },
+    {
+      "label": "add7_wrap32-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32-independent.cpp",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32.o",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32"
+      ],
+      "exitCode": 0,
+      "seconds": 0.11385120500199264
+    },
+    {
+      "label": "add7_wrap32-execute",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/add7_wrap32"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0016340919974027202
+    },
+    {
+      "label": "multiply_low64-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/source/main.py",
+        "-i",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/multiply_low64.sass",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/multiply_low64.elf",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64",
+        "-name",
+        "multiply_low64",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0790235250024125
+    },
+    {
+      "label": "multiply_low64-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/emit-object.py",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64.ll",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.07382784700166667
+    },
+    {
+      "label": "multiply_low64-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64-independent.cpp",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64.o",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64"
+      ],
+      "exitCode": 0,
+      "seconds": 0.09552493199589662
+    },
+    {
+      "label": "multiply_low64-execute",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/multiply_low64"
+      ],
+      "exitCode": 0,
+      "seconds": 0.001112969999667257
+    },
+    {
+      "label": "wide_signed-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/source/main.py",
+        "-i",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/wide_signed.sass",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/crosspath-inputs/wide_signed.elf",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed",
+        "-name",
+        "wide_signed",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0796791190005024
+    },
+    {
+      "label": "wide_signed-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/bundle/emit-object.py",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed.ll",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed.o"
+      ],
+      "exitCode": 0,
+      "seconds": 0.05903802799730329
+    },
+    {
+      "label": "wide_signed-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed-independent.cpp",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed.o",
+        "-o",
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed"
+      ],
+      "exitCode": 0,
+      "seconds": 0.1042868489967077
+    },
+    {
+      "label": "wide_signed-execute",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline/evidence/crosspath-hardened-replay/wide_signed"
+      ],
+      "exitCode": 0,
+      "seconds": 0.0012142129999119788
+    }
+  ],
+  "evaluatorHashes": {
+    "run-crosspath.py": "f632e1b2eda6058be1bc41af05e6852dc37c8fb9513b33cad808511f0e45a8ff",
+    "inspect-crosspath-abi.py": "e8c1f5179a4840128e3b9008c0d231883508e1084c9beb7b74ed97f39ca8ecdf",
+    "generate-crosspath.mjs": "ab9e5817fd5dfbec4194d7bc497bd686fe0e22e1d4d4de480e4f8c2ab9a3f935",
+    "emit-object.py": "7d33f90900914aa6e4587d688a8be9314d7802bc343b6ca5e74a1edf98fba127"
+  },
+  "artifactHashes": {
+    "multiply_low64-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "wide_signed.ll": "4b29fc7a0eadbfb705027b695828a78644dba3f6f878a086eff0d2bd5206ca24",
+    "wide_signed-object.stdout": "8caea357d3a97cb80fc3973a0af60564c5d38e7d7408ef59582f1a608035648f",
+    "add7_wrap32-object.stdout": "59c80215b5b2e09c1128d798a125f66b11f3dc2a0ed5f676f17d3addb43ba7a4",
+    "add7_wrap32-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "multiply_low64-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32-execute.stdout": "4fbd7d4c8686f2edaeb98d8ea27fea4bd198ec06463a576a438591497f80dd15",
+    "multiply_low64-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "multiply_low64.ll": "5968ec0e7b5292a66cb9ccdb2d54ed10eea205ac2b94c49697ae208e5b7f3b2f",
+    "multiply_low64-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "multiply_low64-independent.cpp": "a4338cacecf2500c4f24f8b51c778127c68e4a62df7b1a0857f3e5471cafcbbf",
+    "multiply_low64-object.stdout": "09b6271bc00fd562b3372ec32a902e93510b267e2f2f2deec63ca8c82f0e666f",
+    "wide_signed-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "drivers.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "wide_signed-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32": "20ad7bd558f89a434934965fce47b00c536fd04a957b8acefc64add2771d0ac2",
+    "add7_wrap32-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32.ll": "d3fcf37004134767ad2fd523c6e10f512221da82462b98faa34984da70ce045c",
+    "wide_signed-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "multiply_low64-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32.o": "0c21755b40ce7be40e0bbc88ff541e9692954649a60ac800d61313c12fe55ffe",
+    "wide_signed.o": "e938c1c5b5ee719c8c06f1271f24842abfc8bb12809e3cb9ce2b10049d68bf78",
+    "wide_signed-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "wide_signed-independent.cpp": "9fff31b71816269400286c9abee4f155c693a293177190b1db9f03704e1fc8f4",
+    "add7_wrap32-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "wide_signed-execute.stdout": "c721837200f9ac65c594695c8dbe250bf450d68fdb5063b1c76b8b105ab0d956",
+    "wide_signed-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32": "c05c86d6e6c323069d8bb40bdda1c355806b10e5e07c3115303035c72a97199e",
+    "drivers.stdout": "4e594b4d00b6e003bbd6fa6b54e4c4119e9f752ea69c322fd915b849273f2b71",
+    "native-compiler-version.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32.ll": "835118bac845bd58363b811da1fe556669b00e490dfded734dac17b3b92776ef",
+    "copy32-object.stdout": "073a2f39ca198516ade3d7b12d940c9ae449c56405a8f3eabda34e19bc3148c6",
+    "add7_wrap32-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "abi.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "add7_wrap32-independent.cpp": "0b043cb1ae8f74609e4f81b4ffebd1a833de05454ebb344e0527219fd3df9965",
+    "wide_signed": "2833e2f283a3c1265c4de2a9a20eb83db3b49359d350e2c3036b0fa2fb4ac2b2",
+    "copy32-execute.stdout": "88529b2b836384de0e662ec7e56f194ceae3a852a626331975dcc57f039c6de2",
+    "parameter-offsets.json": "c12afd3c0001aa5b71fd6c4376ccb7560ad4da245ecc0a9733c4c6304c45d77c",
+    "native-compiler-version.stdout": "78b5d66fa8e53c3cfadb14889dfb5936f1c58888ad49c019e15d3dc59fc64e30",
+    "copy32-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "crosspath-drivers.json": "8d73d6080d14cf61afc7aa29e657d7b0dc0a6b2c81428248ad6d0aefb7f66d31",
+    "copy32-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "abi-inspection.json": "001d60c361302da5bd7e493687b455970c898d01e78c926eeb918e71922587a8",
+    "multiply_low64-execute.stdout": "b6d3dfb8c76f81a3f4b2bd9c165bdae36c858dff219271917eaa3c5707ae43f6",
+    "copy32-independent.cpp": "c0ebaca1ce94afb65ba5881cab4658d4dc4d730772ce0753fd2c909228865dbe",
+    "multiply_low64.o": "e2e05f773e7fc67ebb909565ac5dac2490f38fc5ff2f74cb279e1f07b94876f4",
+    "multiply_low64-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32.o": "8193b655a715145987182f7009739e6ede07ba3e90fac9e5e71e77a3e9ec62c1",
+    "wide_signed-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "abi.stdout": "153469ed686be04dce6c4a152e5d351e04889db757130beeb5624531111c6f10",
+    "multiply_low64": "a4645df8e3abcf7f81e0735e5bfcb9bfaeae6692034d3add5aa8eea203cd3b54",
+    "add7_wrap32-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "copy32-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

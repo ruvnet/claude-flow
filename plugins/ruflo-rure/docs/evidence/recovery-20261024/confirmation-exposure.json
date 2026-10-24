@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "priorConfirmationExecutions": 0,
+  "confirmationExecutionNumber": 1,
+  "candidate": {
+    "modulePath": "/workspace/scratch/16fc07be6201/rure-semantic-backend/v3/@claude-flow/cli/src/rure/ptx-recover.ts",
+    "moduleSha256": "eb8db24b283ae204b7ae0c5ea0971f2256e5d6169603c85566c9ab13a4485b66",
+    "dependencies": [
+      {
+        "name": "ptx-decompile",
+        "sourceSha256": "777a0fefb8056e647ea457f13491190f7fd8c03fe2d75cd146a9334eb11f2a30",
+        "transformedSha256": "656db56b70de193e17e8cc608b9514ad88938935e9bdbff2299aa280859c97bf"
+      },
+      {
+        "name": "ptx-recover",
+        "sourceSha256": "eb8db24b283ae204b7ae0c5ea0971f2256e5d6169603c85566c9ab13a4485b66",
+        "transformedSha256": "03d0e5a6ba0fa7cf043fceba785bc5942626cebfe1119409fc206c570594ed79"
+      }
+    ],
+    "loader": "node:module stripTypeScriptTypes(mode=transform); adjacent parser staged; no runtime source transformation"
+  },
+  "manifestSha256": "8f3e3e24e6791b0cf1deb992f3a72c49e7388a915a71433a958815b16666f606",
+  "evaluatorSha256": "bbe49c3dc001d11caefba935dd27ae49242f02a30cb4d49fa848300d67435f94",
+  "status": "pass",
+  "kernels": 8,
+  "cases": 56,
+  "elementComparisons": 1560,
+  "contextSeparation": true,
+  "accessControlledSecret": false,
+  "firstExecutionCompletedAt": "2026-10-24T00:45:48.040Z"
+}

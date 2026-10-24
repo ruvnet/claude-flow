@@ -1,0 +1,91 @@
+{
+  "completionVersion": 1,
+  "completionVerified": true,
+  "status": "ok",
+  "exitCode": 0,
+  "sourceCommit": "c34187b6cc6a64ea4f5a4991dc012b44e2ae2808",
+  "e2e": {
+    "status": "pass",
+    "claim": "structural reconstruction and bounded integer IR semantics",
+    "cases": 18,
+    "elementComparisons": 3576,
+    "realFixtureInstructions": 32,
+    "confirmationSha256": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+    "roundtripSha256": "5832cc22e73e300a4402b198d56d88ddf951aa63002cc0bf798a01fdf4855672",
+    "node": "v24.21.0",
+    "validationMs": 142.427613,
+    "benchmark": {
+      "samples": 100,
+      "inputBytes": 1749,
+      "medianMs": 0.361629999999991,
+      "p95Ms": 0.7829800000000091,
+      "peakRssBytes": 92835840,
+      "claim": "single-process parser measurements; no acceleration claim"
+    }
+  },
+  "ablation": {
+    "claim": "controlled label-aggregation ablation only, not original pre-fix source snapshot",
+    "candidateSha256": "3a90b5c9886d44d963c1d268bd33154035852f33ab86dfa2242ad00f83d6d413",
+    "baselineSha256": "c3c4fbd5fe39f770cbb3d9163bce7a815d9df40ebf002d4947a791bc1c377c34",
+    "workloadSha256": "de48031bcccf44cb062a298ea6a1887c3dd66f32d423eea7cc44669e8a4b9e97",
+    "workloadBytes": 23529,
+    "labels": 4096,
+    "instructions": 1,
+    "samples": 5,
+    "warmupPerVariant": 1,
+    "order": "alternate baseline/candidate each repetition",
+    "acceptance": {
+      "exactJSONOutputEqual": true,
+      "candidateComplete": true,
+      "medianImprovementMinimum": 0.1
+    },
+    "p95Estimator": "nearest rank (5 samples => maximum)",
+    "node": "v24.21.0",
+    "platform": "linux",
+    "architecture": "x64",
+    "cpu": "AMD EPYC",
+    "rawMs": {
+      "baseline": [
+        59.32248100000001,
+        83.16025200000001,
+        63.58961099999999,
+        63.951910999999996,
+        66.84389099999999
+      ],
+      "candidate": [
+        9.340379999999982,
+        17.704050999999993,
+        9.155321000000015,
+        11.96017999999998,
+        7.659570000000031
+      ]
+    },
+    "baseline": {
+      "samples": 5,
+      "medianMs": 63.951910999999996,
+      "p95Ms": 83.16025200000001
+    },
+    "candidate": {
+      "samples": 5,
+      "medianMs": 9.340379999999982,
+      "p95Ms": 17.704050999999993
+    },
+    "medianImprovement": 0.8539468195094282,
+    "outputSha256": "05bd1c3461f024c6675e4382a0596169d72bd0e12435ed886cfa01ef5050ba04",
+    "exactOutputEquality": true,
+    "verdict": "ACCEPT",
+    "costUSD": null,
+    "scope": "controlled synthetic parser aggregation only; not GPU or real workload speed",
+    "hostile": {
+      "labels": 20000,
+      "inputSha256": "54b8ae1641f3521d60d142fa3177a65f0293bf70a33fe1cbacd82a8ea75b1e05",
+      "bytes": 128953,
+      "ms": 27.53177000000005,
+      "status": "invalid",
+      "truncated": true,
+      "warnings": [
+        "label count exceeds 4096"
+      ]
+    }
+  }
+}

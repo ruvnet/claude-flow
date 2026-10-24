@@ -1,0 +1,54 @@
+{
+  "changes": [
+    {
+      "package": "node_modules/@claude-flow/cli",
+      "before": "3.60.1",
+      "after": "3.60.1",
+      "oldResolved": "file:../rure-recovery-pack/claude-flow-cli-3.60.1.tgz",
+      "newResolved": "file:../rure-sass-pack/claude-flow-cli-3.60.1.tgz"
+    },
+    {
+      "package": "node_modules/@metaharness/router",
+      "before": "0.3.2",
+      "after": null,
+      "oldResolved": "https://registry.npmjs.org/@metaharness/router/-/router-0.3.2.tgz",
+      "newResolved": null
+    },
+    {
+      "package": "node_modules/@modelcontextprotocol/client/node_modules/jose",
+      "before": null,
+      "after": "6.2.13",
+      "oldResolved": null,
+      "newResolved": "https://registry.npmjs.org/jose/-/jose-6.2.13.tgz"
+    },
+    {
+      "package": "node_modules/@modelcontextprotocol/sdk/node_modules/jose",
+      "before": null,
+      "after": "6.2.13",
+      "oldResolved": null,
+      "newResolved": "https://registry.npmjs.org/jose/-/jose-6.2.13.tgz"
+    },
+    {
+      "package": "node_modules/@opentelemetry/api",
+      "before": "1.10.0",
+      "after": "1.9.1",
+      "oldResolved": "https://registry.npmjs.org/@opentelemetry/api/-/api-1.10.0.tgz",
+      "newResolved": "https://registry.npmjs.org/@opentelemetry/api/-/api-1.9.1.tgz"
+    },
+    {
+      "package": "node_modules/jose",
+      "before": "6.2.13",
+      "after": null,
+      "oldResolved": "https://registry.npmjs.org/jose/-/jose-6.2.13.tgz",
+      "newResolved": null
+    },
+    {
+      "package": "node_modules/ruvector/node_modules/@metaharness/router",
+      "before": null,
+      "after": "0.3.2",
+      "oldResolved": null,
+      "newResolved": "https://registry.npmjs.org/@metaharness/router/-/router-0.3.2.tgz"
+    }
+  ],
+  "lockSha256": "98fa41cc5c7a55a6156a308a38ec89f304888eb388b8cec56ce78de1eb6f530a"
+}

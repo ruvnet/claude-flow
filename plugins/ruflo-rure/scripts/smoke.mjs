@@ -7,7 +7,7 @@ const check = (name, ok) => { if (!ok) throw new Error(name); checks.push(name);
 const manifest = JSON.parse(read('.claude-plugin/plugin.json'));
 check('manifest name', manifest.name === 'ruflo-rure');
 check('manifest semver', /^\d+\.\d+\.\d+$/.test(manifest.version));
-check('manifest description states experimental/Phase 1 scope', /experimental/i.test(manifest.description) && /Phase 1/i.test(manifest.description));
+check('manifest states experimental static scope', /experimental/i.test(manifest.description) && /parses, never executes/i.test(manifest.description));
 check('no component arrays', !manifest.skills && !manifest.commands && !manifest.agents);
 
 for (const dir of ['skills', 'commands', 'agents', 'docs/adrs']) {
@@ -17,6 +17,9 @@ check('ADR-0001 exists', existsSync(new URL('docs/adrs/0001-scope-and-dual-use-p
 check('ADR-0002 exists', existsSync(new URL('docs/adrs/0002-phase1-architecture.md', root)));
 check('ADR-0005 exists', existsSync(new URL('docs/adrs/0005-phase4-evm-bytecode.md', root)));
 check('ADR-0006 exists', existsSync(new URL('docs/adrs/0006-phase5-cuda-fatbin-static-analysis.md', root)));
+check('ADR-0007 exists', existsSync(new URL('docs/adrs/0007-phase6-ptx-decompilation.md', root)));
+check('ADR-0008 exists', existsSync(new URL('docs/adrs/0008-cuda-semantic-validation.md', root)));
+check('ADR-0009 exists', existsSync(new URL('docs/adrs/0009-executable-ptx-recovery.md', root)));
 check('ADR-0004 exists', existsSync(new URL('docs/adrs/0004-phase3-dotnet-metadata.md', root)));
 check('ADR-0003 exists', existsSync(new URL('docs/adrs/0003-phase2-native-binary-static-analysis.md', root)));
 
@@ -62,7 +65,14 @@ check('rure-tools.ts references MAX_BINARY_BYTES', /MAX_BINARY_BYTES/.test(tools
 
 // Tool names referenced by the skill/command/agent docs must exist on the tool list.
 const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].map((m) => m[1]));
-check('exactly seven tools (three Phase 1, one each Phase 2, 3, 4 and 5)', toolNames.size === 7);
+check('exactly nine tools including SASS text recovery', toolNames.size === 9);
+check('SASS recovery is registered', toolNames.has('rure_recover_sass'));
+check('SASS byte cap is wired', toolsSrc.includes('MAX_SASS_RECOVERY_BYTES'));
+check('ADR-0010 exists', existsSync(new URL('docs/adrs/0010-executable-sass-text-recovery.md', root)));
+check('PTX decompiler is registered', toolNames.has('rure_decompile_ptx'));
+check('PTX decompiler byte cap is wired', toolsSrc.includes('MAX_PTX_DECOMPILE_BYTES'));
+check('CUDA recovery is explicit and never executed by tool', toolsSrc.includes("['pseudocode', 'cuda']") && toolsSrc.includes('recoverPtx(source)'));
+check('modified CUDA presentation is withheld', toolsSrc.includes("input.output === 'cuda' && presentationModified") && toolsSrc.includes('result = withheldRecovery()'));
 for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm', 'rure_analyze_cuda']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }

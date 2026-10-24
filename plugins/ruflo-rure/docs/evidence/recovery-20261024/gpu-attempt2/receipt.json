@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "correctnessVerdict": "ACCEPT",
+  "performanceVerdict": "REJECT",
+  "sotaVerdict": "INCONCLUSIVE",
+  "claimScope": "24 public synthetic scalar integer PTX kernels compiled to executable CUDA C++ on one RTX3060/CUDA12.8 environment",
+  "kernels": 24,
+  "cases": 168,
+  "elementComparisons": 9360,
+  "negativeControl": {
+    "exitCode": 1,
+    "stderr": "mismatch kernel=add7_wrap32 count=1 variant=1 byte=0 expected=7 actual=8\n",
+    "detected": true
+  },
+  "memcheck": {
+    "status": "pass",
+    "scope": "counts 0, 1 and 33 of each kernel; timing omitted",
+    "cases": 72,
+    "elementComparisons": 2784,
+    "errors": 0
+  },
+  "timing": {
+    "scope": "host cuLaunchKernel plus cuCtxSynchronize at count 65; allocations, transfers and module loading excluded",
+    "samplesPerVariant": 100,
+    "kernelCount": 24,
+    "geometricMeanMedianSpeedup": 0.992797484,
+    "regressionsAbove2Percent": 3,
+    "gatePassed": false,
+    "clocksLocked": false
+  },
+  "environment": "NVIDIA GeForce RTX 3060, 595.84, 12288 MiB, 8.6\n",
+  "image": "nvidia/cuda@sha256:6617a625f4090c76c545a0e7d63f2e441718ef9af7f4efe7dd1242a29e289fd7",
+  "inputs": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "875ba47c6701bbaa702397024003f37c7fcc6eb151c1db4b15ab1b79a09a3830",
+    "ptx-recovery-gpu.cu": "9736c2f988c69e5a3a25f6851bb4b6503b0b8c7fb56eafc875e02edc0838b8a3"
+  },
+  "rawReceiptSha256": "311f899315944390d1d65bd8dcf0e068aa0249f16351924f316c712debbffbf6",
+  "baselineInputsSha256": "9bccdd41c91e87c37460a9367dff5a1a2c314e1ea4316327b0250d600570aea4",
+  "lifecycleSeconds": 95.24961495399475,
+  "hourlyQuoteUsd": 0.10777777777777778,
+  "fullDurationQuoteReserveUsd": 0.028506944444444446,
+  "computeStorageQuoteEstimateUsd": 0.002851608842758485,
+  "actualBilledUsd": null,
+  "actualNetworkCostUsd": null,
+  "cleanup": {
+    "verifiedAbsent": true,
+    "exactInstanceAbsent": true,
+    "labelAbsent": true,
+    "totalInstances": 0,
+    "observedAtUnix": 1792803749.470867
+  },
+  "limitations": [
+    "Synthetic workload, not representative SOTA corpus",
+    "One GPU architecture and one compiler",
+    "No reproduced strongest external head-to-head GPU baseline",
+    "Compiled cubin and generated PTX bytes not retained; their hashes are recorded",
+    "Timing excludes allocation, transfer and module load"
+  ],
+  "executor": {
+    "completionVersion": 1,
+    "completionVerified": true,
+    "status": "ok",
+    "exitCode": 0
+  },
+  "cumulative": {
+    "rentalSeconds": 283.54969811439514,
+    "computeStorageQuoteEstimateUsd": 0.008488987875647015,
+    "fullDurationQuoteReserveUsd": 0.11090277777777778,
+    "actualBilledUsd": null,
+    "actualNetworkCostUsd": null
+  },
+  "sanitization": {
+    "removedFields": [
+      "executor.machineId"
+    ],
+    "originalReceiptSha256": "a88dd591dbd89520b52eda0299a361a8ed4cde790e6cf6ead0d66a60b4630df4"
+  }
+}

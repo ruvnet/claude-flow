@@ -1,0 +1,283 @@
+{
+  "status": "pass",
+  "sourceCommit": "bc5a9f0fc7de929bb6965d7fed28a4dde6c1ef4b",
+  "sourceFiles": 98,
+  "kernels": 3,
+  "cases": 27,
+  "comparisons": 5769,
+  "results": [
+    {
+      "kernel": "addr_A1_copy_1d_int",
+      "status": "pass",
+      "kernels": 1,
+      "cases": 9,
+      "comparisons": 1923,
+      "guard_elements_per_case": 32
+    },
+    {
+      "kernel": "A5_two_input",
+      "status": "pass",
+      "kernels": 1,
+      "cases": 9,
+      "comparisons": 1923,
+      "guard_elements_per_case": 32,
+      "floating_scope": "finite exactly representable dyadic values only"
+    },
+    {
+      "kernel": "B28c_int_div_pow2",
+      "status": "pass",
+      "kernels": 1,
+      "cases": 9,
+      "comparisons": 1923,
+      "guard_elements_per_case": 32
+    }
+  ],
+  "negativeControl": {
+    "status": "fail",
+    "n": 1,
+    "index": 0,
+    "expected": 0,
+    "actual": 1
+  },
+  "llvm": [
+    22,
+    1,
+    0
+  ],
+  "python": "3.12.14",
+  "gpuExecuted": false,
+  "claim": "Narrow CPU reproduction only; no superiority or semantic proof.",
+  "sourceManifestSha256": "0bf6cfe997e8cef489102a0b7aa9dedbff40db05b500e3f29fae01e3dbc3ac9d",
+  "artifactHashes": {
+    "A5_two_input-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutation-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int": "c322acbb41bc6b54f5112bda470622b4c16030955f16a3f23d17b22bcba09bb3",
+    "mutation-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A5_two_input.o": "b362b36b9cf37870fc26b82c5cf17007d26b687db5ece2ab325e787a22e3fa04",
+    "B28c_int_div_pow2-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "B28c_int_div_pow2-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutation-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A5_two_input-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A5_two_input-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A5_two_input-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int.ll": "cbdbc595e264ba2ef3bb9884b44a6fd7cb3855310b8e8a9081a5216b2ab1fd71",
+    "A5_two_input.ll": "1f2cb97ee7a4936ffaa4f4584d20ee8a8ba6e88c4d9d984090a932afa59ee6a2",
+    "A1_copy_1d_int-object.stdout": "bfa80bbc9dd498d34a298c318913cad5bf9cd0484492b8c99c6d9cbbbcb6ac78",
+    "B28c_int_div_pow2-execute.stdout": "c07f0b091a5ff600c90be9d9e4b21ad652cbe9ce59036a207ce26058619d1711",
+    "A5_two_input-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutated": "5fb4aac17cb0d5de3fc3404a01a22898d2cc2720c8e8b841cb36967029f3af08",
+    "B28c_int_div_pow2-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutated.o": "3c09a43977a9ad6689640cf84e283e57dff7a8d6617c5be94347effaf83a769a",
+    "A5_two_input-execute.stdout": "6ad3e66159186fa45ab86e34a95fdbae408cb3114ea2fe13f82ccfc8133ee152",
+    "A1_copy_1d_int.o": "cbc64315a06f484f8c828545b0c83efa587e9595913d9bd50f68fd5b6512112d",
+    "mutation-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "B28c_int_div_pow2.ll": "fc0283065a74aaf1fc3e522b953e6ffe06775ed94735bd9e1186034856e6fc96",
+    "A1_copy_1d_int-object.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "B28c_int_div_pow2-object.stdout": "bfa80bbc9dd498d34a298c318913cad5bf9cd0484492b8c99c6d9cbbbcb6ac78",
+    "B28c_int_div_pow2-lift.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "B28c_int_div_pow2.o": "4f31c47e17c733b8175b2fcd1522348b72266b559043a6513580b3beb9b011c1",
+    "mutation-object.stdout": "bfa80bbc9dd498d34a298c318913cad5bf9cd0484492b8c99c6d9cbbbcb6ac78",
+    "A5_two_input-object.stdout": "8caea357d3a97cb80fc3973a0af60564c5d38e7d7408ef59582f1a608035648f",
+    "B28c_int_div_pow2-execute.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A1_copy_1d_int-link.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "A5_two_input": "3974fcac4ccff52f2ebd90a029ac46f2a394ec55196906af9148974956b4dab6",
+    "mutation-execute.stdout": "cf365e20cfd320ef58e90f756bc0e2af856593f167db16fdaa605bf4e29d7db1",
+    "B28c_int_div_pow2-link.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mutated.ll": "642ce51e54e6ba3425a1cb2087e90bd0a13beec099db079e1f79c854289eba2f",
+    "A5_two_input-lift.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "B28c_int_div_pow2": "9b25659a4426d321f603e5a1faf755a5ea2deac7041be63695ebcf4531ca1635",
+    "A1_copy_1d_int-execute.stdout": "c07f0b091a5ff600c90be9d9e4b21ad652cbe9ce59036a207ce26058619d1711"
+  },
+  "runs": [
+    {
+      "label": "A1_copy_1d_int-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/tmp/rure-culifter-root-replay/source/main.py",
+        "-i",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.sass",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/A1_copy_1d_int/A1_copy_1d_int_sm90.elf",
+        "-o",
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int",
+        "-name",
+        "addr_A1_copy_1d_int",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.2871671979955863
+    },
+    {
+      "label": "A1_copy_1d_int-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/emit-object.py",
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int.ll",
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int.o"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.07339973199850647
+    },
+    {
+      "label": "A1_copy_1d_int-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/copy-independent.cpp",
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int.o",
+        "-o",
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.23252479299844708
+    },
+    {
+      "label": "A1_copy_1d_int-execute",
+      "argv": [
+        "/tmp/rure-culifter-root-replay/A1_copy_1d_int"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.002536510000936687
+    },
+    {
+      "label": "A5_two_input-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/tmp/rure-culifter-root-replay/source/main.py",
+        "-i",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/A5_two_input/A5_two_input_sm90.sass",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/A5_two_input/A5_two_input_sm90.elf",
+        "-o",
+        "/tmp/rure-culifter-root-replay/A5_two_input",
+        "-name",
+        "A5_two_input",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.08717234800133156
+    },
+    {
+      "label": "A5_two_input-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/emit-object.py",
+        "/tmp/rure-culifter-root-replay/A5_two_input.ll",
+        "/tmp/rure-culifter-root-replay/A5_two_input.o"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.07141874599619769
+    },
+    {
+      "label": "A5_two_input-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/float-sum-independent.cpp",
+        "/tmp/rure-culifter-root-replay/A5_two_input.o",
+        "-o",
+        "/tmp/rure-culifter-root-replay/A5_two_input"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.22279604800132802
+    },
+    {
+      "label": "A5_two_input-execute",
+      "argv": [
+        "/tmp/rure-culifter-root-replay/A5_two_input"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.002300865002325736
+    },
+    {
+      "label": "B28c_int_div_pow2-lift",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/tmp/rure-culifter-root-replay/source/main.py",
+        "-i",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/B28c_int_div_pow2/B28c_int_div_pow2_sm90.sass",
+        "/tmp/rure-culifter-root-replay/source/test/addrtest/B28c_int_div_pow2/B28c_int_div_pow2_sm90.elf",
+        "-o",
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2",
+        "-name",
+        "B28c_int_div_pow2",
+        "--lifter",
+        "x86"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.0873278030048823
+    },
+    {
+      "label": "B28c_int_div_pow2-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/emit-object.py",
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2.ll",
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2.o"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.06752067000343231
+    },
+    {
+      "label": "B28c_int_div_pow2-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/div-independent.cpp",
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2.o",
+        "-o",
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.25100411500170594
+    },
+    {
+      "label": "B28c_int_div_pow2-execute",
+      "argv": [
+        "/tmp/rure-culifter-root-replay/B28c_int_div_pow2"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.0023907499999040738
+    },
+    {
+      "label": "mutation-object",
+      "argv": [
+        "/workspace/scratch/16fc07be6201/culifter-baseline-venv/bin/python",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/emit-object.py",
+        "/tmp/rure-culifter-root-replay/mutated.ll",
+        "/tmp/rure-culifter-root-replay/mutated.o"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.06118798899842659
+    },
+    {
+      "label": "mutation-link",
+      "argv": [
+        "/usr/bin/g++",
+        "-std=c++20",
+        "-O2",
+        "/workspace/scratch/16fc07be6201/ruflo-cuda/plugins/ruflo-rure/scripts/baselines/culifter/copy-independent.cpp",
+        "/tmp/rure-culifter-root-replay/mutated.o",
+        "-o",
+        "/tmp/rure-culifter-root-replay/mutated"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.21882611899491167
+    },
+    {
+      "label": "mutation-execute",
+      "argv": [
+        "/tmp/rure-culifter-root-replay/mutated"
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 0.0022352649975800887
+    }
+  ]
+}
