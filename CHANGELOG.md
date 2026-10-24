@@ -5,6 +5,19 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.61.1] - 2026-10-24
+
+Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.61.1. No leaf package changed, so no standalone publishes.
+
+### Added
+
+- `ruflo-console` 0.48.0 (ADR-499): the ruRE page can read a folder outside the project that you allow. New plugin option `rureFolders` (`name=/absolute/folder` pairs); a sample then names it as `@name/sub/file`. Absolute paths, `..` and odd characters in a sample are still refused; the folder and every part below it must not be a link; and changing the option is an install-class write that always asks you first (Claude's console tools can only propose it at the full control level). ruRE still only parses. This is the version that `ruflo tui` ships, which is why it needs a CLI release.
+
+### Notes
+
+- CI: plugin pull requests now fail unless the plugin's `plugin.json` version rises when shipped files change (#4447).
+- `@claude-flow/plugins` (#4451, registry caches no longer re-run a surviving plugin's `register*` methods) is not a CLI dependency and is not part of this release.
+
 ## [3.61.0] - 2026-10-23
 
 Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.61.0. Adds one MCP tool (`rure_analyze_cuda`). No leaf package changed, so no standalone publishes.
