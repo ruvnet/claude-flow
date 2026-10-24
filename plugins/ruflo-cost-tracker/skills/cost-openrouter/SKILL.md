@@ -1,6 +1,6 @@
 ---
 name: cost-openrouter
-description: OpenRouter real spend — key limit and usage today/week/month, one request's billed cost by generation id, account credits. Use when asked what OpenRouter charged or whether a key is near its limit. Network and API key: asks first.
+description: "OpenRouter real spend — key limit and usage today/week/month, one request's billed cost by generation id, account credits. Use when asked what OpenRouter charged or whether a key is near its limit. Network and API key: asks first."
 argument-hint: "key | generation <id> | credits"
 allowed-tools: Bash
 ---

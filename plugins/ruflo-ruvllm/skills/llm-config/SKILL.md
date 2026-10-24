@@ -1,6 +1,6 @@
 ---
 name: llm-config
-description: Configure RuVLLM local inference helpers: generate a config, and create and adapt in-process MicroLoRA and SONA instances from quality signals. Use when you need local, air-gapped inference tooling, not for fine-tuning hosted models.
+description: "Configure RuVLLM local inference helpers: generate a config, and create and adapt in-process MicroLoRA and SONA instances from quality signals. Use when you need local, air-gapped inference tooling, not for fine-tuning hosted models."
 argument-hint: "[--model MODEL] [--adapter microlora|sona]"
 allowed-tools: mcp__plugin_ruflo-core_ruflo__ruvllm_generate_config mcp__plugin_ruflo-core_ruflo__ruvllm_status mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_create mcp__plugin_ruflo-core_ruflo__ruvllm_microlora_adapt mcp__plugin_ruflo-core_ruflo__ruvllm_sona_create mcp__plugin_ruflo-core_ruflo__ruvllm_sona_adapt Bash
 ---
