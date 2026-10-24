@@ -45,6 +45,38 @@ export interface PluginEntry {
   loadTime: Date;
   initTime?: Date;
   error?: string;
+  /**
+   * Extension points returned by the plugin at initialization time.
+   *
+   * Cache invalidation must replay these values instead of calling the
+   * plugin's register* methods again: those methods may have side effects,
+   * and plugins may return a new array (or allocate resources) per call.
+   */
+  extensionPoints?: ExtensionPointCollection;
+}
+
+interface ExtensionPointCollection {
+  agentTypes: AgentTypeDefinition[];
+  taskTypes: TaskTypeDefinition[];
+  mcpTools: MCPToolDefinition[];
+  cliCommands: CLICommandDefinition[];
+  memoryBackends: MemoryBackendFactory[];
+  hooks: HookDefinition[];
+  workers: WorkerDefinition[];
+  providers: LLMProviderDefinition[];
+}
+
+function emptyExtensionPointCollection(): ExtensionPointCollection {
+  return {
+    agentTypes: [],
+    taskTypes: [],
+    mcpTools: [],
+    cliCommands: [],
+    memoryBackends: [],
+    hooks: [],
+    workers: [],
+    providers: [],
+  };
 }
 
 export interface RegistryStats {
@@ -283,7 +315,8 @@ export class PluginRegistry extends EventEmitter {
         const context = this.createPluginContext(entry);
         await this.initializeWithTimeout(entry.plugin, context);
         entry.initTime = new Date();
-        this.collectExtensionPoints(entry.plugin);
+        entry.extensionPoints = this.readExtensionPoints(entry.plugin);
+        this.applyExtensionPoints(entry.extensionPoints);
         this.logger.info(`Plugin initialized: ${name}`);
       } catch (error) {
         entry.error = error instanceof Error ? error.message : String(error);
@@ -366,52 +399,72 @@ export class PluginRegistry extends EventEmitter {
   // =========================================================================
 
   /**
-   * Collect extension points from a plugin.
+   * Read a plugin's extension points without mutating registry caches.
+   *
+   * The returned arrays are the plugin's own values and are stored on the
+   * entry so cache rebuilds never invoke the plugin again.
    */
-  private collectExtensionPoints(plugin: IPlugin): void {
+  private readExtensionPoints(plugin: IPlugin): ExtensionPointCollection {
+    const points = emptyExtensionPointCollection();
+
     if (plugin.registerAgentTypes) {
       const types = plugin.registerAgentTypes();
-      if (types) this.agentTypesCache.push(...types);
+      if (types) points.agentTypes.push(...types);
     }
 
     if (plugin.registerTaskTypes) {
       const types = plugin.registerTaskTypes();
-      if (types) this.taskTypesCache.push(...types);
+      if (types) points.taskTypes.push(...types);
     }
 
     if (plugin.registerMCPTools) {
       const tools = plugin.registerMCPTools();
-      if (tools) this.mcpToolsCache.push(...tools);
+      if (tools) points.mcpTools.push(...tools);
     }
 
     if (plugin.registerCLICommands) {
       const commands = plugin.registerCLICommands();
-      if (commands) this.cliCommandsCache.push(...commands);
+      if (commands) points.cliCommands.push(...commands);
     }
 
     if (plugin.registerMemoryBackends) {
       const backends = plugin.registerMemoryBackends();
-      if (backends) this.memoryBackendsCache.push(...backends);
+      if (backends) points.memoryBackends.push(...backends);
     }
 
     if (plugin.registerHooks) {
       const hooks = plugin.registerHooks();
-      if (hooks) this.hooksCache.push(...hooks);
+      if (hooks) points.hooks.push(...hooks);
     }
 
     if (plugin.registerWorkers) {
       const workers = plugin.registerWorkers();
-      if (workers) this.workersCache.push(...workers);
+      if (workers) points.workers.push(...workers);
     }
 
     if (plugin.registerProviders) {
       const providers = plugin.registerProviders();
-      if (providers) this.providersCache.push(...providers);
+      if (providers) points.providers.push(...providers);
     }
+
+    return points;
+  }
+
+  private applyExtensionPoints(points: ExtensionPointCollection): void {
+    this.agentTypesCache.push(...points.agentTypes);
+    this.taskTypesCache.push(...points.taskTypes);
+    this.mcpToolsCache.push(...points.mcpTools);
+    this.cliCommandsCache.push(...points.cliCommands);
+    this.memoryBackendsCache.push(...points.memoryBackends);
+    this.hooksCache.push(...points.hooks);
+    this.workersCache.push(...points.workers);
+    this.providersCache.push(...points.providers);
   }
 
   /**
-   * Invalidate extension point caches.
+   * Invalidate extension point caches by replaying the values collected at
+   * initialization. Never calls plugin register* methods here: invalidation
+   * happens on unregister/shutdown and must not re-run plugin code (#4410).
    */
   private invalidateCaches(): void {
     this.agentTypesCache = [];
@@ -423,10 +476,10 @@ export class PluginRegistry extends EventEmitter {
     this.workersCache = [];
     this.providersCache = [];
 
-    // Recollect from initialized plugins
+    // Rebuild from initialized plugins using their captured values.
     for (const entry of this.plugins.values()) {
-      if (entry.plugin.state === 'initialized') {
-        this.collectExtensionPoints(entry.plugin);
+      if (entry.plugin.state === 'initialized' && entry.extensionPoints) {
+        this.applyExtensionPoints(entry.extensionPoints);
       }
     }
   }
