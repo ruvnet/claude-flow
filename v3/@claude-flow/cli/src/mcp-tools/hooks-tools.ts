@@ -6,7 +6,7 @@ import { feedbackPatternsSchema, validateFeedbackPatterns } from '../memory/feed
 
 import { mkdirSync, writeFileSync, existsSync, readFileSync, statSync, unlinkSync, readdirSync, rmSync } from 'fs';
 import * as nodeFs from 'fs';
-import { dirname, join, resolve, sep } from 'path';
+import { basename, dirname, join, resolve, sep } from 'path';
 import { type MCPTool, getProjectCwd } from './types.js';
 import { validateIdentifier, validateText, validatePath } from './validate-input.js';
 import { commandRecordingDisabled, redactCommandForStorage } from '../services/command-recording.js';
@@ -5423,29 +5423,48 @@ export const hooksCodemod: MCPTool = {
     const cwd = getProjectCwd();
 
     // Resolve the target file set (single / array / glob), with path containment.
-    const resolveTargets = (): { abs: string[]; truncated: boolean; error?: string } => {
+    //
+    // Containment is checked twice per candidate: a lexical anchored-prefix
+    // check (fixed 2026-10-20, CWE-22 — an unanchored `abs.startsWith(cwd)`
+    // let a sibling directory like `${cwd}-staging` pass as "inside" `cwd`),
+    // then a symlink-safe realpath check (this fix, CWE-59 — the lexical
+    // check alone still compared the resolved-but-not-realpath'd candidate
+    // against a non-realpath'd `cwd`, so a symlink inside `cwd` pointing
+    // outside it still escaped containment; disclosed as a known limitation
+    // in that same commit). `realCanonical()` mirrors @claude-flow/security's
+    // path-validator.ts `canonicalize()` — same ancestor-walk fallback for a
+    // not-yet-created target, same symmetric canonicalization of both the
+    // candidate and the root it's compared against (duplicated locally
+    // rather than imported, to avoid a new cross-package runtime call for
+    // one helper in a hot MCP-tool path).
+    const realCanonical = async (p: string): Promise<string> => {
+      try {
+        return await nodeFs.promises.realpath(p);
+      } catch (err: any) {
+        if (err?.code !== 'ENOENT') return p;
+      }
+      const parent = dirname(p);
+      if (parent === p) return p;
+      return join(await realCanonical(parent), basename(p));
+    };
+    const realCwd = await realCanonical(cwd);
+    const isContained = (abs: string, real: string): boolean =>
+      (abs === cwd || abs.startsWith(cwd + sep)) && (real === realCwd || real.startsWith(realCwd + sep));
+
+    const resolveTargets = async (): Promise<{ abs: string[]; truncated: boolean; error?: string }> => {
       const out = new Set<string>();
-      const addRaw = (p: string): string | undefined => {
+      const addRaw = async (p: string): Promise<string | undefined> => {
         const v = validatePath(p, 'path');
         if (!v.valid) return v.error;
         const abs = resolve(cwd, v.sanitized);
-        // Anchor containment at a path-separator boundary — an unanchored
-        // `abs.startsWith(cwd)` string-prefix check would let an absolute
-        // path like `${cwd}-staging/x.ts` pass as "inside" `cwd`. Matches
-        // the pattern already used correctly elsewhere in this codebase
-        // (@claude-flow/security's `isWithinPrefix`, hooks/workers, plugins/security).
-        // KNOWN LIMITATION (disclosed 2026-10-20, not fixed here): this
-        // compares the resolved-but-not-realpath'd path, so a symlink
-        // inside cwd pointing outside it still escapes containment
-        // (CWE-59, a distinct/broader gap than the CWE-22 prefix bug this
-        // anchors). Needs fs.realpathSync-based containment as a follow-up.
-        if (abs !== cwd && !abs.startsWith(cwd + sep)) return `path escapes project root: ${p}`;
+        const real = await realCanonical(abs);
+        if (!isContained(abs, real)) return `path escapes project root: ${p}`;
         out.add(abs);
         return undefined;
       };
 
-      if (file) { const e = addRaw(file); if (e) return { abs: [], truncated: false, error: e }; }
-      if (files) for (const p of files) { const e = addRaw(p); if (e) return { abs: [], truncated: false, error: e }; }
+      if (file) { const e = await addRaw(file); if (e) return { abs: [], truncated: false, error: e }; }
+      if (files) for (const p of files) { const e = await addRaw(p); if (e) return { abs: [], truncated: false, error: e }; }
       if (glob) {
         if (glob.includes('..')) return { abs: [], truncated: false, error: 'glob must not contain ".."' };
         // fs.globSync is Node 22+; @types/node here predates it, so type it locally.
@@ -5461,9 +5480,9 @@ export const hooksCodemod: MCPTool = {
         }
         for (const m of matches) {
           const abs = resolve(cwd, m);
-          if ((abs === cwd || abs.startsWith(cwd + sep)) && CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) {
-            out.add(abs);
-          }
+          if (!CODEMOD_EXTENSIONS.has(abs.slice(abs.lastIndexOf('.')).toLowerCase())) continue;
+          const real = await realCanonical(abs);
+          if (isContained(abs, real)) out.add(abs);
         }
       }
 
@@ -5472,7 +5491,16 @@ export const hooksCodemod: MCPTool = {
       return { abs: truncated ? all.slice(0, CODEMOD_MAX_FILES) : all, truncated };
     };
 
-    const targets = resolveTargets();
+    // KNOWN LIMITATION (disclosed 2026-10-21, not fixed here, found by
+    // independent adversarial review of this exact change): a TOCTOU window
+    // remains between this containment check (which realpaths `abs`) and the
+    // later readFileSync/writeFileSync calls on that same lexical `abs` below
+    // — both reopen by path, so a symlink retargeted after this check passes
+    // but before the read/write still redirects it outside `cwd`. Requires
+    // local symlink-swap race capability to exploit; closing it fully needs
+    // fd-based validation (open once, then fstat/O_NOFOLLOW) rather than
+    // check-then-reopen-by-path. Deferred to a future hardening night.
+    const targets = await resolveTargets();
     if (targets.error) return { success: false, error: targets.error };
     if (targets.abs.length === 0) {
       return { success: false, error: 'No target files. Provide `code`, `file`, `files[]`, or a matching `glob`.' };
