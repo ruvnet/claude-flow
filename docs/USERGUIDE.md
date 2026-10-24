@@ -7534,6 +7534,7 @@ $env:CLAUDE_FLOW_MEMORY_PATH = "./data"
 # Or use absolute path
 $env:CLAUDE_FLOW_MEMORY_PATH = "C:/Users/name/ruflo/data"
 ```
+See the [Windows Installation Guide](windows-installation.md) for full setup and troubleshooting steps.
 
 **Permission denied errors**
 ```bash
