@@ -93,8 +93,8 @@ export const InlineStateSchema = z.object({
     secure: z.boolean().optional(),
     sameSite: z.enum(['Strict', 'Lax', 'None']).optional(),
   })),
-  localStorage: z.record(z.string()).default({}),
-  sessionStorage: z.record(z.string()).default({}),
+  localStorage: z.record(z.string(), z.string()).default({}),
+  sessionStorage: z.record(z.string(), z.string()).default({}),
   /** Metadata only — IndexedDB *contents* never leave the origin. */
   indexedDbMeta: z.array(z.object({ dbName: z.string(), version: z.number().int() })).default([]),
 });

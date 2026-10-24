@@ -27,7 +27,7 @@ export const SparseMatrixSchema = z.object({
   /** Non-zero entries. */
   entries: z.array(SparseEntrySchema),
   /** Node-id → row-index lookup so callers can talk in domain identifiers. */
-  nodeIndex: z.record(z.number().int().nonnegative()),
+  nodeIndex: z.record(z.string(), z.number().int().nonnegative()),
   /** Reverse lookup row-index → node-id. */
   indexNode: z.array(z.string()),
   /** When the snapshot was taken (ISO). */

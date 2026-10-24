@@ -28,7 +28,7 @@
   "dependencies": {
     "agent-browser": "^0.39.0",
     "agentic-flow": "^2.0.13",
-    "zod": "^3.22.4"
+    "zod": "^4.6.7"
   },
   "overrides": {
     "@opentelemetry/sdk-node": ">=0.218.0",

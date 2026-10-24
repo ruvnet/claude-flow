@@ -164,7 +164,7 @@ export const OpenInputSchema = z.object({
   url: z.string().url(),
   session: z.string().optional(),
   waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle']).optional(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   timeout: z.number().positive().optional(),
 });
 export type OpenInput = z.infer<typeof OpenInputSchema>;
@@ -260,7 +260,7 @@ export const NetworkRouteInputSchema = z.object({
   abort: z.boolean().optional(),
   body: z.union([z.string(), z.object({})]).optional(),
   status: z.number().int().optional(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
 });
 export type NetworkRouteInput = z.infer<typeof NetworkRouteInputSchema>;
 
