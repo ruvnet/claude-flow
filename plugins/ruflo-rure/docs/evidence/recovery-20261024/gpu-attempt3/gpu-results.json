@@ -1,0 +1,17 @@
+{
+  "claim": "Public synthetic PTX-to-CUDA semantic tests",
+  "input_sha256": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "b5c3f69f922043770df44cc1f0cd738df6f09f922082bffa54d3d67508abe41c",
+    "ptx-recovery-gpu.cu": "5db3c5391663b5fae4952a1bd02c63256eb85bc77b22d284fb0dd4a26069b44f"
+  },
+  "transfer_bytes": 61440,
+  "image": "nvidia/cuda@sha256:0eee3094c71518ad31d011a594ae6ed6de72959ee07e318cb31cffe71690e90c",
+  "actual_billed_usd": null,
+  "exitCode": 0,
+  "stdout": "{\"status\": \"pass\", \"elapsed_seconds\": 18.7969970703125, \"kernels\": 24, \"positive\": {\"status\": \"pass\", \"claim\": \"original PTX and independently compiled recovered CUDA C++ match frozen integer oracle\", \"kernels\": 24, \"cases\": 168, \"elementComparisons\": 9360, \"driver\": 13020, \"gpu\": \"NVIDIA GeForce RTX 4060 Ti\"}, \"negative_control\": {\"exitCode\": 1, \"stderr\": \"mismatch kernel=add7_wrap32 count=1 variant=1 byte=0 expected=7 actual=8\\n\", \"detected\": true}}\n",
+  "stderr": "Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.\nHave fun!\n",
+  "gpu-raw.json_sha256": "932a0787cad179d044de1d6c25518e63b3faf757a6481ddd32f4e7142ed3303f",
+  "baseline-inputs.tar.gz_sha256": "62f1acc98b0f0e81c3679f4f719a273cb0307a6027b16a1bbeb7bfdf25e64a48",
+  "elapsed_seconds": 24.060768842697144
+}

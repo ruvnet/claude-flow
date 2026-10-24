@@ -66,7 +66,15 @@ int main(int argc, char** argv) {
   std::ifstream list(root + "/kernels.txt");
   if (!list) return 2;
   CU(cuInit(0)); CUdevice device; CU(cuDeviceGet(&device, 0));
-  CUcontext context; CU(cuCtxCreate(&context, 0, device));
+  CUcontext context;
+#if CUDA_VERSION >= 13000
+  // CUDA 13 adds context creation parameters. A zero-initialized structure
+  // requests an ordinary context, as in NVIDIA's threadMigration sample.
+  CUctxCreateParams contextParameters{};
+  CU(cuCtxCreate(&context, &contextParameters, 0, device));
+#else
+  CU(cuCtxCreate(&context, 0, device));
+#endif
   char gpu[256] = {}; CU(cuDeviceGetName(gpu, sizeof(gpu), device));
   int driver = 0; CU(cuDriverGetVersion(&driver));
   size_t kernels = 0, cases = 0, comparisons = 0;

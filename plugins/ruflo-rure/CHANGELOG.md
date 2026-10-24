@@ -4,7 +4,7 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 
 ## 0.7.0 — 2026-10-23
 
-- Validation: [executable recovery evidence](docs/evidence/recovery-20261024/README.md) records 24 CPU-compiled synthetic programs, independent review, installed MCP checks, a reproduced external baseline and the incomplete GPU attempt. Promotion and broad SOTA remain INCONCLUSIVE.
+- Validation: [executable recovery evidence](docs/evidence/recovery-20261024/README.md) records the same 24 synthetic programs executed as original PTX and recovered CUDA on SM86/CUDA 12.8 and SM89/CUDA 13, 9,360 exact GPU comparisons per environment, passing bounded memchecks and two failed speed gates. The independently reproduced CuLifter baseline also passes four shared development programs. Broad SOTA remains INCONCLUSIVE.
 - feat: opt-in `output: "cuda"` on `rure_decompile_ptx` emits compilable CUDA C++ for a conservative scalar integer subset. Unsupported input returns no code. The default remains annotated pseudocode, and the tool never compiles or executes output.
 - security: withheld executable output when presentation screening changes recovery results. Typed registers, definite initialization, bounded expansion and exact opcode admission constrain emission.
 - docs: ADR-0009 and a frozen comparator gate separate executable recovery, independent correctness evidence and SOTA claims. No broad SOTA or speedup claim is established by this feature.

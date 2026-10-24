@@ -69,12 +69,68 @@ source programs have different information inputs, so this probe cannot
 establish recovery coverage superiority. A project-disjoint matched-level
 benchmark and the frozen SOTA gate remain necessary.
 
-## Pending cross-input-level probe
+## Executed cross-input-level probe
 
-`generate-crosspath.mjs` prepares independent drivers for four development
-programs in RuRE's separately frozen synthetic corpus. It requires actual
-CuLifter ELF parameter offsets and the exact corpus module; it has only been
-syntax checked. The GPU worker's bounded instance failed to become ready
-before its deadline and was destroyed, so no corresponding SASS/ELF artifacts
-were produced and this comparison was **not run**. Do not score it as zero
-coverage. This generator does not fetch source or start hardware.
+The four designated development programs `copy32`, `add7_wrap32`,
+`multiply_low64` and `wide_signed` from RuRE's frozen synthetic corpus were
+compiled for SM86 with CUDA 12.8.93. Their `cuobjdump` 12.8.90 SASS and ELF
+metadata text is retained in `crosspath-inputs/`. These are outputs from our
+own synthetic programs, not CuLifter implementation files. The `.elf` files
+are text dumps, not ELF binaries. The input manifest binds original PTX,
+cubin, SASS and ELF hashes.
+
+CuLifter then independently lifted those SASS/ELF inputs to LLVM and native
+x86. All four programs passed: **28 cases and 780 exact comparisons**,
+including output sentinels. Their original PTX hashes match the frozen
+independent oracle corpus. These are development programs, not untouched
+confirmation cases. Replays do not increase the distinct program count.
+
+```sh
+/tmp/culifter-venv/bin/python run-crosspath.py \
+  --source /tmp/culifter-source --inputs crosspath-inputs \
+  --corpus ../../fixtures/ptx-recovery/corpus.mjs \
+  --output /tmp/culifter-crosspath-result
+```
+
+Run from this directory. The runner binds the source manifest and oracle
+digests, verifies all eight SASS/ELF input hashes before lifting, and derives
+the five-parameter ABI from the actual ELF metadata. It rejects shared or
+stack allocations outside this scalar driver's scope. A changed SASS file
+was rejected before source staging or execution. Exact evaluator hashes,
+source/input bindings, native results and stage timings are retained in
+`crosspath-result.json` and the local result directory. The dependency and
+LLVM-version caveats above apply unchanged.
+
+**No superiority was demonstrated.** The external baseline and RuRE both
+passed this small shared program subset, while their input information differs
+(SASS plus ELF versus PTX). This is a capability comparison, not the frozen
+SOTA benchmark. No GPU is required to replay the retained baseline inputs.
+
+## Runner hardening and control regressions
+
+The current `run-crosspath.py` writes its receipt and exits nonzero unless all
+four programs pass. It records the actual `/usr/bin/g++ --version` output,
+compiler path and output digest. The four-program input manifest is pinned
+before source staging or execution, so changing both SASS and its declared
+hash cannot substitute a different input silently.
+
+Run the portable control tests using the same Python environment as the replay:
+
+```sh
+/tmp/culifter-venv/bin/python test-crosspath-runner.py \
+  --source /tmp/culifter-source \
+  --corpus ../../fixtures/ptx-recovery/corpus.mjs -v
+```
+
+`--source` is required; `--corpus` defaults to the repository fixture path.
+These five tests inject stage failures, timeout and a false compiler-version
+fixture, check actual compiler provenance, and reject joint SASS/manifest
+substitution before execution. Synthetic stage results test runner controls;
+they are not additional kernel correctness measurements.
+
+`crosspath-result.json` preserves the original historical run.
+`crosspath-hardened-result.json` records the subsequent replay with the fixed
+runner: the same four programs, 28 cases and 780 comparisons passed. It does
+not increase the distinct program count or change the INCONCLUSIVE promotion
+verdict. The actual replay command remains the one in the preceding section;
+use a new output directory for every run.

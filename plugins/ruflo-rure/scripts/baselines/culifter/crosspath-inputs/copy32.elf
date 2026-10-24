@@ -1,0 +1,210 @@
+
+64bit elf: type=2, abi=7, sm=86, toolkit=128, flags = 0x460556
+Sections:
+Index Offset   Size ES Align                      Type    Flags Link     Info Name
+    1     40     ea  0  1                       STRTAB        0    0        0 .shstrtab
+    2    12a     f1  0  1                       STRTAB        0    0        0 .strtab
+    3    220     a8 18  8                       SYMTAB        0    2        6 .symtab
+    4    2c8     70  0  1                     PROGBITS        0    0        0 .debug_frame
+    5    338     24  0  4                    CUDA_INFO        0    3        0 .nv.info
+    6    35c     7c  0  4                    CUDA_INFO       40    3        b .nv.info.copy32
+    7    3d8     20  8  4               CUDA_CALLGRAPH        0    3        0 .nv.callgraph
+    8    3f8     10  8  8               CUDA_RELOCINFO        0    0        0 .nv.rel.action
+    9    408     10 10  8                          REL       40    3        4 .rel.debug_frame
+    a    418    188  0  4                     PROGBITS       42    0        b .nv.constant0.copy32
+    b    600    180  0 80                     PROGBITS        6    3  8000006 .text.copy32
+
+.section .strtab
+
+.section .shstrtab
+
+.section .symtab
+ index           value           size      info    other  shndx    name  
+   0               0               0        0        0      0     (null)
+ 0x1               0               0      0x3        0    0xb     .text.copy32
+ 0x2               0               0      0x3        0    0xa     .nv.constant0.copy32
+ 0x3               0               0      0x3        0    0x4     .debug_frame
+ 0x4               0               0      0x3        0    0x7     .nv.callgraph
+ 0x5               0               0      0x3        0    0x8     .nv.rel.action
+ 0x6               0           0x180     0x12     0x10    0xb     copy32
+
+
+.nv.constant0.copy32
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 0x00000000 0x00000000
+0x00000000 0x00000000 
+
+
+.nv.info
+	<0x1>
+	Attribute:	EIATTR_REGCOUNT
+	Format:	EIFMT_SVAL
+	Value:	function: copy32(0x6)	register count: 8
+	<0x2>
+	Attribute:	EIATTR_FRAME_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: copy32(0x6)	frame size: 0x0
+	<0x3>
+	Attribute:	EIATTR_MIN_STACK_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: copy32(0x6)	min stack size: 0x0
+
+
+.nv.info.copy32
+	<0x1>
+	Attribute:	EIATTR_CUDA_API_VERSION
+	Format:	EIFMT_SVAL
+	Value:	0x80 
+	<0x2>
+	Attribute:	EIATTR_SW2861232_WAR
+	Format:	EIFMT_NVAL
+	<0x3>
+	Attribute:	EIATTR_PARAM_CBANK
+	Format:	EIFMT_SVAL
+	Value:	0x2 0x280160 
+	<0x4>
+	Attribute:	EIATTR_CBANK_PARAM_SIZE
+	Format:	EIFMT_HVAL
+	Value:	0x28
+	<0x5>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x4	Offset  : 0x20	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x6>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x3	Offset  : 0x18	Size    : 0x4
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x7>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x2	Offset  : 0x10	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x8>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x1	Offset  : 0x8	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x9>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x0	Offset  : 0x0	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK	
+	<0x10>
+	Attribute:	EIATTR_MAXREG_COUNT
+	Format:	EIFMT_HVAL
+	Value:	0xff
+	<0x11>
+	Attribute:	EIATTR_EXIT_INSTR_OFFSETS
+	Format:	EIFMT_SVAL
+	Value:	0x50 0xc0 
+
+
+.nv.callgraph
+ <0,-1>
+ <0,-2>
+ <0,-3>
+ <0,-4>
+
+
+.nv.rel.action
+Header : Base Relocation : R_CUDA_CONST_FIELD22_37
+Reloc type : Symbol Kind,Addend Shift,Source Position1,length1,Destination Position1,Source Position2,length2,Destination Position2
+R_CUDA_CONST_FIELD22_37 : EIVALUE_SYM_KIND_ADDR,0,0,17,37,0,5,54
+
+
+.text.copy32
+bar = 0	reg = 8	lmem=0	smem=0
+0x00017a02 0x00000a00 0x00000f00 0x000fe400
+0x00047919 0x00000000 0x00002500 0x000e2800
+0x00037919 0x00000000 0x00002100 0x000e2400
+0x04047a24 0x00000000 0x078e0203 0x001fca00
+0x04007a0c 0x00005e00 0x03f06070 0x000fda00
+0x0000094d 0x00000000 0x03800000 0x000fea00
+0x00057802 0x00000004 0x00000f00 0x000fe200
+0x00047ab9 0x00004600 0x00000a00 0x000fc800
+0x04027625 0x00005800 0x078e0005 0x000fcc00
+0x02037981 0x00000004 0x0c1e1900 0x000ea200
+0x04047625 0x00005c00 0x078e0005 0x000fca00
+0x04007986 0x00000003 0x0c101904 0x004fe200
+0x0000794d 0x00000000 0x03800000 0x000fea00
+0x00007947 0xfffffff0 0x0383ffff 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+
+
+.section .debug_frame
+decodeDebugFrame, frameBuf 0xffffffff, total_length 112
+CIE length 36, cie_id -1
+version 3
+augmentation slen 1
+augmentation 
+code_align_factor slen 1
+data_align_factor slen 1
+ Debug Frame Common Information Entry
+  length:                 36
+  CIE_id :                -1
+  version:                3
+  augmentation:           
+  code align factor:      4
+  data align factor:      -4
+  return address register 0xffffffff
+  initial instructions: 19 bytes, ptr = 0x8080810c, frameBuf = 0xffffffff
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_same_value R255
+  DW_CFA_same_value R1
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+ Debug Frame Description Entry
+  length:                 52
+  CIE_pointer:            0
+  initial_location:       0x0
+  address_range:          0x180
+  function:               copy32
+  instructions: 28 bytes
+  DW_CFA_advance_loc4 delta 4
+  DW_CFA_advance_loc4 delta 20
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_advance_loc4 delta 24
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+
+.section .rel.debug_frame	REL
+0x44    copy32    R_CUDA_64

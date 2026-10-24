@@ -1,0 +1,17 @@
+{
+  "claim": "Public synthetic PTX-to-CUDA semantic tests",
+  "input_sha256": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "875ba47c6701bbaa702397024003f37c7fcc6eb151c1db4b15ab1b79a09a3830",
+    "ptx-recovery-gpu.cu": "9736c2f988c69e5a3a25f6851bb4b6503b0b8c7fb56eafc875e02edc0838b8a3"
+  },
+  "transfer_bytes": 61440,
+  "image": "nvidia/cuda@sha256:6617a625f4090c76c545a0e7d63f2e441718ef9af7f4efe7dd1242a29e289fd7",
+  "actual_billed_usd": null,
+  "exitCode": 0,
+  "stdout": "{\"status\": \"pass\", \"elapsed_seconds\": 32.051509618759155, \"kernels\": 24, \"positive\": {\"status\": \"pass\", \"claim\": \"original PTX and independently compiled recovered CUDA C++ match frozen integer oracle\", \"kernels\": 24, \"cases\": 168, \"elementComparisons\": 9360, \"driver\": 13020, \"gpu\": \"NVIDIA GeForce RTX 3060\"}, \"negative_control\": {\"exitCode\": 1, \"stderr\": \"mismatch kernel=add7_wrap32 count=1 variant=1 byte=0 expected=7 actual=8\\n\", \"detected\": true}}\n",
+  "stderr": "Welcome to vast.ai. If authentication fails, try again after a few seconds, and double check your ssh key.\nHave fun!\n",
+  "gpu-raw.json_sha256": "311f899315944390d1d65bd8dcf0e068aa0249f16351924f316c712debbffbf6",
+  "baseline-inputs.tar.gz_sha256": "9bccdd41c91e87c37460a9367dff5a1a2c314e1ea4316327b0250d600570aea4",
+  "elapsed_seconds": 40.41723155975342
+}

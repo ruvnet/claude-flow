@@ -1,0 +1,7 @@
+{
+  "status": "pass",
+  "tampered": "copy32.sass newline",
+  "exitCode": 1,
+  "rejectedBeforeSourceStaging": true,
+  "error": "input digest mismatch"
+}

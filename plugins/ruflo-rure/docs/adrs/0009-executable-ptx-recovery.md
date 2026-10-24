@@ -131,6 +131,29 @@ automatically merge, publish a package, deploy, change credentials or expand
 GPU spending. Reviewable code and useful synthetic correctness gains are
 valid outcomes even while the broad superiority verdict remains INCONCLUSIVE.
 
+## Measured implementation checkpoint, 2026-10-24 UTC
+
+The [versioned recovery receipt](../evidence/recovery-20261024/README.md)
+records the actual implementation and independent review. On SM86 with CUDA
+12.8.93, original PTX and separately compiled recovered CUDA passed 9,360
+exact element comparisons across the 24 synthetic programs. The bounded
+memcheck subset passed and the deliberate arithmetic mutation failed.
+
+The timing gate rejected the result: 0.99279748449x geometric median speedup
+and three programs more than 2% slower. This is host launch plus synchronization
+timing on tiny kernels, not complete application performance. No optimization
+claim follows. CuLifter also passes the four shared development programs from
+SASS and ELF inputs, so there is no quality advantage on that subset.
+
+The standalone GPU evaluator now selects the documented context creation
+signature at compile time for CUDA 12 versus CUDA 13. This changes host setup
+only. Its exact executed source is bound separately from any historical driver
+inside a frozen bundle. Compatibility execution must preserve all original
+workload, oracle and timing thresholds. Compiled cubin/PTX bytes and the
+negative-control artifact are retained in subsequent runs so an independent
+reviewer can recompute their hashes. None of these checkpoints changes the
+comparison gate or makes previously exposed programs untouched again.
+
 ## References
 
 1. [PTX ISA](https://docs.nvidia.com/cuda/parallel-thread-execution/)

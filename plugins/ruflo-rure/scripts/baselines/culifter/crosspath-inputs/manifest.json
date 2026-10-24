@@ -1,0 +1,43 @@
+{
+  "architecture": "sm_86",
+  "artifacts": [
+    {
+      "id": "copy32",
+      "originalPtxSha256": "aa8090c6219ba1376100444179eae79ffe91415b3c9b78e1a9c29bf5cc1a3916",
+      "originalCubinSha256": "15fe042cdbf23c96415c93677f1f40c6babaae072d5f1ea3aa69ca845096a08a",
+      "recoveredCudaSha256": "6501b043888b6a9b991a4559840f9320dbd90c266ea8bae907a5843494202645",
+      "compiledRecoveredPtxSha256": "a0773fb260ae1f12434f3ae61ef6c112857a061ffdc87a6f9c2f960170b1d1b5",
+      "sassSha256": "31a2c836097de392f37bc9a4f6baf28f2a2aa060360ca110638ab2e4bc17c858",
+      "elfSha256": "a57b95f094289a7000f654782234a34bc41b5c9a8af7fe4c6f35ddaea5f849f0"
+    },
+    {
+      "id": "add7_wrap32",
+      "originalPtxSha256": "fce7405c95a7861a389ac7b2ec44ffdfff40c43b2d9534e9fb50cdfefcea5129",
+      "originalCubinSha256": "0bdafb6268f49f7c640dd8f867e0468cf85425b7bab7b67ed267370ef1658f06",
+      "recoveredCudaSha256": "26f842ffa63654e7946f6fcd6d6449e091712f6273533f556073325c88b56cf4",
+      "compiledRecoveredPtxSha256": "0cdb2a0460c34c1b50045131649eee16d9be044fc2cf0b41fc0efe4c16d4396e",
+      "sassSha256": "6a9acc2bd9fbdf9364c738d470f29422ebda8fdc586fba9190b02742c81cd007",
+      "elfSha256": "6e2a7a2a8ca1d9360bc0f824be13663904b4af113bc69cd08c93dc3c7b9acbcb"
+    },
+    {
+      "id": "wide_signed",
+      "originalPtxSha256": "334200d779718cc9a9b0cd0d2e1bb527b71e645a0c30945e012c401b65a1bcb8",
+      "originalCubinSha256": "48c579c78a76dd0d85eec7303f9ae5fa522f7202b39e151aa7b3e561c5249019",
+      "recoveredCudaSha256": "16a6805f3f1e7e1fc78ed20cedc982cc6053bd0d52e1c490360046f7098fb1d6",
+      "compiledRecoveredPtxSha256": "2146b478a58056f3c7ad1191a544e5356103856d1aef07518668fbf275be08a3",
+      "sassSha256": "3ede41eb6247566636dd5137be81931a1216111119a8632ec7ba6e5d77c1d96d",
+      "elfSha256": "e5a13d2d0a0be8f1297e1cbaeba4e606c6e51d8606b537b8b5c3278e0a5efa14"
+    },
+    {
+      "id": "multiply_low64",
+      "originalPtxSha256": "c634c3512729655e79ea5e00915cecd4452fe76a36bc4c61d90858054543b9eb",
+      "originalCubinSha256": "8cad618ce4e47ff4cf25c517bf35907501d1d086ce38253a8ffa0ed5979b3218",
+      "recoveredCudaSha256": "340595fb4b1d3ca50d6c88e02552e6b3a89da7f959ed43a4670c5cb564bfae24",
+      "compiledRecoveredPtxSha256": "6d893831d30bee8d78610828d6aa7b742611dd7a4372de5e36887287321aa1f6",
+      "sassSha256": "e12e06e5bc18f52633cffa4cfd72e71f9e2a4c5d792dce49aae6f025749404eb",
+      "elfSha256": "e25f77a8a28dffe3e2aa4954d4deac928473367d250cb36e03805392012c5976"
+    }
+  ],
+  "nvcc": "nvcc: NVIDIA (R) Cuda compiler driver\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Fri_Feb_21_20:23:50_PST_2025\nCuda compilation tools, release 12.8, V12.8.93\nBuild cuda_12.8.r12.8/compiler.35583870_0\n",
+  "cuobjdump": "cuobjdump: NVIDIA (R) fat binary listing tool\nCopyright (c) 2005-2025 NVIDIA Corporation\nBuilt on Thu_Feb_13_02:19:26_PST_2025\nCuda compilation tools, release 12.8, V12.8.90\nBuild cuda_12.8.r12.8/compiler.35538042_0\n"
+}

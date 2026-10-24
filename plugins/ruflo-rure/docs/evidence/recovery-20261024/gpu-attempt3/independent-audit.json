@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "audit": "pass",
+  "auditScope": "post-execution consistency, not authentication",
+  "attempt": 3,
+  "architecture": "sm_89",
+  "auditorSha256": "47b5c949f868bfc3fdaf6700f2678a93c39a9ac8b603d00cd07e0a3a5792e809",
+  "python": "3.12.14",
+  "rawReceiptSha256": "932a0787cad179d044de1d6c25518e63b3faf757a6481ddd32f4e7142ed3303f",
+  "baselineArchiveSha256": "62f1acc98b0f0e81c3679f4f719a273cb0307a6027b16a1bbeb7bfdf25e64a48",
+  "kernelCount": 24,
+  "cases": 168,
+  "elementComparisons": 9360,
+  "compiledRecoveredCudaCount": 24,
+  "auxiliaryOriginalCubinCompileCount": 24,
+  "independentlyRehashedSassElfFiles": 48,
+  "independentlyRehashedVectorFiles": 504,
+  "independentlyRehashedRecoveredPtxJitInputs": 24,
+  "independentlyRehashedAuxiliaryCubins": 24,
+  "mutatedPtxHashVerified": true,
+  "timingSamples": 4800,
+  "geometricMeanMedianSpeedup": 0.9936835625836735,
+  "regressionsAbove2Percent": [
+    {
+      "id": "add7_wrap32",
+      "originalP50Us": 4.222,
+      "recoveredP50Us": 4.358,
+      "regressionPercent": 3.221222169587845
+    },
+    {
+      "id": "multiply_add64",
+      "originalP50Us": 4.24,
+      "recoveredP50Us": 4.374,
+      "regressionPercent": 3.1603773584905515
+    },
+    {
+      "id": "signed_wide_accumulate",
+      "originalP50Us": 4.236,
+      "recoveredP50Us": 4.347,
+      "regressionPercent": 2.620396600566588
+    }
+  ],
+  "performanceThresholdVerdict": "REJECT",
+  "mutationRejected": true,
+  "memcheck": {
+    "cases": 72,
+    "elementComparisons": 2784,
+    "errors": 0,
+    "scope": "counts 0, 1, 33; memcheck only, not racecheck"
+  },
+  "workerCompileAndValidationSeconds": 18.7969970703125,
+  "hostTransferAndExecutionSeconds": 24.060768842697144,
+  "actualBilledUsd": null,
+  "limitations": [
+    "Compiled PTX JIT inputs and auxiliary cubins were retained and independently rehashed.",
+    "Driver JIT executes original/recovered PTX. Auxiliary ptxas cubins/SASS/ELF are not the executed JIT machine code.",
+    "Executor authentication requires the separate authenticated ruOS completion.",
+    "One architecture and small synthetic programs, not real-world SOTA coverage.",
+    "Warm host launch plus synchronization latency; allocation, transfer and loading excluded."
+  ]
+}

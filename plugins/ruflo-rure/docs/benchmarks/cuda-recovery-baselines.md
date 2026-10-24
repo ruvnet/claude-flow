@@ -52,10 +52,23 @@ deviations and commands. No CuLifter source was vendored, and its missing
 license remains unresolved.
 
 This establishes a narrow executable baseline capability. It does not
-reproduce the full paper, establish GPU execution, or compare RuRE against
-CuLifter on matched inputs. GPU execution was not observed; a separate GPU
-attempt timed out without producing usable SASS evidence. Broad coverage,
-performance, total-cost superiority and SOTA remain unverified.
+reproduce the full paper or establish CuLifter GPU execution.
+
+A subsequent RuRE GPU run compiled the frozen corpus with CUDA 12.8.93 on
+SM86 and retained actual SASS and ELF text. CuLifter independently recovered
+four designated development programs from those outputs: `copy32`,
+`add7_wrap32`, `multiply_low64` and `wide_signed`. All **28 cases and 780 exact
+comparisons** passed, including output sentinels. A changed SASS file was
+rejected before execution. The integration reviewer replayed these checks.
+See the [crosspath receipt](../../scripts/baselines/culifter/crosspath-result.json)
+and [runnable instructions](../../scripts/baselines/culifter/README.md).
+These are four development programs, not new confirmation cases.
+
+Both implementations pass this small shared program subset. Their inputs
+still differ: RuRE reads PTX while CuLifter reads SASS plus ELF metadata.
+Consequently this is not an equal-information recovery comparison and gives
+no evidence of RuRE quality superiority. Broad coverage, performance,
+total-cost superiority and SOTA remain unverified.
 
 ## Executable interfaces and prerequisites
 

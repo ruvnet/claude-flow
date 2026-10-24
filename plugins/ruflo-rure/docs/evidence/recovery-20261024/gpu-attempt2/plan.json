@@ -1,0 +1,23 @@
+{
+  "owner": "cuda_gpu_operator",
+  "resource": "WorkDesktop/Vast synthetic recovery attempt2",
+  "createdAt": 1792803628.2401931,
+  "readinessSeconds": 480,
+  "destructionGuardSeconds": 900,
+  "maxConcurrentInstances": 1,
+  "maxHourlyUsd": 0.2,
+  "cumulativeMaxUsd": 1,
+  "priorAttemptReservedUpperUsd": 0.08239583333333333,
+  "maxCumulativeRentalMinutes": 45,
+  "priorRentalSeconds": 188.3000831604004,
+  "changedVariable": "provisioning readiness timeout only",
+  "sourceAndWorkloadUnchanged": true,
+  "controllerSha256": "2762ecd18c3d3242e68914a4436d31ef418cfe31f40f3c879e9bb80021da414c",
+  "runnerSha256": "ec49f1ce091c03bf1600d16d7ef4c0b3fe057ab9b7dc09f90f11cf4dd08ab352",
+  "inputSha256": {
+    "bundle.tar.gz": "347d6c2f9ec9716d9a8bec74134b0d96232231a08696eade5818f19cf2bc807f",
+    "gpu_worker.py": "875ba47c6701bbaa702397024003f37c7fcc6eb151c1db4b15ab1b79a09a3830",
+    "ptx-recovery-gpu.cu": "9736c2f988c69e5a3a25f6851bb4b6503b0b8c7fb56eafc875e02edc0838b8a3"
+  },
+  "cleanupStartsSeconds": 840
+}
