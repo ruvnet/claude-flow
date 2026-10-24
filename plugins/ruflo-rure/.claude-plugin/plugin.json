@@ -1,7 +1,7 @@
 {
   "name": "ruflo-rure",
-  "description": "Statically analyze software you're authorized to study, with source evidence. Experimental. JS/Electron analysis, native ELF/PE/Mach-O inspection, .NET metadata, EVM inventory, CUDA fatbin/cubin/PTX inventory, and bounded PTX control flow with annotated pseudocode. Parses, never executes. Pseudocode is not compilable CUDA or proof of equivalence; SASS decompilation is not implemented.",
-  "version": "0.6.0",
+  "description": "Statically analyze software you're authorized to study, with source evidence. Experimental. JS/Electron, native binaries, .NET, EVM, CUDA inventory and bounded PTX control flow. Optional conservative integer PTX recovery emits CUDA C++ for separate validation. Parses, never executes. Emission is not an equivalence proof; SASS decompilation is not implemented.",
+  "version": "0.7.0",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"

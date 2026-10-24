@@ -103,6 +103,7 @@ try {
   const tool = listing.tools.find(t => t.name === 'rure_decompile_ptx');
   assert.ok(tool, 'built MCP registry must expose rure_decompile_ptx');
   assert.deepEqual(tool.inputSchema.required, ['path']);
+  assert.deepEqual(tool.inputSchema.properties.output.enum, ['pseudocode', 'cuda']);
   const { result, depth } = unwrap(await request('tools/call', {
     name: tool.name, arguments: { path: fixture },
   }));
@@ -112,11 +113,26 @@ try {
   assert.equal(result.truncated, false);
   assert.deepEqual(result.functions.map(f => f.name), ['affine_i32', 'sum_i32']);
   assert.equal(result.presentationModified, false);
+  const { result: recovery } = unwrap(await request('tools/call', {
+    name: tool.name, arguments: { path: fixture, output: 'cuda' },
+  }));
+  assert.equal(recovery.success, true);
+  assert.equal(recovery.status, 'emitted');
+  assert.equal(recovery.language, 'cuda-cpp');
+  assert.equal(recovery.proofStatus, 'not-proven');
+  assert.equal(recovery.sourceSha256, sourceSha256);
+  assert.equal(recovery.presentationModified, false);
+  assert.deepEqual(recovery.functions.map(f => f.name), ['affine_i32', 'sum_i32']);
+  assert.ok(recovery.code.includes('__global__'));
+  assert.ok(!recovery.code.includes('asm(') && !recovery.code.includes('.version'));
   console.log(JSON.stringify({
     status: 'pass', transport: 'stdio', builtEntrypoint: entrypoint,
     sourceSha256, functions: result.functions.length, tool: tool.name,
     resultEnvelopeDepth: depth, screened: result.screened,
     presentationModified: result.presentationModified,
+    recovery: { status: recovery.status, proofStatus: recovery.proofStatus,
+      codeSha256: createHash('sha256').update(recovery.code).digest('hex'),
+      codeBytes: Buffer.byteLength(recovery.code), screened: recovery.screened },
     elapsedMs: performance.now() - start, node: process.version,
   }, null, 2));
 } catch (error) {

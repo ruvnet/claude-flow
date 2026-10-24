@@ -21,13 +21,39 @@ function input(bytes: string | Buffer): string {
   writeFileSync(path, bytes);
   return path;
 }
-async function run(path: string): Promise<any> {
-  const result: any = await tool.handler({ path });
+async function run(path: string, output?: unknown): Promise<any> {
+  const result: any = await tool.handler({ path, ...(output === undefined ? {} : { output }) });
   return JSON.parse(result.content[0].text);
 }
 afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 const ptx = '.version 8.0\n.target sm_80\n.address_size 64\n.visible .entry test() { ret; }';
 describe('PTX MCP boundary', () => {
+  it('emits CUDA only on explicit request, without executing or proving it', async () => {
+    const path = input(ptx);
+    const result = await run(path, 'cuda');
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('emitted');
+    expect(result.language).toBe('cuda-cpp');
+    expect(result.proofStatus).toBe('not-proven');
+    expect(result.code).toContain('__global__');
+    expect(result.sourceSha256).toBe(createHash('sha256').update(ptx).digest('hex'));
+    expect((await run(path)).status).toBe('complete');
+  });
+  it('validates recovery mode and withholds unsupported executable output', async () => {
+    expect((await run(input(ptx), 'run')).success).toBe(false);
+    expect((await run(input(ptx), true)).success).toBe(false);
+    const result = await run(input(ptx.replace('ret;', '.reg .f32 %f; mov.f32 %f, 0f3F800000; ret;')), 'cuda');
+    expect(result.status).toBe('unsupported');
+    expect(result.code).toBeNull();
+  });
+  it('withholds executable output when screening alters recovery metadata', async () => {
+    const result = await run(input(ptx.replace('test()', 'evil_marker()')), 'cuda');
+    expect(result.success).toBe(true);
+    expect(result.status).toBe('unsupported');
+    expect(result.code).toBeNull();
+    expect(result.presentationModified).toBe(true);
+    expect(JSON.stringify(result)).not.toContain('evil_marker');
+  });
   it('reads original bytes and preserves their digest', async () => {
     const result = await run(input(ptx));
     expect(result.success).toBe(true);

@@ -19,6 +19,7 @@ check('ADR-0005 exists', existsSync(new URL('docs/adrs/0005-phase4-evm-bytecode.
 check('ADR-0006 exists', existsSync(new URL('docs/adrs/0006-phase5-cuda-fatbin-static-analysis.md', root)));
 check('ADR-0007 exists', existsSync(new URL('docs/adrs/0007-phase6-ptx-decompilation.md', root)));
 check('ADR-0008 exists', existsSync(new URL('docs/adrs/0008-cuda-semantic-validation.md', root)));
+check('ADR-0009 exists', existsSync(new URL('docs/adrs/0009-executable-ptx-recovery.md', root)));
 check('ADR-0004 exists', existsSync(new URL('docs/adrs/0004-phase3-dotnet-metadata.md', root)));
 check('ADR-0003 exists', existsSync(new URL('docs/adrs/0003-phase2-native-binary-static-analysis.md', root)));
 
@@ -67,6 +68,8 @@ const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].ma
 check('exactly eight tools including bounded PTX reconstruction', toolNames.size === 8);
 check('PTX decompiler is registered', toolNames.has('rure_decompile_ptx'));
 check('PTX decompiler byte cap is wired', toolsSrc.includes('MAX_PTX_DECOMPILE_BYTES'));
+check('CUDA recovery is explicit and never executed by tool', toolsSrc.includes("['pseudocode', 'cuda']") && toolsSrc.includes('recoverPtx(source)'));
+check('modified CUDA presentation is withheld', toolsSrc.includes("input.output === 'cuda' && presentationModified") && toolsSrc.includes('result.code = null'));
 for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm', 'rure_analyze_cuda']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }

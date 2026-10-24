@@ -1,0 +1,247 @@
+{
+  "schemaVersion": 1,
+  "status": "pass",
+  "claim": "CPU-compiled CUDA C++ recovery on frozen synthetic integer programs",
+  "sotaClaim": false,
+  "semanticProof": false,
+  "split": "confirmation",
+  "recordedAt": "2026-10-24T00:45:48.040Z",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "arch": "x64",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+  "compilerFlags": [
+    "-std=c++17",
+    "-O2",
+    "-fsanitize=undefined",
+    "-fno-sanitize-recover=all"
+  ],
+  "manifestSha256": "8f3e3e24e6791b0cf1deb992f3a72c49e7388a915a71433a958815b16666f606",
+  "corpusSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+  "evaluatorSha256": "bbe49c3dc001d11caefba935dd27ae49242f02a30cb4d49fa848300d67435f94",
+  "candidate": {
+    "modulePath": "/workspace/scratch/16fc07be6201/rure-semantic-backend/v3/@claude-flow/cli/src/rure/ptx-recover.ts",
+    "moduleSha256": "eb8db24b283ae204b7ae0c5ea0971f2256e5d6169603c85566c9ab13a4485b66",
+    "dependencies": [
+      {
+        "name": "ptx-decompile",
+        "sourceSha256": "777a0fefb8056e647ea457f13491190f7fd8c03fe2d75cd146a9334eb11f2a30",
+        "transformedSha256": "656db56b70de193e17e8cc608b9514ad88938935e9bdbff2299aa280859c97bf"
+      },
+      {
+        "name": "ptx-recover",
+        "sourceSha256": "eb8db24b283ae204b7ae0c5ea0971f2256e5d6169603c85566c9ab13a4485b66",
+        "transformedSha256": "03d0e5a6ba0fa7cf043fceba785bc5942626cebfe1119409fc206c570594ed79"
+      }
+    ],
+    "loader": "node:module stripTypeScriptTypes(mode=transform); adjacent parser staged; no runtime source transformation"
+  },
+  "kernelCount": 8,
+  "passedKernels": 8,
+  "cases": 56,
+  "elementComparisons": 1560,
+  "rejectionCases": [
+    {
+      "id": "float",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "barrier",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "shared",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "unknown",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "uninitialized_data",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "uninitialized_predicate",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "undeclared_register",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "width_mismatch",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "path_uninitialized",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "predicated_definition",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "oversized_register_array",
+      "status": "pass",
+      "observedStatus": "unsupported",
+      "codeAbsent": true
+    },
+    {
+      "id": "malformed",
+      "status": "pass",
+      "observedStatus": "invalid",
+      "codeAbsent": true
+    }
+  ],
+  "negativeControl": {
+    "expected": "wrong arithmetic rejected by output oracle",
+    "mutatedSourceSha256": "22c1d772dc52b5ef2eac8663458bf7e03a006ba34ad1d9b47318afa4b889540e",
+    "status": "execution-failed",
+    "codeSha256": "56e4d06788b12c5fd7ab35ebc9f24b9ff1276a7bb9079dd464f93cbfe96560e2",
+    "compileMs": 215.29754400000002,
+    "executeMs": 3.140086999999994,
+    "run": {
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "mismatch add7_wrap32 count=1 index=0 expected=7 actual=8\n"
+    },
+    "gateStatus": "pass"
+  },
+  "results": [
+    {
+      "id": "prefix_loop32",
+      "split": "confirmation",
+      "sourceSha256": "395b71fdcc98201a794ed510e10085aac053ef5a6cc333a3b7014339e8573c04",
+      "emittedSha256": "286aa3e80aabe86dee47f930803df6f540eb273c69ffe23908bd257f14ee432e",
+      "recoveryMs": 4.984971000000002,
+      "status": "pass",
+      "codeSha256": "87f4ab6725d8d32778102546b3e3fa545b3353f3266f3bf7d4ea87a4b7594658",
+      "compileMs": 233.126626,
+      "executeMs": 2.98033700000002,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "memory_offset32",
+      "split": "confirmation",
+      "sourceSha256": "1b46175bb7066c848ee4ac939c52ffab44bfdf8efca4b1c60c3427e45c22e0d9",
+      "emittedSha256": "2c3a4750c7bd60facf85cfba1244916cb283eb79125fc379ee1b16525bc3cb49",
+      "recoveryMs": 0.9222520000000145,
+      "status": "pass",
+      "codeSha256": "c038066f39474daffafb4e085e47739ef7e634427eb19a469ad359b47d1666f8",
+      "compileMs": 215.051764,
+      "executeMs": 3.2565439999999626,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "memory_offset64",
+      "split": "confirmation",
+      "sourceSha256": "26d7109c0ffb8693fb09e284a3821c798691109885f4ebcd008ba3985cc8c83b",
+      "emittedSha256": "18a9a161bf20d0f0af198f929388c5c2335629c59e4d4d0aeaacab7ff70a0340",
+      "recoveryMs": 0.8483189999999468,
+      "status": "pass",
+      "codeSha256": "d8ae2203059caa2abb08e3e2fcabf7dc8246dcebdaac081bf0b64a772db5b186",
+      "compileMs": 176.33687499999996,
+      "executeMs": 3.4832850000000235,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "signed_select64",
+      "split": "confirmation",
+      "sourceSha256": "63f33ffb8523f8ae605b913fd448505a27e6aefbd1fe26e298ef604e30beaab9",
+      "emittedSha256": "e90e13d6a9c6d448ebe7e20baa4237aa6f9018272e77e06475c50d830e74d108",
+      "recoveryMs": 0.704072999999994,
+      "status": "pass",
+      "codeSha256": "5f544295e56c9cf4c53091e93296f07348f44eeca54286b189c3b02b0f9bd2db",
+      "compileMs": 178.44602099999997,
+      "executeMs": 3.1198470000000498,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "unsigned_select64",
+      "split": "confirmation",
+      "sourceSha256": "ff30ef26d19ea3ea8da4d42ebdc207cb0cde783dd4dfc39c029ae433dbd25c57",
+      "emittedSha256": "7c3966e8d962be3d5f50f5a8fa008bb1c8769ecb859bab002ef4bd2c54bd3757",
+      "recoveryMs": 1.6618470000000798,
+      "status": "pass",
+      "codeSha256": "f2fd2d4e3c3d90b56c85d64810293aa94db37bef4deb742a316eef7e59c39110",
+      "compileMs": 177.18776800000012,
+      "executeMs": 3.753983999999946,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "predicate_branch_diamond",
+      "split": "confirmation",
+      "sourceSha256": "d757ff21ffd0dcb965ae1a71eb64026e0bfa5e652308a62ed3db8cd8c7594fc7",
+      "emittedSha256": "1b56149dc4b1d9481f48aaf0aa3fc5750d98460b88a37d477a6c066f1b564ca5",
+      "recoveryMs": 0.6081380000000536,
+      "status": "pass",
+      "codeSha256": "83f70607e3f5fae8e0bdd3261c0d5771fce5f986625bb85bc891327ea408baf0",
+      "compileMs": 207.54167200000006,
+      "executeMs": 3.435023000000001,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "global_index32",
+      "split": "confirmation",
+      "sourceSha256": "e26eeeaae5069c96ad14507fee6ba4f3946f40dd65eb8a734755ef06547477a8",
+      "emittedSha256": "f1c01e3ccf64cbe8ecbe695d9b098f9153fa4077b572a14c78d93dad8e0de129",
+      "recoveryMs": 0.5958689999999933,
+      "status": "pass",
+      "codeSha256": "ba5da127b1bc83875b6284731e505b70614a4cd8b81060241cddcadc34dd80cf",
+      "compileMs": 197.31237699999997,
+      "executeMs": 3.917506000000003,
+      "cases": 7,
+      "elementComparisons": 195
+    },
+    {
+      "id": "signed_wide_accumulate",
+      "split": "confirmation",
+      "sourceSha256": "ae5dc2d288a54dda6d8a18a1da632304b802d685ae1ef4784fa03fd6c81710aa",
+      "emittedSha256": "7834199baa7d9426c07c6da12b694cf375b8f236134a42da7f670c571b67d21f",
+      "recoveryMs": 0.8621610000000146,
+      "status": "pass",
+      "codeSha256": "9a9bc3a3b08317146f51dd60d50c21da4ef8930d77f206318ef2677b06ad3d8b",
+      "compileMs": 229.27364999999986,
+      "executeMs": 4.341109999999844,
+      "cases": 7,
+      "elementComparisons": 195
+    }
+  ],
+  "limitations": [
+    "Synthetic integer programs only; no external competitor reproduced.",
+    "CPU builtins stubs do not establish GPU scheduling or concurrency.",
+    "Finite test evidence is not a semantic equivalence proof.",
+    "Compile and execution times include process overhead and are not kernel latency.",
+    "Confirmation is independent-context once-only evaluation, not inaccessible secret storage."
+  ],
+  "rawDirectory": "/tmp/rure-recovery-independent-confirmation-first"
+}

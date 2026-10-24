@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "taskId": "rure-executable-recovery-20261024",
+  "owner": "Codex integration coordinator",
+  "parentPullRequest": "https://github.com/ruvnet/ruflo/pull/4448",
+  "baselineRevision": "4819642e21ba46c29f9f0ec59e6847fc0f19eef4",
+  "baselineCapability": "Instruction IR and pseudocode; no executable CUDA C++ recovery",
+  "hypothesis": "A conservative typed integer backend can emit compilable CUDA C++ preserving the frozen synthetic workload while refusing unsupported semantics.",
+  "acceptance": {
+    "developmentKernels": 16,
+    "confirmationKernels": 8,
+    "confirmationPolicy": "Run only after implementation and adversarial review freeze. Reused cases after a repair are regression evidence, not untouched confirmation.",
+    "exactIntegerResultsRequired": true,
+    "falseAcceptancesAllowed": 0,
+    "negativeControlMustFail": true,
+    "requireActualCompilation": true,
+    "requireOriginalPtxAndRecoveredCudaGpuComparison": true,
+    "requireIndependentReview": true,
+    "sotaClaim": false
+  },
+  "frozenCorpus": {
+    "commit": "462a332",
+    "corpusSha256": "f5e79f69211d5d57ab24fb3170278643e07282d9c4f9fe7359e099eeffe1b50c",
+    "manifestSha256": "8f3e3e24e6791b0cf1deb992f3a72c49e7388a915a71433a958815b16666f606",
+    "scope": "24 hand-authored synthetic integer programs, not a representative public SOTA corpus"
+  },
+  "resources": {
+    "implementation": "isolated git worktrees; one writer per worktree",
+    "coordination": "pinned Ruflo 3.56.7 on dedicated ruOS executor",
+    "gpu": "One temporary Vast GPU at a time through the existing credential-owning ruOS host",
+    "maxGpuHourlyUsd": 0.20,
+    "maxGpuMinutes": 45,
+    "maxGpuEstimatedUsd": 1.0,
+    "actualBillingUsd": null,
+    "credentialTransferAllowed": false
+  },
+  "rollback": "Retain the default pseudocode mode; revert recovery commits on the draft branch. Destroy the task-owned GPU instance and verify absence. No merge, package publication or deployment.",
+  "broaderGoal": "The separate frozen SOTA protocol requires representative distinct kernels, matched reproducible competitors, untouched confirmation, two compiler versions and GPU architectures, independent review and full cost coverage. This small implementation milestone cannot satisfy that claim."
+}

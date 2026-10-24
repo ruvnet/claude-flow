@@ -239,6 +239,25 @@ class Parser {
   peek(): string | undefined { return this.tokens[this.at]?.text; }
   take(): Token { const t = this.tokens[this.at++]; if (!t) throw new InvalidPtx('unexpected end of input'); return t; }
   expect(s: string): void { if (this.take().text !== s) throw new InvalidPtx(`expected ${s}`); }
+  /** Debug metadata has a grammar, not a line boundary. Never swallow code. */
+  debugInteger(): void {
+    const token = this.take();
+    if (!/^(0|[1-9][0-9]*)$/.test(token.text) || BigInt(token.text) > 0xffffffffffffffffn) {
+      throw new InvalidPtx(`unsupported debug integer at line ${token.line}`);
+    }
+  }
+  fileDirective(): void {
+    this.debugInteger();
+    const filename = this.take();
+    if (!/^"(?:[^"\\]|\\.)*"$/.test(filename.text)) throw new InvalidPtx(`expected debug filename at line ${filename.line}`);
+    if (this.peek() === ',') {
+      this.take(); this.debugInteger(); this.expect(','); this.debugInteger();
+    }
+  }
+  locationDirective(): void {
+    this.debugInteger(); this.debugInteger(); this.debugInteger();
+    if (this.peek() === ',') throw new InvalidPtx('extended .loc attributes are not supported');
+  }
   group(): Token[] {
     this.expect('(');
     const start = this.at;
@@ -260,8 +279,8 @@ class Parser {
       }
       if (t.text === '.target') {
         if (this.result.target !== null) throw new InvalidPtx('duplicate .target');
-        const values: string[] = [];
-        while (this.at < this.tokens.length && this.tokens[this.at]!.line === t.line) values.push(this.take().text);
+        const values: string[] = [this.take().text];
+        while (this.peek() === ',') { values.push(this.take().text, this.take().text); }
         this.result.target = values.join(' ');
         if (!/^sm_[0-9]+[a-z]?(?: , [A-Za-z_][A-Za-z0-9_]*)*$/.test(this.result.target)) throw new InvalidPtx('unsupported .target syntax');
         continue;
@@ -272,7 +291,7 @@ class Parser {
       }
       if (['.visible', '.weak', '.extern'].includes(t.text)) continue;
       if (t.text === '.entry' || t.text === '.func') { this.function(t.text === '.entry' ? 'entry' : 'func'); continue; }
-      if (t.text === '.file') { while (this.at < this.tokens.length && this.tokens[this.at]!.line === t.line) this.take(); continue; }
+      if (t.text === '.file') { this.fileDirective(); continue; }
       throw new InvalidPtx(`unsupported module syntax ${JSON.stringify(t.text)} at line ${t.line}`);
     }
   }
@@ -299,7 +318,7 @@ class Parser {
         fn.labels[t.text] = fn.instructions.length;
         continue;
       }
-      if (t.text === '.loc') { while (this.at < this.tokens.length && this.tokens[this.at]!.line === t.line) this.take(); continue; }
+      if (t.text === '.loc') { this.locationDirective(); continue; }
       if (t.text === '.reg') {
         const decl: Token[] = [];
         while (this.peek() !== ';') { const d = this.take(); if (d.text === '}') throw new InvalidPtx('unterminated register declaration'); decl.push(d); }

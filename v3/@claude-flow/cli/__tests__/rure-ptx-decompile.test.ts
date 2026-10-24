@@ -88,6 +88,36 @@ describe('bounded PTX decompiler: preserved evidence, not semantic equivalence',
     expect(result.functions[0]!.instructions.map(i => i.line)).toEqual([8, 8]);
   });
 
+  it('parses debug directive operands without discarding same-line instructions', () => {
+    const text = `${header}.file 1 "input.cu", 0, 0 .entry sample() {\n.reg .b32 %r0;\nmov.u32 %r0,1; .loc 1 1 0 mov.u32 %r0,2;\n.loc 1 2 0 ret;\n}`;
+    const result = decompilePtx(text);
+    expect(result.status).toBe('complete');
+    expect(result.functions[0]!.instructions.map(i => [i.opcode, i.operands])).toEqual([
+      ['mov.u32', ['%r0', '1']], ['mov.u32', ['%r0', '2']], ['ret', []],
+    ]);
+    const unsupported = decompilePtx(moduleOf('.loc 1 1 0 atom.global.add.u32 %r0,[%rd0],1;\nret;'));
+    expect(unsupported.status).toBe('partial');
+    expect(unsupported.functions[0]!.instructions[0]!.opcode).toBe('atom.global.add.u32');
+    expect(decompilePtx(`${header}.file 1 "input.cu" .entry a(){ret;} .entry b(){ret;}`).functions.map(f => f.name)).toEqual(['a', 'b']);
+  });
+
+  it('treats whitespace as a separator instead of a directive terminator', () => {
+    const source = '.version 8.0 .target sm_80, texmode_independent .address_size 64 .file 1 "input.cu" .entry sample(){ .loc 1 1 0 ret; }';
+    expect(decompilePtx(source)).toMatchObject({ status: 'complete', target: 'sm_80 , texmode_independent', totalInstructionCount: 1 });
+  });
+
+  it.each([
+    `${header}.file 1 ret; .entry sample(){ret;}`,
+    `${header}.file 1 "input.cu", 0 .entry sample(){ret;}`,
+    `${header}.file 1 "input.cu", 0, 0, extra .entry sample(){ret;}`,
+    moduleOf('.loc 1 1 mov.u32 %r0,1; ret;'),
+    moduleOf('.loc 1 1 0,function_name label,inlined_at 1 1 0 ret;'),
+    moduleOf('.loc 1 -1 0 ret;'),
+    moduleOf('.loc 1 18446744073709551616 0 ret;'),
+  ])('fails closed for unsupported debug directive syntax %#', source => {
+    expect(decompilePtx(source).status).toBe('invalid');
+  });
+
   it('does not let prototype-shaped labels modify the result object', () => {
     const result = decompilePtx(moduleOf('bra __proto__;\n__proto__: ret;'));
     expect(result.status).toBe('complete');

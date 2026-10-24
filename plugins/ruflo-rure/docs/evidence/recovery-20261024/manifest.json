@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "taskId": "rure-executable-recovery-20261024",
+  "scope": "Public synthetic CPU recovery evidence, external baseline capability check, failed GPU attempt, independent review; no SOTA proof",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 8093,
+      "sha256": "e53e3328276793d880826ddcb4bdb867808c927926f824d1bfa21a48e9b10990"
+    },
+    {
+      "path": "auditor-independent-review.md",
+      "bytes": 5247,
+      "sha256": "65e25063ea959731b60d4b2aa9d7cbf23076e85f49d5a7acc12e26c5085d982f"
+    },
+    {
+      "path": "auditor-negative-results.jsonl",
+      "bytes": 6786,
+      "sha256": "783fc58f77eeeb31d4c44f9a2b21cceeac595140004b92a247bed99caeaeb796"
+    },
+    {
+      "path": "confirmation-exposure.json",
+      "bytes": 1332,
+      "sha256": "86b45979d92fdbbfe2d5693396f14ab1a0c7de5bac1ff0da69ed49a134913d62"
+    },
+    {
+      "path": "confirmation.json",
+      "bytes": 8657,
+      "sha256": "1d4ec61fc80ece40a359fd745723acb1a6cb64ed9cc54fec44e8ae785f885466"
+    },
+    {
+      "path": "culifter-integration-replay.json",
+      "bytes": 11663,
+      "sha256": "64f2f8f74eabc85e976fd88532b9b083e4580a913c379ef624194601a381fe82"
+    },
+    {
+      "path": "culifter-reproduction.json",
+      "bytes": 7291,
+      "sha256": "791c93b3c6a1223e4a9c63554b885b66ebc8bd3ddce405cfbb2a652eefafa72c"
+    },
+    {
+      "path": "development.json",
+      "bytes": 12863,
+      "sha256": "448b1c29a899afccf605094c7a04fea2cb0ef1e67d2be7656dcb3a5c16a46681"
+    },
+    {
+      "path": "directives-fixed.jsonl",
+      "bytes": 1038,
+      "sha256": "73b5fb59f81aa115b79df6987ecdb5740700a8cba65e597e77abc166db596090"
+    },
+    {
+      "path": "gpu-attempt.json",
+      "bytes": 1871,
+      "sha256": "e6538fc7c39fa6bf00ced4ef39304c4019278ef5ec6d7b3d0241907c04327bc0"
+    },
+    {
+      "path": "independent-review.md",
+      "bytes": 6987,
+      "sha256": "4f2137a1d76889d129adb21a9946bb94ca617c234d6a89372d3031b108ea9436"
+    },
+    {
+      "path": "installed-development.json",
+      "bytes": 12373,
+      "sha256": "4c24f3f44cf4019368ef807a8cb0f49ce46289bb5436697be14e719898bc7f3b"
+    },
+    {
+      "path": "installed-mcp.json",
+      "bytes": 637,
+      "sha256": "e40e8a92480f17d1c36353b5d7637065fa56face76ce622dfa6bfd210cbd39b1"
+    },
+    {
+      "path": "negative-and-bounds.jsonl",
+      "bytes": 3698,
+      "sha256": "a9feb7a20eae342895d1d31c9725f4dcf0fc50c69b83729da61e8eb99e3ac1a6"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{"name":"uninit","bytes":113,"status":"unsupported","codeBytes":0,"elapsedMs":2.77,"diagnostics":["register may be uninitialized at line 6: %y"]}
+{"name":"self_read","bytes":113,"status":"unsupported","codeBytes":0,"elapsedMs":0.45,"diagnostics":["register may be uninitialized at line 6: %x"]}
+{"name":"loop_entry","bytes":126,"status":"unsupported","codeBytes":0,"elapsedMs":0.3,"diagnostics":["register may be uninitialized at line 6: %x"]}
+{"name":"predicate_uninit","bytes":114,"status":"unsupported","codeBytes":0,"elapsedMs":0.16,"diagnostics":["register may be uninitialized at line 6: %p"]}
+{"name":"conditional_definition","bytes":149,"status":"unsupported","codeBytes":0,"elapsedMs":0.35,"diagnostics":["register may be uninitialized at line 6: %x"]}
+{"name":"branch_join","bytes":159,"status":"unsupported","codeBytes":0,"elapsedMs":0.32,"diagnostics":["register may be uninitialized at line 6: %x"]}
+{"name":"cfg_backedge","bytes":140,"status":"unsupported","codeBytes":0,"elapsedMs":0.21,"diagnostics":["register may be uninitialized at line 6: %x"]}
+{"name":"tail_predicated","bytes":120,"status":"unsupported","codeBytes":0,"elapsedMs":0.12,"diagnostics":["conditional terminator can fall through kernel end"]}
+{"name":"unreachable_read","bytes":118,"status":"emitted","codeBytes":1868,"elapsedMs":0.22,"diagnostics":[]}
+{"name":"reachable_fallthrough","bytes":105,"status":"unsupported","codeBytes":0,"elapsedMs":0.15,"diagnostics":["reachable kernel fallthrough without ret/exit is unsupported"]}
+{"name":"missing_register","bytes":110,"status":"unsupported","codeBytes":0,"elapsedMs":0.1,"diagnostics":["undeclared or width-mismatched register %z; expected 32"]}
+{"name":"register_width","bytes":110,"status":"unsupported","codeBytes":0,"elapsedMs":0.11,"diagnostics":["undeclared or width-mismatched register %x; expected 64"]}
+{"name":"predicate_width","bytes":119,"status":"unsupported","codeBytes":0,"elapsedMs":0.09,"diagnostics":["undeclared or width-mismatched register %x; expected pred"]}
+{"name":"duplicate_register","bytes":95,"status":"unsupported","codeBytes":0,"elapsedMs":0.06,"diagnostics":["duplicate register %r1"]}
+{"name":"register_explosion","bytes":100,"status":"unsupported","codeBytes":0,"elapsedMs":0.05,"diagnostics":["expanded register count exceeds 256"]}
+{"name":"too_many_registers","bytes":82,"status":"unsupported","codeBytes":0,"elapsedMs":0.07,"diagnostics":["expanded register count exceeds 256"]}
+{"name":"duplicate_param","bytes":88,"status":"unsupported","codeBytes":0,"elapsedMs":0.27,"diagnostics":["duplicate parameter x"]}
+{"name":"comment_unclosed","bytes":113,"status":"invalid","codeBytes":0,"elapsedMs":0.08,"diagnostics":["unterminated comment at line 6"]}
+{"name":"instruction_overflow","bytes":53344,"status":"invalid","codeBytes":0,"elapsedMs":17.36,"diagnostics":["instruction count exceeds 4096"]}
+{"name":"input_overflow","bytes":262188,"status":"invalid","codeBytes":0,"elapsedMs":0.47,"diagnostics":["input exceeds 262144 bytes"]}
+{"name":"nested_operands","bytes":60111,"status":"unsupported","codeBytes":0,"elapsedMs":15.03,"diagnostics":["structural parser reported unsupported constructs"]}
+{"name":"long_token","bytes":10110,"status":"invalid","codeBytes":0,"elapsedMs":0.76,"diagnostics":["token length exceeds 512 at line 6"]}
+{"name":"block_overflow","bytes":39986,"status":"invalid","codeBytes":0,"elapsedMs":14.54,"diagnostics":["block count exceeds 2048"]}
+{"name":"max_straightline","bytes":65613,"status":"unsupported","codeBytes":0,"elapsedMs":48.65,"diagnostics":["generated code exceeds 524288 bytes"]}
+{"name":"identifiers","bytes":173,"status":"emitted","codeBytes":1801,"elapsedMs":0.99,"diagnostics":[]}
