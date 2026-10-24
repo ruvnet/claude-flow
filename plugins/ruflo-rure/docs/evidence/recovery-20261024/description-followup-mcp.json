@@ -1,0 +1,20 @@
+{
+  "status": "pass",
+  "transport": "stdio",
+  "builtEntrypoint": "/workspace/scratch/16fc07be6201/ruflo-cuda/v3/@claude-flow/cli/bin/mcp-server.js",
+  "sourceSha256": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+  "functions": 2,
+  "tool": "rure_decompile_ptx",
+  "resultEnvelopeDepth": 2,
+  "screened": false,
+  "presentationModified": false,
+  "recovery": {
+    "status": "emitted",
+    "proofStatus": "not-proven",
+    "codeSha256": "d4410609abafd3a9b9b8abc281b6aff950d15e5bd800737cb1203910b9e586c8",
+    "codeBytes": 5577,
+    "screened": false
+  },
+  "elapsedMs": 193.147329,
+  "node": "v24.19.0"
+}

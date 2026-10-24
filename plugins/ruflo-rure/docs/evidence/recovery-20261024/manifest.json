@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 8093,
-      "sha256": "e53e3328276793d880826ddcb4bdb867808c927926f824d1bfa21a48e9b10990"
+      "bytes": 9089,
+      "sha256": "396177526822d096374b89ff9a00f298ab1352850fb88d876d0d7f191b0f1cae"
     },
     {
       "path": "auditor-independent-review.md",
@@ -37,6 +37,11 @@
       "path": "culifter-reproduction.json",
       "bytes": 7291,
       "sha256": "791c93b3c6a1223e4a9c63554b885b66ebc8bd3ddce405cfbb2a652eefafa72c"
+    },
+    {
+      "path": "description-followup-mcp.json",
+      "bytes": 629,
+      "sha256": "b9bfdb6fc142f7b5a24924265c03e1546d3fffb55f4c35605219332ac5c8d39b"
     },
     {
       "path": "development.json",

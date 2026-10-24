@@ -58,7 +58,8 @@ never authenticates execution and never declares SOTA. See the
 | --- | --- |
 | Recovery TypeScript | `eb8db24b283ae204b7ae0c5ea0971f2256e5d6169603c85566c9ab13a4485b66` |
 | PTX parser TypeScript | `777a0fefb8056e647ea457f13491190f7fd8c03fe2d75cd146a9334eb11f2a30` |
-| MCP wrapper TypeScript | `1299b26efb72e54c07fa2dd6d775a614380cd25972bd82d69068a7e8f7876c70` |
+| MCP wrapper TypeScript at installed-package evaluation | `1299b26efb72e54c07fa2dd6d775a614380cd25972bd82d69068a7e8f7876c70` |
+| MCP wrapper after description-only CI follow-up | `86553ccbb21780d9767cca9aaaaa53ca1e0056ccf47f710dc5b09c2a4a7a4087` |
 | CPU evaluator | `bbe49c3dc001d11caefba935dd27ae49242f02a30cb4d49fa848300d67435f94` |
 | GPU driver | `9736c2f988c69e5a3a25f6851bb4b6503b0b8c7fb56eafc875e02edc0838b8a3` |
 | Comparison auditor | `5472322dd99dc7a66a788b8bada30b82ec1eeaea8360b423fac6a56c2706180b` |
@@ -85,6 +86,18 @@ resolved graph including uninstalled optional dependencies reports 37 affected
 nodes (22 moderate, 14 high, 1 critical). These are unresolved release risks.
 The previous remote PR head also had a failing repository supply-chain check;
 this draft does not waive it or claim fresh-head CI success.
+
+Fresh CI at `03a280ce6803740ffc8337f7ee2260e71375509a` found a missing
+usage-guidance phrase in the new MCP description. A description-only follow-up
+restored that guidance; the repository discoverability audit now passes all
+409 descriptions, and all 11 wrapper tests pass. Independent review confirmed
+no schema, handler, backend or parser changes. The CLI was rebuilt and the
+real MCP path rechecked. The package integrity above describes the earlier
+installed artifact; its executable logic is unchanged, but its description
+predates this follow-up. Confirmation was not repeated. The separate
+[supply-chain failure](https://github.com/ruvnet/ruflo/actions/runs/40047280439/job/120731795240)
+still identifies existing graph-intelligence and browser dependencies outside
+this patch. No CI baseline or accepted-findings policy was changed.
 
 ## Cost, cleanup and next trigger
 
