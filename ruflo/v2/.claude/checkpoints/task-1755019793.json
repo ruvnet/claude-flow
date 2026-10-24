@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250812-172952", "task": "fix @ruvnet ➜ /workspaces/claude-code-flow (alpha-89) $ ./claude-flow stream-chain  ❌ Error: Unk", "timestamp": "2025-08-12T17:29:53Z", "commit": "7fc3b971a65df79252570dc912a8e87ddae8fdce", "github_release": "true"}

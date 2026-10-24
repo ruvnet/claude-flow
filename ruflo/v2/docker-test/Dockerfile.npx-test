@@ -1,0 +1,20 @@
+FROM node:20-slim
+
+# Install basic tools
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create working directory
+WORKDIR /test
+
+# Copy test script
+COPY test-npx-memory.sh /test/test-npx-memory.sh
+RUN chmod +x /test/test-npx-memory.sh
+
+# Set environment to ensure we're testing npx behavior
+ENV NPM_CONFIG_LOGLEVEL=warn
+
+# Run tests
+CMD ["/test/test-npx-memory.sh"]

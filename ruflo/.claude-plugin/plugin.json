@@ -1,0 +1,71 @@
+{
+  "name": "claude-flow",
+  "version": "2.5.0",
+  "description": "Enterprise AI agent orchestration plugin with 150+ commands, 74+ specialized agents, SPARC methodology, swarm coordination, GitHub integration, and neural training capabilities",
+  "author": {
+    "name": "rUv",
+    "email": "ruv@ruv.net"
+  },
+  "homepage": "https://github.com/ruvnet/claude-flow",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/claude-flow.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/claude-flow/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai-agents",
+    "swarm-intelligence",
+    "orchestration",
+    "sparc-methodology",
+    "github-automation",
+    "neural-training",
+    "mcp-integration",
+    "enterprise",
+    "workflow-automation",
+    "multi-agent",
+    "coordination",
+    "tdd",
+    "code-review",
+    "performance-optimization"
+  ],
+  "category": "development",
+  "tags": [
+    "productivity",
+    "automation",
+    "ai",
+    "agents",
+    "swarm",
+    "coordination",
+    "sparc",
+    "github",
+    "neural-network",
+    "enterprise"
+  ],
+  "engines": {
+    "claudeCode": ">=2.0.0",
+    "node": ">=20.0.0"
+  },
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["claude-flow@alpha", "mcp", "start"],
+      "description": "Core Claude Flow MCP server for swarm coordination, agent management, and task orchestration (40+ tools)",
+      "optional": false
+    },
+    "ruv-swarm": {
+      "command": "npx",
+      "args": ["ruv-swarm", "mcp", "start"],
+      "description": "Enhanced swarm coordination with WASM acceleration (2.8-4.4x speed improvement)",
+      "optional": true
+    },
+    "flow-nexus": {
+      "command": "npx",
+      "args": ["flow-nexus@latest", "mcp", "start"],
+      "description": "Cloud-based orchestration platform with 70+ tools (requires authentication)",
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# coder agent configuration
+type: coder
+version: "3.0.0"
+capabilities:
+  - code-generation
+  - refactoring
+  - debugging
+optimizations:
+  - flash-attention
+  - token-reduction
+createdAt: "2026-01-07T02:52:18.645Z"

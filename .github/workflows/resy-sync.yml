@@ -1,0 +1,57 @@
+name: Resy Reservation Sync
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Daily 9 AM EST = 2 PM UTC
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month to sync (YYYY-MM). Defaults to current month.'
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: src/labor-optimizer
+        run: |
+          npm ci --ignore-scripts 2>/dev/null || npm install
+          npx playwright install chromium --with-deps
+
+      - name: Install script dependencies
+        working-directory: src/labor-optimizer
+        run: npm install playwright tsx
+
+      - name: Run Resy Sync
+        working-directory: src/labor-optimizer
+        run: |
+          MONTH_ARG=""
+          if [ -n "${{ github.event.inputs.month }}" ]; then
+            MONTH_ARG="--month ${{ github.event.inputs.month }}"
+          fi
+          npx tsx scripts/resy-sync.ts $MONTH_ARG
+        env:
+          RESY_USERNAME: ${{ secrets.RESY_USERNAME }}
+          RESY_PASSWORD: ${{ secrets.RESY_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Upload debug screenshots (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resy-debug-screenshots
+          path: /tmp/resy-*.png
+          retention-days: 7

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+echo "=================================="
+echo "Claude-Flow Spawn Command Examples"
+echo "=================================="
+echo ""
+
+echo "1. Basic Task (default options)"
+echo "-------------------------------"
+echo "Command: claude-flow claude spawn \"implement user login\""
+echo "Features: Basic tools, phase commits, 80% coverage"
+echo ""
+
+echo "2. Research Mode"
+echo "----------------"
+echo "Command: claude-flow claude spawn \"research authentication methods\" --research"
+echo "Features: Adds WebFetchTool for web research"
+echo ""
+
+echo "3. Parallel Execution"
+echo "---------------------"
+echo "Command: claude-flow claude spawn \"build microservices\" --parallel"
+echo "Features: Adds BatchTool and dispatch_agent for multi-agent coordination"
+echo ""
+
+echo "4. Backend-Only Mode"
+echo "--------------------"
+echo "Command: claude-flow claude spawn \"create REST API\" --mode backend-only --coverage 95"
+echo "Features: Focus on server-side, 95% test coverage target"
+echo ""
+
+echo "5. Frontend-Only Mode"
+echo "---------------------"
+echo "Command: claude-flow claude spawn \"build React components\" --mode frontend-only --commit feature"
+echo "Features: Focus on client-side, commit after each feature"
+echo ""
+
+echo "6. API-Only Mode"
+echo "-----------------"
+echo "Command: claude-flow claude spawn \"design GraphQL schema\" --mode api-only --verbose"
+echo "Features: Focus on API design, verbose output"
+echo ""
+
+echo "7. Full Stack with All Options"
+echo "-------------------------------"
+echo "Command: claude-flow claude spawn \"build complete app\" --research --parallel --coverage 90 --commit feature --verbose"
+echo "Features: All tools, multi-agent, research, 90% coverage, feature commits, verbose"
+echo ""
+
+echo "8. No Permissions Mode"
+echo "----------------------"
+echo "Command: claude-flow claude spawn \"automated deployment\" --no-permissions"
+echo "Features: Executes without confirmation prompts (useful for CI/CD)"
+echo ""
+
+echo "Each spawned Claude instance receives:"
+echo "- Detailed guidance on using npx claude-flow commands"
+echo "- Mode-specific instructions"
+echo "- Examples of memory operations"
+echo "- Configuration management commands"
+echo "- Best practices for the specific options"
+echo ""
+echo "Run any of these commands to see the enhanced guidance in action!"

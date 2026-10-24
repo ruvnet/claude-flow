@@ -1,0 +1,19 @@
+{
+  "name": "rest-api-simple",
+  "version": "1.0.0",
+  "description": "A super simple REST API example",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": ["rest", "api", "simple", "example"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

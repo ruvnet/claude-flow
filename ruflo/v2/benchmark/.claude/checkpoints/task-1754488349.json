@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250806-135228", "task": "update the swarm-bench cli to always use real, real doesn't seem nessary. ", "timestamp": "2025-08-06T13:52:29Z", "commit": "796c7971de07672a41d3f7e53e7d46b410d2be80", "github_release": "true"}

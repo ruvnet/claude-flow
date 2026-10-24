@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  claude-flow-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-flow-regression-test
+    volumes:
+      - test-results:/test/results
+    environment:
+      - NODE_ENV=production
+      - CLAUDE_FLOW_TEST=true
+    command: >
+      /bin/bash -c "
+        echo '=== Running Regression Tests ===' &&
+        /test/regression-tests.sh &&
+        echo '' &&
+        echo '=== Running Pattern Verification ===' &&
+        /test/verify-patterns.sh
+      "
+
+volumes:
+  test-results:
+    driver: local

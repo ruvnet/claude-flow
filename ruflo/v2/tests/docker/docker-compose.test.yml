@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  claude-flow-test:
+    build:
+      context: ../..
+      dockerfile: tests/docker/Dockerfile.test
+    container_name: claude-flow-test
+    volumes:
+      - test-data:/home/testuser/data
+    environment:
+      - NODE_ENV=test
+      - CI=true
+    command: sh -c "sleep infinity"
+
+volumes:
+  test-data:

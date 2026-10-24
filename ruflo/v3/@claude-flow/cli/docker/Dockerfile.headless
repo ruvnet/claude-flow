@@ -1,0 +1,80 @@
+# Dockerfile for Claude Flow V3 Headless Worker
+# ADR-020: Headless Worker Integration Architecture - Phase 3
+#
+# Build:
+#   docker build -t ghcr.io/ruvnet/claude-flow-headless:latest -f Dockerfile.headless .
+#
+# Run:
+#   docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY ghcr.io/ruvnet/claude-flow-headless:latest
+
+# Stage 1: Base with Node.js
+FROM node:20-alpine AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git \
+    bash \
+    curl \
+    ca-certificates \
+    dumb-init
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S claude && \
+    adduser -S -D -H -u 1001 -h /home/claude -s /bin/bash -G claude claude
+
+# Set up directories
+RUN mkdir -p /home/claude/.claude-flow && \
+    mkdir -p /workspace && \
+    mkdir -p /var/log/claude-flow && \
+    chown -R claude:claude /home/claude /workspace /var/log/claude-flow
+
+# Stage 2: Build dependencies
+FROM base AS deps
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY pnpm-lock.yaml* ./
+
+# Install pnpm and dependencies
+RUN npm install -g pnpm && \
+    pnpm install --frozen-lockfile --prod
+
+# Stage 3: Production image
+FROM base AS production
+
+WORKDIR /app
+
+# Copy node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Install Claude Code CLI globally
+RUN npm install -g @anthropic-ai/claude-code@latest && \
+    npm install -g @claude-flow/cli@v3alpha
+
+# Copy application files
+COPY --chown=claude:claude . .
+
+# Set environment variables
+ENV NODE_ENV=production \
+    CLAUDE_CODE_HEADLESS=true \
+    CLAUDE_CODE_SANDBOX_MODE=strict \
+    CLAUDE_FLOW_LOG_LEVEL=info \
+    HOME=/home/claude
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Switch to non-root user
+USER claude
+
+# Expose health check port
+EXPOSE 3000
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+# Default command: start daemon in foreground
+CMD ["npx", "claude-flow@v3alpha", "daemon", "start", "--foreground", "--headless"]

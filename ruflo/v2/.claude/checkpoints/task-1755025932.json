@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250812-191211", "task": "fix   The error we're seeing ("Expected message type 'user' or 'control', got 'system'") is because ", "timestamp": "2025-08-12T19:12:12Z", "commit": "cc9985446f76167438a98c0e3b48088bf1cabf5e", "github_release": "true"}

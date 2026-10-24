@@ -1,0 +1,157 @@
+name: V3 CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, v3]
+    paths:
+      - 'v3/**'
+      - '.github/workflows/v3-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'v3/**'
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '8'
+
+jobs:
+  test:
+    name: Test V3 Packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        working-directory: v3
+        run: pnpm test
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-coverage
+          path: v3/__tests__/coverage/
+
+  typecheck:
+    name: Type Check V3
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: v3
+        run: pnpm typecheck
+        continue-on-error: true
+
+  build:
+    name: Build V3 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: [test]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: v3
+        run: pnpm build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-build-${{ matrix.os }}
+          path: v3/@claude-flow/*/dist/
+
+  publish:
+    name: Publish to npm (alpha)
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/v3' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          cache-dependency-path: v3/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: v3
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: v3
+        run: pnpm build
+
+      - name: Publish alpha
+        working-directory: v3
+        run: pnpm publish:alpha
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

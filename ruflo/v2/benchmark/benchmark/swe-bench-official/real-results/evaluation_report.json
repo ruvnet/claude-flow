@@ -1,0 +1,36 @@
+{
+  "config": {
+    "mode": "mesh",
+    "strategy": "optimization",
+    "agents": 8
+  },
+  "results": [
+    {
+      "instance_id": "django__django-11099",
+      "success": false,
+      "patch": "",
+      "duration": 1.6148381233215332,
+      "error": null
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-23299",
+      "success": false,
+      "patch": "",
+      "duration": 0.0013124942779541016,
+      "error": null
+    },
+    {
+      "instance_id": "sympy__sympy-13437",
+      "success": false,
+      "patch": "",
+      "duration": 0.0012044906616210938,
+      "error": null
+    }
+  ],
+  "metrics": {
+    "success_rate": 0.0,
+    "avg_duration": 0.5391183694203695,
+    "successful": 0,
+    "total": 3
+  }
+}

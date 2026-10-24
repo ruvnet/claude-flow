@@ -1,0 +1,174 @@
+{
+  "name": "Multi-Perspective Research Workflow",
+  "description": "Comprehensive research with parallel analysis from multiple perspectives",
+  "version": "1.0",
+  "variables": {
+    "research_topic": "${RESEARCH_TOPIC}",
+    "depth_level": "comprehensive",
+    "output_format": "detailed-report",
+    "perspectives": ["technical", "business", "ethical", "social"]
+  },
+  "agents": [
+    {
+      "id": "research-coordinator",
+      "type": "coordinator",
+      "name": "Research Coordinator",
+      "capabilities": ["research-planning", "synthesis", "report-generation"]
+    },
+    {
+      "id": "technical-researcher",
+      "type": "researcher",
+      "name": "Technical Researcher",
+      "capabilities": ["technical-analysis", "paper-review", "technology-assessment"]
+    },
+    {
+      "id": "business-analyst",
+      "type": "analyst",
+      "name": "Business Analyst", 
+      "capabilities": ["market-analysis", "business-strategy", "competitive-analysis"]
+    },
+    {
+      "id": "ethics-researcher",
+      "type": "researcher",
+      "name": "Ethics Researcher",
+      "capabilities": ["ethical-analysis", "policy-review", "social-impact"]
+    },
+    {
+      "id": "data-synthesizer",
+      "type": "analyst",
+      "name": "Data Synthesizer",
+      "capabilities": ["data-analysis", "trend-identification", "insight-generation"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "research-planning",
+      "name": "Research Planning and Scope Definition",
+      "type": "planning",
+      "description": "Define research scope, methodology, and key questions",
+      "assignTo": "research-coordinator",
+      "claudePrompt": "Plan comprehensive research on '${research_topic}'. Define: 1) Research objectives and key questions, 2) Methodology for each perspective (${perspectives}), 3) Information sources and databases, 4) Success criteria and deliverables, 5) Timeline and resource allocation. Create a structured research plan.",
+      "input": {
+        "topic": "${research_topic}",
+        "depth": "${depth_level}",
+        "perspectives": "${perspectives}"
+      },
+      "output": {
+        "research_plan": "object",
+        "key_questions": "array",
+        "methodology": "object"
+      }
+    },
+    {
+      "id": "technical-research",
+      "name": "Technical Research and Analysis",
+      "type": "research",
+      "description": "Deep technical analysis of the research topic",
+      "assignTo": "technical-researcher",
+      "depends": ["research-planning"],
+      "parallel": true,
+      "claudePrompt": "Conduct technical research on '${research_topic}'. Focus on: 1) Current state of technology, 2) Technical challenges and limitations, 3) Recent breakthrough and innovations, 4) Implementation approaches, 5) Performance metrics and benchmarks, 6) Future technical directions. Provide detailed technical analysis.",
+      "input": {
+        "research_plan": "${research-planning.output.research_plan}",
+        "topic": "${research_topic}"
+      },
+      "output": {
+        "technical_findings": "object",
+        "technology_assessment": "object",
+        "implementation_notes": "array"
+      }
+    },
+    {
+      "id": "business-research",
+      "name": "Business and Market Analysis",
+      "type": "analysis",
+      "description": "Business impact and market analysis",
+      "assignTo": "business-analyst",
+      "depends": ["research-planning"],
+      "parallel": true,
+      "claudePrompt": "Analyze '${research_topic}' from business perspective. Research: 1) Market size and growth potential, 2) Key players and competitive landscape, 3) Business models and revenue streams, 4) Investment trends and funding, 5) Regulatory and compliance considerations, 6) Business risks and opportunities. Provide comprehensive business analysis.",
+      "input": {
+        "research_plan": "${research-planning.output.research_plan}",
+        "topic": "${research_topic}"
+      },
+      "output": {
+        "market_analysis": "object",
+        "business_opportunities": "array",
+        "risk_assessment": "object"
+      }
+    },
+    {
+      "id": "ethical-research",
+      "name": "Ethical and Social Impact Analysis", 
+      "type": "research",
+      "description": "Ethical implications and social impact assessment",
+      "assignTo": "ethics-researcher",
+      "depends": ["research-planning"],
+      "parallel": true,
+      "claudePrompt": "Research ethical and social implications of '${research_topic}'. Analyze: 1) Ethical considerations and dilemmas, 2) Social impact and consequences, 3) Privacy and security concerns, 4) Bias and fairness issues, 5) Regulatory and policy implications, 6) Stakeholder perspectives and concerns. Provide ethical framework and recommendations.",
+      "input": {
+        "research_plan": "${research-planning.output.research_plan}",
+        "topic": "${research_topic}"
+      },
+      "output": {
+        "ethical_analysis": "object",
+        "social_impact": "object",
+        "policy_recommendations": "array"
+      }
+    },
+    {
+      "id": "data-synthesis",
+      "name": "Cross-Perspective Data Synthesis",
+      "type": "synthesis",
+      "description": "Synthesize findings from all research perspectives",
+      "assignTo": "data-synthesizer",
+      "depends": ["technical-research", "business-research", "ethical-research"],
+      "claudePrompt": "Synthesize research findings from all perspectives on '${research_topic}'. Create: 1) Integrated analysis combining technical, business, and ethical insights, 2) Cross-perspective correlations and conflicts, 3) Key trends and patterns, 4) Gap analysis and future research needs, 5) Actionable insights and recommendations, 6) Risk-benefit analysis across all dimensions.",
+      "input": {
+        "technical_findings": "${technical-research.output.technical_findings}",
+        "business_analysis": "${business-research.output.market_analysis}",
+        "ethical_analysis": "${ethical-research.output.ethical_analysis}"
+      },
+      "output": {
+        "integrated_analysis": "object",
+        "key_insights": "array",
+        "recommendations": "array"
+      }
+    },
+    {
+      "id": "report-generation",
+      "name": "Comprehensive Research Report",
+      "type": "documentation",
+      "description": "Generate final comprehensive research report",
+      "assignTo": "research-coordinator",
+      "depends": ["data-synthesis"],
+      "claudePrompt": "Generate a comprehensive research report on '${research_topic}' in ${output_format} format. Include: 1) Executive summary with key findings, 2) Detailed analysis from each perspective, 3) Integrated insights and synthesis, 4) Recommendations and action items, 5) Future research directions, 6) References and sources, 7) Appendices with supporting data. Make it suitable for stakeholders and decision-makers.",
+      "input": {
+        "integrated_analysis": "${data-synthesis.output.integrated_analysis}",
+        "all_findings": {
+          "technical": "${technical-research.output}",
+          "business": "${business-research.output}",
+          "ethical": "${ethical-research.output}"
+        },
+        "format": "${output_format}"
+      },
+      "output": {
+        "final_report": "string",
+        "executive_summary": "string",
+        "presentation_slides": "string"
+      }
+    }
+  ],
+  "hooks": {
+    "pre-task": "npx claude-flow@alpha hooks pre-task --description \"${task.name}\" --auto-spawn-agents false",
+    "post-task": "npx claude-flow@alpha hooks post-task --task-id \"${task.id}\" --analyze-performance true"
+  },
+  "settings": {
+    "maxConcurrency": 4,
+    "timeout": 2400000,
+    "retryPolicy": "exponential",
+    "failurePolicy": "continue",
+    "memoryCoordination": true,
+    "outputFormat": "stream-json"
+  }
+}

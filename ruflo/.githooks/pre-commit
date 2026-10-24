@@ -1,0 +1,25 @@
+#!/bin/bash
+# Pre-commit hook to prevent API key leaks
+
+echo "🔒 Running API key redaction check..."
+
+# Run the redaction validator using compiled JavaScript
+if [ -f "dist-cjs/src/hooks/redaction-hook.js" ]; then
+  node dist-cjs/src/hooks/redaction-hook.js
+  exit_code=$?
+else
+  echo "⚠️  Redaction hook not found - skipping check"
+  echo "💡 Run 'npm run build' to enable API key protection"
+  exit 0
+fi
+
+if [ $exit_code -ne 0 ]; then
+  echo ""
+  echo "❌ COMMIT BLOCKED - Sensitive data detected!"
+  echo "⚠️  Please remove API keys and secrets before committing."
+  echo ""
+  exit 1
+fi
+
+echo "✅ Redaction check passed - safe to commit"
+exit 0

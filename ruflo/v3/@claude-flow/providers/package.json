@@ -1,0 +1,70 @@
+{
+  "name": "@claude-flow/providers",
+  "version": "3.0.0-alpha.6",
+  "description": "Multi-LLM Provider System for Claude Flow V3",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.js",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run src/__tests__/provider-integration.test.ts",
+    "test:coverage": "vitest run --coverage",
+    "test:quick": "npx tsx src/__tests__/quick-test.ts",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "claude-flow",
+    "llm",
+    "provider",
+    "anthropic",
+    "openai",
+    "google",
+    "cohere",
+    "ollama",
+    "multi-provider",
+    "load-balancing",
+    "failover"
+  ],
+  "author": "Claude Flow Team",
+  "license": "MIT",
+  "dependencies": {
+    "events": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "@ruvector/ruvllm": "^0.2.3"
+  },
+  "peerDependenciesMeta": {
+    "@ruvector/ruvllm": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "timestamp": "2025-08-07T14:43:01.551923",
+  "instances_tested": 1,
+  "modes_tested": 2,
+  "total_tests": 2,
+  "mode_performance": {
+    "hive-mind-2agents": {
+      "success_rate": 0.0,
+      "successful": 0,
+      "total": 1,
+      "avg_duration": 0.3704853057861328,
+      "description": "Quick hive-mind test"
+    },
+    "swarm-auto-centralized-2agents": {
+      "success_rate": 0.0,
+      "successful": 0,
+      "total": 1,
+      "avg_duration": 60.0,
+      "description": "Quick swarm test"
+    }
+  },
+  "best_mode": "hive-mind-2agents",
+  "best_performance": {
+    "success_rate": 0.0,
+    "successful": 0,
+    "total": 1,
+    "avg_duration": 0.3704853057861328,
+    "description": "Quick hive-mind test"
+  },
+  "all_results": [
+    {
+      "mode": "hive-mind-2agents",
+      "instance_id": "astropy__astropy-12907",
+      "success": false,
+      "patch": "",
+      "duration": 0.3704853057861328,
+      "exit_code": 1,
+      "output_length": 0,
+      "error": "No patch generated"
+    },
+    {
+      "mode": "swarm-auto-centralized-2agents",
+      "instance_id": "astropy__astropy-12907",
+      "success": false,
+      "patch": "",
+      "duration": 60,
+      "error": "Timeout"
+    }
+  ]
+}

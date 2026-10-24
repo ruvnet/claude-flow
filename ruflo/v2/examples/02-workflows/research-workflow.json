@@ -1,0 +1,155 @@
+{
+  "name": "AI Research Pipeline",
+  "version": "1.0",
+  "description": "Comprehensive research workflow for AI trends analysis",
+  "variables": {
+    "research_topic": "artificial intelligence trends 2024",
+    "depth": "comprehensive",
+    "output_format": "markdown"
+  },
+  "agents": [
+    {
+      "id": "researcher",
+      "type": "researcher",
+      "name": "Primary Research Agent",
+      "config": {
+        "maxConcurrentTasks": 3,
+        "specialization": "technology-research"
+      }
+    },
+    {
+      "id": "analyzer",
+      "type": "analyst",
+      "name": "Data Analysis Agent",
+      "config": {
+        "maxConcurrentTasks": 2,
+        "specialization": "trend-analysis"
+      }
+    },
+    {
+      "id": "coordinator",
+      "type": "coordinator",
+      "name": "Workflow Coordinator",
+      "config": {
+        "maxConcurrentTasks": 1,
+        "specialization": "project-management"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "initial-research",
+      "name": "Initial Topic Research",
+      "type": "research",
+      "description": "Conduct initial research on ${research_topic}",
+      "assignTo": "researcher",
+      "priority": 10,
+      "input": {
+        "topic": "${research_topic}",
+        "depth": "overview",
+        "sources": ["academic", "industry", "news"]
+      },
+      "timeout": 300000
+    },
+    {
+      "id": "deep-dive-research",
+      "name": "Deep Dive Research",
+      "type": "research",
+      "description": "Detailed research based on initial findings",
+      "assignTo": "researcher",
+      "depends": ["initial-research"],
+      "priority": 8,
+      "input": {
+        "topic": "${research_topic}",
+        "depth": "${depth}",
+        "focus_areas": "output:initial-research.key_areas"
+      },
+      "timeout": 600000
+    },
+    {
+      "id": "data-analysis",
+      "name": "Trend Analysis",
+      "type": "analysis",
+      "description": "Analyze research data for trends and patterns",
+      "assignTo": "analyzer",
+      "depends": ["deep-dive-research"],
+      "priority": 7,
+      "input": {
+        "data": "output:deep-dive-research.findings",
+        "analysis_type": "trend-identification",
+        "metrics": ["frequency", "impact", "growth-rate"]
+      },
+      "timeout": 300000
+    },
+    {
+      "id": "synthesis",
+      "name": "Research Synthesis",
+      "type": "coordination",
+      "description": "Synthesize all findings into comprehensive report",
+      "assignTo": "coordinator",
+      "depends": ["data-analysis"],
+      "priority": 9,
+      "input": {
+        "research_data": "output:deep-dive-research.findings",
+        "analysis_results": "output:data-analysis.results",
+        "format": "${output_format}",
+        "sections": [
+          "executive-summary",
+          "key-trends",
+          "detailed-analysis",
+          "recommendations",
+          "appendix"
+        ]
+      },
+      "timeout": 180000
+    },
+    {
+      "id": "quality-review",
+      "name": "Quality Assurance Review",
+      "type": "analysis",
+      "description": "Review final report for accuracy and completeness",
+      "assignTo": "analyzer",
+      "depends": ["synthesis"],
+      "priority": 6,
+      "input": {
+        "document": "output:synthesis.report",
+        "criteria": ["accuracy", "completeness", "clarity", "structure"],
+        "feedback_format": "structured"
+      },
+      "timeout": 120000
+    },
+    {
+      "id": "final-report",
+      "name": "Final Report Generation",
+      "type": "coordination",
+      "description": "Generate final polished report with all revisions",
+      "assignTo": "coordinator",
+      "depends": ["quality-review"],
+      "priority": 10,
+      "input": {
+        "base_report": "output:synthesis.report",
+        "review_feedback": "output:quality-review.feedback",
+        "final_format": "${output_format}",
+        "include_metadata": true
+      },
+      "timeout": 120000
+    }
+  ],
+  "settings": {
+    "maxConcurrency": 3,
+    "timeout": 1800000,
+    "retryPolicy": "exponential",
+    "failurePolicy": "continue",
+    "progressReporting": {
+      "enabled": true,
+      "interval": 30000,
+      "includeMetrics": true
+    }
+  },
+  "metadata": {
+    "author": "Claude-Flow Team",
+    "created": "2024-01-15T10:00:00Z",
+    "tags": ["research", "AI", "automation", "analysis"],
+    "category": "research-pipeline"
+  }
+}

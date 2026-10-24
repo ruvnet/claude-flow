@@ -1,0 +1,36 @@
+{
+  "dataset": "SWE-bench-Lite",
+  "instances_evaluated": 3,
+  "successful_patches": 0,
+  "success_rate": 0.0,
+  "average_duration": 1.7051722208658855,
+  "configuration": {
+    "mode": "mesh",
+    "strategy": "optimization",
+    "max_agents": 8
+  },
+  "timestamp": "2025-08-07T14:02:06.636715",
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "success": false,
+      "patch": "",
+      "duration": 1.7276287078857422,
+      "error": null
+    },
+    {
+      "instance_id": "astropy__astropy-14182",
+      "success": false,
+      "patch": "",
+      "duration": 1.6369297504425049,
+      "error": null
+    },
+    {
+      "instance_id": "astropy__astropy-14365",
+      "success": false,
+      "patch": "",
+      "duration": 1.7509582042694092,
+      "error": null
+    }
+  ]
+}

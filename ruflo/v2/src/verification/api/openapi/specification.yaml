@@ -1,0 +1,1150 @@
+openapi: 3.0.0
+info:
+  title: Claude Flow Verification API
+  version: 1.0.0
+  description: |
+    Comprehensive verification API for truth monitoring and agent verification in Claude Flow.
+    
+    This API provides:
+    - REST endpoints for verification status and management
+    - WebSocket connections for real-time truth monitoring
+    - GraphQL interface for complex queries
+    - Client SDKs for seamless agent integration
+    
+    ## Authentication
+    All endpoints require API key authentication via the `X-API-Key` header.
+    
+    ## Rate Limiting
+    API requests are rate limited per agent:
+    - Default: 60 requests per minute
+    - Burst capacity: 100 requests
+    
+    ## Error Handling
+    All errors follow RFC 7807 Problem Details format.
+    
+  contact:
+    name: Claude Flow API Support
+    url: https://github.com/ruvnet/claude-flow
+    email: support@claude-flow.dev
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+    
+servers:
+  - url: https://api.claude-flow.dev/v1
+    description: Production server
+  - url: https://staging-api.claude-flow.dev/v1
+    description: Staging server
+  - url: http://localhost:3000/api/verification
+    description: Local development server
+
+security:
+  - ApiKeyAuth: []
+  - BearerAuth: []
+
+paths:
+  /status:
+    get:
+      summary: Get verification system status
+      description: Returns overall system status, metrics, and recent events
+      operationId: getVerificationStatus
+      tags:
+        - Status
+      parameters:
+        - name: limit
+          in: query
+          description: Number of recent events to include
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                success: true
+                data:
+                  status: operational
+                  metrics:
+                    total_verifications: 15420
+                    successful_verifications: 14891
+                    failed_verifications: 529
+                    pending_verifications: 45
+                    success_rate: 96.57
+                    verification_rate: 127.3
+                    average_confidence: 0.847
+                  recent_events:
+                    - type: verification_complete
+                      verification_id: ver_123abc
+                      timestamp: 1704067200000
+                  active_verifications:
+                    - id: ver_pending_1
+                      source: agent_alpha
+                      target: data_source_beta
+                      status: pending
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /verify:
+    post:
+      summary: Create new verification
+      description: Submit a new verification request for processing
+      operationId: createVerification
+      tags:
+        - Verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationRequest'
+            example:
+              source: agent_researcher_1
+              target: scientific_paper_xyz
+              metadata:
+                paper_title: "Quantum Computing Advances"
+                confidence_required: 0.9
+              priority: high
+              timeout: 45000
+      responses:
+        '201':
+          description: Verification created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+              example:
+                success: true
+                data:
+                  id: ver_abc123def
+                  timestamp: 1704067200000
+                  status: pending
+                  confidence: 0
+                  source: agent_researcher_1
+                  target: scientific_paper_xyz
+                  priority: high
+                  created_at: 1704067200000
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /verify/{id}:
+    get:
+      summary: Get verification by ID
+      description: Retrieve details of a specific verification
+      operationId: getVerification
+      tags:
+        - Verification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Verification ID
+          schema:
+            type: string
+            pattern: '^ver_[a-zA-Z0-9]+$'
+          example: ver_abc123def
+      responses:
+        '200':
+          description: Verification retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /query:
+    get:
+      summary: Query verifications
+      description: Search and filter verifications with advanced criteria
+      operationId: queryVerifications
+      tags:
+        - Query
+      parameters:
+        - name: sources
+          in: query
+          description: Filter by source agents (comma-separated)
+          schema:
+            type: string
+          example: agent_1,agent_2
+        - name: targets
+          in: query
+          description: Filter by target resources (comma-separated)
+          schema:
+            type: string
+          example: resource_a,resource_b
+        - name: status
+          in: query
+          description: Filter by verification status (comma-separated)
+          schema:
+            type: string
+            enum: [pending, verified, failed, unknown]
+          example: verified,failed
+        - name: confidence_min
+          in: query
+          description: Minimum confidence score
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+          example: 0.8
+        - name: confidence_max
+          in: query
+          description: Maximum confidence score
+          schema:
+            type: number
+            minimum: 0
+            maximum: 1
+          example: 1.0
+        - name: timestamp_start
+          in: query
+          description: Start timestamp (Unix milliseconds)
+          schema:
+            type: integer
+          example: 1704060000000
+        - name: timestamp_end
+          in: query
+          description: End timestamp (Unix milliseconds)
+          schema:
+            type: integer
+          example: 1704070000000
+        - name: limit
+          in: query
+          description: Maximum number of results
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+          example: 100
+        - name: offset
+          in: query
+          description: Number of results to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          example: 0
+      responses:
+        '200':
+          description: Query executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /batch:
+    post:
+      summary: Create batch verification
+      description: Submit multiple verification requests as a single batch
+      operationId: createBatchVerification
+      tags:
+        - Batch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchRequest'
+            example:
+              items:
+                - source: agent_1
+                  target: resource_a
+                  priority: normal
+                - source: agent_1
+                  target: resource_b
+                  priority: high
+              metadata:
+                batch_name: "Weekly verification batch"
+      responses:
+        '201':
+          description: Batch created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /batch/{id}:
+    get:
+      summary: Get batch status
+      description: Retrieve the status and progress of a verification batch
+      operationId: getBatchStatus
+      tags:
+        - Batch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Batch ID
+          schema:
+            type: string
+            pattern: '^batch_[a-zA-Z0-9]+$'
+          example: batch_xyz789
+      responses:
+        '200':
+          description: Batch status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /metrics:
+    get:
+      summary: Get verification metrics
+      description: Retrieve detailed metrics and analytics
+      operationId: getVerificationMetrics
+      tags:
+        - Metrics
+      parameters:
+        - name: timeframe
+          in: query
+          description: Time period for metrics calculation
+          schema:
+            type: string
+            enum: [1h, 24h, 7d, 30d]
+            default: 24h
+          example: 24h
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+          
+  /health:
+    get:
+      summary: Health check
+      description: Get system health status and service availability
+      operationId: getHealthStatus
+      tags:
+        - Health
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+                
+  /ws/truth-monitor:
+    get:
+      summary: WebSocket truth monitoring
+      description: |
+        WebSocket endpoint for real-time truth monitoring events.
+        
+        ## Connection
+        Connect using WebSocket protocol with authentication header.
+        
+        ## Message Types
+        - `subscribe`: Subscribe to event filters
+        - `unsubscribe`: Remove subscription
+        - `heartbeat`: Keep connection alive
+        - `get_status`: Request current status
+        
+        ## Event Types
+        - `truth_change`: Truth value changes
+        - `verification_update`: Verification status updates
+        - `system_alert`: System alerts and warnings
+        - `confidence_update`: Confidence score changes
+        
+      tags:
+        - WebSocket
+      parameters:
+        - name: Connection
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [Upgrade]
+        - name: Upgrade
+          in: header
+          required: true
+          schema:
+            type: string
+            enum: [websocket]
+        - name: X-API-Key
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: Switching Protocols - WebSocket connection established
+        '400':
+          description: Bad Request - Invalid WebSocket request
+        '401':
+          description: Unauthorized - Invalid API key
+        '426':
+          description: Upgrade Required - WebSocket upgrade failed
+          
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for authentication
+      
+  schemas:
+    VerificationStatus:
+      type: string
+      enum: [pending, verified, failed, unknown]
+      description: Current status of the verification
+      example: verified
+      
+    Priority:
+      type: string
+      enum: [low, normal, high, urgent]
+      description: Priority level of the verification
+      example: high
+      
+    TruthEventType:
+      type: string
+      enum: [truth_change, confidence_update, verification_complete, error, system_alert]
+      description: Type of truth monitoring event
+      example: verification_complete
+      
+    Severity:
+      type: string
+      enum: [low, medium, high, critical]
+      description: Severity level of an event or alert
+      example: high
+      
+    Verification:
+      type: object
+      required:
+        - id
+        - timestamp
+        - status
+        - confidence
+        - source
+        - target
+      properties:
+        id:
+          type: string
+          pattern: '^ver_[a-zA-Z0-9]+$'
+          description: Unique verification identifier
+          example: ver_abc123def
+        timestamp:
+          type: integer
+          format: int64
+          description: Creation timestamp (Unix milliseconds)
+          example: 1704067200000
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence score (0-1)
+          example: 0.85
+        source:
+          type: string
+          description: Source agent or system identifier
+          example: agent_researcher_1
+        target:
+          type: string
+          description: Target resource or data identifier
+          example: scientific_paper_xyz
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional context and parameters
+          example:
+            paper_title: "Quantum Computing Advances"
+            confidence_required: 0.9
+        priority:
+          $ref: '#/components/schemas/Priority'
+        timeout:
+          type: integer
+          minimum: 1000
+          maximum: 300000
+          description: Timeout in milliseconds
+          example: 30000
+        created_at:
+          type: integer
+          format: int64
+          description: Creation timestamp
+          example: 1704067200000
+        updated_at:
+          type: integer
+          format: int64
+          description: Last update timestamp
+          example: 1704067260000
+        completed_at:
+          type: integer
+          format: int64
+          description: Completion timestamp
+          example: 1704067280000
+        error:
+          type: string
+          description: Error message if verification failed
+          example: "Target resource not accessible"
+          
+    VerificationBatch:
+      type: object
+      required:
+        - id
+        - status
+        - created_at
+        - total_items
+        - completed_items
+      properties:
+        id:
+          type: string
+          pattern: '^batch_[a-zA-Z0-9]+$'
+          description: Unique batch identifier
+          example: batch_xyz789
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: Current batch status
+          example: processing
+        created_at:
+          type: integer
+          format: int64
+          description: Creation timestamp
+          example: 1704067200000
+        completed_at:
+          type: integer
+          format: int64
+          description: Completion timestamp
+          example: 1704067400000
+        total_items:
+          type: integer
+          minimum: 1
+          description: Total number of verification items
+          example: 25
+        completed_items:
+          type: integer
+          minimum: 0
+          description: Number of completed items
+          example: 18
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verification'
+          description: All verification items in the batch
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verification'
+          description: Completed verification results
+        error:
+          type: string
+          description: Error message if batch failed
+          
+    TruthMonitoringEvent:
+      type: object
+      required:
+        - id
+        - type
+        - timestamp
+        - data
+        - severity
+      properties:
+        id:
+          type: string
+          description: Unique event identifier
+          example: evt_monitor_123
+        type:
+          $ref: '#/components/schemas/TruthEventType'
+        timestamp:
+          type: integer
+          format: int64
+          description: Event timestamp
+          example: 1704067200000
+        data:
+          type: object
+          additionalProperties: true
+          description: Event-specific data
+        severity:
+          $ref: '#/components/schemas/Severity'
+        source:
+          type: string
+          description: Event source identifier
+          example: verification_engine
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Confidence in the event
+          example: 0.95
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional event metadata
+          
+    VerificationMetrics:
+      type: object
+      required:
+        - total_verifications
+        - successful_verifications
+        - failed_verifications
+        - pending_verifications
+        - success_rate
+        - verification_rate
+        - average_confidence
+      properties:
+        total_verifications:
+          type: integer
+          minimum: 0
+          description: Total number of verifications
+          example: 15420
+        successful_verifications:
+          type: integer
+          minimum: 0
+          description: Number of successful verifications
+          example: 14891
+        failed_verifications:
+          type: integer
+          minimum: 0
+          description: Number of failed verifications
+          example: 529
+        pending_verifications:
+          type: integer
+          minimum: 0
+          description: Number of pending verifications
+          example: 45
+        success_rate:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Success rate percentage
+          example: 96.57
+        verification_rate:
+          type: number
+          minimum: 0
+          description: Verifications per hour
+          example: 127.3
+        average_confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Average confidence score
+          example: 0.847
+        response_time:
+          $ref: '#/components/schemas/ResponseTimeMetrics'
+        uptime_ms:
+          type: integer
+          minimum: 0
+          description: System uptime in milliseconds
+          example: 86400000
+          
+    ResponseTimeMetrics:
+      type: object
+      required:
+        - avg
+        - p50
+        - p95
+        - p99
+      properties:
+        avg:
+          type: number
+          minimum: 0
+          description: Average response time in milliseconds
+          example: 1250
+        p50:
+          type: number
+          minimum: 0
+          description: 50th percentile response time
+          example: 1100
+        p95:
+          type: number
+          minimum: 0
+          description: 95th percentile response time
+          example: 2800
+        p99:
+          type: number
+          minimum: 0
+          description: 99th percentile response time
+          example: 4200
+          
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+        - services
+        - metrics
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall system health status
+          example: healthy
+        timestamp:
+          type: integer
+          format: int64
+          description: Health check timestamp
+          example: 1704067200000
+        services:
+          type: object
+          properties:
+            api:
+              $ref: '#/components/schemas/ServiceHealth'
+            websocket:
+              $ref: '#/components/schemas/ServiceHealth'
+            graphql:
+              $ref: '#/components/schemas/ServiceHealth'
+            database:
+              $ref: '#/components/schemas/ServiceHealth'
+            cache:
+              $ref: '#/components/schemas/ServiceHealth'
+        metrics:
+          type: object
+          properties:
+            uptime:
+              type: number
+              description: System uptime in milliseconds
+              example: 86400000
+            memory_usage:
+              type: number
+              minimum: 0
+              maximum: 100
+              description: Memory usage percentage
+              example: 68.5
+            cpu_usage:
+              type: number
+              minimum: 0
+              maximum: 100
+              description: CPU usage percentage
+              example: 23.7
+            active_connections:
+              type: integer
+              minimum: 0
+              description: Number of active connections
+              example: 142
+              
+    ServiceHealth:
+      type: object
+      required:
+        - status
+        - last_check
+        - error_count
+      properties:
+        status:
+          type: string
+          enum: [up, down, degraded]
+          description: Service status
+          example: up
+        response_time:
+          type: number
+          minimum: 0
+          description: Service response time in milliseconds
+          example: 45.2
+        last_check:
+          type: integer
+          format: int64
+          description: Last health check timestamp
+          example: 1704067200000
+        error_count:
+          type: integer
+          minimum: 0
+          description: Number of recent errors
+          example: 0
+          
+    CreateVerificationRequest:
+      type: object
+      required:
+        - source
+        - target
+      properties:
+        source:
+          type: string
+          description: Source agent or system identifier
+          example: agent_researcher_1
+        target:
+          type: string
+          description: Target resource or data identifier
+          example: scientific_paper_xyz
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional context and parameters
+          example:
+            paper_title: "Quantum Computing Advances"
+            confidence_required: 0.9
+        priority:
+          $ref: '#/components/schemas/Priority'
+        timeout:
+          type: integer
+          minimum: 1000
+          maximum: 300000
+          description: Timeout in milliseconds
+          default: 30000
+          example: 45000
+          
+    CreateBatchRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/CreateVerificationRequest'
+          description: Array of verification requests
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Batch-level metadata
+          example:
+            batch_name: "Weekly verification batch"
+            
+    APIResponse:
+      type: object
+      required:
+        - success
+        - metadata
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+          example: true
+        data:
+          type: object
+          description: Response data (varies by endpoint)
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: VERIFICATION_NOT_FOUND
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Verification ver_123 not found"
+            details:
+              type: object
+              additionalProperties: true
+              description: Additional error details
+        metadata:
+          type: object
+          required:
+            - timestamp
+            - request_id
+            - version
+          properties:
+            timestamp:
+              type: integer
+              format: int64
+              description: Response timestamp
+              example: 1704067200000
+            request_id:
+              type: string
+              description: Unique request identifier
+              example: req_abc123
+            version:
+              type: string
+              description: API version
+              example: "1.0.0"
+              
+    StatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [operational, degraded, busy, maintenance]
+                  example: operational
+                metrics:
+                  $ref: '#/components/schemas/VerificationMetrics'
+                recent_events:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TruthMonitoringEvent'
+                active_verifications:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Verification'
+                    
+    VerificationResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Verification'
+              
+    BatchResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/VerificationBatch'
+              
+    QueryResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Verification'
+                total:
+                  type: integer
+                  description: Total number of matching results
+                  example: 1250
+                pagination:
+                  type: object
+                  properties:
+                    offset:
+                      type: integer
+                      example: 0
+                    limit:
+                      type: integer
+                      example: 50
+                    has_more:
+                      type: boolean
+                      example: true
+                      
+    MetricsResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/VerificationMetrics'
+              
+    HealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthStatus'
+              
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/APIResponse'
+        - type: object
+          required:
+            - error
+          properties:
+            success:
+              type: boolean
+              enum: [false]
+            data:
+              type: "null"
+              
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: INVALID_REQUEST
+              message: "Both source and target are required"
+            metadata:
+              timestamp: 1704067200000
+              request_id: req_abc123
+              version: "1.0.0"
+              
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: UNAUTHORIZED
+              message: "Invalid API key"
+            metadata:
+              timestamp: 1704067200000
+              request_id: req_abc123
+              version: "1.0.0"
+              
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: VERIFICATION_NOT_FOUND
+              message: "Verification ver_123 not found"
+            metadata:
+              timestamp: 1704067200000
+              request_id: req_abc123
+              version: "1.0.0"
+              
+    RateLimited:
+      description: Too Many Requests - Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: The number of allowed requests in the current period
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: The number of remaining requests in the current period
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: The time at which the current rate limit window resets in UTC epoch seconds
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: "Rate limit exceeded. Try again in 60 seconds."
+            metadata:
+              timestamp: 1704067200000
+              request_id: req_abc123
+              version: "1.0.0"
+              
+    InternalServerError:
+      description: Internal Server Error - Something went wrong on the server
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error:
+              code: INTERNAL_ERROR
+              message: "An unexpected error occurred"
+            metadata:
+              timestamp: 1704067200000
+              request_id: req_abc123
+              version: "1.0.0"
+              
+  examples:
+    SuccessfulVerification:
+      summary: Successful verification example
+      value:
+        id: ver_abc123def
+        timestamp: 1704067200000
+        status: verified
+        confidence: 0.92
+        source: agent_researcher_1
+        target: scientific_paper_xyz
+        metadata:
+          paper_title: "Quantum Computing Advances"
+          confidence_required: 0.9
+          verification_method: "cross_reference"
+        priority: high
+        timeout: 45000
+        created_at: 1704067200000
+        updated_at: 1704067230000
+        completed_at: 1704067245000
+        
+    FailedVerification:
+      summary: Failed verification example
+      value:
+        id: ver_def456ghi
+        timestamp: 1704067200000
+        status: failed
+        confidence: 0.15
+        source: agent_researcher_2
+        target: unreachable_resource
+        metadata:
+          retry_count: 3
+        priority: normal
+        timeout: 30000
+        created_at: 1704067200000
+        updated_at: 1704067260000
+        completed_at: 1704067260000
+        error: "Target resource not accessible after 3 retries"
+        
+    TruthChangeEvent:
+      summary: Truth change monitoring event
+      value:
+        id: evt_truth_456
+        type: truth_change
+        timestamp: 1704067200000
+        data:
+          previous_confidence: 0.75
+          new_confidence: 0.92
+          change_reason: "Additional verification sources"
+        severity: medium
+        source: verification_engine
+        confidence: 0.88
+        metadata:
+          verification_id: ver_abc123def
+          change_magnitude: 0.17
+          
+tags:
+  - name: Status
+    description: System status and overview operations
+  - name: Verification
+    description: Individual verification operations
+  - name: Batch
+    description: Batch verification operations
+  - name: Query
+    description: Search and filter operations
+  - name: Metrics
+    description: Analytics and metrics operations
+  - name: Health
+    description: System health monitoring
+  - name: WebSocket
+    description: Real-time WebSocket connections

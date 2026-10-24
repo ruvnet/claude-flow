@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Flow Swarm Dashboard - Browser PoC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .connection-status {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .connection-status.connected {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .connection-status.disconnected {
+            background: #ff4444;
+            box-shadow: 0 0 10px #ff4444;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        .agent-list {
+            list-style: none;
+        }
+
+        .agent-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .agent-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+
+        .agent-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .agent-name {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .agent-type {
+            font-size: 0.85em;
+            opacity: 0.7;
+        }
+
+        .agent-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .agent-status.active {
+            background: #00ff88;
+            color: #1e3c72;
+        }
+
+        .agent-status.idle {
+            background: #ffa500;
+            color: #1e3c72;
+        }
+
+        .consensus-tracker {
+            margin-top: 20px;
+        }
+
+        .consensus-bar {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            height: 30px;
+            overflow: hidden;
+            margin: 10px 0;
+            position: relative;
+        }
+
+        .consensus-fill {
+            background: linear-gradient(90deg, #00ff88, #00cc66);
+            height: 100%;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        .consensus-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .log-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #00ff88;
+            margin-right: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88, #00cc66);
+            color: #1e3c72;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #00cc66, #00ff88);
+        }
+
+        .visualization {
+            position: relative;
+            height: 400px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #swarmCanvas {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🌐 Claude Flow Swarm Dashboard</h1>
+            <p>Browser-Based Multi-Agent Orchestration Monitor</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="stat">
+                <span class="stat-value" id="agentCount">0</span>
+                <span class="stat-label">Active Agents</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="taskCount">0</span>
+                <span class="stat-label">Running Tasks</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value" id="consensusPercentage">0%</span>
+                <span class="stat-label">Consensus</span>
+            </div>
+            <div class="stat">
+                <span class="connection-status" id="connectionStatus"></span>
+                <span class="stat-label" id="connectionLabel">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>🤖 Active Agents</h2>
+                <ul class="agent-list" id="agentList">
+                    <!-- Agents will be populated here -->
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>🎯 Byzantine Consensus</h2>
+                <div class="consensus-tracker">
+                    <div class="consensus-bar">
+                        <div class="consensus-fill" id="consensusFill" style="width: 0%">
+                            <span id="consensusText">0/0</span>
+                        </div>
+                    </div>
+                    <div class="consensus-info">
+                        <span>Threshold: <strong id="threshold">13/20</strong></span>
+                        <span>Security Margin: <strong id="securityMargin">+0</strong></span>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="testConsensus()">
+                        Test Consensus
+                    </button>
+                    <button class="btn" onclick="resetConsensus()">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h2>📊 Swarm Visualization</h2>
+                <div class="visualization">
+                    <canvas id="swarmCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📝 Activity Log</h2>
+                <div class="log-container" id="activityLog">
+                    <!-- Log entries will appear here -->
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⚡ Quick Actions</h2>
+            <div class="controls">
+                <button class="btn" onclick="spawnAgents()">
+                    Spawn 5 Agents
+                </button>
+                <button class="btn" onclick="simulatePayment()">
+                    Simulate $50K Payment
+                </button>
+                <button class="btn" onclick="pauseQuery()">
+                    Pause Query
+                </button>
+                <button class="btn btn-primary" onclick="connectWebSocket()">
+                    Connect to Server
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

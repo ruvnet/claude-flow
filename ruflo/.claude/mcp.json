@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "flow-nexus": {
+      "command": "node",
+      "args": ["/workspaces/flow-cloud/mcp/flow-nexus-sse/mcp-server-supabase.js"],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}",
+        "NODE_NO_WARNINGS": "1"
+      }
+    }
+  }
+}

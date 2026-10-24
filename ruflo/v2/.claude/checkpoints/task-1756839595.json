@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250902-185952", "task": "confirm the claude-flow init doesn't use my supabase key when run remotely. ", "timestamp": "2025-09-02T18:59:55Z", "commit": "d357508ba1848ae5e5b7f2fac2c9259ab9b90d10", "github_release": "true"}

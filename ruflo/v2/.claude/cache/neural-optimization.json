@@ -1,0 +1,25 @@
+{
+  "predictionCache": {
+    "enabled": true,
+    "maxEntries": 10000,
+    "ttl": 300000
+  },
+  "preload": {
+    "models": [
+      "task_predictor",
+      "error_preventer",
+      "performance_optimizer"
+    ],
+    "warmup": true
+  },
+  "batching": {
+    "enabled": true,
+    "maxBatchSize": 100,
+    "maxWaitTime": 50
+  },
+  "wasm": {
+    "simd": true,
+    "threads": 4,
+    "memoryPages": 256
+  }
+}

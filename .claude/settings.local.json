@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:developer.intacct.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -fsSL https://cdn.jsdelivr.net/gh/ruvnet/claude-flow@main/scripts/install.sh)",
+      "Bash(bash -s -- --full)",
+      "Bash(head -20 .claude/skills/browser/*.md)",
+      "Bash(npm run:*)",
+      "Bash(git init:*)",
+      "Bash(find . -name .env -o -name .env.* -o -name *.key -o -name *.pem)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

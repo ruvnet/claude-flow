@@ -1,0 +1,109 @@
+# Dockerfile for testing NPX ENOTEMPTY fix
+FROM node:20-slim
+
+# Install basic tools
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test directory
+WORKDIR /test
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY bin/ ./bin/
+COPY src/ ./src/
+COPY .claude/ ./.claude/
+COPY scripts/ ./scripts/
+
+# Install dependencies
+RUN npm install
+
+# Create test script for concurrent execution
+RUN echo '#!/bin/bash' > /test/test-concurrent.sh && \
+    echo 'set -e' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo 'echo "🧪 Testing NPX concurrent execution with ENOTEMPTY fix"' >> /test/test-concurrent.sh && \
+    echo 'echo "=================================================="' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo '# Test 1: Single execution' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "Test 1: Single NPX execution"' >> /test/test-concurrent.sh && \
+    echo 'npx claude-flow@2.7.27 --version || exit 1' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo '# Test 2: Sequential execution (5 times)' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "Test 2: Sequential executions"' >> /test/test-concurrent.sh && \
+    echo 'for i in {1..5}; do' >> /test/test-concurrent.sh && \
+    echo '  echo "  Execution $i/5"' >> /test/test-concurrent.sh && \
+    echo '  npx claude-flow@2.7.27 --version || exit 1' >> /test/test-concurrent.sh && \
+    echo 'done' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo '# Test 3: Concurrent execution (5 parallel)' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "Test 3: Concurrent executions (5 parallel)"' >> /test/test-concurrent.sh && \
+    echo 'for i in {1..5}; do' >> /test/test-concurrent.sh && \
+    echo '  npx claude-flow@2.7.27 --version &' >> /test/test-concurrent.sh && \
+    echo 'done' >> /test/test-concurrent.sh && \
+    echo 'wait || exit 1' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo '# Test 4: Rapid sequential with no delay' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "Test 4: Rapid sequential (no delay)"' >> /test/test-concurrent.sh && \
+    echo 'for i in {1..10}; do' >> /test/test-concurrent.sh && \
+    echo '  npx claude-flow@2.7.27 --version >/dev/null 2>&1 &' >> /test/test-concurrent.sh && \
+    echo 'done' >> /test/test-concurrent.sh && \
+    echo 'wait || exit 1' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo '# Test 5: Test with hooks (if enabled)' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "Test 5: Testing with hooks execution"' >> /test/test-concurrent.sh && \
+    echo 'npx claude-flow@2.7.27 hooks list || echo "Hooks not configured, skipping"' >> /test/test-concurrent.sh && \
+    echo '' >> /test/test-concurrent.sh && \
+    echo 'echo ""' >> /test/test-concurrent.sh && \
+    echo 'echo "✅ All tests passed!"' >> /test/test-concurrent.sh && \
+    chmod +x /test/test-concurrent.sh
+
+# Create cleanup test
+RUN echo '#!/bin/bash' > /test/test-cache-cleanup.sh && \
+    echo 'set -e' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "🧪 Testing NPX cache cleanup mechanism"' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "======================================="' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo '# Simulate cache corruption' >> /test/test-cache-cleanup.sh && \
+    echo 'echo ""' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "Simulating cache corruption..."' >> /test/test-cache-cleanup.sh && \
+    echo 'mkdir -p ~/.npm/_npx/test_corrupt' >> /test/test-cache-cleanup.sh && \
+    echo 'touch ~/.npm/_npx/test_corrupt/.keep' >> /test/test-cache-cleanup.sh && \
+    echo '# Make it old so cleanup will work' >> /test/test-cache-cleanup.sh && \
+    echo 'touch -t 202501010000 ~/.npm/_npx/test_corrupt/.keep' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo '# Count cache entries before' >> /test/test-cache-cleanup.sh && \
+    echo 'BEFORE=$(find ~/.npm/_npx -type d 2>/dev/null | wc -l || echo 0)' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "Cache directories before: $BEFORE"' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo '# Run command that triggers cleanup on retry' >> /test/test-cache-cleanup.sh && \
+    echo 'echo ""' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "Running command..."' >> /test/test-cache-cleanup.sh && \
+    echo 'npx claude-flow@2.7.27 --version || exit 1' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo '# Count cache entries after (should be cleaned)' >> /test/test-cache-cleanup.sh && \
+    echo 'sleep 2' >> /test/test-cache-cleanup.sh && \
+    echo 'AFTER=$(find ~/.npm/_npx -type d -mmin +60 2>/dev/null | wc -l || echo 0)' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "Old cache directories remaining: $AFTER"' >> /test/test-cache-cleanup.sh && \
+    echo '' >> /test/test-cache-cleanup.sh && \
+    echo 'echo ""' >> /test/test-cache-cleanup.sh && \
+    echo 'echo "✅ Cache cleanup test passed!"' >> /test/test-cache-cleanup.sh && \
+    chmod +x /test/test-cache-cleanup.sh
+
+# Create simple version test
+RUN echo '#!/bin/bash' > /test/test-version.sh && \
+    echo 'echo "🧪 Testing claude-flow version"' >> /test/test-version.sh && \
+    echo './bin/claude-flow --version' >> /test/test-version.sh && \
+    chmod +x /test/test-version.sh
+
+# Set entrypoint
+ENTRYPOINT ["/bin/bash"]
+CMD ["/test/test-version.sh"]

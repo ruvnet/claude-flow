@@ -1,0 +1,87 @@
+# Testing requirements for benchmark test suite
+
+# Core testing framework
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.10.0
+pytest-cov>=4.1.0
+pytest-xdist>=3.3.0
+pytest-timeout>=2.1.0
+pytest-benchmark>=4.0.0
+
+# Test utilities
+hypothesis>=6.75.0
+factory-boy>=3.2.1
+freezegun>=1.2.2
+responses>=0.23.0
+httpx>=0.24.0
+
+# Performance and monitoring
+memory-profiler>=0.60.0
+psutil>=5.9.0
+pytest-profiling>=1.7.0
+
+# Data generation and manipulation
+faker>=18.10.0
+numpy>=1.21.0
+pandas>=1.4.0
+
+# Async testing
+pytest-trio>=0.8.0
+aioresponses>=0.7.4
+
+# Reporting and visualization
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+allure-pytest>=2.13.0
+
+# Code quality
+pytest-flake8>=1.1.1
+pytest-mypy>=0.10.3
+pytest-black>=0.3.12
+pytest-isort>=3.1.0
+
+# CI/CD integration
+pytest-github-actions-annotate-failures>=0.2.0
+pytest-clarity>=1.0.1
+
+# Mock and fixtures
+responses>=0.23.0
+requests-mock>=1.11.0
+freezegun>=1.2.2
+
+# Parallel execution
+pytest-xdist[psutil]>=3.3.0
+
+# Performance regression detection
+pytest-regressions>=2.4.2
+
+# Database testing
+pytest-postgresql>=5.0.0
+pytest-redis>=3.0.2
+
+# Temporary file management
+pytest-tmp-files>=0.1.0
+
+# Environment variable management
+pytest-env>=0.8.2
+
+# Retry failed tests
+pytest-rerunfailures>=11.1.2
+
+# Test data validation
+pydantic>=1.10.0
+
+# Logging and debugging
+pytest-logger>=0.5.1
+pytest-print>=1.0.2
+
+# Documentation testing
+pytest-doctestplus>=1.0.0
+
+# Plugin for testing click applications
+pytest-click>=1.1.0
+
+# Time-based testing
+pytest-freezer>=0.4.8
+time-machine>=2.10.0

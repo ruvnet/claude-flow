@@ -1,0 +1,47 @@
+{
+  "summary": {
+    "total_executions": 1,
+    "successful_executions": 1,
+    "failed_executions": 0,
+    "overall_success_rate": 1.0,
+    "total_duration": 0.3031144142150879,
+    "average_duration": 0.3031144142150879,
+    "peak_memory_mb": 66.671875,
+    "average_memory_mb": 40.8515625,
+    "total_output_lines": 5,
+    "total_errors": 0
+  },
+  "command_statistics": {
+    "sparc:{\"positional\": [\"optimizer\", \"Build a data processing pipeline\"]}": {
+      "command_type": "sparc",
+      "args": {
+        "positional": [
+          "optimizer",
+          "Build a data processing pipeline"
+        ]
+      },
+      "execution_count": 1,
+      "success_count": 1,
+      "failure_count": 0,
+      "success_rate": 1.0,
+      "average_duration": 0.3031144142150879,
+      "total_duration": 0.3031144142150879,
+      "average_memory_mb": 40.8515625,
+      "peak_memory_mb": 66.671875
+    }
+  },
+  "executions": [
+    {
+      "command": "claude-flow sparc optimizer Build a data processing pipeline",
+      "exit_code": 0,
+      "success": true,
+      "duration": 0.3031144142150879,
+      "start_time": 1754445110.0322878,
+      "output_size": 5,
+      "error_count": 0,
+      "cpu_percent": 99.33333333333333,
+      "memory_mb": 40.8515625,
+      "peak_memory_mb": 66.671875
+    }
+  ]
+}

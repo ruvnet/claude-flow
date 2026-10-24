@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # Node.js 18 Test Environment
+  test-node18:
+    build:
+      context: ..
+      dockerfile: docker-test/test-pr228.dockerfile
+      args:
+        NODE_VERSION: 18
+    container_name: claude-flow-test-node18
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - TEST_NODE_VERSION=18
+    volumes:
+      - ../test-results:/app/test-results
+      - ../coverage:/app/coverage
+    command: >
+      sh -c "
+        echo '=== Testing PR #228 on Node.js 18 ===' &&
+        /app/healthcheck.sh &&
+        echo '=== Running TypeScript compilation check ===' &&
+        npm run typecheck &&
+        echo '=== Running Jest test suite ===' &&
+        npm test -- --coverage --ci --testTimeout=60000 --maxWorkers=2 --outputFile=/app/test-results/node18-results.json &&
+        echo '=== Node.js 18 tests completed ==='
+      "
+
+  # Node.js 20 Test Environment  
+  test-node20:
+    build:
+      context: ..
+      dockerfile: docker-test/test-pr228.dockerfile
+      args:
+        NODE_VERSION: 20
+    container_name: claude-flow-test-node20
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - TEST_NODE_VERSION=20
+    volumes:
+      - ../test-results:/app/test-results
+      - ../coverage:/app/coverage
+    command: >
+      sh -c "
+        echo '=== Testing PR #228 on Node.js 20 ===' &&
+        /app/healthcheck.sh &&
+        echo '=== Running TypeScript compilation check ===' &&
+        npm run typecheck &&
+        echo '=== Running Jest test suite ===' &&
+        npm test -- --coverage --ci --testTimeout=60000 --maxWorkers=2 --outputFile=/app/test-results/node20-results.json &&
+        echo '=== Node.js 20 tests completed ==='
+      "
+
+  # Node.js 22 Test Environment
+  test-node22:
+    build:
+      context: ..
+      dockerfile: docker-test/test-pr228.dockerfile
+      args:
+        NODE_VERSION: 22
+    container_name: claude-flow-test-node22
+    environment:
+      - NODE_ENV=test
+      - CI=true  
+      - TEST_NODE_VERSION=22
+    volumes:
+      - ../test-results:/app/test-results
+      - ../coverage:/app/coverage
+    command: >
+      sh -c "
+        echo '=== Testing PR #228 on Node.js 22 ===' &&
+        /app/healthcheck.sh &&
+        echo '=== Running TypeScript compilation check ===' &&
+        npm run typecheck &&
+        echo '=== Running Jest test suite ===' &&
+        npm test -- --coverage --ci --testTimeout=60000 --maxWorkers=2 --outputFile=/app/test-results/node22-results.json &&
+        echo '=== Node.js 22 tests completed ==='
+      "
+
+  # Summary service to aggregate results
+  test-summary:
+    image: node:20-alpine
+    container_name: claude-flow-test-summary
+    depends_on:
+      - test-node18
+      - test-node20
+      - test-node22
+    volumes:
+      - ../test-results:/app/test-results
+      - ../docker-test:/app/scripts
+    working_dir: /app
+    command: >
+      sh -c "
+        echo '=== PR #228 Test Summary ===' &&
+        echo 'Node.js Version | Test Status | TypeCheck | Coverage' &&
+        echo '----------------|-------------|-----------|----------' &&
+        echo 'Generating comprehensive test report...' &&
+        node /app/scripts/generate-test-report.js
+      "
+
+volumes:
+  test-results:
+  coverage:

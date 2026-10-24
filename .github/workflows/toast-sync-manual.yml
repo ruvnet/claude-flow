@@ -1,0 +1,31 @@
+name: Manual Toast Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: 'Specific dates to sync (comma-separated YYYY-MM-DD, optional)'
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger Toast Sync via Vercel Cron
+        run: |
+          echo "Triggering Toast sync on helixoapp.com..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "https://www.helixoapp.com/api/cron/toast-sync" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 125)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Toast sync failed with status $HTTP_CODE"
+            exit 1
+          fi
+          echo "Toast sync completed successfully"

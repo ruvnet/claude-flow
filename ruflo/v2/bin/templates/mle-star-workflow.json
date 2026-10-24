@@ -1,0 +1,294 @@
+{
+  "name": "MLE-STAR Machine Learning Engineering Workflow",
+  "version": "1.0.0",
+  "description": "Complete Machine Learning Engineering workflow using MLE-STAR methodology (Search and Targeted Refinement)",
+  "variables": {
+    "dataset_path": "data/ml_dataset.csv",
+    "target_metric": "accuracy",
+    "model_output_dir": "models/",
+    "experiment_name": "mle-star-experiment",
+    "search_iterations": 3,
+    "refinement_iterations": 5
+  },
+  "agents": [
+    {
+      "id": "search_agent",
+      "type": "researcher",
+      "name": "Web Search & Foundation Agent",
+      "config": {
+        "capabilities": ["web_search", "model_research", "approach_validation"],
+        "search_depth": "comprehensive",
+        "domains": ["machine_learning", "data_science", "kaggle_solutions"]
+      }
+    },
+    {
+      "id": "foundation_agent", 
+      "type": "coder",
+      "name": "Foundation Model Builder",
+      "config": {
+        "capabilities": ["data_preprocessing", "initial_modeling", "baseline_creation"],
+        "programming_languages": ["python", "jupyter"],
+        "frameworks": ["scikit-learn", "pandas", "numpy", "matplotlib"]
+      }
+    },
+    {
+      "id": "refinement_agent",
+      "type": "optimizer",
+      "name": "Targeted Refinement Specialist", 
+      "config": {
+        "capabilities": ["feature_engineering", "model_optimization", "hyperparameter_tuning"],
+        "optimization_methods": ["grid_search", "bayesian", "evolutionary"],
+        "ablation_analysis": true
+      }
+    },
+    {
+      "id": "ensemble_agent",
+      "type": "architect", 
+      "name": "Ensemble & Meta-Learning Expert",
+      "config": {
+        "capabilities": ["model_stacking", "ensemble_methods", "meta_learning"],
+        "ensemble_strategies": ["voting", "stacking", "blending", "dynamic_weighting"]
+      }
+    },
+    {
+      "id": "validation_agent",
+      "type": "tester",
+      "name": "Validation & Debugging Agent",
+      "config": {
+        "capabilities": ["cross_validation", "error_detection", "data_leakage_prevention"],
+        "validation_strategies": ["stratified_kfold", "time_series_split", "leave_one_out"],
+        "debugging_tools": ["profiling", "error_correction", "data_integrity_checks"]
+      }
+    },
+    {
+      "id": "orchestrator",
+      "type": "coordinator",
+      "name": "MLE-STAR Orchestrator",
+      "config": {
+        "capabilities": ["workflow_coordination", "performance_tracking", "resource_management"],
+        "coordination_mode": "adaptive",
+        "monitoring_enabled": true
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "id": "web_search_phase",
+      "name": "Web Search for ML Approaches",
+      "type": "research",
+      "description": "Search web for state-of-the-art ML approaches, model architectures, and proven solutions for the given problem domain",
+      "assignTo": "search_agent",
+      "input": {
+        "problem_type": "${dataset_analysis.problem_type}",
+        "data_characteristics": "${dataset_analysis.characteristics}",
+        "search_queries": [
+          "latest machine learning models ${problem_type}",
+          "kaggle winning solutions ${problem_type}",
+          "state-of-the-art ${problem_type} benchmarks",
+          "feature engineering techniques ${problem_type}"
+        ]
+      },
+      "timeout": 900,
+      "retries": 2,
+      "output": {
+        "recommended_approaches": "array",
+        "model_cards": "array", 
+        "benchmark_results": "object",
+        "implementation_examples": "array"
+      }
+    },
+    {
+      "id": "dataset_analysis",
+      "name": "Dataset Analysis & Profiling",
+      "type": "analysis",
+      "description": "Comprehensive analysis of dataset characteristics, quality, and problem type identification",
+      "assignTo": "foundation_agent",
+      "input": {
+        "dataset_path": "${dataset_path}",
+        "target": "${target_column}"
+      },
+      "timeout": 300,
+      "output": {
+        "problem_type": "string",
+        "characteristics": "object",
+        "data_quality_report": "object",
+        "recommended_preprocessing": "array"
+      }
+    },
+    {
+      "id": "foundation_building",
+      "name": "Foundation Model Creation",
+      "type": "implementation", 
+      "description": "Build initial ML pipeline based on web search findings and dataset analysis",
+      "assignTo": "foundation_agent",
+      "depends": ["web_search_phase", "dataset_analysis"],
+      "input": {
+        "search_results": "${web_search_phase.output}",
+        "dataset_info": "${dataset_analysis.output}",
+        "approaches_to_implement": "${web_search_phase.output.recommended_approaches}"
+      },
+      "timeout": 1800,
+      "output": {
+        "baseline_models": "array",
+        "preprocessing_pipeline": "object",
+        "initial_results": "object",
+        "code_components": "object"
+      }
+    },
+    {
+      "id": "ablation_analysis",
+      "name": "Component Impact Analysis",
+      "type": "analysis",
+      "description": "Systematically analyze which pipeline components have the highest performance impact",
+      "assignTo": "refinement_agent", 
+      "depends": ["foundation_building"],
+      "input": {
+        "foundation_pipeline": "${foundation_building.output}",
+        "baseline_performance": "${foundation_building.output.initial_results}",
+        "components_to_test": [
+          "data_preprocessing",
+          "feature_engineering", 
+          "model_selection",
+          "hyperparameters"
+        ]
+      },
+      "timeout": 1200,
+      "output": {
+        "component_rankings": "array",
+        "impact_scores": "object",
+        "highest_impact_component": "string",
+        "improvement_opportunities": "array"
+      }
+    },
+    {
+      "id": "targeted_refinement",
+      "name": "Iterative Component Refinement",
+      "type": "optimization",
+      "description": "Deep, focused improvements on the highest-impact pipeline components identified through ablation",
+      "assignTo": "refinement_agent",
+      "depends": ["ablation_analysis"],
+      "input": {
+        "target_component": "${ablation_analysis.output.highest_impact_component}", 
+        "baseline_performance": "${ablation_analysis.output.impact_scores}",
+        "improvement_strategies": "${ablation_analysis.output.improvement_opportunities}",
+        "max_iterations": "${refinement_iterations}"
+      },
+      "timeout": 2400,
+      "output": {
+        "optimized_components": "object",
+        "performance_improvements": "object", 
+        "refinement_history": "array",
+        "best_configuration": "object"
+      }
+    },
+    {
+      "id": "ensemble_creation",
+      "name": "Adaptive Ensemble Building",
+      "type": "architecture",
+      "description": "Intelligently combine models using advanced ensemble techniques, not just averaging",
+      "assignTo": "ensemble_agent",
+      "depends": ["targeted_refinement"],
+      "input": {
+        "base_models": "${targeted_refinement.output.optimized_components}",
+        "individual_performances": "${targeted_refinement.output.performance_improvements}",
+        "ensemble_strategies": [
+          "stacking_with_meta_learner",
+          "dynamic_weighting",
+          "bayesian_model_averaging",
+          "mixture_of_experts"
+        ]
+      },
+      "timeout": 1800,
+      "output": {
+        "ensemble_model": "object",
+        "ensemble_performance": "object",
+        "combination_strategy": "string",
+        "meta_learner_details": "object"
+      }
+    },
+    {
+      "id": "validation_and_debugging",
+      "name": "Comprehensive Validation & Error Correction",
+      "type": "testing",
+      "description": "Rigorous validation with data leakage prevention, error correction, and performance verification",
+      "assignTo": "validation_agent",
+      "depends": ["ensemble_creation"],
+      "input": {
+        "final_model": "${ensemble_creation.output.ensemble_model}",
+        "full_pipeline": "${targeted_refinement.output.best_configuration}",
+        "validation_config": {
+          "cv_folds": 5,
+          "test_size": 0.2,
+          "stratification": true,
+          "random_seed": 42
+        }
+      },
+      "timeout": 900,
+      "output": {
+        "validation_results": "object",
+        "cross_validation_scores": "array",
+        "data_leakage_check": "boolean",
+        "error_analysis": "object",
+        "final_performance_metrics": "object"
+      }
+    },
+    {
+      "id": "model_deployment_prep",
+      "name": "Production Readiness & Deployment",
+      "type": "deployment",
+      "description": "Prepare model for production deployment with monitoring, versioning, and documentation",
+      "assignTo": "orchestrator",
+      "depends": ["validation_and_debugging"],
+      "input": {
+        "validated_model": "${validation_and_debugging.output}",
+        "performance_benchmarks": "${validation_and_debugging.output.final_performance_metrics}",
+        "deployment_target": "production"
+      },
+      "timeout": 600,
+      "condition": "${validation_and_debugging.output.final_performance_metrics.accuracy} > 0.85",
+      "output": {
+        "deployment_package": "object",
+        "model_documentation": "object",
+        "monitoring_config": "object",
+        "deployment_instructions": "string"
+      }
+    }
+  ],
+  "dependencies": {
+    "foundation_building": ["web_search_phase", "dataset_analysis"],
+    "ablation_analysis": ["foundation_building"],
+    "targeted_refinement": ["ablation_analysis"],
+    "ensemble_creation": ["targeted_refinement"],
+    "validation_and_debugging": ["ensemble_creation"],
+    "model_deployment_prep": ["validation_and_debugging"]
+  },
+  "settings": {
+    "maxConcurrency": 3,
+    "timeout": 7200,
+    "retryPolicy": "exponential",
+    "failurePolicy": "continue",
+    "quality_threshold": 0.8,
+    "enable_monitoring": true,
+    "save_intermediate_results": true,
+    "auto_documentation": true
+  },
+  "metadata": {
+    "methodology": "MLE-STAR",
+    "version": "2.0.0",
+    "created_by": "Claude Flow Automation",
+    "tags": ["machine_learning", "automation", "mle_star", "ensemble", "optimization"],
+    "description_detailed": "This workflow implements the MLE-STAR (Machine Learning Engineering via Search and Targeted Refinement) methodology. It starts with web search to find state-of-the-art approaches, builds a foundation model, performs ablation analysis to identify high-impact components, then deeply refines those components before creating intelligent ensembles and comprehensive validation.",
+    "success_criteria": [
+      "Performance improvement over baseline > 5%",
+      "No data leakage detected",
+      "Cross-validation score variance < 0.05",
+      "All components properly documented"
+    ],
+    "expected_runtime": "2-4 hours",
+    "resource_requirements": {
+      "memory": "8GB+",
+      "storage": "10GB+", 
+      "compute": "4+ CPU cores recommended"
+    }
+  }
+}

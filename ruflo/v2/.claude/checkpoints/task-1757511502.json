@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250910-133820", "task": "the settings.json hooks appear to break on mac, something to do with the wildcards and difference in", "timestamp": "2025-09-10T13:38:22Z", "commit": "cc3a43176a3dc1097b6fc3aec901bb727b46deaf", "github_release": "true"}

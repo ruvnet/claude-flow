@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "pre-task": ".claude/commands/hooks/pre-task.md",
+    "post-task": ".claude/commands/hooks/post-task.md",
+    "pre-edit": ".claude/commands/hooks/pre-edit.md",
+    "post-edit": ".claude/commands/hooks/post-edit.md",
+    "session-start": ".claude/commands/hooks/session-start.md",
+    "session-end": ".claude/commands/hooks/session-end.md"
+  },
+  "permissions": {
+    "allow": ["mcp__ruv-swarm", "mcp__claude-flow"],
+    "autoApprove": {
+      "mcp__ruv-swarm": ["*"],
+      "mcp__claude-flow": ["*"]
+    }
+  },
+  "mcpServers": {
+    "claude-flow": {
+      "command": "npx",
+      "args": ["claude-flow@alpha", "mcp", "start"],
+      "type": "stdio"
+    },
+    "ruv-swarm": {
+      "command": "npx",
+      "args": ["ruv-swarm@latest", "mcp", "start"],
+      "type": "stdio"
+    }
+  },
+  "features": {
+    "hooks": true,
+    "mcpIntegration": true,
+    "autoCompletion": true,
+    "commandPalette": true
+  }
+}

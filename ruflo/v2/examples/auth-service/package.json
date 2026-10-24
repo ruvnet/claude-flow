@@ -1,0 +1,20 @@
+{
+  "name": "swarm-app",
+  "version": "1.0.0",
+  "description": "Application created by Claude Flow Swarm: create an authentication service with JWT tokens and user registration in ./examples/auth-service",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": [
+    "swarm",
+    "claude-flow"
+  ],
+  "author": "Claude Flow Swarm",
+  "license": "MIT",
+  "swarmMetadata": {
+    "swarmId": "swarm_eawl2v4mn_dvg0ho8cc",
+    "objective": "create an authentication service with JWT tokens and user registration in ./examples/auth-service",
+    "created": "2025-06-14T23:28:17.887Z"
+  }
+}

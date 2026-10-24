@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250918-214512", "task": "main isn't using the alpha 110 branch. ./bin/claude-flow --version v2.0.0-alpha.103 @ruvnet ➜ /wor", "timestamp": "2025-09-18T21:45:13Z", "commit": "fd3529aaf18ad3ce9a8eb54ecf8efeb6cf144f64", "github_release": "true"}

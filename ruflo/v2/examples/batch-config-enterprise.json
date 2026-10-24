@@ -1,0 +1,119 @@
+{
+  "baseOptions": {
+    "sparc": true,
+    "parallel": true,
+    "maxConcurrency": 8,
+    "force": true,
+    "progressTracking": true
+  },
+  "projectConfigs": {
+    "core-api-prod": {
+      "template": "web-api",
+      "environment": "prod",
+      "customConfig": {
+        "database": "postgresql",
+        "cache": "redis",
+        "monitoring": "datadog",
+        "logging": "elk",
+        "security": "oauth2"
+      }
+    },
+    "core-api-staging": {
+      "template": "web-api", 
+      "environment": "staging",
+      "customConfig": {
+        "database": "postgresql",
+        "cache": "redis",
+        "monitoring": "prometheus",
+        "testing": "automated"
+      }
+    },
+    "core-api-dev": {
+      "template": "web-api",
+      "environment": "dev",
+      "customConfig": {
+        "database": "sqlite",
+        "debugging": "enabled",
+        "hotReload": true
+      }
+    },
+    "web-app-prod": {
+      "template": "react-app",
+      "environment": "prod",
+      "customConfig": {
+        "optimization": "aggressive",
+        "cdn": "cloudflare",
+        "analytics": "google"
+      }
+    },
+    "web-app-staging": {
+      "template": "react-app",
+      "environment": "staging",
+      "customConfig": {
+        "testing": "cypress",
+        "preview": "enabled"
+      }
+    },
+    "web-app-dev": {
+      "template": "react-app",
+      "environment": "dev",
+      "customConfig": {
+        "hotModule": true,
+        "devTools": "enabled"
+      }
+    },
+    "user-service": {
+      "template": "microservice",
+      "environment": "prod",
+      "customConfig": {
+        "containerization": "docker",
+        "orchestration": "kubernetes",
+        "scalability": "horizontal"
+      }
+    },
+    "notification-service": {
+      "template": "microservice",
+      "environment": "prod",
+      "customConfig": {
+        "messageQueue": "kafka",
+        "delivery": "guaranteed",
+        "channels": ["email", "sms", "push"]
+      }
+    },
+    "payment-service": {
+      "template": "microservice",
+      "environment": "prod",
+      "customConfig": {
+        "security": "maximum",
+        "compliance": ["pci-dss", "gdpr"],
+        "encryption": "aes-256"
+      }
+    },
+    "admin-cli": {
+      "template": "cli-tool",
+      "environment": "prod",
+      "customConfig": {
+        "distribution": "npm",
+        "platforms": ["linux", "macos", "windows"]
+      }
+    },
+    "monitoring-dashboard": {
+      "template": "react-app",
+      "environment": "prod",
+      "customConfig": {
+        "realtime": "websockets",
+        "charts": "d3",
+        "alerts": "integrated"
+      }
+    },
+    "load-testing": {
+      "template": "cli-tool",
+      "environment": "staging",
+      "customConfig": {
+        "framework": "k6",
+        "scenarios": "multiple",
+        "reporting": "html"
+      }
+    }
+  }
+}

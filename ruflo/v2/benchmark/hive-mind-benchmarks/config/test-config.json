@@ -1,0 +1,130 @@
+{
+  "benchmark_profiles": {
+    "quick": {
+      "name": "Quick Test Profile",
+      "description": "Fast benchmark suite for CI/CD pipelines",
+      "max_duration_minutes": 5,
+      "parallel_workers": 2,
+      "configurations": [
+        {
+          "name": "ci_small_hierarchical",
+          "topology": "hierarchical",
+          "coordination": "queen",
+          "memory_type": "sqlite",
+          "agent_count": 3,
+          "task_complexity": "simple",
+          "duration_seconds": 10,
+          "iterations": 1
+        },
+        {
+          "name": "ci_mesh_consensus",
+          "topology": "mesh",
+          "coordination": "consensus",
+          "memory_type": "memory",
+          "agent_count": 5,
+          "task_complexity": "simple",
+          "duration_seconds": 15,
+          "iterations": 1
+        }
+      ]
+    },
+    "standard": {
+      "name": "Standard Test Profile",
+      "description": "Comprehensive benchmark suite for regular testing",
+      "max_duration_minutes": 30,
+      "parallel_workers": 3,
+      "configurations": [
+        {
+          "name": "std_hierarchical_small",
+          "topology": "hierarchical",
+          "coordination": "queen",
+          "memory_type": "sqlite",
+          "agent_count": 5,
+          "task_complexity": "simple",
+          "duration_seconds": 30,
+          "iterations": 2
+        },
+        {
+          "name": "std_mesh_medium",
+          "topology": "mesh",
+          "coordination": "consensus",
+          "memory_type": "distributed",
+          "agent_count": 15,
+          "task_complexity": "medium",
+          "duration_seconds": 45,
+          "iterations": 2
+        },
+        {
+          "name": "std_star_hybrid",
+          "topology": "star",
+          "coordination": "hybrid",
+          "memory_type": "memory",
+          "agent_count": 10,
+          "task_complexity": "medium",
+          "duration_seconds": 30,
+          "iterations": 2
+        }
+      ]
+    },
+    "comprehensive": {
+      "name": "Comprehensive Test Profile",
+      "description": "Full benchmark suite for performance analysis",
+      "max_duration_minutes": 120,
+      "parallel_workers": 4,
+      "configurations": "auto_generate"
+    },
+    "stress": {
+      "name": "Stress Test Profile",
+      "description": "High-load testing for system limits",
+      "max_duration_minutes": 60,
+      "parallel_workers": 2,
+      "configurations": [
+        {
+          "name": "stress_hierarchical_large",
+          "topology": "hierarchical",
+          "coordination": "queen",
+          "memory_type": "distributed",
+          "agent_count": 100,
+          "task_complexity": "complex",
+          "duration_seconds": 120,
+          "iterations": 1
+        },
+        {
+          "name": "stress_mesh_enterprise",
+          "topology": "mesh",
+          "coordination": "consensus",
+          "memory_type": "distributed",
+          "agent_count": 500,
+          "task_complexity": "enterprise",
+          "duration_seconds": 300,
+          "iterations": 1
+        }
+      ]
+    }
+  },
+  "performance_thresholds": {
+    "initialization_time_max_seconds": 10.0,
+    "coordination_latency_max_ms": 500,
+    "memory_usage_max_mb": 200,
+    "task_completion_rate_min": 0.95,
+    "error_rate_max": 0.05
+  },
+  "output_settings": {
+    "save_raw_results": true,
+    "save_analysis": true,
+    "save_csv_summary": true,
+    "save_performance_plots": true,
+    "generate_html_report": true
+  },
+  "timeout_settings": {
+    "command_timeout_seconds": 180,
+    "benchmark_timeout_minutes": 10,
+    "total_suite_timeout_hours": 4
+  },
+  "retry_settings": {
+    "max_retries": 2,
+    "retry_delay_seconds": 5,
+    "retry_on_timeout": true,
+    "retry_on_error": true
+  }
+}

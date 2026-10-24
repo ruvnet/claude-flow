@@ -1,0 +1,171 @@
+name: 📊 Status Badges Update
+
+on:
+  workflow_run:
+    workflows: ["🔍 Verification Pipeline", "🎯 Truth Scoring Pipeline", "🔗 Cross-Agent Integration Tests"]
+    types: [completed]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+
+jobs:
+  update-badges:
+    name: 📊 Update Status Badges
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate badge data
+        run: |
+          echo "📊 Generating badge data..."
+          
+          mkdir -p badge-data
+          
+          # Get latest workflow runs
+          VERIFICATION_STATUS="${{ github.event.workflow_run.conclusion || 'unknown' }}"
+          WORKFLOW_NAME="${{ github.event.workflow_run.name || 'unknown' }}"
+          
+          # Determine badge colors and status
+          case "$VERIFICATION_STATUS" in
+            "success")
+              BADGE_COLOR="brightgreen"
+              BADGE_STATUS="passing"
+              ;;
+            "failure")
+              BADGE_COLOR="red"
+              BADGE_STATUS="failing"
+              ;;
+            *)
+              BADGE_COLOR="yellow"
+              BADGE_STATUS="unknown"
+              ;;
+          esac
+          
+          # Create badge JSON
+          cat > badge-data/status.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "pipeline",
+            "message": "$BADGE_STATUS",
+            "color": "$BADGE_COLOR",
+            "style": "flat-square"
+          }
+          EOF
+          
+          # Truth scoring badge
+          if [ "$WORKFLOW_NAME" = "🎯 Truth Scoring Pipeline" ]; then
+            TRUTH_COLOR="brightgreen"
+            TRUTH_MESSAGE="85+"
+            if [ "$VERIFICATION_STATUS" = "failure" ]; then
+              TRUTH_COLOR="red"
+              TRUTH_MESSAGE="<85"
+            fi
+            
+            cat > badge-data/truth-score.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "truth score",
+            "message": "$TRUTH_MESSAGE",
+            "color": "$TRUTH_COLOR",
+            "style": "flat-square"
+          }
+          EOF
+          fi
+          
+          # Integration tests badge
+          if [ "$WORKFLOW_NAME" = "🔗 Cross-Agent Integration Tests" ]; then
+            INTEGRATION_COLOR="brightgreen"
+            INTEGRATION_MESSAGE="passing"
+            if [ "$VERIFICATION_STATUS" = "failure" ]; then
+              INTEGRATION_COLOR="red"
+              INTEGRATION_MESSAGE="failing"
+            fi
+            
+            cat > badge-data/integration.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "integration",
+            "message": "$INTEGRATION_MESSAGE",
+            "color": "$INTEGRATION_COLOR",
+            "style": "flat-square"
+          }
+          EOF
+          fi
+
+      - name: Update README badges
+        run: |
+          echo "📝 Updating README badges..."
+          
+          # Check if README has badge section
+          if grep -q "<!-- BADGES-START -->" README.md; then
+            echo "Found badge section, updating..."
+            
+            # Create new badge section
+            cat > new-badges.md << 'EOF'
+          <!-- BADGES-START -->
+          [![Verification Pipeline](https://img.shields.io/github/actions/workflow/status/ruvnet/claude-code-flow/verification-pipeline.yml?branch=main&label=verification&style=flat-square)](https://github.com/ruvnet/claude-code-flow/actions/workflows/verification-pipeline.yml)
+          [![Truth Scoring](https://img.shields.io/github/actions/workflow/status/ruvnet/claude-code-flow/truth-scoring.yml?branch=main&label=truth%20score&style=flat-square)](https://github.com/ruvnet/claude-code-flow/actions/workflows/truth-scoring.yml)
+          [![Integration Tests](https://img.shields.io/github/actions/workflow/status/ruvnet/claude-code-flow/integration-tests.yml?branch=main&label=integration&style=flat-square)](https://github.com/ruvnet/claude-code-flow/actions/workflows/integration-tests.yml)
+          [![Rollback Manager](https://img.shields.io/github/actions/workflow/status/ruvnet/claude-code-flow/rollback-manager.yml?branch=main&label=rollback&style=flat-square)](https://github.com/ruvnet/claude-code-flow/actions/workflows/rollback-manager.yml)
+          [![CI/CD](https://img.shields.io/github/actions/workflow/status/ruvnet/claude-code-flow/ci.yml?branch=main&label=ci%2Fcd&style=flat-square)](https://github.com/ruvnet/claude-code-flow/actions/workflows/ci.yml)
+          [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+          [![Version](https://img.shields.io/npm/v/claude-flow.svg?style=flat-square)](https://www.npmjs.com/package/claude-flow)
+          <!-- BADGES-END -->
+          EOF
+            
+            # Replace badge section in README
+            awk '
+            BEGIN { in_badges = 0 }
+            /<!-- BADGES-START -->/ { 
+              in_badges = 1
+              while ((getline line < "new-badges.md") > 0) {
+                print line
+              }
+              close("new-badges.md")
+              next
+            }
+            /<!-- BADGES-END -->/ { 
+              in_badges = 0
+              next
+            }
+            !in_badges { print }
+            ' README.md > README.tmp && mv README.tmp README.md
+            
+            rm -f new-badges.md
+          else
+            echo "No badge section found in README.md"
+          fi
+
+      - name: Commit badge updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if git diff --quiet README.md; then
+            echo "No changes to commit"
+          else
+            git add README.md
+            git commit -m "📊 Update status badges
+            
+            🤖 Generated by GitHub Actions
+            
+            Co-Authored-By: Badge Updater <noreply@github.com>"
+            git push
+          fi
+
+      - name: Upload badge data
+        uses: actions/upload-artifact@v4
+        with:
+          name: badge-data-$(date +%Y%m%d)
+          path: badge-data/
+          retention-days: 7

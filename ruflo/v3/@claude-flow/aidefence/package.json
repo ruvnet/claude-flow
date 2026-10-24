@@ -1,0 +1,76 @@
+{
+  "name": "@claude-flow/aidefence",
+  "version": "3.0.2",
+  "description": "AI Manipulation Defense System (AIMDS) with self-learning, prompt injection detection, and vector search integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./detection": {
+      "import": "./dist/domain/services/threat-detection-service.js",
+      "types": "./dist/domain/services/threat-detection-service.d.ts"
+    },
+    "./learning": {
+      "import": "./dist/domain/services/threat-learning-service.js",
+      "types": "./dist/domain/services/threat-learning-service.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "vitest",
+    "test:unit": "vitest run src",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "agentdb": ">=2.0.0-alpha.1"
+  },
+  "peerDependenciesMeta": {
+    "agentdb": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "keywords": [
+    "ai-security",
+    "prompt-injection",
+    "jailbreak-detection",
+    "threat-detection",
+    "pii-detection",
+    "claude-flow",
+    "vector-search",
+    "self-learning",
+    "aimds",
+    "llm-security"
+  ],
+  "author": "rUv <hello@ruv.io>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ruvnet/claude-flow.git",
+    "directory": "v3/@claude-flow/aidefence"
+  },
+  "bugs": {
+    "url": "https://github.com/ruvnet/claude-flow/issues"
+  },
+  "homepage": "https://github.com/ruvnet/claude-flow/tree/main/v3/@claude-flow/aidefence#readme",
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

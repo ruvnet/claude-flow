@@ -1,0 +1,120 @@
+{
+  "name": "Blog Platform Development",
+  "description": "Sequential workflow for building a blog platform step by step",
+  "agents": [
+    {
+      "id": "planner",
+      "name": "Project Planner",
+      "type": "coordinator",
+      "capabilities": ["planning", "requirements-analysis"]
+    },
+    {
+      "id": "database-designer",
+      "name": "Database Designer",
+      "type": "architect",
+      "capabilities": ["database-design", "sql"]
+    },
+    {
+      "id": "backend-dev",
+      "name": "Backend Developer",
+      "type": "developer",
+      "capabilities": ["nodejs", "api-development", "database-integration"]
+    },
+    {
+      "id": "frontend-dev",
+      "name": "Frontend Developer",
+      "type": "developer",
+      "capabilities": ["react", "css", "responsive-design"]
+    },
+    {
+      "id": "content-dev",
+      "name": "Content Management Developer",
+      "type": "developer",
+      "capabilities": ["cms", "markdown", "media-handling"]
+    },
+    {
+      "id": "deployer",
+      "name": "Deployment Specialist",
+      "type": "devops",
+      "capabilities": ["deployment", "hosting", "ssl"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "requirements-gathering",
+      "name": "Gather Requirements",
+      "agentId": "planner",
+      "type": "planning",
+      "input": {
+        "features": ["user-auth", "post-creation", "comments", "categories", "search"],
+        "audience": "developers and tech enthusiasts"
+      }
+    },
+    {
+      "id": "database-design",
+      "name": "Design Database Schema",
+      "agentId": "database-designer",
+      "type": "design",
+      "dependencies": ["requirements-gathering"],
+      "output": {
+        "artifacts": ["schema.sql", "er-diagram.png"]
+      }
+    },
+    {
+      "id": "backend-api",
+      "name": "Build Backend API",
+      "agentId": "backend-dev",
+      "type": "development",
+      "dependencies": ["database-design"],
+      "input": {
+        "framework": "express",
+        "database": "postgresql",
+        "auth": "jwt"
+      }
+    },
+    {
+      "id": "frontend-ui",
+      "name": "Build Frontend UI",
+      "agentId": "frontend-dev",
+      "type": "development",
+      "dependencies": ["backend-api"],
+      "input": {
+        "framework": "react",
+        "styling": "tailwind",
+        "responsive": true
+      }
+    },
+    {
+      "id": "cms-integration",
+      "name": "Add Content Management",
+      "agentId": "content-dev",
+      "type": "development",
+      "dependencies": ["frontend-ui"],
+      "input": {
+        "editor": "markdown",
+        "mediaStorage": "s3",
+        "preview": true
+      }
+    },
+    {
+      "id": "deployment",
+      "name": "Deploy to Production",
+      "agentId": "deployer",
+      "type": "deployment",
+      "dependencies": ["cms-integration"],
+      "input": {
+        "platform": "vercel",
+        "database": "supabase",
+        "cdn": "cloudflare"
+      }
+    }
+  ],
+  "execution": {
+    "mode": "sequential",
+    "saveProgress": true,
+    "notifications": {
+      "onTaskComplete": true,
+      "onError": true
+    }
+  }
+}

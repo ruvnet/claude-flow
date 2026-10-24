@@ -1,0 +1,96 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "sveltekit",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".vercel/output",
+  "regions": ["iad1"],
+  "env": {
+    "RVF_DB_PATH": "/tmp/db"
+  },
+  "headers": [
+    {
+      "source": "/((?!_app|api|icon).*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, must-revalidate" },
+        { "key": "Pragma", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/api/v1/(kpi|executive-summary|location-comparison|labor-cost|guest-analytics)(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "s-maxage=60, stale-while-revalidate=300" }
+      ]
+    },
+    {
+      "source": "/_app/immutable/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/icon-(.*).png",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/toast-sync",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/toast-sync",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/toast-sync",
+      "schedule": "0 21 * * 0"
+    },
+    {
+      "path": "/api/cron/toast-sync",
+      "schedule": "0 21 * * 1"
+    },
+    {
+      "path": "/api/cron/daily-refresh",
+      "schedule": "30 11 * * *"
+    },
+    {
+      "path": "/api/cron/daily-insights-email",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/google-sync",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/yelp-sync",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/nps-rollup",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/data-integrity",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/competitive-scan",
+      "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/data-integrity",
+      "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/slack-digest",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/toast-reconcile",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

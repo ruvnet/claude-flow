@@ -1,0 +1,21 @@
+FROM node:20-slim
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /test
+
+# Install claude-flow@alpha from npm
+RUN npm install -g claude-flow@alpha
+
+# Create test script
+COPY reasoningbank-validation.mjs /test/
+
+# Run test
+CMD ["node", "/test/reasoningbank-validation.mjs"]

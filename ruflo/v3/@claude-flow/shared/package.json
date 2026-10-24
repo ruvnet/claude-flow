@@ -1,0 +1,34 @@
+{
+  "name": "@claude-flow/shared",
+  "version": "3.0.0-alpha.6",
+  "type": "module",
+  "description": "Shared module - common types, events, utilities, core interfaces",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types/index.js",
+    "./core": "./dist/core/index.js",
+    "./events": "./dist/events/index.js",
+    "./hooks": "./dist/hooks/index.js",
+    "./mcp": "./dist/mcp/index.js",
+    "./security": "./dist/security/index.js",
+    "./resilience": "./dist/resilience/index.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "sql.js": "^1.10.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/sql.js": "^1.4.9",
+    "vitest": "^4.0.16"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

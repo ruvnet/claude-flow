@@ -1,0 +1,11 @@
+# architect agent configuration
+type: architect
+version: "3.0.0"
+capabilities:
+  - system-design
+  - api-design
+  - documentation
+optimizations:
+  - context-caching
+  - memory-persistence
+createdAt: "2026-01-07T02:52:18.645Z"

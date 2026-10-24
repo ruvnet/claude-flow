@@ -1,0 +1,1 @@
+name,topology,coordination,memory_type,agent_count,success,init_time,coord_latency,memory_mb,completion_rate\nquick_hierarchical,hierarchical,queen,sqlite,5,False,0.000,0.00,0.0,0.00\nquick_mesh,mesh,consensus,memory,10,False,0.000,0.00,0.0,0.00\nquick_star,star,hybrid,sqlite,8,False,0.000,0.00,0.0,0.00\n

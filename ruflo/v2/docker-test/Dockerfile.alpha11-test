@@ -1,0 +1,26 @@
+# Dockerfile for testing claude-flow@2.7.0-alpha.11
+# Tests: init command, skills system, MCP server, regressions
+
+FROM node:20-slim
+
+# Set working directory
+WORKDIR /test
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install claude-flow@alpha globally
+RUN npm install -g claude-flow@alpha
+
+# Verify version is alpha.11
+RUN claude-flow --version | grep "2.7.0-alpha.11" || exit 1
+
+# Create test script
+COPY test-alpha11.sh /test/test-alpha11.sh
+RUN chmod +x /test/test-alpha11.sh
+
+# Default command
+CMD ["/test/test-alpha11.sh"]

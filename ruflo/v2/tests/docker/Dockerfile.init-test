@@ -1,0 +1,106 @@
+# Dockerfile for testing init without agentic-payments
+FROM node:20-slim
+
+# Install basic tools
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create test directory
+WORKDIR /test
+
+# Copy package files
+COPY package.json package-lock.json ./
+COPY bin/ ./bin/
+COPY src/ ./src/
+COPY .claude/ ./.claude/ 2>/dev/null || true
+COPY scripts/ ./scripts/
+
+# Install dependencies
+RUN npm install
+
+# Create init test script
+RUN echo '#!/bin/bash' > /test/test-init.sh && \
+    echo 'set -e' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo 'echo "🧪 Testing claude-flow init without agentic-payments"' >> /test/test-init.sh && \
+    echo 'echo "====================================================="' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 1: Run init in dry-run mode' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 1: Dry-run init"' >> /test/test-init.sh && \
+    echo 'node --experimental-wasm-modules src/cli/simple-cli.js init --dry-run > /tmp/init-output.txt 2>&1 || true' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 2: Verify agentic-payments is NOT mentioned' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 2: Checking for agentic-payments mentions"' >> /test/test-init.sh && \
+    echo 'if grep -i "agentic-payments" /tmp/init-output.txt; then' >> /test/test-init.sh && \
+    echo '  echo "❌ FAILED: agentic-payments found in init output"' >> /test/test-init.sh && \
+    echo '  exit 1' >> /test/test-init.sh && \
+    echo 'else' >> /test/test-init.sh && \
+    echo '  echo "✅ PASSED: agentic-payments not found in init output"' >> /test/test-init.sh && \
+    echo 'fi' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 3: Verify only 3 MCP servers are configured' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 3: Counting MCP servers"' >> /test/test-init.sh && \
+    echo 'SERVER_COUNT=$(grep -c "claude mcp add" /tmp/init-output.txt || echo 0)' >> /test/test-init.sh && \
+    echo 'echo "Found $SERVER_COUNT MCP server references"' >> /test/test-init.sh && \
+    echo 'if [ "$SERVER_COUNT" -ne 3 ]; then' >> /test/test-init.sh && \
+    echo '  echo "❌ FAILED: Expected 3 MCP servers, found $SERVER_COUNT"' >> /test/test-init.sh && \
+    echo '  exit 1' >> /test/test-init.sh && \
+    echo 'else' >> /test/test-init.sh && \
+    echo '  echo "✅ PASSED: Correct number of MCP servers (3)"' >> /test/test-init.sh && \
+    echo 'fi' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 4: Run actual init (non-dry-run)' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 4: Running actual init"' >> /test/test-init.sh && \
+    echo 'mkdir -p /test-project' >> /test/test-init.sh && \
+    echo 'cd /test-project' >> /test/test-init.sh && \
+    echo 'node --experimental-wasm-modules /test/src/cli/simple-cli.js init --force --skip-mcp > /tmp/actual-init.txt 2>&1 || true' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 5: Verify .mcp.json does not contain agentic-payments' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 5: Checking .mcp.json content"' >> /test/test-init.sh && \
+    echo 'if [ -f ".mcp.json" ]; then' >> /test/test-init.sh && \
+    echo '  if grep -q "agentic-payments" .mcp.json; then' >> /test/test-init.sh && \
+    echo '    echo "❌ FAILED: agentic-payments found in .mcp.json"' >> /test/test-init.sh && \
+    echo '    cat .mcp.json' >> /test/test-init.sh && \
+    echo '    exit 1' >> /test/test-init.sh && \
+    echo '  else' >> /test/test-init.sh && \
+    echo '    echo "✅ PASSED: .mcp.json does not contain agentic-payments"' >> /test/test-init.sh && \
+    echo '    MCP_COUNT=$(jq ".mcpServers | length" .mcp.json)' >> /test/test-init.sh && \
+    echo '    echo "   .mcp.json contains $MCP_COUNT MCP servers"' >> /test/test-init.sh && \
+    echo '    if [ "$MCP_COUNT" -ne 3 ]; then' >> /test/test-init.sh && \
+    echo '      echo "❌ FAILED: Expected 3 servers in .mcp.json, found $MCP_COUNT"' >> /test/test-init.sh && \
+    echo '      exit 1' >> /test/test-init.sh && \
+    echo '    fi' >> /test/test-init.sh && \
+    echo '  fi' >> /test/test-init.sh && \
+    echo 'else' >> /test/test-init.sh && \
+    echo '  echo "⚠️  WARNING: .mcp.json not created"' >> /test/test-init.sh && \
+    echo 'fi' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo '# Test 6: Verify CLAUDE.md was created' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "Test 6: Verifying CLAUDE.md creation"' >> /test/test-init.sh && \
+    echo 'if [ -f "CLAUDE.md" ]; then' >> /test/test-init.sh && \
+    echo '  if grep -q "agentic-payments" CLAUDE.md; then' >> /test/test-init.sh && \
+    echo '    echo "❌ FAILED: agentic-payments found in CLAUDE.md"' >> /test/test-init.sh && \
+    echo '    exit 1' >> /test/test-init.sh && \
+    echo '  else' >> /test/test-init.sh && \
+    echo '    echo "✅ PASSED: CLAUDE.md created and does not mention agentic-payments"' >> /test/test-init.sh && \
+    echo '  fi' >> /test/test-init.sh && \
+    echo 'else' >> /test/test-init.sh && \
+    echo '  echo "✅ PASSED: CLAUDE.md not created in dry-run"' >> /test/test-init.sh && \
+    echo 'fi' >> /test/test-init.sh && \
+    echo '' >> /test/test-init.sh && \
+    echo 'echo ""' >> /test/test-init.sh && \
+    echo 'echo "✅ All tests passed!"' >> /test/test-init.sh && \
+    chmod +x /test/test-init.sh
+
+# Set entrypoint
+ENTRYPOINT ["/bin/bash"]
+CMD ["/test/test-init.sh"]

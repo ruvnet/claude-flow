@@ -1,0 +1,166 @@
+{
+  "name": "Microservices Architecture Workflow",
+  "description": "Build a complete microservices application with multiple services",
+  "agents": [
+    {
+      "id": "architect",
+      "name": "System Architect",
+      "type": "architect",
+      "capabilities": ["system-design", "api-design", "documentation"]
+    },
+    {
+      "id": "auth-dev",
+      "name": "Auth Service Developer",
+      "type": "developer",
+      "capabilities": ["backend", "authentication", "security"]
+    },
+    {
+      "id": "user-dev",
+      "name": "User Service Developer",
+      "type": "developer",
+      "capabilities": ["backend", "database", "api-development"]
+    },
+    {
+      "id": "product-dev",
+      "name": "Product Service Developer",
+      "type": "developer",
+      "capabilities": ["backend", "database", "api-development"]
+    },
+    {
+      "id": "gateway-dev",
+      "name": "API Gateway Developer",
+      "type": "developer",
+      "capabilities": ["backend", "routing", "middleware"]
+    },
+    {
+      "id": "frontend-dev",
+      "name": "Frontend Developer",
+      "type": "developer",
+      "capabilities": ["frontend", "react", "ui-design"]
+    },
+    {
+      "id": "devops",
+      "name": "DevOps Engineer",
+      "type": "devops",
+      "capabilities": ["docker", "kubernetes", "ci-cd"]
+    },
+    {
+      "id": "tester",
+      "name": "QA Engineer",
+      "type": "tester",
+      "capabilities": ["integration-testing", "e2e-testing", "performance-testing"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "design-architecture",
+      "name": "Design System Architecture",
+      "agentId": "architect",
+      "type": "design",
+      "priority": "high",
+      "output": {
+        "artifacts": ["architecture.md", "api-specs.yaml", "database-schema.sql"]
+      }
+    },
+    {
+      "id": "create-auth-service",
+      "name": "Build Authentication Service",
+      "agentId": "auth-dev",
+      "type": "development",
+      "dependencies": ["design-architecture"],
+      "parallel": true,
+      "input": {
+        "framework": "express",
+        "features": ["jwt", "oauth2", "refresh-tokens"]
+      }
+    },
+    {
+      "id": "create-user-service",
+      "name": "Build User Management Service",
+      "agentId": "user-dev",
+      "type": "development",
+      "dependencies": ["design-architecture"],
+      "parallel": true,
+      "input": {
+        "framework": "express",
+        "database": "postgresql",
+        "features": ["crud", "profile-management", "preferences"]
+      }
+    },
+    {
+      "id": "create-product-service",
+      "name": "Build Product Catalog Service",
+      "agentId": "product-dev",
+      "type": "development",
+      "dependencies": ["design-architecture"],
+      "parallel": true,
+      "input": {
+        "framework": "express",
+        "database": "mongodb",
+        "features": ["crud", "search", "categories", "inventory"]
+      }
+    },
+    {
+      "id": "create-api-gateway",
+      "name": "Build API Gateway",
+      "agentId": "gateway-dev",
+      "type": "development",
+      "dependencies": ["create-auth-service", "create-user-service", "create-product-service"],
+      "input": {
+        "framework": "express-gateway",
+        "features": ["routing", "rate-limiting", "authentication", "logging"]
+      }
+    },
+    {
+      "id": "create-frontend",
+      "name": "Build React Frontend",
+      "agentId": "frontend-dev",
+      "type": "development",
+      "dependencies": ["create-api-gateway"],
+      "input": {
+        "framework": "react",
+        "ui-library": "material-ui",
+        "features": ["dashboard", "user-management", "product-catalog"]
+      }
+    },
+    {
+      "id": "containerize-services",
+      "name": "Create Docker Configurations",
+      "agentId": "devops",
+      "type": "devops",
+      "dependencies": ["create-api-gateway", "create-frontend"],
+      "parallel": true,
+      "output": {
+        "artifacts": ["docker-compose.yml", "Dockerfile", "k8s-manifests/"]
+      }
+    },
+    {
+      "id": "integration-tests",
+      "name": "Run Integration Tests",
+      "agentId": "tester",
+      "type": "testing",
+      "dependencies": ["containerize-services"],
+      "input": {
+        "testTypes": ["api", "integration", "e2e"],
+        "coverage": 80
+      }
+    }
+  ],
+  "execution": {
+    "mode": "smart",
+    "parallelism": {
+      "max": 4,
+      "strategy": "resource-based"
+    },
+    "checkpoints": ["design-architecture", "create-api-gateway", "integration-tests"],
+    "rollback": true
+  },
+  "quality": {
+    "codeReview": true,
+    "securityScan": true,
+    "performanceThreshold": {
+      "responseTime": 200,
+      "throughput": 1000
+    }
+  }
+}

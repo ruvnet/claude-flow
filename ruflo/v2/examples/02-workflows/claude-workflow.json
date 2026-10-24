@@ -1,0 +1,70 @@
+{
+  "name": "Multi-Agent Claude Development Workflow",
+  "description": "Example workflow showing how to spawn multiple Claude instances with different configurations",
+  "parallel": true,
+  "tasks": [
+    {
+      "id": "research-task",
+      "name": "Research Best Practices",
+      "type": "research",
+      "description": "Research current best practices for authentication systems and security patterns",
+      "tools": ["WebFetchTool", "View", "Edit", "GrepTool"],
+      "skipPermissions": true,
+      "config": ".roo/mcp.json"
+    },
+    {
+      "id": "backend-task",
+      "name": "Implement Backend API",
+      "type": "implementation",
+      "description": "Implement user authentication backend with JWT tokens and secure password hashing",
+      "tools": ["View", "Edit", "Replace", "GlobTool", "GrepTool", "LS", "Bash"],
+      "skipPermissions": true,
+      "mode": "backend-only",
+      "coverage": 90
+    },
+    {
+      "id": "frontend-task", 
+      "name": "Build Frontend Components",
+      "type": "implementation",
+      "description": "Create React components for login, registration, and password reset flows",
+      "tools": ["View", "Edit", "Replace", "GlobTool", "GrepTool", "LS", "Bash"],
+      "skipPermissions": true,
+      "mode": "frontend-only"
+    },
+    {
+      "id": "testing-task",
+      "name": "Write Comprehensive Tests",
+      "type": "testing",
+      "description": "Write unit and integration tests for authentication system with 95% coverage",
+      "tools": ["View", "Edit", "Replace", "GlobTool", "GrepTool", "LS", "Bash", "BatchTool"],
+      "skipPermissions": true,
+      "coverage": 95
+    }
+  ],
+  "agents": [
+    {
+      "id": "research-agent",
+      "type": "researcher",
+      "capabilities": ["web-search", "information-gathering", "analysis"],
+      "assignedTasks": ["research-task"]
+    },
+    {
+      "id": "backend-agent",
+      "type": "implementer",
+      "capabilities": ["code-generation", "api-development", "database-design"],
+      "assignedTasks": ["backend-task"]
+    },
+    {
+      "id": "frontend-agent",
+      "type": "implementer", 
+      "capabilities": ["ui-development", "react", "component-design"],
+      "assignedTasks": ["frontend-task"]
+    },
+    {
+      "id": "test-agent",
+      "type": "tester",
+      "capabilities": ["test-writing", "coverage-analysis", "quality-assurance"],
+      "assignedTasks": ["testing-task"]
+    }
+  ]
+}

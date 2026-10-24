@@ -1,0 +1,1 @@
+{"version":3,"file":"memory-tools.d.ts","sourceRoot":"","sources":["memory-tools.ts"],"names":[],"mappings":"AAAA;;;;;;;;;;GAUG;AAGH,OAAO,EAAE,OAAO,EAAe,MAAM,aAAa,CAAC;AAmWnD;;GAEG;AACH,eAAO,MAAM,eAAe,EAAE,OAoD7B,CAAC;AAEF;;GAEG;AACH,eAAO,MAAM,gBAAgB,EAAE,OA8D9B,CAAC;AAEF;;GAEG;AACH,eAAO,MAAM,cAAc,EAAE,OA8D5B,CAAC;AAMF,eAAO,MAAM,WAAW,EAAE,OAAO,EAIhC,CAAC;AAEF,eAAe,WAAW,CAAC"}

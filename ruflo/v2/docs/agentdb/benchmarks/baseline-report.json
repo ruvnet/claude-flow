@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-10-23T05:19:37.047Z",
+  "system": "claude-flow-current",
+  "version": "2.7.1",
+  "benchmarks": {
+    "patternSearch": {
+      "100_vectors": {
+        "avgLatencyMs": 0.07,
+        "avgLatencyUs": 73,
+        "throughputQps": 13682
+      },
+      "1000_vectors": {
+        "avgLatencyMs": 0.75,
+        "avgLatencyUs": 754,
+        "throughputQps": 1326
+      },
+      "10000_vectors": {
+        "avgLatencyMs": 9.59,
+        "avgLatencyUs": 9595,
+        "throughputQps": 104
+      }
+    },
+    "batchInsert": {
+      "batch_10": {
+        "latencyMs": 1.05,
+        "throughputVectorsPerSec": 9513,
+        "dataSize": 73.46
+      },
+      "batch_100": {
+        "latencyMs": 6.24,
+        "throughputVectorsPerSec": 16017,
+        "dataSize": 734.65
+      },
+      "batch_1000": {
+        "latencyMs": 59.28,
+        "throughputVectorsPerSec": 16870,
+        "dataSize": 7345.94
+      }
+    },
+    "largeScaleQuery": {
+      "10K": {
+        "latencyMs": 11.63,
+        "memoryUsedMB": 3.28,
+        "qps": 86.02
+      },
+      "50K": {
+        "latencyMs": 63.42,
+        "memoryUsedMB": 4.13,
+        "qps": 15.77
+      },
+      "100K": {
+        "latencyMs": 163.8,
+        "memoryUsedMB": -153.85,
+        "qps": 6.11
+      }
+    },
+    "memoryUsage": {
+      "1000_vectors": {
+        "heapUsedMB": 334.28,
+        "rssMB": 428.55,
+        "vectorSizeMB": 7.17
+      },
+      "5000_vectors": {
+        "heapUsedMB": 354.84,
+        "rssMB": 428.68,
+        "vectorSizeMB": 35.88
+      },
+      "10000_vectors": {
+        "heapUsedMB": 412.89,
+        "rssMB": 488.68,
+        "vectorSizeMB": 71.76
+      }
+    }
+  }
+}

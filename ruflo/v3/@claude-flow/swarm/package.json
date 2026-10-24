@@ -1,0 +1,32 @@
+{
+  "name": "@claude-flow/swarm",
+  "version": "3.0.0-alpha.6",
+  "type": "module",
+  "description": "Standalone swarm coordination - up to 100+ agents, 4 topologies, hive-mind, consensus",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*.js"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.16"
+  },
+  "keywords": [
+    "swarm",
+    "multi-agent",
+    "coordination",
+    "consensus",
+    "hive-mind",
+    "distributed",
+    "ai-agents"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

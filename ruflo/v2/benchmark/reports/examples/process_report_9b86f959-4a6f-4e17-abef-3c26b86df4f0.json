@@ -1,0 +1,47 @@
+{
+  "summary": {
+    "total_executions": 1,
+    "successful_executions": 1,
+    "failed_executions": 0,
+    "overall_success_rate": 1.0,
+    "total_duration": 0.4041142463684082,
+    "average_duration": 0.4041142463684082,
+    "peak_memory_mb": 72.76171875,
+    "average_memory_mb": 49.2099609375,
+    "total_output_lines": 5,
+    "total_errors": 0
+  },
+  "command_statistics": {
+    "sparc:{\"positional\": [\"orchestrator\", \"Create a function to calculate fibonacci numbers\"]}": {
+      "command_type": "sparc",
+      "args": {
+        "positional": [
+          "orchestrator",
+          "Create a function to calculate fibonacci numbers"
+        ]
+      },
+      "execution_count": 1,
+      "success_count": 1,
+      "failure_count": 0,
+      "success_rate": 1.0,
+      "average_duration": 0.4041142463684082,
+      "total_duration": 0.4041142463684082,
+      "average_memory_mb": 49.2099609375,
+      "peak_memory_mb": 72.76171875
+    }
+  },
+  "executions": [
+    {
+      "command": "claude-flow sparc orchestrator Create a function to calculate fibonacci numbers",
+      "exit_code": 0,
+      "success": true,
+      "duration": 0.4041142463684082,
+      "start_time": 1754445096.9997785,
+      "output_size": 5,
+      "error_count": 0,
+      "cpu_percent": 99.4,
+      "memory_mb": 49.2099609375,
+      "peak_memory_mb": 72.76171875
+    }
+  ]
+}

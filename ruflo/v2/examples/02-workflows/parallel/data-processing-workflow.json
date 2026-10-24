@@ -1,0 +1,81 @@
+{
+  "name": "Parallel Data Processing",
+  "description": "Process multiple data sources in parallel",
+  "agents": [
+    {
+      "id": "csv-processor",
+      "name": "CSV Data Agent",
+      "type": "analyzer",
+      "capabilities": ["data-processing", "csv-parsing"]
+    },
+    {
+      "id": "json-processor",
+      "name": "JSON Data Agent",
+      "type": "analyzer",
+      "capabilities": ["data-processing", "json-parsing"]
+    },
+    {
+      "id": "xml-processor",
+      "name": "XML Data Agent",
+      "type": "analyzer",
+      "capabilities": ["data-processing", "xml-parsing"]
+    },
+    {
+      "id": "aggregator",
+      "name": "Data Aggregator",
+      "type": "coordinator",
+      "capabilities": ["data-aggregation", "reporting"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "process-csv",
+      "name": "Process CSV Data",
+      "agentId": "csv-processor",
+      "type": "data-processing",
+      "parallel": true,
+      "input": {
+        "source": "data/sales.csv",
+        "operations": ["validate", "transform", "summarize"]
+      }
+    },
+    {
+      "id": "process-json",
+      "name": "Process JSON Data",
+      "agentId": "json-processor",
+      "type": "data-processing",
+      "parallel": true,
+      "input": {
+        "source": "data/inventory.json",
+        "operations": ["validate", "transform", "summarize"]
+      }
+    },
+    {
+      "id": "process-xml",
+      "name": "Process XML Data",
+      "agentId": "xml-processor",
+      "type": "data-processing",
+      "parallel": true,
+      "input": {
+        "source": "data/customers.xml",
+        "operations": ["validate", "transform", "summarize"]
+      }
+    },
+    {
+      "id": "aggregate-results",
+      "name": "Aggregate All Results",
+      "agentId": "aggregator",
+      "type": "aggregation",
+      "dependencies": ["process-csv", "process-json", "process-xml"],
+      "input": {
+        "format": "unified-report",
+        "includeCharts": true
+      }
+    }
+  ],
+  "execution": {
+    "mode": "parallel",
+    "maxConcurrency": 3,
+    "timeout": 300000
+  }
+}

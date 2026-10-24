@@ -1,0 +1,55 @@
+# LiteLLM Core
+litellm[proxy]==1.54.0
+litellm[extra_proxy_features]==1.54.0
+
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.35
+alembic==1.13.3
+
+# Redis
+redis==5.2.1
+hiredis==3.1.0
+
+# API Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+httpx==0.28.1
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.1
+cryptography==44.0.0
+
+# Monitoring & Metrics
+prometheus-client==0.21.1
+opentelemetry-api==1.29.0
+opentelemetry-sdk==1.29.0
+opentelemetry-instrumentation-fastapi==0.50b0
+
+# Logging
+python-json-logger==3.2.1
+loguru==0.7.3
+
+# Utilities
+pydantic==2.10.5
+pydantic-settings==2.7.1
+tenacity==9.0.0
+python-dateutil==2.9.0
+pytz==2024.2
+click==8.1.8
+rich==13.9.4
+
+# Testing (optional, for development)
+pytest==8.3.4
+pytest-asyncio==0.25.2
+pytest-cov==6.0.0
+
+# Provider-specific SDKs (optional)
+openai==1.60.1
+anthropic==0.42.0
+boto3==1.36.7  # For AWS Bedrock
+azure-identity==1.20.0
+azure-ai-openai==1.0.0b1

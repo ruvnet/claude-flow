@@ -1,0 +1,14 @@
+{
+  "name": "safla-model-training",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SAFLA Model Training Script",
+  "main": "train-safla.js",
+  "scripts": {
+    "train": "node train-safla.js",
+    "validate": "node ../validation-suite.js . safla"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  }
+}

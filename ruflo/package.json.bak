@@ -1,0 +1,76 @@
+{
+  "name": "claude-flow",
+  "version": "3.0.0-alpha.77",
+  "description": "Claude Flow V3 - Domain-Driven Design Architecture with 15-Agent Swarm Coordination",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "claude-flow": "./v3/@claude-flow/cli/bin/cli.js"
+  },
+  "files": [
+    "v3/@claude-flow/cli/bin/**",
+    "v3/@claude-flow/cli/dist/**",
+    "v3/@claude-flow/cli/package.json",
+    "v3/@claude-flow/shared/dist/**",
+    "v3/@claude-flow/shared/package.json",
+    ".claude-plugin/**",
+    ".claude/**",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:security": "vitest run v3/__tests__/security/",
+    "lint": "eslint src/**/*.ts",
+    "security:audit": "npm audit --audit-level high",
+    "security:fix": "npm audit fix",
+    "security:test": "npm run test:security",
+    "v3:domains": "npm run build:domains",
+    "v3:swarm": "npm run start:swarm",
+    "v3:security": "npm run security:audit && npm run security:test"
+  },
+  "dependencies": {
+    "agentdb": "2.0.0-alpha.3.4",
+    "bcrypt": "^5.1.1",
+    "zod": "^3.22.4"
+  },
+  "overrides": {
+    "hono": ">=4.11.4"
+  },
+  "devDependencies": {
+    "@ruvector/attention": "^0.1.3",
+    "@ruvector/sona": "^0.1.5",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.0.0",
+    "agentic-flow": "^2.0.1-alpha.80",
+    "eslint": "^8.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ruvnet/claude-flow.git"
+  },
+  "keywords": [
+    "claude",
+    "ai",
+    "agents",
+    "swarm",
+    "ddd",
+    "domain-driven-design",
+    "v3"
+  ],
+  "author": "RuvNet",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

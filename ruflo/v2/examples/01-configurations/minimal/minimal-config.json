@@ -1,0 +1,7 @@
+{
+  "name": "Minimal Configuration",
+  "description": "Bare minimum configuration - Claude Flow will use defaults for everything else",
+  "orchestrator": {
+    "model": "claude-3-sonnet-20240229"
+  }
+}

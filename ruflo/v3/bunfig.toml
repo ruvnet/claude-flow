@@ -1,0 +1,14 @@
+# Bun configuration for claude-flow v3
+# Bun is used for development, but package works with Node.js too
+
+[install]
+# Use pnpm-style node_modules for compatibility
+node-modules = true
+
+[run]
+# Silence experimental warnings
+silent = false
+
+[test]
+# Use Vitest for compatibility with both runtimes
+coverage = true

@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  regression-tests:
+    build:
+      context: ..
+      dockerfile: docker/regression-test.Dockerfile
+    container_name: claude-flow-regression
+    volumes:
+      - ../:/app
+      - test-results:/test-results
+      - test-data:/test-data
+      - test-logs:/test-logs
+    environment:
+      - NODE_ENV=test
+      - CLAUDE_FLOW_TEST=true
+      - CI=true
+    networks:
+      - test-network
+
+  # Optional: Database service for testing
+  test-db:
+    image: postgres:15-alpine
+    container_name: claude-flow-test-db
+    environment:
+      - POSTGRES_DB=claude_flow_test
+      - POSTGRES_USER=test
+      - POSTGRES_PASSWORD=test
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  test-results:
+  test-data:
+  test-logs:
+  test-db-data:
+
+networks:
+  test-network:
+    driver: bridge

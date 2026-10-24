@@ -1,0 +1,42 @@
+# Dockerfile for testing LOCAL claude-flow (with skills-copier fix)
+# Tests the fix BEFORE publishing to npm
+
+FROM node:20-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files first (for better layer caching)
+COPY package.json package-lock.json ./
+
+# Copy source files
+COPY bin/ ./bin/
+COPY src/ ./src/
+COPY .claude/ ./.claude/
+COPY scripts/ ./scripts/
+COPY docs/ ./docs/
+
+# Install dependencies (use legacy-peer-deps to avoid conflicts in Docker)
+RUN npm install --legacy-peer-deps
+
+# Link locally so we can test with npx/global commands
+RUN npm link
+
+# Verify local version
+RUN claude-flow --version
+
+# Create test directory
+WORKDIR /test
+
+# Create test script
+COPY docker-test/test-local-fix.sh /test/test-local-fix.sh
+RUN chmod +x /test/test-local-fix.sh
+
+# Default command
+CMD ["/test/test-local-fix.sh"]

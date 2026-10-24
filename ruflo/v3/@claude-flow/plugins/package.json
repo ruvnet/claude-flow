@@ -1,0 +1,97 @@
+{
+  "name": "@claude-flow/plugins",
+  "version": "3.0.0-alpha.7",
+  "description": "Unified Plugin SDK for Claude Flow V3 - Worker, Hook, and Provider Integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.js",
+      "import": "./dist/index.js"
+    },
+    "./sdk": {
+      "types": "./dist/sdk/index.d.js",
+      "import": "./dist/sdk/index.js"
+    },
+    "./workers": {
+      "types": "./dist/workers/index.d.js",
+      "import": "./dist/workers/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.js",
+      "import": "./dist/hooks/index.js"
+    },
+    "./providers": {
+      "types": "./dist/providers/index.d.js",
+      "import": "./dist/providers/index.js"
+    },
+    "./examples/ruvector": {
+      "types": "./dist/examples/ruvector-plugins/index.d.js",
+      "import": "./dist/examples/ruvector-plugins/index.js"
+    },
+    "./examples/plugin-creator": {
+      "types": "./dist/examples/plugin-creator/index.d.js",
+      "import": "./dist/examples/plugin-creator/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "events": "^3.3.0"
+  },
+  "peerDependencies": {
+    "@claude-flow/hooks": "^3.0.0-alpha.2",
+    "@claude-flow/memory": "^3.0.0-alpha.2",
+    "@ruvector/learning-wasm": "^0.1.0",
+    "@ruvector/wasm": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@claude-flow/hooks": {
+      "optional": true
+    },
+    "@claude-flow/memory": {
+      "optional": true
+    },
+    "@ruvector/wasm": {
+      "optional": true
+    },
+    "@ruvector/learning-wasm": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^4.0.16"
+  },
+  "keywords": [
+    "claude-flow",
+    "plugins",
+    "sdk",
+    "workers",
+    "hooks",
+    "agentic-flow",
+    "agentdb",
+    "ai-agents",
+    "ruvector",
+    "hnsw",
+    "vector-search",
+    "lora",
+    "neural-adaptation"
+  ],
+  "author": "Claude Flow Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "v3alpha"
+  }
+}

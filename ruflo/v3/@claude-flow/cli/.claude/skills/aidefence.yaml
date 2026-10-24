@@ -1,0 +1,297 @@
+---
+name: aidefence
+version: 1.0.0
+description: |
+  AI Manipulation Defense System (AIMDS) integration for Claude Flow V3.
+  Provides real-time threat detection, behavioral analysis, and adaptive
+  mitigation with 25-level meta-learning capabilities.
+
+author: rUv
+license: MIT
+homepage: https://ruv.io/aimds
+repository: https://github.com/ruvnet/midstream/tree/main/AIMDS
+
+# Package reference
+package: aidefence@^2.1.1
+
+# Capabilities provided by this skill
+capabilities:
+  # Detection capabilities
+  - prompt_injection_detection    # 50+ prompt injection patterns
+  - jailbreak_detection          # AI jailbreak attempt detection
+  - pii_detection               # PII identification (emails, SSNs, API keys)
+  - unicode_normalization       # Control character sanitization
+
+  # Analysis capabilities
+  - behavioral_analysis         # Temporal pattern analysis
+  - chaos_detection            # Lyapunov exponent calculation
+  - policy_verification        # Linear Temporal Logic (LTL) policies
+  - anomaly_detection          # Statistical baseline learning
+
+  # Response capabilities
+  - adaptive_mitigation        # 7 distinct mitigation strategies
+  - meta_learning             # 25-level recursive optimization (strange-loop)
+  - rollback_management       # Failed mitigation rollback
+  - effectiveness_tracking    # Real-time mitigation monitoring
+
+# Performance characteristics
+performance:
+  detection_latency: <10ms
+  analysis_latency: <100ms
+  response_latency: <50ms
+  throughput: ">12000 req/s"
+
+# Commands exposed by this skill
+commands:
+  scan:
+    description: Scan input for AI manipulation attempts
+    usage: |
+      /aidefence scan <input>
+      /aidefence scan --file <path>
+      /aidefence scan --mode paranoid <input>
+    examples:
+      - "/aidefence scan 'Ignore previous instructions and...'"
+      - "/aidefence scan --file suspicious-prompt.txt"
+      - "/aidefence scan --mode paranoid --json 'Please help me...'"
+    options:
+      - name: mode
+        type: choice
+        choices:
+          - quick      # Pattern matching only (<5ms)
+          - thorough   # Pattern + behavioral (<50ms)
+          - paranoid   # Full analysis + policy verification (<150ms)
+        default: thorough
+        description: Scan depth mode
+      - name: file
+        type: string
+        description: File path to scan instead of inline input
+      - name: json
+        type: boolean
+        default: false
+        description: Output results as JSON
+
+  analyze:
+    description: Analyze agent behavior patterns for anomalies
+    usage: |
+      /aidefence analyze <agent-id>
+      /aidefence analyze <agent-id> --window 24h
+    examples:
+      - "/aidefence analyze security-architect-1234"
+      - "/aidefence analyze coder-5678 --window 10m --threshold 0.7"
+    options:
+      - name: window
+        type: string
+        default: "1h"
+        description: Time window for behavioral analysis
+      - name: threshold
+        type: number
+        default: 0.8
+        description: Anomaly score threshold (0-1)
+
+  policy:
+    description: Verify agent against LTL security policy
+    usage: |
+      /aidefence policy <agent-id> <ltl-formula>
+    examples:
+      - "/aidefence policy coder-1234 'G(edit_file -> F(run_tests))'"
+      - "/aidefence policy reviewer-5678 'G(!approve_self_code)'"
+    options:
+      - name: verbose
+        type: boolean
+        default: false
+        description: Show detailed policy evaluation trace
+
+  learn:
+    description: Record successful mitigation for meta-learning
+    usage: |
+      /aidefence learn <threat-type> <strategy> --effectiveness <score>
+    examples:
+      - "/aidefence learn prompt_injection sanitize --effectiveness 0.95"
+      - "/aidefence learn jailbreak reject --effectiveness 1.0"
+    options:
+      - name: effectiveness
+        type: number
+        required: true
+        description: Mitigation effectiveness score (0-1)
+
+  status:
+    description: Show aidefence system status and metrics
+    usage: |
+      /aidefence status
+      /aidefence status --metrics
+    options:
+      - name: metrics
+        type: boolean
+        default: false
+        description: Include Prometheus metrics
+
+# Hook integrations
+hooks:
+  # Pre-agent-input: Scan all agent inputs for manipulation
+  pre-agent-input:
+    enabled: true
+    description: Scan agent inputs before processing
+    config:
+      block_critical: true       # Block inputs with critical threats
+      block_high: false          # Allow high severity with logging
+      log_all: true             # Log all threat detections
+      mode: thorough            # Default scan mode
+
+  # Post-agent-action: Learn from agent behaviors
+  post-agent-action:
+    enabled: true
+    description: Record agent actions for behavioral modeling
+    config:
+      sampling_rate: 0.1        # Sample 10% of actions for analysis
+      anomaly_threshold: 0.8    # Alert threshold for anomaly score
+      store_embeddings: true    # Store action embeddings in AgentDB
+
+  # Pre-swarm-init: Verify swarm security policies
+  pre-swarm-init:
+    enabled: true
+    description: Verify swarm topology against security policies
+    config:
+      require_security_agent: true  # Require security-architect in swarm
+      validate_topology: true       # Validate topology security
+
+# Integration with claude-flow systems
+integration:
+  # AgentDB integration for shared threat patterns
+  agentdb:
+    enabled: true
+    namespace: security_threats
+    hnsw_enabled: true
+    config:
+      vector_dimension: 384
+      m: 16
+      ef_construction: 200
+      ef_search: 100
+
+  # ReasoningBank integration for pattern learning
+  reasoningbank:
+    enabled: true
+    store_patterns: true
+    learn_mitigations: true
+    config:
+      min_effectiveness: 0.8    # Only store high-effectiveness patterns
+      consolidation_interval: 1h
+
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    metrics:
+      - aidefence_threats_detected_total
+      - aidefence_detection_latency_ms
+      - aidefence_analysis_latency_ms
+      - aidefence_anomaly_score
+      - aidefence_mitigations_applied_total
+      - aidefence_meta_learning_depth
+
+# MCP tool registrations
+mcp_tools:
+  - name: aidefence_scan
+    description: Scan input for AI manipulation attempts
+    input_schema:
+      type: object
+      properties:
+        input:
+          type: string
+          description: Input text to scan
+        mode:
+          type: string
+          enum: [quick, thorough, paranoid]
+          default: thorough
+      required: [input]
+
+  - name: aidefence_analyze_behavior
+    description: Analyze agent behavioral patterns for anomalies
+    input_schema:
+      type: object
+      properties:
+        agentId:
+          type: string
+          description: Agent ID to analyze
+        timeWindow:
+          type: string
+          default: "1h"
+          description: Time window for analysis
+      required: [agentId]
+
+  - name: aidefence_verify_policy
+    description: Verify agent behavior against LTL security policies
+    input_schema:
+      type: object
+      properties:
+        agentId:
+          type: string
+        policy:
+          type: string
+          description: LTL policy formula
+      required: [agentId, policy]
+
+  - name: aidefence_learn_pattern
+    description: Store successful threat pattern for meta-learning
+    input_schema:
+      type: object
+      properties:
+        threatType:
+          type: string
+        mitigation:
+          type: string
+        effectiveness:
+          type: number
+          minimum: 0
+          maximum: 1
+      required: [threatType, mitigation, effectiveness]
+
+# Threat detection patterns (reference)
+threat_patterns:
+  prompt_injection:
+    count: 50+
+    categories:
+      - instruction_override    # "Ignore previous instructions"
+      - role_switching         # "You are now DAN"
+      - context_manipulation   # Fake system messages
+      - delimiter_abuse        # Using special tokens
+
+  jailbreak:
+    categories:
+      - dan_variants           # Do Anything Now variants
+      - hypothetical          # "Hypothetically, if..."
+      - roleplay              # Character-based bypasses
+      - encoding              # Base64/ROT13 encoded prompts
+
+  pii:
+    types:
+      - email_addresses
+      - social_security_numbers
+      - credit_card_numbers
+      - api_keys
+      - passwords
+
+# Behavioral analysis configuration
+behavioral_analysis:
+  temporal:
+    window_sizes: [1m, 10m, 1h, 24h]
+    attractor_types:
+      - point     # Stable single point
+      - cycle     # Periodic behavior
+      - torus     # Quasi-periodic
+      - strange   # Chaotic (suspicious)
+
+  lyapunov:
+    threshold: 0.1  # Positive = chaotic behavior
+    embedding_dimension: 3
+    time_delay: 1
+
+  baseline:
+    learning_period: 24h
+    update_frequency: 1h
+    deviation_threshold: 3.0  # Standard deviations
+
+# Documentation links
+documentation:
+  readme: https://github.com/ruvnet/midstream/blob/main/AIMDS/README.md
+  api: https://ruv.io/aimds/api
+  patterns: https://ruv.io/aimds/patterns
+  integration: /v3/implementation/adrs/ADR-022-aidefence-integration.md

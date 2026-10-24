@@ -1,0 +1,90 @@
+{
+  "patterns": [
+    {
+      "id": "pat_001",
+      "strategy": "Use dependency injection for testability",
+      "domain": "architecture",
+      "quality": 0.9,
+      "usageCount": 15,
+      "successCount": 14
+    },
+    {
+      "id": "pat_002",
+      "strategy": "Validate inputs at system boundaries",
+      "domain": "security",
+      "quality": 0.95,
+      "usageCount": 25,
+      "successCount": 24
+    },
+    {
+      "id": "pat_003",
+      "strategy": "Use TDD London School for complex logic",
+      "domain": "testing",
+      "quality": 0.88,
+      "usageCount": 20,
+      "successCount": 18
+    },
+    {
+      "id": "pat_004",
+      "strategy": "Cache expensive vector computations",
+      "domain": "performance",
+      "quality": 0.92,
+      "usageCount": 10,
+      "successCount": 9
+    },
+    {
+      "id": "pat_005",
+      "strategy": "Use HNSW for similarity search",
+      "domain": "memory",
+      "quality": 0.94,
+      "usageCount": 30,
+      "successCount": 29
+    },
+    {
+      "id": "pat_006",
+      "strategy": "Sanitize error messages",
+      "domain": "security",
+      "quality": 0.96,
+      "usageCount": 12,
+      "successCount": 12
+    },
+    {
+      "id": "pat_007",
+      "strategy": "Use event sourcing for audit trails",
+      "domain": "architecture",
+      "quality": 0.87,
+      "usageCount": 8,
+      "successCount": 7
+    },
+    {
+      "id": "pat_008",
+      "strategy": "Mock external dependencies in tests",
+      "domain": "testing",
+      "quality": 0.91,
+      "usageCount": 22,
+      "successCount": 20
+    },
+    {
+      "id": "pat_009",
+      "strategy": "Use batch operations for bulk updates",
+      "domain": "performance",
+      "quality": 0.89,
+      "usageCount": 14,
+      "successCount": 13
+    },
+    {
+      "id": "pat_010",
+      "strategy": "Implement graceful degradation",
+      "domain": "architecture",
+      "quality": 0.85,
+      "usageCount": 6,
+      "successCount": 5
+    }
+  ],
+  "metadata": {
+    "version": "1.0.0",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "totalPatterns": 10,
+    "avgQuality": 0.907
+  }
+}

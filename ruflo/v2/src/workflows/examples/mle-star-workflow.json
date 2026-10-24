@@ -1,0 +1,238 @@
+{
+  "name": "MLE-STAR Machine Learning Engineering",
+  "description": "Automated ML pipeline development using Search and Targeted Refinement methodology",
+  "version": "1.0",
+  "variables": {
+    "dataset": "${DATASET_PATH}",
+    "target": "${TARGET_COLUMN}",
+    "output_dir": "./mle-star-output",
+    "search_iterations": 3,
+    "refinement_iterations": 5,
+    "ensemble_size": 5
+  },
+  "agents": [
+    {
+      "id": "search-coordinator",
+      "type": "coordinator",
+      "name": "Web Search Coordinator",
+      "capabilities": ["web-search", "knowledge-synthesis"]
+    },
+    {
+      "id": "ml-researcher",
+      "type": "researcher",
+      "name": "ML Model Researcher",
+      "capabilities": ["model-search", "paper-analysis", "kaggle-solutions"]
+    },
+    {
+      "id": "data-analyst",
+      "type": "analyst",
+      "name": "Data Analysis Expert",
+      "capabilities": ["eda", "feature-analysis", "data-quality"]
+    },
+    {
+      "id": "ml-engineer-1",
+      "type": "implementer",
+      "name": "ML Engineer Alpha",
+      "capabilities": ["model-implementation", "feature-engineering", "optimization"]
+    },
+    {
+      "id": "ml-engineer-2",
+      "type": "implementer",
+      "name": "ML Engineer Beta",
+      "capabilities": ["model-implementation", "ensemble-methods", "hyperparameter-tuning"]
+    },
+    {
+      "id": "ablation-analyst",
+      "type": "analyst",
+      "name": "Ablation Study Analyst",
+      "capabilities": ["performance-analysis", "component-testing", "impact-measurement"]
+    },
+    {
+      "id": "ensemble-architect",
+      "type": "coordinator",
+      "name": "Ensemble Strategy Architect",
+      "capabilities": ["ensemble-design", "model-combination", "performance-optimization"]
+    },
+    {
+      "id": "validator",
+      "type": "tester",
+      "name": "Robustness Validator",
+      "capabilities": ["data-leakage-detection", "validation", "debugging"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "web-search",
+      "name": "Web Search for ML Solutions",
+      "type": "research",
+      "description": "Search for state-of-the-art models and successful approaches",
+      "assignTo": ["search-coordinator", "ml-researcher"],
+      "parallel": true,
+      "claudePrompt": "Search for effective ML models and approaches for ${target} prediction using ${dataset}. Focus on: 1) State-of-the-art models, 2) Kaggle competition solutions, 3) Research papers with implementations, 4) Pre-trained models. Provide a comprehensive list of approaches with their key characteristics.",
+      "input": {
+        "dataset": "${dataset}",
+        "target": "${target}",
+        "iterations": "${search_iterations}"
+      },
+      "output": {
+        "models_found": "array",
+        "approaches": "array",
+        "initial_pipeline": "object"
+      }
+    },
+    {
+      "id": "data-analysis",
+      "name": "Comprehensive Data Analysis",
+      "type": "analysis",
+      "description": "Analyze dataset characteristics and requirements",
+      "assignTo": "data-analyst",
+      "depends": [],
+      "claudePrompt": "Perform comprehensive EDA on ${dataset} for predicting ${target}. Analyze: 1) Data types and distributions, 2) Missing values and outliers, 3) Feature correlations, 4) Target variable characteristics, 5) Potential feature engineering opportunities. Provide actionable insights for ML pipeline design.",
+      "input": {
+        "dataset": "${dataset}",
+        "target": "${target}"
+      },
+      "output": {
+        "data_insights": "object",
+        "feature_recommendations": "array",
+        "preprocessing_requirements": "array"
+      }
+    },
+    {
+      "id": "initial-pipeline",
+      "name": "Build Initial ML Pipeline",
+      "type": "implementation",
+      "description": "Create baseline pipeline using search results",
+      "assignTo": "ml-engineer-1",
+      "depends": ["web-search", "data-analysis"],
+      "claudePrompt": "Build an initial ML pipeline incorporating the best approaches from web search. Use insights from data analysis to guide preprocessing and feature engineering. Create a modular pipeline with clear components: 1) Data preprocessing, 2) Feature engineering, 3) Model architecture, 4) Training strategy, 5) Evaluation metrics.",
+      "input": {
+        "search_results": "${web-search.output}",
+        "data_insights": "${data-analysis.output}",
+        "dataset": "${dataset}",
+        "target": "${target}"
+      },
+      "output": {
+        "pipeline_code": "string",
+        "baseline_score": "number",
+        "components": "object"
+      }
+    },
+    {
+      "id": "ablation-study",
+      "name": "Component Ablation Analysis",
+      "type": "analysis",
+      "description": "Identify critical pipeline components through ablation",
+      "assignTo": "ablation-analyst",
+      "depends": ["initial-pipeline"],
+      "iterative": true,
+      "maxIterations": "${refinement_iterations}",
+      "claudePrompt": "Conduct systematic ablation study on the ML pipeline. For each component (preprocessing, feature engineering, model, postprocessing): 1) Remove/disable the component, 2) Measure performance impact, 3) Identify the most critical component. Provide detailed analysis of which component has the highest impact on performance.",
+      "input": {
+        "pipeline": "${initial-pipeline.output.pipeline_code}",
+        "baseline_score": "${initial-pipeline.output.baseline_score}"
+      },
+      "output": {
+        "critical_component": "string",
+        "impact_scores": "object",
+        "ablation_results": "array"
+      }
+    },
+    {
+      "id": "targeted-refinement",
+      "name": "Focused Component Optimization",
+      "type": "optimization",
+      "description": "Deep refinement of identified critical component",
+      "assignTo": ["ml-engineer-1", "ml-engineer-2"],
+      "depends": ["ablation-study"],
+      "parallel": true,
+      "iterative": true,
+      "claudePrompt": "Focus on optimizing the ${ablation-study.output.critical_component} component. Generate 10+ variations: 1) Different implementation approaches, 2) Hyperparameter variations, 3) Alternative algorithms, 4) Novel techniques. Test each variation and track performance. Select the best performing variation.",
+      "input": {
+        "critical_component": "${ablation-study.output.critical_component}",
+        "current_pipeline": "${initial-pipeline.output.pipeline_code}",
+        "target_score": "${initial-pipeline.output.baseline_score}"
+      },
+      "output": {
+        "best_variation": "object",
+        "improved_pipeline": "string",
+        "new_score": "number",
+        "all_variations": "array"
+      }
+    },
+    {
+      "id": "ensemble-creation",
+      "name": "Advanced Ensemble Strategy",
+      "type": "ensemble",
+      "description": "Create sophisticated ensemble from best models",
+      "assignTo": "ensemble-architect",
+      "depends": ["targeted-refinement"],
+      "claudePrompt": "Design an advanced ensemble strategy using the top ${ensemble_size} model variations. Consider: 1) Model diversity and complementarity, 2) Weighted voting vs stacking vs blending, 3) Cross-validation for weight optimization, 4) Out-of-fold predictions. Implement the ensemble and optimize for maximum performance.",
+      "input": {
+        "candidate_models": "${targeted-refinement.output.all_variations}",
+        "ensemble_size": "${ensemble_size}",
+        "validation_data": "${dataset}"
+      },
+      "output": {
+        "ensemble_strategy": "object",
+        "ensemble_code": "string",
+        "ensemble_score": "number",
+        "model_weights": "array"
+      }
+    },
+    {
+      "id": "robustness-validation",
+      "name": "Robustness and Quality Checks",
+      "type": "validation",
+      "description": "Comprehensive validation and debugging",
+      "assignTo": "validator",
+      "depends": ["ensemble-creation"],
+      "parallel": true,
+      "claudePrompt": "Perform comprehensive robustness validation: 1) Check for data leakage in all pipeline stages, 2) Verify train/test separation integrity, 3) Debug any execution errors, 4) Validate reproducibility, 5) Check resource usage and optimization opportunities. Fix any issues found and ensure production readiness.",
+      "input": {
+        "final_pipeline": "${ensemble-creation.output.ensemble_code}",
+        "dataset": "${dataset}",
+        "all_components": "${initial-pipeline.output.components}"
+      },
+      "output": {
+        "validation_report": "object",
+        "issues_found": "array",
+        "fixes_applied": "array",
+        "production_ready": "boolean"
+      }
+    },
+    {
+      "id": "deployment-package",
+      "name": "Create Deployment Package",
+      "type": "deployment",
+      "description": "Package final solution for deployment",
+      "assignTo": "ml-engineer-1",
+      "depends": ["robustness-validation"],
+      "claudePrompt": "Create a production-ready deployment package: 1) Clean and optimize code, 2) Create requirements.txt, 3) Add comprehensive documentation, 4) Include model serialization, 5) Create inference API, 6) Add monitoring hooks. Package everything in ${output_dir}.",
+      "input": {
+        "validated_pipeline": "${robustness-validation.output}",
+        "output_dir": "${output_dir}"
+      },
+      "output": {
+        "deployment_path": "string",
+        "api_endpoint": "string",
+        "documentation": "string",
+        "performance_metrics": "object"
+      }
+    }
+  ],
+  "hooks": {
+    "pre-task": "npx claude-flow@alpha hooks pre-task --description \"${task.name}\" --auto-spawn-agents false",
+    "post-task": "npx claude-flow@alpha hooks post-task --task-id \"${task.id}\" --analyze-performance true",
+    "on-error": "npx claude-flow@alpha hooks notify --message \"Error in ${task.id}: ${error.message}\" --telemetry true"
+  },
+  "settings": {
+    "maxConcurrency": 4,
+    "timeout": 3600000,
+    "retryPolicy": "exponential",
+    "failurePolicy": "continue",
+    "memoryCoordination": true,
+    "progressTracking": "detailed",
+    "outputFormat": "stream-json"
+  }
+}

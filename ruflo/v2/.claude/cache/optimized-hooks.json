@@ -1,0 +1,19 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "batch",
+          "parallel": true,
+          "cache": true,
+          "commands": [
+            "npx claude-flow@alpha hooks pre-command --batch true",
+            "npx claude-flow@alpha memory store --batch true",
+            "npx claude-flow@alpha neural predict --cache true"
+          ]
+        }
+      ]
+    }
+  ]
+}

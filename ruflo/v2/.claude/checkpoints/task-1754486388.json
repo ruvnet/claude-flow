@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250806-131947", "task": "i want to update ./src/ to use the non-interactive commands, this was a regression ", "timestamp": "2025-08-06T13:19:48Z", "commit": "f14d2ef8aebbf9964117e73d780a191e19577a16", "github_release": "true"}

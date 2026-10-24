@@ -1,0 +1,350 @@
+{
+  "magic": "CFP1",
+  "version": "1.0.0",
+  "createdAt": "2026-01-08T18:42:43.016Z",
+  "generatedBy": "claude-flow@3.0.0-alpha",
+  "metadata": {
+    "id": "2f7e59c0-af7d-45c8-af9c-4725c6e47e9f",
+    "name": "seraphine-genesis",
+    "description": "The foundational Claude Flow pattern model. Contains core routing patterns, complexity heuristics, and coordination trajectories for multi-agent swarms.",
+    "author": {
+      "id": "claude-flow-team",
+      "verified": false
+    },
+    "license": "MIT",
+    "tags": [
+      "genesis",
+      "foundational",
+      "routing",
+      "swarm",
+      "coordination",
+      "multi-agent",
+      "hello-world"
+    ],
+    "language": "typescript",
+    "framework": "claude-flow",
+    "createdAt": "2026-01-08T18:42:43.016Z",
+    "updatedAt": "2026-01-08T18:42:43.016Z"
+  },
+  "anonymization": {
+    "level": "standard",
+    "appliedTransforms": [
+      "author-name-removed",
+      "pii-redacted",
+      "timestamps-generalized"
+    ],
+    "piiRedacted": true,
+    "pathsStripped": false,
+    "timestampsGeneralized": true,
+    "checksum": "8df766b89d044815c84796e7f33ba30d7806bff7eb2a75e2a0b7d26b64c45231"
+  },
+  "patterns": {
+    "routing": [
+      {
+        "id": "route-code-to-coder",
+        "trigger": "implement|code|write|create function|build feature",
+        "action": "spawn coder agent",
+        "confidence": 0.95,
+        "usageCount": 1000,
+        "successRate": 0.92,
+        "context": {
+          "category": "development",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "route-test-to-tester",
+        "trigger": "test|validate|verify|check|ensure quality",
+        "action": "spawn tester agent",
+        "confidence": 0.93,
+        "usageCount": 850,
+        "successRate": 0.89,
+        "context": {
+          "category": "quality",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "route-review-to-reviewer",
+        "trigger": "review|audit|analyze code|check security",
+        "action": "spawn reviewer agent",
+        "confidence": 0.91,
+        "usageCount": 720,
+        "successRate": 0.87,
+        "context": {
+          "category": "quality",
+          "priority": "medium"
+        }
+      },
+      {
+        "id": "route-research-to-researcher",
+        "trigger": "research|investigate|explore|find|search codebase",
+        "action": "spawn researcher agent",
+        "confidence": 0.94,
+        "usageCount": 680,
+        "successRate": 0.91,
+        "context": {
+          "category": "discovery",
+          "priority": "medium"
+        }
+      },
+      {
+        "id": "route-architecture-to-architect",
+        "trigger": "design|architect|plan structure|refactor system",
+        "action": "spawn architect agent",
+        "confidence": 0.88,
+        "usageCount": 420,
+        "successRate": 0.85,
+        "context": {
+          "category": "design",
+          "priority": "high"
+        }
+      },
+      {
+        "id": "route-complex-to-swarm",
+        "trigger": "complex task|multi-file|feature implementation|major refactor",
+        "action": "initialize hierarchical swarm",
+        "confidence": 0.87,
+        "usageCount": 350,
+        "successRate": 0.82,
+        "context": {
+          "category": "coordination",
+          "priority": "critical",
+          "agentCount": 5
+        }
+      },
+      {
+        "id": "route-security-to-auditor",
+        "trigger": "security|vulnerability|CVE|threat|penetration",
+        "action": "spawn security-architect agent",
+        "confidence": 0.96,
+        "usageCount": 280,
+        "successRate": 0.94,
+        "context": {
+          "category": "security",
+          "priority": "critical"
+        }
+      },
+      {
+        "id": "route-performance-to-optimizer",
+        "trigger": "optimize|performance|speed|memory|benchmark",
+        "action": "spawn performance-engineer agent",
+        "confidence": 0.89,
+        "usageCount": 310,
+        "successRate": 0.86,
+        "context": {
+          "category": "optimization",
+          "priority": "high"
+        }
+      }
+    ],
+    "complexity": [
+      {
+        "id": "complexity-single-file",
+        "pattern": "single file modification",
+        "complexity": 1,
+        "tokens": 500,
+        "frequency": 0.45
+      },
+      {
+        "id": "complexity-multi-file",
+        "pattern": "multiple file changes (2-5 files)",
+        "complexity": 3,
+        "tokens": 2000,
+        "frequency": 0.35
+      },
+      {
+        "id": "complexity-feature",
+        "pattern": "new feature implementation",
+        "complexity": 5,
+        "tokens": 5000,
+        "frequency": 0.12
+      },
+      {
+        "id": "complexity-refactor",
+        "pattern": "system-wide refactoring",
+        "complexity": 8,
+        "tokens": 10000,
+        "frequency": 0.05
+      },
+      {
+        "id": "complexity-migration",
+        "pattern": "major version migration",
+        "complexity": 10,
+        "tokens": 20000,
+        "frequency": 0.03
+      }
+    ],
+    "coverage": [
+      {
+        "id": "coverage-typescript",
+        "domain": "TypeScript Development",
+        "coverage": 0.92,
+        "gaps": [
+          "advanced generics",
+          "decorators"
+        ]
+      },
+      {
+        "id": "coverage-testing",
+        "domain": "Testing & QA",
+        "coverage": 0.88,
+        "gaps": [
+          "e2e testing",
+          "visual regression"
+        ]
+      },
+      {
+        "id": "coverage-security",
+        "domain": "Security Analysis",
+        "coverage": 0.85,
+        "gaps": [
+          "supply chain",
+          "zero-day detection"
+        ]
+      },
+      {
+        "id": "coverage-swarm",
+        "domain": "Multi-Agent Coordination",
+        "coverage": 0.9,
+        "gaps": [
+          "byzantine consensus",
+          "network partitions"
+        ]
+      }
+    ],
+    "trajectory": [
+      {
+        "id": "traj-bug-fix",
+        "steps": [
+          "research: identify bug location",
+          "coder: implement fix",
+          "tester: write regression test",
+          "reviewer: verify fix quality"
+        ],
+        "outcome": "success",
+        "duration": 1800000,
+        "learnings": [
+          "Always add regression test for bug fixes",
+          "Review similar code for same bug pattern"
+        ]
+      },
+      {
+        "id": "traj-feature-impl",
+        "steps": [
+          "architect: design feature structure",
+          "researcher: analyze existing patterns",
+          "coder: implement feature",
+          "tester: write comprehensive tests",
+          "reviewer: security and quality review",
+          "coder: address review feedback"
+        ],
+        "outcome": "success",
+        "duration": 7200000,
+        "learnings": [
+          "Design before implementation reduces rework",
+          "Parallel testing accelerates delivery"
+        ]
+      },
+      {
+        "id": "traj-refactor",
+        "steps": [
+          "researcher: map affected code",
+          "architect: plan refactoring strategy",
+          "tester: ensure test coverage exists",
+          "coder: incremental refactoring",
+          "tester: verify no regressions",
+          "reviewer: architectural review"
+        ],
+        "outcome": "success",
+        "duration": 10800000,
+        "learnings": [
+          "Test coverage before refactoring is critical",
+          "Small incremental changes are safer"
+        ]
+      },
+      {
+        "id": "traj-security-audit",
+        "steps": [
+          "security-architect: threat modeling",
+          "researcher: dependency analysis",
+          "security-auditor: code scanning",
+          "coder: remediation",
+          "security-architect: verification"
+        ],
+        "outcome": "success",
+        "duration": 14400000,
+        "learnings": [
+          "Automated scanning catches common issues",
+          "Manual review needed for logic flaws"
+        ]
+      }
+    ],
+    "custom": [
+      {
+        "id": "custom-swarm-topology",
+        "type": "topology-recommendation",
+        "data": {
+          "taskType": "feature-implementation",
+          "recommendedTopology": "hierarchical",
+          "agentRoles": [
+            "coordinator",
+            "architect",
+            "coder",
+            "tester",
+            "reviewer"
+          ],
+          "communicationPattern": "hub-spoke"
+        },
+        "metadata": {
+          "confidence": 0.89,
+          "source": "production-data"
+        }
+      },
+      {
+        "id": "custom-memory-strategy",
+        "type": "memory-optimization",
+        "data": {
+          "pattern": "vector-search-first",
+          "hnswParams": {
+            "m": 16,
+            "efConstruction": 200
+          },
+          "cacheStrategy": "lru-with-embedding"
+        },
+        "metadata": {
+          "speedup": "150x",
+          "memoryReduction": "60%"
+        }
+      },
+      {
+        "id": "custom-hello-world",
+        "type": "greeting",
+        "data": {
+          "message": "Hello, World! Welcome to Claude Flow pattern sharing.",
+          "version": "1.0.0",
+          "genesis": true
+        },
+        "metadata": {
+          "significance": "First pattern ever exported via transfer hook system",
+          "timestamp": "2026-01-08T18:42:43.014Z"
+        }
+      }
+    ]
+  },
+  "statistics": {
+    "totalPatterns": 24,
+    "avgConfidence": 0.91625,
+    "patternTypes": {
+      "routing": 8,
+      "complexity": 5,
+      "coverage": 4,
+      "trajectory": 4,
+      "custom": 3
+    },
+    "timeRange": {
+      "start": "2026-01-08T18:42:43.016Z",
+      "end": "2026-01-08T18:42:43.016Z"
+    }
+  }
+}

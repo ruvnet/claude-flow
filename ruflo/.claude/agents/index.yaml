@@ -1,0 +1,17 @@
+# Generated Agent Index
+# Focus: security
+# Generated: 2026-01-04T16:47:36.323Z
+
+agents:
+  - typescript-specialist
+  - python-specialist
+  - database-specialist
+  - security-auditor
+  - project-coordinator
+
+detected:
+  languages:
+    - typescript
+    - python
+  frameworks:
+    - database

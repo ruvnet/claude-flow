@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250821-190418", "task": "the init doesn't create all the .claude/command mds for swarm and hive-mind. make sure all the files", "timestamp": "2025-08-21T19:04:19Z", "commit": "9e8d2d78bc265524572a579afcbf985ae54e5d82", "github_release": "true"}

@@ -1,0 +1,59 @@
+name: Dolce Schedule Sync
+
+on:
+  schedule:
+    - cron: '0 18 * * 4'  # Thursday 1 PM EST = 6 PM UTC
+  workflow_dispatch:
+    inputs:
+      week:
+        description: 'Week start date (YYYY-MM-DD, Monday). Defaults to current week.'
+        required: false
+        type: string
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: src/labor-optimizer
+        run: |
+          npm ci --ignore-scripts 2>/dev/null || npm install
+          npx playwright install chromium --with-deps
+
+      - name: Install script dependencies
+        working-directory: src/labor-optimizer
+        run: npm install playwright @supabase/supabase-js tsx
+
+      - name: Run Dolce Sync
+        working-directory: src/labor-optimizer
+        run: |
+          WEEK_ARG=""
+          if [ -n "${{ github.event.inputs.week }}" ]; then
+            WEEK_ARG="--week ${{ github.event.inputs.week }}"
+          fi
+          npx tsx scripts/dolce-sync.ts $WEEK_ARG
+        env:
+          DOLCE_USERNAME: ${{ secrets.DOLCE_USERNAME }}
+          DOLCE_PASSWORD: ${{ secrets.DOLCE_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dolce-debug
+          path: |
+            /tmp/dolce-*.png
+            /tmp/dolce-page-text.txt
+          retention-days: 3

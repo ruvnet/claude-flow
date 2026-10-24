@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250807-125336", "task": "run basic litellm proxy using docker and confirm the endpoints work. no redis or postgres. ", "timestamp": "2025-08-07T12:53:37Z", "commit": "e77fe00e2c07ed5f58c31ee4ba023257d94fd40a", "github_release": "true"}

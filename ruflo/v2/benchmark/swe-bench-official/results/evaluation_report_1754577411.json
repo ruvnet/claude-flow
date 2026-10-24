@@ -1,0 +1,22 @@
+{
+  "dataset": "SWE-bench-Lite",
+  "instances_evaluated": 1,
+  "successful_patches": 0,
+  "success_rate": 0.0,
+  "average_duration": 554.2839653491974,
+  "configuration": {
+    "mode": "mesh",
+    "strategy": "optimization",
+    "max_agents": 8
+  },
+  "timestamp": "2025-08-07T14:36:51.735545",
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "success": false,
+      "patch": "",
+      "duration": 554.2839653491974,
+      "error": "No patch generated"
+    }
+  ]
+}

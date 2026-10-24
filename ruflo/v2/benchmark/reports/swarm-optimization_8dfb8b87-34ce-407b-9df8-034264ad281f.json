@@ -1,0 +1,136 @@
+{
+  "id": "8dfb8b87-34ce-407b-9df8-034264ad281f",
+  "name": "swarm-optimization",
+  "description": "",
+  "status": "completed",
+  "config": {
+    "name": "swarm-optimization",
+    "description": "",
+    "strategy": "optimization",
+    "mode": "hybrid",
+    "max_agents": 5,
+    "max_tasks": 100,
+    "timeout": 3600,
+    "task_timeout": 90,
+    "max_retries": 3,
+    "parallel": true,
+    "background": false,
+    "monitoring": true,
+    "quality_threshold": 0.8,
+    "resource_limits": {
+      "max_memory_mb": 1024,
+      "max_cpu_percent": 80,
+      "max_network_mbps": 100
+    },
+    "output_formats": [
+      "json"
+    ],
+    "output_directory": "./reports",
+    "verbose": false
+  },
+  "tasks": [
+    {
+      "id": "6b7bc80c-4b7d-4747-8594-57e83564e739",
+      "objective": "Build a data processing pipeline",
+      "description": "Benchmark task: Build a data processing pipeline",
+      "strategy": "optimization",
+      "mode": "hybrid",
+      "parameters": {},
+      "timeout": 90,
+      "max_retries": 3,
+      "priority": 1,
+      "status": "pending",
+      "created_at": "2025-08-06T01:51:50.032010",
+      "started_at": null,
+      "completed_at": null,
+      "duration": null,
+      "assigned_agents": [],
+      "parent_task_id": null,
+      "subtasks": [],
+      "dependencies": []
+    }
+  ],
+  "results": [
+    {
+      "id": "badce472-9a1e-4211-8512-12c2f0bf33fc",
+      "task_id": "6b7bc80c-4b7d-4747-8594-57e83564e739",
+      "agent_id": "claude-flow",
+      "status": "success",
+      "output": {
+        "raw_output": "\u274c SPARC configuration file (.roomodes) not found\nPlease ensure .roomodes file exists in: /workspaces/claude-code-flow/benchmark\n\nTo enable SPARC development modes, run:\n  npx claude-flow@latest init --sparc",
+        "lines": [
+          "\u274c SPARC configuration file (.roomodes) not found",
+          "Please ensure .roomodes file exists in: /workspaces/claude-code-flow/benchmark",
+          "",
+          "To enable SPARC development modes, run:",
+          "  npx claude-flow@latest init --sparc"
+        ],
+        "sections": {}
+      },
+      "errors": [],
+      "warnings": [],
+      "performance_metrics": {
+        "execution_time": 0.2867588996887207,
+        "queue_time": 0.0,
+        "throughput": 3.4872500943667615,
+        "success_rate": 1.0,
+        "error_rate": 0.0,
+        "retry_count": 0,
+        "coordination_overhead": 0.0,
+        "communication_latency": 0.0
+      },
+      "quality_metrics": {
+        "accuracy_score": 1.0,
+        "completeness_score": 1.0,
+        "consistency_score": 0.0,
+        "relevance_score": 0.0,
+        "overall_quality": 1.0,
+        "review_score": null,
+        "automated_score": null
+      },
+      "resource_usage": {
+        "cpu_percent": 99.33333333333333,
+        "memory_mb": 40.8515625,
+        "network_bytes_sent": 0,
+        "network_bytes_recv": 0,
+        "disk_bytes_read": 0,
+        "disk_bytes_write": 0,
+        "peak_memory_mb": 66.671875,
+        "average_cpu_percent": 99.33333333333333
+      },
+      "execution_details": {
+        "command": "claude-flow sparc optimizer Build a data processing pipeline",
+        "exit_code": 0,
+        "output_lines": 5,
+        "error_count": 0
+      },
+      "created_at": "2025-08-06T01:51:50.335782",
+      "started_at": "2025-08-06T01:51:50.032288",
+      "completed_at": "2025-08-06T01:51:50.335402",
+      "duration": 0.303114
+    }
+  ],
+  "metrics": {
+    "total_tasks": 1,
+    "completed_tasks": 1,
+    "failed_tasks": 0,
+    "total_agents": 0,
+    "active_agents": 0,
+    "average_execution_time": 0.0,
+    "total_execution_time": 1.3050477504730225,
+    "success_rate": 1.0,
+    "throughput": 0.7662554873088314,
+    "resource_efficiency": 0.0,
+    "coordination_efficiency": 1.0,
+    "quality_score": 0.0,
+    "peak_memory_usage": 0.0,
+    "total_cpu_time": 0.0,
+    "network_overhead": 0.0
+  },
+  "created_at": "2025-08-06T01:51:50.032032",
+  "started_at": "2025-08-06T01:51:50.032034",
+  "completed_at": "2025-08-06T01:51:50.335832",
+  "duration": 0.303798,
+  "error_log": [],
+  "metadata": {}
+}

@@ -1,0 +1,25 @@
+model_list:
+  # Test model using litellm's test provider
+  - model_name: "test-model"
+    litellm_params:
+      model: "openai/gpt-3.5-turbo"
+      api_key: "sk-test-key"
+      mock_response: "This is a test response from LiteLLM proxy"
+      
+  # Echo model for testing
+  - model_name: "echo-model"
+    litellm_params:
+      model: "openai/gpt-3.5-turbo"
+      api_key: "test-key"
+      mock_response: "Echo test successful"
+
+general_settings:
+  master_key: "sk-1234567890"
+  request_timeout: 60
+  drop_params: false
+  stream: true
+  
+litellm_settings:
+  drop_params: false
+  set_verbose: true
+  json_logs: false

@@ -1,0 +1,137 @@
+# Dockerfile for Hive Mind Distributed AI Coordination System
+# Multi-stage build for optimal size and security
+
+# Stage 1: Base dependencies
+FROM node:20-alpine AS base
+
+# Install system dependencies
+RUN apk add --no-cache \
+    sqlite \
+    sqlite-dev \
+    python3 \
+    make \
+    g++ \
+    git \
+    bash \
+    curl
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Stage 2: Development dependencies
+FROM base AS dev-deps
+
+# Install all dependencies (including dev)
+RUN npm ci
+
+# Stage 3: Production dependencies
+FROM base AS prod-deps
+
+# Install production dependencies only
+RUN npm ci --only=production
+
+# Stage 4: Build stage
+FROM dev-deps AS build
+
+# Copy source code
+COPY . .
+
+# Run tests
+RUN npm test -- tests/hive-mind/
+
+# Build TypeScript if needed
+RUN if [ -f "tsconfig.json" ]; then npm run build; fi
+
+# Stage 5: Runtime stage
+FROM base AS runtime
+
+# Create non-root user
+RUN addgroup -g 1001 -S hivemind && \
+    adduser -S hivemind -u 1001
+
+# Copy production dependencies
+COPY --from=prod-deps --chown=hivemind:hivemind /app/node_modules ./node_modules
+
+# Copy built application
+COPY --from=build --chown=hivemind:hivemind /app/src ./src
+COPY --from=build --chown=hivemind:hivemind /app/tests ./tests
+COPY --chown=hivemind:hivemind package*.json ./
+
+# Create data directory for SQLite
+RUN mkdir -p /data && chown hivemind:hivemind /data
+
+# Create directories for MCP integration
+RUN mkdir -p /app/.claude /app/logs && \
+    chown -R hivemind:hivemind /app/.claude /app/logs
+
+# Switch to non-root user
+USER hivemind
+
+# Set environment variables
+ENV NODE_ENV=production \
+    HIVE_DB_PATH=/data/hive-mind.db \
+    HIVE_LOG_LEVEL=info \
+    HIVE_MAX_AGENTS=1000 \
+    HIVE_MCP_ENABLED=true \
+    HIVE_PORT=8080
+
+# Expose ports
+EXPOSE 8080 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD node src/cli/simple-cli.js hive-mind status --db $HIVE_DB_PATH || exit 1
+
+# Volume for persistent data
+VOLUME ["/data", "/app/logs"]
+
+# Default command
+CMD ["node", "src/cli/simple-cli.js", "hive-mind", "start", "--daemon", "--db", "/data/hive-mind.db"]
+
+# Stage 6: Development stage
+FROM runtime AS development
+
+# Switch back to root for dev tools installation
+USER root
+
+# Install development tools
+RUN apk add --no-cache \
+    vim \
+    tmux \
+    htop \
+    strace
+
+# Copy test files
+COPY --chown=hivemind:hivemind tests ./tests
+
+# Install dev dependencies
+COPY --from=dev-deps --chown=hivemind:hivemind /app/node_modules ./node_modules
+
+# Create development directories
+RUN mkdir -p /app/coverage /app/.nyc_output && \
+    chown -R hivemind:hivemind /app/coverage /app/.nyc_output
+
+# Switch back to non-root user
+USER hivemind
+
+# Development environment variables
+ENV NODE_ENV=development \
+    HIVE_LOG_LEVEL=debug \
+    HIVE_DEV_MODE=true
+
+# Development command
+CMD ["npm", "run", "dev"]
+
+# Stage 7: Test runner stage
+FROM development AS test
+
+# Test environment variables
+ENV NODE_ENV=test \
+    HIVE_DB_PATH=/tmp/test-hive.db \
+    HIVE_TEST_MODE=true
+
+# Run tests by default
+CMD ["npm", "test", "--", "tests/hive-mind/"]

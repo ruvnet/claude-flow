@@ -1,0 +1,83 @@
+[
+  {
+    "config": {
+      "name": "quick_hierarchical",
+      "topology": "hierarchical",
+      "coordination": "queen",
+      "memory_type": "sqlite",
+      "agent_count": 5,
+      "task_complexity": "simple",
+      "duration_seconds": 10,
+      "iterations": 3
+    },
+    "start_time": "2025-07-06T14:12:38.827907",
+    "end_time": "2025-07-06T14:12:38.850997",
+    "duration": 0.023091554641723633,
+    "initialization_time": 0.0,
+    "coordination_latency": 0.0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "token_consumption": 0,
+    "task_completion_rate": 0.0,
+    "error_count": 1,
+    "consensus_decisions": 0,
+    "agent_spawn_time": 0.0,
+    "collective_memory_ops": 0,
+    "success": false,
+    "error_message": "Initialization failed: node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/claude-code-flow/benchmark/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n"
+  },
+  {
+    "config": {
+      "name": "quick_mesh",
+      "topology": "mesh",
+      "coordination": "consensus",
+      "memory_type": "memory",
+      "agent_count": 10,
+      "task_complexity": "medium",
+      "duration_seconds": 15,
+      "iterations": 3
+    },
+    "start_time": "2025-07-06T14:12:38.851023",
+    "end_time": "2025-07-06T14:12:38.873454",
+    "duration": 0.02243494987487793,
+    "initialization_time": 0.0,
+    "coordination_latency": 0.0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "token_consumption": 0,
+    "task_completion_rate": 0.0,
+    "error_count": 1,
+    "consensus_decisions": 0,
+    "agent_spawn_time": 0.0,
+    "collective_memory_ops": 0,
+    "success": false,
+    "error_message": "Initialization failed: node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/claude-code-flow/benchmark/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n"
+  },
+  {
+    "config": {
+      "name": "quick_star",
+      "topology": "star",
+      "coordination": "hybrid",
+      "memory_type": "sqlite",
+      "agent_count": 8,
+      "task_complexity": "simple",
+      "duration_seconds": 10,
+      "iterations": 3
+    },
+    "start_time": "2025-07-06T14:12:38.873472",
+    "end_time": "2025-07-06T14:12:38.895348",
+    "duration": 0.021879911422729492,
+    "initialization_time": 0.0,
+    "coordination_latency": 0.0,
+    "memory_usage_mb": 0.0,
+    "cpu_usage_percent": 0.0,
+    "token_consumption": 0,
+    "task_completion_rate": 0.0,
+    "error_count": 1,
+    "consensus_decisions": 0,
+    "agent_spawn_time": 0.0,
+    "collective_memory_ops": 0,
+    "success": false,
+    "error_message": "Initialization failed: node:internal/modules/cjs/loader:1215\n  throw err;\n  ^\n\nError: Cannot find module '/workspaces/claude-code-flow/benchmark/src/cli/simple-cli.js'\n    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)\n    at Module._load (node:internal/modules/cjs/loader:1043:27)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:164:12)\n    at node:internal/main/run_main_module:28:49 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v20.19.0\n"
+  }
+]

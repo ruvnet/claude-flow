@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "hooks": {
+    "PreToolUse:Edit": {
+      "enabled": true,
+      "command": "bash -c 'FILE=$(echo \"{{tool_input}}\" | jq -r \".file_path // empty\") && [ -n \"$FILE\" ] && git add -A && git commit -m \"🔖 Pre-edit checkpoint: $FILE\" --quiet || true && echo \"✅ Created pre-edit checkpoint for $FILE\"'"
+    },
+    
+    "PostToolUse:Edit": {
+      "enabled": true,
+      "command": "bash -c 'FILE=$(echo \"{{tool_input}}\" | jq -r \".file_path // empty\") && [ -n \"$FILE\" ] && git add \"$FILE\" && git commit -m \"🔖 Post-edit checkpoint: $FILE\" --quiet && TAG=\"checkpoint-$(date +%Y%m%d-%H%M%S)\" && git tag \"$TAG\" && echo \"✅ Created checkpoint: $TAG\"'"
+    },
+    
+    "UserPromptSubmit": {
+      "enabled": true,
+      "command": "bash -c 'TASK=$(echo \"{{user_prompt}}\" | head -c 50 | tr \"\\n\" \" \") && git add -A && git commit -m \"🔖 Task checkpoint: $TASK...\" --quiet || true && echo \"✅ Created task checkpoint\"'"
+    },
+    
+    "Stop": {
+      "enabled": true,
+      "command": "bash -c 'git log --oneline -10 --grep=\"checkpoint\" > .claude/last-session-checkpoints.txt && echo \"📋 Session checkpoints saved to .claude/last-session-checkpoints.txt\"'"
+    }
+  }
+}

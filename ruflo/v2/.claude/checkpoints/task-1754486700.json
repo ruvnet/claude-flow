@@ -1,0 +1,1 @@
+{"checkpoint": "task-20250806-132458", "task": "non-interactive works, but  ./claude-flow swarm "test" --claude doesn't open in interactive mode. ", "timestamp": "2025-08-06T13:25:00Z", "commit": "d2d1770eaf67cb3c091f9739983833c51e5ebe5f", "github_release": "true"}

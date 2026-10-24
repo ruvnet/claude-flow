@@ -1,0 +1,41 @@
+{
+  "enabled": false,
+  "mode": "passive",
+  "truth_threshold": 0.80,
+  "rollback_enabled": false,
+  "weights": {
+    "tests": 0.40,
+    "lint": 0.20,
+    "types": 0.20,
+    "build": 0.20
+  },
+  "enforcement": {
+    "passive": {
+      "log_only": true,
+      "warn_on_failure": false,
+      "block_on_failure": false
+    },
+    "active": {
+      "log_only": false,
+      "warn_on_failure": true,
+      "block_on_failure": false
+    },
+    "strict": {
+      "log_only": false,
+      "warn_on_failure": true,
+      "block_on_failure": true
+    }
+  },
+  "integrations": {
+    "github_actions": true,
+    "mcp_tools": true,
+    "npx_commands": true,
+    "memory_persistence": true
+  },
+  "reporting": {
+    "auto_generate": true,
+    "frequency": "on_completion",
+    "format": "markdown",
+    "include_evidence": true
+  }
+}
