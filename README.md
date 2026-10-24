@@ -1,3 +1,5 @@
+[![mcpindex](https://mcpindex.ai/api/v1/badge/io-github-ruvnet-claude-flow)](https://mcpindex.ai/server/io-github-ruvnet-claude-flow)
+
 <div align="center">
 
 <a href="https://cognitum.one/agentic-engineering"><img src="ruflo/assets/ruflo-neon-flicker.gif" alt="Ruflo animated neon sign" width="100%"></a>
