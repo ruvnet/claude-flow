@@ -36,7 +36,7 @@ export const SignedTrajectoryPayloadSchema = z.object({
     verdict: z.string().optional(),
   }),
   /** Content hashes of screenshots referenced by steps (path → sha256 hex). */
-  screenshotHashes: z.record(z.string().regex(/^[0-9a-f]{64}$/)),
+  screenshotHashes: z.record(z.string(), z.string().regex(/^[0-9a-f]{64}$/)),
   /** Final snapshot at endTrajectory — deterministic enough to drive replay. */
   finalSnapshot: z.unknown().optional(),
   /** When this envelope was sealed. */

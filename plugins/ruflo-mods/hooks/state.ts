@@ -39,6 +39,8 @@ export type ModState = {
   agentTrim: { enabled: boolean; hidden: Set<string>; prompt: string; ledger?: Promise<Record<string, number>> }
   /** `session.receive`/`session.send` screen (ADR-451): whether it is on, deliveries consumed, sends refused. */
   delivery: { enabled: boolean; consumed: number; blocked: number }
+  /** The ruRE offer (ADR-498): whether it is on, whether the session has a ruRE tool, files waiting for the turn's end, files already offered, and how many were. */
+  rureOffer: { enabled: boolean; available: boolean; pending: string[]; offered: Set<string>; shown: number }
   /** `session.compact` carry (ADR-451 item 7): whether it is on and how many compactions carried a block. */
   compact: { enabled: boolean; carried: number }
   /** Capability probe (ADR-451 item 5): engine version and which registered events fired. */
@@ -75,6 +77,7 @@ export function createState(): ModState {
     agentTrim: { enabled: false, hidden: new Set(), prompt: '' },
     delivery: { enabled: false, consumed: 0, blocked: 0 },
     compact: { enabled: false, carried: 0 },
+    rureOffer: { enabled: false, available: false, pending: [], offered: new Set(), shown: 0 },
     probe: probeState(),
     grounding: groundingState(),
     rollup: rollupState(),

@@ -1,7 +1,7 @@
 {
   "name": "ruflo-mods",
   "description": "ruflo as a Claude Code mod (function hooks, ADR-404): in-process prompt routing, edit learning signals, tighten-only tool checks from ruflo policy, the cost-tracker budget ladder, a mod trust gate for newly installed mods, and the $.ruflo noun other mods compose their status with. Opt-in and removable: the classic hook-handler hooks stay the default and take every event back whenever the mod is not loaded.",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "author": {
     "name": "ruvnet",
     "url": "https://github.com/ruvnet"
@@ -79,6 +79,13 @@
       "type": "boolean",
       "title": "Carry swarm and claims state through compaction",
       "description": "When the conversation is compacted, tell the summary to keep one short block (600 characters at most): the live swarm id, its topology word and agent count, the ids and status of open claims, the last route agent, and the budget and policy words. Built only from validated ids and fixed words, never prompt text, tool inputs, paths or file contents; nothing is carried when no swarm or claim is open, or when the block fails a secret or injection screen. Appended to what you typed after /compact. Off by default.",
+      "required": false,
+      "default": false
+    },
+    "rureOffer": {
+      "type": "boolean",
+      "title": "Offer ruRE for binaries the model reads",
+      "description": "When the model reads or writes an executable, library, Electron .asar or CUDA file (.exe .dll .so .dylib .node .asar .cubin .fatbin .ptx .evm .bytecode) inside the project, add one line beneath that answer saying ruRE can look inside it without running it, and how. Offer only: it never runs ruRE, never denies or changes a tool call, and names at most three files a turn and twelve a session, each once. The line holds only validated project-relative paths and fixed words, never file contents. Does nothing when the session has no ruRE tool or the answer is a subagent's. Off by default.",
       "required": false,
       "default": false
     },
