@@ -1,12 +1,11 @@
 /**
  * RVFA Ed25519 signing module tests.
  *
- * Uses the Node.js built-in test runner (node:test).
- * Run: npx tsx --test v3/__tests__/appliance/rvfa-signing.test.ts
+ * Uses Vitest (collected by the v3 root vitest config).
+ * Run: cd v3 && npx vitest run __tests__/appliance/rvfa-signing.test.ts
  */
 
-import { describe, it, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, afterEach, expect } from 'vitest';
 import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -86,30 +85,30 @@ describe('generateKeyPair', () => {
   it('produces a key pair with publicKey, privateKey, and fingerprint', async () => {
     const kp = await generateKeyPair();
 
-    assert.ok(Buffer.isBuffer(kp.publicKey));
-    assert.ok(Buffer.isBuffer(kp.privateKey));
-    assert.equal(typeof kp.fingerprint, 'string');
-    assert.ok(kp.fingerprint.length > 0);
+    expect(Buffer.isBuffer(kp.publicKey)).toBeTruthy();
+    expect(Buffer.isBuffer(kp.privateKey)).toBeTruthy();
+    expect(typeof kp.fingerprint).toBe('string');
+    expect(kp.fingerprint.length > 0).toBeTruthy();
   });
 
   it('public key is in PEM format (starts with BEGIN)', async () => {
     const kp = await generateKeyPair();
     const pubPem = kp.publicKey.toString('utf-8');
-    assert.ok(pubPem.includes('BEGIN PUBLIC KEY'), 'Public key should be PEM-encoded');
+    expect(pubPem.includes('BEGIN PUBLIC KEY'), 'Public key should be PEM-encoded').toBeTruthy();
   });
 
   it('private key is in PEM format (starts with BEGIN)', async () => {
     const kp = await generateKeyPair();
     const privPem = kp.privateKey.toString('utf-8');
-    assert.ok(privPem.includes('BEGIN PRIVATE KEY'), 'Private key should be PEM-encoded');
+    expect(privPem.includes('BEGIN PRIVATE KEY'), 'Private key should be PEM-encoded').toBeTruthy();
   });
 
   it('generates distinct key pairs on each call', async () => {
     const kp1 = await generateKeyPair();
     const kp2 = await generateKeyPair();
-    assert.ok(!kp1.publicKey.equals(kp2.publicKey), 'Public keys should differ');
-    assert.ok(!kp1.privateKey.equals(kp2.privateKey), 'Private keys should differ');
-    assert.notEqual(kp1.fingerprint, kp2.fingerprint, 'Fingerprints should differ');
+    expect(!kp1.publicKey.equals(kp2.publicKey), 'Public keys should differ').toBeTruthy();
+    expect(!kp1.privateKey.equals(kp2.privateKey), 'Private keys should differ').toBeTruthy();
+    expect(kp1.fingerprint, 'Fingerprints should differ').not.toBe(kp2.fingerprint);
   });
 });
 
@@ -120,7 +119,7 @@ describe('generateKeyPair', () => {
 describe('Key fingerprint', () => {
   it('fingerprint is hex and 16 characters long', async () => {
     const kp = await generateKeyPair();
-    assert.match(kp.fingerprint, /^[0-9a-f]{16}$/);
+    expect(kp.fingerprint).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it('fingerprint is deterministic for the same key', async () => {
@@ -130,7 +129,7 @@ describe('Key fingerprint', () => {
     // Sign something to verify signer is operational
     const rvfaPath = writeTestRvfa();
     const sigMeta = await signer.signAppliance(rvfaPath);
-    assert.equal(sigMeta.publicKeyFingerprint, kp.fingerprint);
+    expect(sigMeta.publicKeyFingerprint).toBe(kp.fingerprint);
   });
 });
 
@@ -145,14 +144,14 @@ describe('saveKeyPair / loadKeyPair', () => {
 
     await saveKeyPair(original, dir, 'test-key');
 
-    assert.ok(existsSync(join(dir, 'test-key.pub')), 'Public key file should exist');
-    assert.ok(existsSync(join(dir, 'test-key.key')), 'Private key file should exist');
+    expect(existsSync(join(dir, 'test-key.pub')), 'Public key file should exist').toBeTruthy();
+    expect(existsSync(join(dir, 'test-key.key')), 'Private key file should exist').toBeTruthy();
 
     const loaded = await loadKeyPair(dir, 'test-key');
 
-    assert.ok(loaded.publicKey.equals(original.publicKey), 'Public key should round-trip');
-    assert.ok(loaded.privateKey.equals(original.privateKey), 'Private key should round-trip');
-    assert.equal(loaded.fingerprint, original.fingerprint, 'Fingerprint should round-trip');
+    expect(loaded.publicKey.equals(original.publicKey), 'Public key should round-trip').toBeTruthy();
+    expect(loaded.privateKey.equals(original.privateKey), 'Private key should round-trip').toBeTruthy();
+    expect(loaded.fingerprint, 'Fingerprint should round-trip').toBe(original.fingerprint);
   });
 
   it('uses default name "rvfa-signing" when none provided', async () => {
@@ -161,11 +160,11 @@ describe('saveKeyPair / loadKeyPair', () => {
 
     await saveKeyPair(kp, dir);
 
-    assert.ok(existsSync(join(dir, 'rvfa-signing.pub')));
-    assert.ok(existsSync(join(dir, 'rvfa-signing.key')));
+    expect(existsSync(join(dir, 'rvfa-signing.pub'))).toBeTruthy();
+    expect(existsSync(join(dir, 'rvfa-signing.key'))).toBeTruthy();
 
     const loaded = await loadKeyPair(dir);
-    assert.equal(loaded.fingerprint, kp.fingerprint);
+    expect(loaded.fingerprint).toBe(kp.fingerprint);
   });
 });
 
@@ -181,13 +180,13 @@ describe('RvfaSigner.signAppliance', () => {
 
     const sigMeta = await signer.signAppliance(rvfaPath, 'test-publisher');
 
-    assert.equal(sigMeta.algorithm, 'ed25519');
-    assert.equal(typeof sigMeta.signature, 'string');
-    assert.ok(sigMeta.signature.length > 0);
-    assert.equal(sigMeta.publicKeyFingerprint, kp.fingerprint);
-    assert.equal(sigMeta.signedBy, 'test-publisher');
-    assert.equal(sigMeta.scope, 'full');
-    assert.equal(typeof sigMeta.signedAt, 'string');
+    expect(sigMeta.algorithm).toBe('ed25519');
+    expect(typeof sigMeta.signature).toBe('string');
+    expect(sigMeta.signature.length > 0).toBeTruthy();
+    expect(sigMeta.publicKeyFingerprint).toBe(kp.fingerprint);
+    expect(sigMeta.signedBy).toBe('test-publisher');
+    expect(sigMeta.scope).toBe('full');
+    expect(typeof sigMeta.signedAt).toBe('string');
   });
 
   it('signed file is still a valid RVFA (readable by RvfaReader)', async () => {
@@ -200,8 +199,8 @@ describe('RvfaSigner.signAppliance', () => {
     const buf = readFileSync(rvfaPath);
     const reader = RvfaReader.fromBuffer(buf);
     const header = reader.getHeader();
-    assert.equal(header.name, 'test-appliance');
-    assert.ok((header as any).signature, 'Header should contain signature field');
+    expect(header.name).toBe('test-appliance');
+    expect((header as any).signature, 'Header should contain signature field').toBeTruthy();
   });
 });
 
@@ -219,10 +218,10 @@ describe('RvfaVerifier.verifyAppliance', () => {
     await signer.signAppliance(rvfaPath, 'publisher-name');
 
     const result = await verifier.verifyAppliance(rvfaPath);
-    assert.ok(result.valid, `Expected valid but got errors: ${result.errors.join(', ')}`);
-    assert.equal(result.signerFingerprint, kp.fingerprint);
-    assert.equal(result.signedBy, 'publisher-name');
-    assert.equal(result.errors.length, 0);
+    expect(result.valid, `Expected valid but got errors: ${result.errors.join(', ')}`).toBeTruthy();
+    expect(result.signerFingerprint).toBe(kp.fingerprint);
+    expect(result.signedBy).toBe('publisher-name');
+    expect(result.errors.length).toBe(0);
   });
 });
 
@@ -250,8 +249,8 @@ describe('Tamper detection', () => {
     writeFileSync(rvfaPath, tampered);
 
     const result = await verifier.verifyAppliance(rvfaPath);
-    assert.ok(!result.valid, 'Tampered file should fail verification');
-    assert.ok(result.errors.length > 0);
+    expect(!result.valid, 'Tampered file should fail verification').toBeTruthy();
+    expect(result.errors.length > 0).toBeTruthy();
   });
 
   it('returns valid=false when header is modified after signing', async () => {
@@ -282,7 +281,7 @@ describe('Tamper detection', () => {
     writeFileSync(rvfaPath, rebuilt);
 
     const result = await verifier.verifyAppliance(rvfaPath);
-    assert.ok(!result.valid, 'Modified header should fail verification');
+    expect(!result.valid, 'Modified header should fail verification').toBeTruthy();
   });
 });
 
@@ -297,11 +296,8 @@ describe('Missing signature', () => {
     const rvfaPath = writeTestRvfa();
 
     const result = await verifier.verifyAppliance(rvfaPath);
-    assert.ok(!result.valid);
-    assert.ok(
-      result.errors.some((e) => e.includes('No signature') || e.includes('signature')),
-      `Expected signature-related error, got: ${result.errors.join(', ')}`,
-    );
+    expect(!result.valid).toBeTruthy();
+    expect(result.errors.some((e) => e.includes('No signature') || e.includes('signature')), `Expected signature-related error, got: ${result.errors.join(', ')}`).toBeTruthy();
   });
 });
 
@@ -318,11 +314,11 @@ describe('RvfaSigner.signPatch / RvfaVerifier.verifyPatch', () => {
     const patchData = Buffer.from('this-is-a-patch-payload-for-signing');
     const signature = await signer.signPatch(patchData);
 
-    assert.equal(typeof signature, 'string');
-    assert.ok(signature.length > 0);
+    expect(typeof signature).toBe('string');
+    expect(signature.length > 0).toBeTruthy();
 
     const valid = await verifier.verifyPatch(patchData, signature);
-    assert.ok(valid, 'Detached patch signature should verify');
+    expect(valid, 'Detached patch signature should verify').toBeTruthy();
   });
 
   it('detached signature fails for tampered data', async () => {
@@ -335,7 +331,7 @@ describe('RvfaSigner.signPatch / RvfaVerifier.verifyPatch', () => {
 
     const tampered = Buffer.from('tampered-patch-data');
     const valid = await verifier.verifyPatch(tampered, signature);
-    assert.ok(!valid, 'Tampered data should fail verification');
+    expect(!valid, 'Tampered data should fail verification').toBeTruthy();
   });
 
   it('signSections signs a 32-byte footer hash and returns hex signature', async () => {
@@ -345,8 +341,8 @@ describe('RvfaSigner.signPatch / RvfaVerifier.verifyPatch', () => {
     const footerHash = Buffer.alloc(32, 0xAB);
     const signature = await signer.signSections(footerHash);
 
-    assert.equal(typeof signature, 'string');
-    assert.ok(signature.length > 0);
+    expect(typeof signature).toBe('string');
+    expect(signature.length > 0).toBeTruthy();
     // signSections signs the raw hash directly (no re-hash),
     // so we verify manually using Node.js crypto
     const { verify: edVerify, createPublicKey } = await import('node:crypto');
@@ -356,17 +352,14 @@ describe('RvfaSigner.signPatch / RvfaVerifier.verifyPatch', () => {
       type: 'spki',
     });
     const valid = edVerify(null, footerHash, pubKeyObj, Buffer.from(signature, 'hex'));
-    assert.ok(valid, 'Signature over raw footer hash should verify');
+    expect(valid, 'Signature over raw footer hash should verify').toBeTruthy();
   });
 
   it('signSections rejects non-32-byte input', async () => {
     const kp = await generateKeyPair();
     const signer = new RvfaSigner(kp.privateKey);
 
-    await assert.rejects(
-      () => signer.signSections(Buffer.alloc(16)),
-      /32 bytes/,
-    );
+    await expect(signer.signSections(Buffer.alloc(16))).rejects.toThrow(/32 bytes/);
   });
 });
 
@@ -392,8 +385,8 @@ describe('Canonical JSON (deterministic signing)', () => {
     const result1 = await verifier.verifyAppliance(rvfaPath1);
     const result2 = await verifier.verifyAppliance(rvfaPath2);
 
-    assert.ok(result1.valid, 'First file should verify');
-    assert.ok(result2.valid, 'Second file should verify');
+    expect(result1.valid, 'First file should verify').toBeTruthy();
+    expect(result2.valid, 'Second file should verify').toBeTruthy();
   });
 });
 
@@ -414,7 +407,7 @@ describe('Re-signing', () => {
     // Verify with first key
     const verifier1 = new RvfaVerifier(kp1.publicKey);
     const result1 = await verifier1.verifyAppliance(rvfaPath);
-    assert.ok(result1.valid, 'First signature should verify');
+    expect(result1.valid, 'First signature should verify').toBeTruthy();
 
     // Re-sign with second key
     const signer2 = new RvfaSigner(kp2.privateKey);
@@ -423,12 +416,12 @@ describe('Re-signing', () => {
     // Verify with second key should pass
     const verifier2 = new RvfaVerifier(kp2.publicKey);
     const result2 = await verifier2.verifyAppliance(rvfaPath);
-    assert.ok(result2.valid, 'Re-signed file should verify with new key');
-    assert.equal(result2.signedBy, 'publisher-two');
+    expect(result2.valid, 'Re-signed file should verify with new key').toBeTruthy();
+    expect(result2.signedBy).toBe('publisher-two');
 
     // Verify with first key should fail
     const result3 = await verifier1.verifyAppliance(rvfaPath);
-    assert.ok(!result3.valid, 'Old key should no longer verify');
+    expect(!result3.valid, 'Old key should no longer verify').toBeTruthy();
   });
 
   it('re-signed file still reads as valid RVFA and verifies', async () => {
@@ -440,12 +433,12 @@ describe('Re-signing', () => {
     // Re-sign
     const sigMeta = await signer.signAppliance(rvfaPath);
 
-    assert.equal(sigMeta.algorithm, 'ed25519');
-    assert.equal(sigMeta.scope, 'full');
+    expect(sigMeta.algorithm).toBe('ed25519');
+    expect(sigMeta.scope).toBe('full');
 
     // The re-signed file should still verify with the same key
     const verifier = new RvfaVerifier(kp.publicKey);
     const result = await verifier.verifyAppliance(rvfaPath);
-    assert.ok(result.valid, `Re-signed file should verify: ${result.errors.join(', ')}`);
+    expect(result.valid, `Re-signed file should verify: ${result.errors.join(', ')}`).toBeTruthy();
   });
 });

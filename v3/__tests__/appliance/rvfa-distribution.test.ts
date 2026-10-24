@@ -1,12 +1,11 @@
 /**
  * RVFA Distribution & Hot-Patch module tests.
  *
- * Uses the Node.js built-in test runner (node:test).
- * Run: npx tsx --test v3/__tests__/appliance/rvfa-distribution.test.ts
+ * Uses Vitest (collected by the v3 root vitest config).
+ * Run: cd v3 && npx vitest run __tests__/appliance/rvfa-distribution.test.ts
  */
 
-import { describe, it, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, afterEach, expect } from 'vitest';
 import { writeFileSync, unlinkSync, existsSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -104,7 +103,7 @@ describe('RvfaPatcher.createPatch', () => {
       patchVersion: '1.0.0',
     });
 
-    assert.equal(patch.subarray(0, 4).toString('ascii'), 'RVFP');
+    expect(patch.subarray(0, 4).toString('ascii')).toBe('RVFP');
   });
 
   it('creates a patch with correct version number', async () => {
@@ -116,7 +115,7 @@ describe('RvfaPatcher.createPatch', () => {
       patchVersion: '1.0.0',
     });
 
-    assert.equal(patch.readUInt32LE(4), 1, 'Version should be 1');
+    expect(patch.readUInt32LE(4), 'Version should be 1').toBe(1);
   });
 
   it('includes all header fields in the patch', async () => {
@@ -129,16 +128,16 @@ describe('RvfaPatcher.createPatch', () => {
     });
 
     const header = RvfaPatcher.parsePatchHeader(patch);
-    assert.equal(header.magic, 'RVFP');
-    assert.equal(header.version, 1);
-    assert.equal(header.targetApplianceName, 'my-app');
-    assert.equal(header.targetApplianceVersion, '2.0.0');
-    assert.equal(header.targetSection, 'runtime');
-    assert.equal(header.patchVersion, '1.1.0');
-    assert.equal(typeof header.created, 'string');
-    assert.ok(header.created.length > 0);
-    assert.equal(typeof header.newSectionSha256, 'string');
-    assert.ok(header.newSectionSha256.length > 0);
+    expect(header.magic).toBe('RVFP');
+    expect(header.version).toBe(1);
+    expect(header.targetApplianceName).toBe('my-app');
+    expect(header.targetApplianceVersion).toBe('2.0.0');
+    expect(header.targetSection).toBe('runtime');
+    expect(header.patchVersion).toBe('1.1.0');
+    expect(typeof header.created).toBe('string');
+    expect(header.created.length > 0).toBeTruthy();
+    expect(typeof header.newSectionSha256).toBe('string');
+    expect(header.newSectionSha256.length > 0).toBeTruthy();
   });
 });
 
@@ -159,30 +158,24 @@ describe('RvfaPatcher.parsePatchHeader', () => {
     });
 
     const header = RvfaPatcher.parsePatchHeader(patch);
-    assert.equal(header.targetApplianceName, 'header-test');
-    assert.equal(header.targetApplianceVersion, '1.0.0');
-    assert.equal(header.targetSection, 'kernel');
-    assert.equal(header.patchVersion, '0.1.0');
-    assert.equal(header.compression, 'none');
-    assert.equal(header.newSectionSize, sectionData.length);
+    expect(header.targetApplianceName).toBe('header-test');
+    expect(header.targetApplianceVersion).toBe('1.0.0');
+    expect(header.targetSection).toBe('kernel');
+    expect(header.patchVersion).toBe('0.1.0');
+    expect(header.compression).toBe('none');
+    expect(header.newSectionSize).toBe(sectionData.length);
   });
 
   it('rejects a buffer with wrong magic', () => {
     const bad = Buffer.alloc(64);
     bad.write('NOPE', 0, 'ascii');
-    assert.throws(
-      () => RvfaPatcher.parsePatchHeader(bad),
-      /Invalid RVFP magic/,
-    );
+    expect(() => RvfaPatcher.parsePatchHeader(bad)).toThrow(/Invalid RVFP magic/);
   });
 
   it('rejects a buffer that is too small', () => {
     const small = Buffer.alloc(8);
     small.write('RVFP', 0, 'ascii');
-    assert.throws(
-      () => RvfaPatcher.parsePatchHeader(small),
-      /too small/,
-    );
+    expect(() => RvfaPatcher.parsePatchHeader(small)).toThrow(/too small/);
   });
 });
 
@@ -201,8 +194,8 @@ describe('RvfaPatcher.verifyPatch', () => {
     });
 
     const result = await RvfaPatcher.verifyPatch(patch);
-    assert.ok(result.valid, `Expected valid but got errors: ${result.errors.join(', ')}`);
-    assert.equal(result.errors.length, 0);
+    expect(result.valid, `Expected valid but got errors: ${result.errors.join(', ')}`).toBeTruthy();
+    expect(result.errors.length).toBe(0);
   });
 
   it('returns valid=false for a tampered patch payload', async () => {
@@ -223,8 +216,8 @@ describe('RvfaPatcher.verifyPatch', () => {
     }
 
     const result = await RvfaPatcher.verifyPatch(tampered);
-    assert.ok(!result.valid, 'Tampered patch should fail verification');
-    assert.ok(result.errors.some((e) => e.includes('SHA256')));
+    expect(!result.valid, 'Tampered patch should fail verification').toBeTruthy();
+    expect(result.errors.some((e) => e.includes('SHA256'))).toBeTruthy();
   });
 
   it('returns valid=false for a tampered footer', async () => {
@@ -241,7 +234,7 @@ describe('RvfaPatcher.verifyPatch', () => {
     tampered[tampered.length - 1] ^= 0xFF;
 
     const result = await RvfaPatcher.verifyPatch(tampered);
-    assert.ok(!result.valid, 'Tampered footer should fail verification');
+    expect(!result.valid, 'Tampered footer should fail verification').toBeTruthy();
   });
 });
 
@@ -264,9 +257,9 @@ describe('RvfaPatcher.applyPatch', () => {
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch, { verify: true });
 
-    assert.ok(result.success, `Apply failed: ${result.errors.join(', ')}`);
-    assert.equal(result.patchedSection, 'kernel');
-    assert.ok(result.newSize > 0);
+    expect(result.success, `Apply failed: ${result.errors.join(', ')}`).toBeTruthy();
+    expect(result.patchedSection).toBe('kernel');
+    expect(result.newSize > 0).toBeTruthy();
 
     // Verify the patched file
     const patchedBuf = readFileSync(rvfaPath);
@@ -274,14 +267,14 @@ describe('RvfaPatcher.applyPatch', () => {
 
     // Target section replaced
     const kernel = reader.extractSection('kernel');
-    assert.equal(kernel.toString('utf-8'), 'brand-new-kernel-payload');
+    expect(kernel.toString('utf-8')).toBe('brand-new-kernel-payload');
 
     // Other sections untouched
     const runtime = reader.extractSection('runtime');
-    assert.equal(runtime.toString('utf-8'), 'runtime-payload-original');
+    expect(runtime.toString('utf-8')).toBe('runtime-payload-original');
 
     const ruflo = reader.extractSection('ruflo');
-    assert.equal(ruflo.toString('utf-8'), 'ruflo-payload-original');
+    expect(ruflo.toString('utf-8')).toBe('ruflo-payload-original');
   });
 
   it('creates a backup file', async () => {
@@ -297,9 +290,9 @@ describe('RvfaPatcher.applyPatch', () => {
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch, { backup: true });
 
-    assert.ok(result.success);
-    assert.ok(result.backupPath, 'Backup path should be set');
-    assert.ok(existsSync(result.backupPath!), 'Backup file should exist');
+    expect(result.success).toBeTruthy();
+    expect(result.backupPath, 'Backup path should be set').toBeTruthy();
+    expect(existsSync(result.backupPath!), 'Backup file should exist').toBeTruthy();
     cleanupPaths.push(result.backupPath!);
   });
 
@@ -315,13 +308,13 @@ describe('RvfaPatcher.applyPatch', () => {
     });
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch, { verify: true });
-    assert.ok(result.success, `Apply failed: ${result.errors.join(', ')}`);
+    expect(result.success, `Apply failed: ${result.errors.join(', ')}`).toBeTruthy();
 
     // Double-check: read back and verify independently
     const patchedBuf = readFileSync(rvfaPath);
     const reader = RvfaReader.fromBuffer(patchedBuf);
     const verifyResult = reader.verify();
-    assert.ok(verifyResult.valid, `Verify failed: ${verifyResult.errors.join(', ')}`);
+    expect(verifyResult.valid, `Verify failed: ${verifyResult.errors.join(', ')}`).toBeTruthy();
   });
 
   it('footer SHA256 is updated after patching', async () => {
@@ -345,7 +338,7 @@ describe('RvfaPatcher.applyPatch', () => {
     const patchedBuf = readFileSync(rvfaPath);
     const newFooter = patchedBuf.subarray(patchedBuf.length - 32);
 
-    assert.ok(!originalFooter.equals(newFooter), 'Footer SHA256 should change after patching');
+    expect(!originalFooter.equals(newFooter), 'Footer SHA256 should change after patching').toBeTruthy();
   });
 });
 
@@ -366,11 +359,8 @@ describe('Patch target mismatch', () => {
     });
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch);
-    assert.ok(!result.success, 'Should fail for wrong target app');
-    assert.ok(
-      result.errors.some((e) => e.includes('mismatch') || e.includes('wrong-app')),
-      `Expected mismatch error, got: ${result.errors.join(', ')}`,
-    );
+    expect(!result.success, 'Should fail for wrong target app').toBeTruthy();
+    expect(result.errors.some((e) => e.includes('mismatch') || e.includes('wrong-app')), `Expected mismatch error, got: ${result.errors.join(', ')}`).toBeTruthy();
   });
 
   it('fails when patch targets a different appliance version', async () => {
@@ -385,10 +375,8 @@ describe('Patch target mismatch', () => {
     });
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch);
-    assert.ok(!result.success, 'Should fail for wrong target version');
-    assert.ok(
-      result.errors.some((e) => e.includes('mismatch') || e.includes('9.9.9')),
-    );
+    expect(!result.success, 'Should fail for wrong target version').toBeTruthy();
+    expect(result.errors.some((e) => e.includes('mismatch') || e.includes('9.9.9'))).toBeTruthy();
   });
 
   it('fails when patch targets a nonexistent section', async () => {
@@ -403,10 +391,8 @@ describe('Patch target mismatch', () => {
     });
 
     const result = await RvfaPatcher.applyPatch(rvfaPath, patch);
-    assert.ok(!result.success, 'Should fail for nonexistent section');
-    assert.ok(
-      result.errors.some((e) => e.includes('not found') || e.includes('nonexistent')),
-    );
+    expect(!result.success, 'Should fail for nonexistent section').toBeTruthy();
+    expect(result.errors.some((e) => e.includes('not found') || e.includes('nonexistent'))).toBeTruthy();
   });
 });
 
@@ -439,9 +425,9 @@ describe('Signed patch', () => {
     });
 
     const header = RvfaPatcher.parsePatchHeader(patch);
-    assert.ok(header.signature, 'Signed patch should have a signature field');
-    assert.equal(header.signedBy, 'test-publisher');
-    assert.ok(header.signature!.length > 0);
+    expect(header.signature, 'Signed patch should have a signature field').toBeTruthy();
+    expect(header.signedBy).toBe('test-publisher');
+    expect(header.signature!.length > 0).toBeTruthy();
   });
 
   it('unsigned patch has no signature field', async () => {
@@ -454,8 +440,8 @@ describe('Signed patch', () => {
     });
 
     const header = RvfaPatcher.parsePatchHeader(patch);
-    assert.equal(header.signature, undefined);
-    assert.equal(header.signedBy, undefined);
+    expect(header.signature).toBe(undefined);
+    expect(header.signedBy).toBe(undefined);
   });
 });
 
@@ -491,7 +477,7 @@ describe('Signed patch tamper detection', () => {
 
     // Integrity verification should fail (SHA256 mismatch)
     const result = await RvfaPatcher.verifyPatch(tampered);
-    assert.ok(!result.valid, 'Tampered signed patch should fail verification');
+    expect(!result.valid, 'Tampered signed patch should fail verification').toBeTruthy();
   });
 });
 
@@ -512,10 +498,7 @@ describe('parsePatchHeader edge cases', () => {
     const tampered = Buffer.from(patch);
     tampered.writeUInt32LE(99, 4); // bad version
 
-    assert.throws(
-      () => RvfaPatcher.parsePatchHeader(tampered),
-      /Unsupported RVFP version/,
-    );
+    expect(() => RvfaPatcher.parsePatchHeader(tampered)).toThrow(/Unsupported RVFP version/);
   });
 
   it('rejects a buffer with header length exceeding buffer size', async () => {
@@ -524,10 +507,7 @@ describe('parsePatchHeader edge cases', () => {
     buf.writeUInt32LE(1, 4); // version
     buf.writeUInt32LE(9999, 8); // header_len way too big
 
-    assert.throws(
-      () => RvfaPatcher.parsePatchHeader(buf),
-      /too small/,
-    );
+    expect(() => RvfaPatcher.parsePatchHeader(buf)).toThrow(/too small/);
   });
 });
 
@@ -540,7 +520,7 @@ describe('RvfaPublisher', () => {
     const publisher = new RvfaPublisher({
       pinataJwt: 'test-jwt-token-from-config',
     });
-    assert.ok(publisher);
+    expect(publisher).toBeTruthy();
   });
 
   it('constructor accepts JWT from process.env', () => {
@@ -548,7 +528,7 @@ describe('RvfaPublisher', () => {
     process.env.PINATA_API_JWT = 'test-jwt-from-env';
     try {
       const publisher = new RvfaPublisher({});
-      assert.ok(publisher);
+      expect(publisher).toBeTruthy();
     } finally {
       if (original !== undefined) {
         process.env.PINATA_API_JWT = original;
@@ -562,10 +542,7 @@ describe('RvfaPublisher', () => {
     const original = process.env.PINATA_API_JWT;
     delete process.env.PINATA_API_JWT;
     try {
-      assert.throws(
-        () => new RvfaPublisher({ pinataJwt: '' }),
-        /JWT/i,
-      );
+      expect(() => new RvfaPublisher({ pinataJwt: '' })).toThrow(/JWT/i);
     } finally {
       if (original !== undefined) {
         process.env.PINATA_API_JWT = original;
@@ -586,7 +563,7 @@ describe('Publisher URL construction', () => {
       const publisher = new RvfaPublisher({});
       // We cannot call .list() without network, but we can verify
       // the publisher was created successfully with defaults
-      assert.ok(publisher);
+      expect(publisher).toBeTruthy();
     } finally {
       if (original !== undefined) {
         process.env.PINATA_API_JWT = original;
@@ -602,7 +579,7 @@ describe('Publisher URL construction', () => {
       gatewayUrl: 'https://custom-gateway.example.com',
       apiUrl: 'https://custom-api.example.com',
     });
-    assert.ok(publisher);
+    expect(publisher).toBeTruthy();
   });
 
   it('strips trailing slashes from URLs', () => {
@@ -612,7 +589,7 @@ describe('Publisher URL construction', () => {
       apiUrl: 'https://api.example.com//',
     });
     // The publisher should be created without error (trailing slashes stripped internally)
-    assert.ok(publisher);
+    expect(publisher).toBeTruthy();
   });
 });
 
@@ -633,9 +610,9 @@ describe('Gzip-compressed patches', () => {
     });
 
     const header = RvfaPatcher.parsePatchHeader(patch);
-    assert.equal(header.compression, 'gzip');
+    expect(header.compression).toBe('gzip');
 
     const result = await RvfaPatcher.verifyPatch(patch);
-    assert.ok(result.valid, `Gzip patch should verify: ${result.errors.join(', ')}`);
+    expect(result.valid, `Gzip patch should verify: ${result.errors.join(', ')}`).toBeTruthy();
   });
 });

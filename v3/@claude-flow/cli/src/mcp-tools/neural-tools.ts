@@ -15,13 +15,18 @@
 import { type MCPTool, getProjectCwd } from './types.js';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { importOptional, TRANSFORMERS_NATIVE_PROBE } from '../services/optional-import.js';
 
 // Try to import real embeddings — prefer agentic-flow v3 ReasoningBank, then @claude-flow/embeddings
 let realEmbeddings: { embed: (text: string) => Promise<number[]> } | null = null;
 let embeddingServiceName: string = 'none';
 try {
   // Tier 1: agentic-flow v3 ReasoningBank (fastest — WASM-accelerated)
-  const rb = await import('agentic-flow/reasoningbank').catch(() => null);
+  // importOptional, not import().catch(): see services/optional-import.ts (Node 20 crash)
+  const rb = await importOptional<typeof import('agentic-flow/reasoningbank')>(
+    'agentic-flow/reasoningbank',
+    TRANSFORMERS_NATIVE_PROBE,
+  );
   if (rb?.computeEmbedding) {
     realEmbeddings = { embed: (text: string) => rb.computeEmbedding(text) };
     embeddingServiceName = 'agentic-flow/reasoningbank';

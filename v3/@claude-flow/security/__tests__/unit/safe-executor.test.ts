@@ -5,8 +5,8 @@
  * Tests secure command execution (CVE-3 prevention)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMock, type MockedInterface } from '../../helpers/create-mock';
-import { securityConfigs } from '../../fixtures/configurations';
+import { createMock, type MockedInterface } from '../helpers/create-mock';
+import { securityConfigs } from '../fixtures/configurations';
 
 /**
  * Safe executor interface (to be implemented)

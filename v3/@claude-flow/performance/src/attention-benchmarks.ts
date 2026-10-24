@@ -22,18 +22,25 @@ export interface ComparisonBenchmark {
   name: string;
   dimension: number;
   numKeys: number;
+  /**
+   * Timed iterations per implementation. An untimed warmup runs first and is
+   * not counted here.
+   */
   iterations: number;
   results: {
     flash: {
+      /** Per-iteration time: median of the per-batch averages (see runComparison). */
       averageTimeMs: number;
       opsPerSecond: number;
       memoryUsageBytes?: number;
     };
     baseline: {
+      /** Per-iteration time: median of the per-batch averages (see runComparison). */
       averageTimeMs: number;
       opsPerSecond: number;
       memoryUsageBytes?: number;
     };
+    /** baseline.averageTimeMs / flash.averageTimeMs */
     speedup: number;
     memoryReduction?: number; // Percentage
   };
@@ -62,6 +69,37 @@ export interface MemoryProfile {
   baselineMemoryBytes: number;
   reduction: number; // Percentage
   reductionBytes: number;
+}
+
+// ============================================================================
+// Timing helpers
+// ============================================================================
+
+/** Upper bound on timed batches per implementation. Odd, so the median is a real sample. */
+const MAX_TIMED_BATCHES = 9;
+/** Minimum untimed warmup iterations per implementation. */
+const MIN_WARMUP_ITERATIONS = 10;
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** Split `total` iterations into `batches` sizes that differ by at most one and sum to `total`. */
+function splitIterations(total: number, batches: number): number[] {
+  const base = Math.floor(total / batches);
+  const remainder = total % batches;
+  return Array.from({ length: batches }, (_, i) => base + (i < remainder ? 1 : 0));
+}
+
+/** Run `run` `count` times and return the average time per run in ms. */
+function timeBatch(run: () => void, count: number): number {
+  const start = performance.now();
+  for (let i = 0; i < count; i++) {
+    run();
+  }
+  return (performance.now() - start) / count;
 }
 
 // ============================================================================
@@ -120,24 +158,45 @@ export class AttentionBenchmarkRunner {
       }
     }
 
-    // Benchmark Flash Attention
-    const flashStart = performance.now();
-    for (let i = 0; i < iterations; i++) {
+    const runFlash = () => {
       flash.computeRaw(query, keys, values);
-    }
-    const flashEnd = performance.now();
-    const flashTimeMs = flashEnd - flashStart;
-    const flashAvgMs = flashTimeMs / iterations;
-    const flashOps = 1000 / flashAvgMs;
-
-    // Benchmark baseline
-    const baselineStart = performance.now();
-    for (let i = 0; i < iterations; i++) {
+    };
+    const runBaseline = () => {
       baseline.computeRaw(query, keys, values);
+    };
+
+    // Untimed warmup of both implementations, so neither side pays for JIT
+    // compilation, the native binding's first-call cost or cold caches.
+    const warmupIterations = Math.min(
+      iterations,
+      Math.max(MIN_WARMUP_ITERATIONS, Math.ceil(iterations / 10))
+    );
+    for (let i = 0; i < warmupIterations; i++) {
+      runFlash();
+      runBaseline();
     }
-    const baselineEnd = performance.now();
-    const baselineTimeMs = baselineEnd - baselineStart;
-    const baselineAvgMs = baselineTimeMs / iterations;
+
+    // Timed phase: the `iterations` runs are split into batches, and flash and
+    // baseline batches alternate (the order flips on every batch), so a burst
+    // of host load lands on both sides instead of one. Each side's time is the
+    // median of its per-batch averages, so a single slow batch (a GC pause, a
+    // descheduled worker) cannot move the result.
+    const batchSizes = splitIterations(iterations, Math.min(MAX_TIMED_BATCHES, iterations));
+    const flashSamples: number[] = [];
+    const baselineSamples: number[] = [];
+    batchSizes.forEach((size, batch) => {
+      if (batch % 2 === 0) {
+        flashSamples.push(timeBatch(runFlash, size));
+        baselineSamples.push(timeBatch(runBaseline, size));
+      } else {
+        baselineSamples.push(timeBatch(runBaseline, size));
+        flashSamples.push(timeBatch(runFlash, size));
+      }
+    });
+
+    const flashAvgMs = median(flashSamples);
+    const flashOps = 1000 / flashAvgMs;
+    const baselineAvgMs = median(baselineSamples);
     const baselineOps = 1000 / baselineAvgMs;
 
     const speedup = baselineAvgMs / flashAvgMs;

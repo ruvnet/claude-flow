@@ -10,13 +10,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 // ── Mock fs and module for initAgentWasm ─────────────────────
 
 vi.mock('node:fs', () => ({
-  readFileSync: vi.fn().mockReturnValue(new Uint8Array([0])),
+  readFileSync: vi.fn(() => new Uint8Array([0])),
 }));
 
 vi.mock('node:module', () => ({
-  createRequire: vi.fn().mockReturnValue({
-    resolve: vi.fn().mockReturnValue('/fake/rvagent_wasm_bg.wasm'),
-  }),
+  createRequire: vi.fn(() => ({
+    resolve: vi.fn(() => '/fake/rvagent_wasm_bg.wasm'),
+  })),
 }));
 
 // ── Mock @ruvector/rvagent-wasm ──────────────────────────────
@@ -31,14 +31,14 @@ class MockWasmAgent {
     const cfg = JSON.parse(configJson);
     this._model = cfg.model ?? 'default';
   }
-  prompt = vi.fn().mockResolvedValue('Hello from WASM agent');
+  prompt = vi.fn(async () => 'Hello from WASM agent');
   set_model_provider = vi.fn();
   reset = vi.fn();
   free = vi.fn();
-  get_state = vi.fn().mockReturnValue({ messages: [], turn_count: 0, stopped: false });
-  get_todos = vi.fn().mockReturnValue([]);
-  get_tools = vi.fn().mockReturnValue(['read_file', 'write_file', 'edit_file', 'write_todos', 'list_files']);
-  execute_tool = vi.fn().mockResolvedValue(mockToolResult);
+  get_state = vi.fn(() => ({ messages: [], turn_count: 0, stopped: false }));
+  get_todos = vi.fn(() => []);
+  get_tools = vi.fn(() => ['read_file', 'write_file', 'edit_file', 'write_todos', 'list_files']);
+  execute_tool = vi.fn(async () => mockToolResult);
   model() { return this._model; }
   name() { return undefined; }
   turn_count() { return this._turnCount; }
@@ -61,16 +61,16 @@ const mockTemplateDetail = {
 };
 
 class MockWasmGallery {
-  list = vi.fn().mockReturnValue(mockTemplates);
-  get = vi.fn().mockImplementation((id: string) => id === 'coder' ? mockTemplateDetail : undefined);
-  search = vi.fn().mockReturnValue([{ ...mockTemplates[0], relevance: 0.7 }]);
-  count = vi.fn().mockReturnValue(2);
-  getCategories = vi.fn().mockReturnValue({ development: 1, testing: 1 });
+  list = vi.fn(() => mockTemplates);
+  get = vi.fn((id: string) => id === 'coder' ? mockTemplateDetail : undefined);
+  search = vi.fn(() => [{ ...mockTemplates[0], relevance: 0.7 }]);
+  count = vi.fn(() => 2);
+  getCategories = vi.fn(() => ({ development: 1, testing: 1 }));
   free = vi.fn();
 }
 
 class MockWasmMcpServer {
-  handle_request = vi.fn().mockResolvedValue('{"jsonrpc":"2.0","id":1,"result":{}}');
+  handle_request = vi.fn(async () => '{"jsonrpc":"2.0","id":1,"result":{}}');
   free = vi.fn();
   constructor(_agent: any) {}
 }
@@ -88,12 +88,12 @@ class MockWasmRvfBuilder {
   addCapabilities = vi.fn();
   addMcpTools = vi.fn();
   setOrchestrator = vi.fn();
-  build = vi.fn().mockReturnValue(new Uint8Array([0x52, 0x56, 0x46, 0x01]));
+  build = vi.fn(() => new Uint8Array([0x52, 0x56, 0x46, 0x01]));
   free = vi.fn();
 }
 
 vi.mock('@ruvector/rvagent-wasm', () => ({
-  default: vi.fn().mockResolvedValue(undefined),
+  default: vi.fn(async () => undefined),
   initSync: vi.fn(),
   WasmAgent: MockWasmAgent,
   WasmGallery: MockWasmGallery,

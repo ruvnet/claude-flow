@@ -5,8 +5,8 @@
  * Tests password hashing and verification behavior
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMock, createMockWithBehavior, type MockedInterface } from '../../helpers/create-mock';
-import { securityConfigs } from '../../fixtures/configurations';
+import { createMock, type MockedInterface } from '../helpers/create-mock';
+import { securityConfigs } from '../fixtures/configurations';
 
 /**
  * Password hasher interface (to be implemented)

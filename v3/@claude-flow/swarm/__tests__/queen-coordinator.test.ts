@@ -279,7 +279,12 @@ describe('QueenCoordinator', () => {
   let mockMemory: IMemoryService;
 
   beforeEach(() => {
-    vi.useFakeTimers();
+    // Since Vitest 3, useFakeTimers() with no toFake list also fakes
+    // performance, freezing performance.now() so every recorded latency was 0.
+    // Fake only the timer/clock APIs these tests drive; performance stays real.
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'setImmediate', 'clearImmediate', 'Date'],
+    });
     mockSwarm = createMockSwarmCoordinator();
     mockNeural = createMockNeuralSystem();
     mockMemory = createMockMemoryService();

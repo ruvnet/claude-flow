@@ -272,7 +272,8 @@ export abstract class BasePlugin extends EventEmitter implements IPlugin {
     for (const dep of deps) {
       // Dependencies are validated by the PluginManager
       // This hook allows plugins to do additional checks
-      this.logger.debug(`Dependency validated: ${dep}`);
+      const depName = typeof dep === 'string' ? dep : `${dep.name}@${dep.version}`;
+      this.logger.debug(`Dependency validated: ${depName}`);
     }
   }
 

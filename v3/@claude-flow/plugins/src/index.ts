@@ -82,6 +82,7 @@ export {
 
 export {
   EnhancedPluginRegistry,
+  PluginConflictError,
   getDefaultEnhancedRegistry,
   setDefaultEnhancedRegistry,
   type EnhancedPluginRegistryConfig,

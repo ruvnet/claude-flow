@@ -346,6 +346,13 @@ export class HookBuilder {
   }
 
   /**
+   * Set the handler function (alias of handle(), kept for SDK callers).
+   */
+  withHandler(handler: HookHandler): this {
+    return this.handle(handler);
+  }
+
+  /**
    * Build the hook definition.
    */
   build(): HookDefinition {

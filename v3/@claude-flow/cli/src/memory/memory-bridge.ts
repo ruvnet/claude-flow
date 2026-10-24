@@ -63,6 +63,23 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
   if (!registryPromise) {
     registryPromise = (async () => {
       try {
+        // On Node 20, AgentDB's own caught import of transformers.js still
+        // crashes the process when sharp/onnxruntime-node cannot load (see
+        // services/optional-import.ts). Use the sql.js fallback there instead.
+        const {
+          esmLoaderDoubleReportsCjsErrors,
+          nativeDepsLoadable,
+          AGENTDB_TRANSFORMERS_NATIVE_PROBE,
+        } = await import('../services/optional-import.js');
+        if (
+          esmLoaderDoubleReportsCjsErrors() &&
+          !nativeDepsLoadable('@claude-flow/memory', AGENTDB_TRANSFORMERS_NATIVE_PROBE)
+        ) {
+          bridgeAvailable = false;
+          registryPromise = null;
+          return null;
+        }
+
         const { ControllerRegistry } = await import('@claude-flow/memory');
         const registry = new ControllerRegistry();
 
@@ -81,7 +98,9 @@ async function getRegistry(dbPath?: string): Promise<any | null> {
         try {
           await registry.initialize({
             dbPath: dbPath || getDbPath(),
-            embeddingModel: 'Xenova/all-MiniLM-L6-v2',
+            // 384 = Xenova/all-MiniLM-L6-v2. RuntimeConfig has no model-name
+            // field; the registry only takes the dimension (or an
+            // embeddingGenerator), so the model is selected elsewhere.
             dimension: 384,
             controllers: {
               reasoningBank: true,

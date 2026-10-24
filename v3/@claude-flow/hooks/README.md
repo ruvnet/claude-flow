@@ -386,6 +386,7 @@ class StatuslineGenerator {
 |----------|-------------|---------|
 | `CLAUDE_FLOW_HOOK_TIMEOUT` | Hook execution timeout (ms) | `5000` |
 | `CLAUDE_FLOW_REASONINGBANK_ENABLED` | Enable ReasoningBank | `true` |
+| `CLAUDE_FLOW_AGENTIC_EMBEDDINGS` | Set to `1` to let ReasoningBank's fallback embeddings try `npx agentic-flow@alpha` (async subprocess, disabled for the rest of the process after the first failure) before the built-in hash embedding. Ignored when `useMockEmbeddings` is true | unset (off) |
 | `CLAUDE_FLOW_HOOKS_NAMESPACE` | Learning namespace | `hooks-learning` |
 | `CLAUDE_FLOW_HOOKS_LOG_LEVEL` | Logging level | `info` |
 | `CLAUDE_FLOW_SHOW_HOOKS_METRICS` | Show hooks in statusline | `true` |

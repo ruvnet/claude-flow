@@ -44,7 +44,8 @@
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^4.0.16",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "zod": "^3.25.76"
   },
   "engines": {
     "node": ">=20.0.0",

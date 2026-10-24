@@ -1,12 +1,11 @@
 /**
  * RVFA binary format tests.
  *
- * Uses the Node.js built-in test runner (node:test).
- * Run: npx tsx --test v3/__tests__/appliance/rvfa-format.test.ts
+ * Uses Vitest (collected by the v3 root vitest config).
+ * Run: cd v3 && npx vitest run __tests__/appliance/rvfa-format.test.ts
  */
 
-import { describe, it, beforeEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, beforeEach, expect } from 'vitest';
 import { createHash } from 'node:crypto';
 import {
   RvfaWriter,
@@ -35,12 +34,12 @@ function addTestSections(writer: RvfaWriter): void {
 
 describe('Format constants', () => {
   it('RVFA_MAGIC is the 4-byte ASCII string "RVFA"', () => {
-    assert.equal(RVFA_MAGIC.toString('ascii'), 'RVFA');
-    assert.equal(RVFA_MAGIC.length, 4);
+    expect(RVFA_MAGIC.toString('ascii')).toBe('RVFA');
+    expect(RVFA_MAGIC.length).toBe(4);
   });
 
   it('RVFA_VERSION is 1', () => {
-    assert.equal(RVFA_VERSION, 1);
+    expect(RVFA_VERSION).toBe(1);
   });
 });
 
@@ -50,22 +49,22 @@ describe('createDefaultHeader', () => {
   for (const profile of ['cloud', 'hybrid', 'offline'] as const) {
     it(`returns a valid header for "${profile}" profile`, () => {
       const header = createDefaultHeader(profile);
-      assert.equal(header.profile, profile);
-      assert.equal(header.magic, 'RVFA');
-      assert.equal(header.version, RVFA_VERSION);
-      assert.ok(Array.isArray(header.sections));
-      assert.ok(Array.isArray(header.capabilities));
-      assert.equal(typeof header.boot.entrypoint, 'string');
-      assert.ok(validateHeader(header));
+      expect(header.profile).toBe(profile);
+      expect(header.magic).toBe('RVFA');
+      expect(header.version).toBe(RVFA_VERSION);
+      expect(Array.isArray(header.sections)).toBeTruthy();
+      expect(Array.isArray(header.capabilities)).toBeTruthy();
+      expect(typeof header.boot.entrypoint).toBe('string');
+      expect(validateHeader(header)).toBeTruthy();
     });
   }
 
   it('cloud profile does not include ruvllm capability', () => {
-    assert.ok(!createDefaultHeader('cloud').capabilities.includes('ruvllm'));
+    expect(!createDefaultHeader('cloud').capabilities.includes('ruvllm')).toBeTruthy();
   });
 
   it('offline profile includes ruvllm capability', () => {
-    assert.ok(createDefaultHeader('offline').capabilities.includes('ruvllm'));
+    expect(createDefaultHeader('offline').capabilities.includes('ruvllm')).toBeTruthy();
   });
 });
 
@@ -73,59 +72,59 @@ describe('createDefaultHeader', () => {
 
 describe('validateHeader', () => {
   it('accepts a well-formed header', () => {
-    assert.ok(validateHeader(createDefaultHeader('cloud')));
+    expect(validateHeader(createDefaultHeader('cloud'))).toBeTruthy();
   });
 
   it('rejects null, non-object, and primitives', () => {
-    assert.equal(validateHeader(null), false);
-    assert.equal(validateHeader('string'), false);
-    assert.equal(validateHeader(42), false);
+    expect(validateHeader(null)).toBe(false);
+    expect(validateHeader('string')).toBe(false);
+    expect(validateHeader(42)).toBe(false);
   });
 
   it('rejects header with missing or wrong magic', () => {
     const h1 = createDefaultHeader('cloud') as Record<string, unknown>;
     delete h1.magic;
-    assert.equal(validateHeader(h1), false);
+    expect(validateHeader(h1)).toBe(false);
 
     const h2 = createDefaultHeader('cloud') as Record<string, unknown>;
     h2.magic = 'NOPE';
-    assert.equal(validateHeader(h2), false);
+    expect(validateHeader(h2)).toBe(false);
   });
 
   it('rejects header with wrong version type', () => {
     const h = createDefaultHeader('cloud') as Record<string, unknown>;
     h.version = 'not-a-number';
-    assert.equal(validateHeader(h), false);
+    expect(validateHeader(h)).toBe(false);
   });
 
   it('rejects header with invalid profile', () => {
     const h = createDefaultHeader('cloud') as Record<string, unknown>;
     h.profile = 'invalid';
-    assert.equal(validateHeader(h), false);
+    expect(validateHeader(h)).toBe(false);
   });
 
   it('rejects header with invalid boot.isolation', () => {
     const h = createDefaultHeader('cloud');
     (h.boot as Record<string, unknown>).isolation = 'bad';
-    assert.equal(validateHeader(h), false);
+    expect(validateHeader(h)).toBe(false);
   });
 
   it('rejects header with invalid models.provider', () => {
     const h = createDefaultHeader('cloud');
     (h.models as Record<string, unknown>).provider = 'bad';
-    assert.equal(validateHeader(h), false);
+    expect(validateHeader(h)).toBe(false);
   });
 });
 
 // -- 4. formatSize ------------------------------------------------------------
 
 describe('formatSize', () => {
-  it('formats 0 bytes', () => assert.equal(formatSize(0), '0 B'));
-  it('formats bytes below 1 KB', () => assert.equal(formatSize(512), '512 B'));
-  it('formats kilobytes', () => assert.equal(formatSize(1536), '1.5 KB'));
-  it('formats megabytes', () => assert.equal(formatSize(2.3 * 1024 * 1024), '2.3 MB'));
-  it('formats gigabytes', () => assert.equal(formatSize(4.1 * 1024 * 1024 * 1024), '4.1 GB'));
-  it('formats negative bytes as 0 B', () => assert.equal(formatSize(-100), '0 B'));
+  it('formats 0 bytes', () => expect(formatSize(0)).toBe('0 B'));
+  it('formats bytes below 1 KB', () => expect(formatSize(512)).toBe('512 B'));
+  it('formats kilobytes', () => expect(formatSize(1536)).toBe('1.5 KB'));
+  it('formats megabytes', () => expect(formatSize(2.3 * 1024 * 1024)).toBe('2.3 MB'));
+  it('formats gigabytes', () => expect(formatSize(4.1 * 1024 * 1024 * 1024)).toBe('4.1 GB'));
+  it('formats negative bytes as 0 B', () => expect(formatSize(-100)).toBe('0 B'));
 });
 
 // -- 5. RvfaWriter ------------------------------------------------------------
@@ -135,13 +134,13 @@ describe('RvfaWriter', () => {
     const writer = makeWriter();
     addTestSections(writer);
     const buf = writer.build();
-    assert.equal(buf.subarray(0, 4).toString('ascii'), 'RVFA');
+    expect(buf.subarray(0, 4).toString('ascii')).toBe('RVFA');
   });
 
   it('writes the correct version number', () => {
     const writer = makeWriter();
     addTestSections(writer);
-    assert.equal(writer.build().readUInt32LE(4), RVFA_VERSION);
+    expect(writer.build().readUInt32LE(4)).toBe(RVFA_VERSION);
   });
 
   it('adds sections with correct SHA256', () => {
@@ -154,7 +153,7 @@ describe('RvfaWriter', () => {
     const sections = reader.getSections();
     const stored = buf.subarray(sections[0].offset, sections[0].offset + sections[0].size);
     const expected = createHash('sha256').update(stored).digest('hex');
-    assert.equal(sections[0].sha256, expected);
+    expect(sections[0].sha256).toBe(expected);
   });
 
   it('compresses sections with gzip when requested', () => {
@@ -165,8 +164,8 @@ describe('RvfaWriter', () => {
 
     const reader = RvfaReader.fromBuffer(buf);
     const sections = reader.getSections();
-    assert.equal(sections[0].compression, 'gzip');
-    assert.ok(sections[0].size < payload.length);
+    expect(sections[0].compression).toBe('gzip');
+    expect(sections[0].size < payload.length).toBeTruthy();
   });
 
   it('computes a valid footer hash', () => {
@@ -174,7 +173,7 @@ describe('RvfaWriter', () => {
     addTestSections(writer);
     const reader = RvfaReader.fromBuffer(writer.build());
     const result = reader.verify();
-    assert.ok(result.valid, `Footer hash invalid: ${result.errors.join(', ')}`);
+    expect(result.valid, `Footer hash invalid: ${result.errors.join(', ')}`).toBeTruthy();
   });
 
   it('produces valid header JSON', () => {
@@ -183,7 +182,7 @@ describe('RvfaWriter', () => {
     const buf = writer.build();
     const headerLen = buf.readUInt32LE(8);
     const headerJson = buf.subarray(12, 12 + headerLen).toString('utf-8');
-    assert.doesNotThrow(() => JSON.parse(headerJson));
+    expect(() => JSON.parse(headerJson)).not.toThrow();
   });
 
   it('section offsets are correct and non-overlapping', () => {
@@ -197,10 +196,7 @@ describe('RvfaWriter', () => {
     for (let i = 1; i < sections.length; i++) {
       const prev = sections[i - 1];
       const curr = sections[i];
-      assert.ok(
-        prev.offset + prev.size <= curr.offset,
-        `${prev.id} overlaps ${curr.id}`,
-      );
+      expect(prev.offset + prev.size <= curr.offset, `${prev.id} overlaps ${curr.id}`).toBeTruthy();
     }
   });
 });
@@ -219,31 +215,31 @@ describe('RvfaReader', () => {
   it('reads back what RvfaWriter wrote (round-trip)', () => {
     const reader = RvfaReader.fromBuffer(validBuf);
     const header = reader.getHeader();
-    assert.equal(header.name, 'test-appliance');
-    assert.equal(header.profile, 'cloud');
-    assert.equal(header.sections.length, 3);
+    expect(header.name).toBe('test-appliance');
+    expect(header.profile).toBe('cloud');
+    expect(header.sections.length).toBe(3);
   });
 
   it('extracts uncompressed sections correctly', () => {
     const data = RvfaReader.fromBuffer(validBuf).extractSection('kernel');
-    assert.equal(data.toString('utf-8'), 'kernel-payload');
+    expect(data.toString('utf-8')).toBe('kernel-payload');
   });
 
   it('extracts gzip-compressed sections correctly', () => {
     const data = RvfaReader.fromBuffer(validBuf).extractSection('runtime');
-    assert.equal(data.toString('utf-8'), 'runtime-payload');
+    expect(data.toString('utf-8')).toBe('runtime-payload');
   });
 
   it('verify() passes for a valid file', () => {
     const result = RvfaReader.fromBuffer(validBuf).verify();
-    assert.ok(result.valid);
-    assert.equal(result.errors.length, 0);
+    expect(result.valid).toBeTruthy();
+    expect(result.errors.length).toBe(0);
   });
 
   it('verify() fails for tampered magic bytes', () => {
     const tampered = Buffer.from(validBuf);
     tampered[0] = 0x00;
-    assert.throws(() => RvfaReader.fromBuffer(tampered), /Invalid RVFA magic/);
+    expect(() => RvfaReader.fromBuffer(tampered)).toThrow(/Invalid RVFA magic/);
   });
 
   it('verify() fails for tampered section data', () => {
@@ -251,22 +247,22 @@ describe('RvfaReader', () => {
     const sections = RvfaReader.fromBuffer(validBuf).getSections();
     tampered[sections[0].offset + 1] ^= 0xff;
     const result = RvfaReader.fromBuffer(tampered).verify();
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('SHA256 mismatch')));
+    expect(!result.valid).toBeTruthy();
+    expect(result.errors.some((e) => e.includes('SHA256 mismatch'))).toBeTruthy();
   });
 
   it('verify() fails for tampered footer hash', () => {
     const tampered = Buffer.from(validBuf);
     tampered[tampered.length - 1] ^= 0xff;
     const result = RvfaReader.fromBuffer(tampered).verify();
-    assert.ok(!result.valid);
-    assert.ok(result.errors.some((e) => e.includes('Footer SHA256 mismatch')));
+    expect(!result.valid).toBeTruthy();
+    expect(result.errors.some((e) => e.includes('Footer SHA256 mismatch'))).toBeTruthy();
   });
 
   it('rejects files with wrong magic bytes', () => {
     const bad = Buffer.alloc(100);
     bad.write('NOPE', 0, 'ascii');
-    assert.throws(() => RvfaReader.fromBuffer(bad), /Invalid RVFA magic/);
+    expect(() => RvfaReader.fromBuffer(bad)).toThrow(/Invalid RVFA magic/);
   });
 
   it('rejects files with header too large (>1MB)', () => {
@@ -274,14 +270,14 @@ describe('RvfaReader', () => {
     buf.write('RVFA', 0, 'ascii');
     buf.writeUInt32LE(RVFA_VERSION, 4);
     buf.writeUInt32LE(2 * 1024 * 1024, 8);
-    assert.throws(() => RvfaReader.fromBuffer(buf), /exceeds maximum size/);
+    expect(() => RvfaReader.fromBuffer(buf)).toThrow(/exceeds maximum size/);
   });
 
   it('handles empty sections', () => {
     const writer = makeWriter();
     writer.addSection('kernel', Buffer.alloc(0), { compression: 'none' });
     const data = RvfaReader.fromBuffer(writer.build()).extractSection('kernel');
-    assert.equal(data.length, 0);
+    expect(data.length).toBe(0);
   });
 
   it('handles multiple sections', () => {
@@ -293,16 +289,13 @@ describe('RvfaReader', () => {
     writer.addSection('data', Buffer.from('d'), { compression: 'none' });
     writer.addSection('verify', Buffer.from('v'), { compression: 'none' });
     const reader = RvfaReader.fromBuffer(writer.build());
-    assert.equal(reader.getSections().length, 6);
-    assert.equal(reader.extractSection('kernel').toString(), 'k');
-    assert.equal(reader.extractSection('verify').toString(), 'v');
+    expect(reader.getSections().length).toBe(6);
+    expect(reader.extractSection('kernel').toString()).toBe('k');
+    expect(reader.extractSection('verify').toString()).toBe('v');
   });
 
   it('throws when extracting a nonexistent section', () => {
-    assert.throws(
-      () => RvfaReader.fromBuffer(validBuf).extractSection('nonexistent'),
-      /not found/,
-    );
+    expect(() => RvfaReader.fromBuffer(validBuf).extractSection('nonexistent')).toThrow(/not found/);
   });
 });
 
@@ -328,7 +321,7 @@ describe('Security', () => {
     ]);
     corrupted.writeUInt32LE(corruptedHeader.length, 8);
 
-    assert.throws(() => RvfaReader.fromBuffer(corrupted), /negative/i);
+    expect(() => RvfaReader.fromBuffer(corrupted)).toThrow(/negative/i);
   });
 
   it('rejects overlapping sections', () => {
@@ -351,7 +344,7 @@ describe('Security', () => {
     ]);
     corrupted.writeUInt32LE(corruptedHeader.length, 8);
 
-    assert.throws(() => RvfaReader.fromBuffer(corrupted), /overlap/i);
+    expect(() => RvfaReader.fromBuffer(corrupted)).toThrow(/overlap/i);
   });
 
   it('rejects header larger than 1MB', () => {
@@ -359,19 +352,16 @@ describe('Security', () => {
     buf.write('RVFA', 0, 'ascii');
     buf.writeUInt32LE(RVFA_VERSION, 4);
     buf.writeUInt32LE(1_048_577, 8);
-    assert.throws(() => RvfaReader.fromBuffer(buf), /exceeds maximum size/);
+    expect(() => RvfaReader.fromBuffer(buf)).toThrow(/exceeds maximum size/);
   });
 
   it('rejects buffer too small for preamble', () => {
     const buf = Buffer.alloc(8);
     buf.write('RVFA', 0, 'ascii');
-    assert.throws(() => RvfaReader.fromBuffer(buf), /too small/);
+    expect(() => RvfaReader.fromBuffer(buf)).toThrow(/too small/);
   });
 
   it('rejects file paths with null bytes', async () => {
-    await assert.rejects(
-      () => RvfaReader.fromFile('/tmp/test\0exploit.rvfa'),
-      /null bytes/,
-    );
+    await expect(RvfaReader.fromFile('/tmp/test\0exploit.rvfa')).rejects.toThrow(/null bytes/);
   });
 });

@@ -14,7 +14,7 @@ import {
   SafeExecutorError,
   createDevelopmentExecutor,
   createReadOnlyExecutor,
-} from '../../security/safe-executor.js';
+} from '../src/safe-executor.js';
 
 describe('SafeExecutor', () => {
   let executor: SafeExecutor;

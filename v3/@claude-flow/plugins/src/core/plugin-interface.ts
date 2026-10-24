@@ -115,6 +115,25 @@ export interface IPlugin {
    * Called during initialization to add model providers.
    */
   registerProviders?(): LLMProviderDefinition[];
+
+  // =========================================================================
+  // Hot Reload State
+  // =========================================================================
+
+  /**
+   * Export plugin-owned state so it can be carried over a hot reload
+   * (EnhancedPluginRegistry.reload with preserveState).
+   *
+   * This is deliberately not called getState/setState: BasePlugin already
+   * uses setState as its protected lifecycle-state setter.
+   */
+  exportState?(): unknown | Promise<unknown>;
+
+  /**
+   * Import state previously produced by exportState() (after optional
+   * migration). Called on the replacement plugin after it is initialized.
+   */
+  importState?(state: unknown): void | Promise<void>;
 }
 
 // ============================================================================
@@ -172,9 +191,26 @@ export function validatePluginMetadata(metadata: unknown): metadata is PluginMet
 
   if (m.dependencies !== undefined) {
     if (!Array.isArray(m.dependencies)) return false;
-    if (!m.dependencies.every(d => typeof d === 'string')) return false;
+    if (!m.dependencies.every(isValidDependency)) return false;
   }
 
+  return true;
+}
+
+/**
+ * A dependency is either a non-empty name ("name" or "name@range") or a
+ * { name, version, optional?, peerDependency? } object, matching what the
+ * registries' dependency parsing accepts.
+ */
+function isValidDependency(dep: unknown): boolean {
+  if (typeof dep === 'string') return dep.length > 0;
+  if (!dep || typeof dep !== 'object' || Array.isArray(dep)) return false;
+
+  const d = dep as Record<string, unknown>;
+  if (typeof d.name !== 'string' || d.name.length === 0) return false;
+  if (typeof d.version !== 'string' || d.version.length === 0) return false;
+  if (d.optional !== undefined && typeof d.optional !== 'boolean') return false;
+  if (d.peerDependency !== undefined && typeof d.peerDependency !== 'boolean') return false;
   return true;
 }
 
@@ -203,6 +239,8 @@ export function validatePlugin(plugin: unknown): plugin is IPlugin {
     'registerHooks',
     'registerWorkers',
     'registerProviders',
+    'exportState',
+    'importState',
   ];
 
   for (const method of optionalMethods) {

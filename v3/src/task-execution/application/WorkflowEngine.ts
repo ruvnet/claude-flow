@@ -369,7 +369,11 @@ export class WorkflowEngine {
     workflow: WorkflowDefinition
   ): Promise<WorkflowResult> {
     const tasks = workflow.tasks.map(t => new Task(t));
+    // completedTasks tracks this workflow's own task ids (dependency/order
+    // bookkeeping). leafTasksCompleted counts executed work units: a nested
+    // workflow contributes the tasks it completed, not 1 for its container.
     const completedTasks = new Set<string>();
+    let leafTasksCompleted = 0;
     const errors: Error[] = [];
 
     // Resolve execution order
@@ -396,6 +400,7 @@ export class WorkflowEngine {
           if (nestedResult.status === 'failed') {
             throw new Error(`Nested workflow failed`);
           }
+          leafTasksCompleted += nestedResult.tasksCompleted;
         } else {
           // Get assigned agent or distribute
           let agentId = task.assignedTo;
@@ -413,6 +418,7 @@ export class WorkflowEngine {
           if (result.status === 'failed') {
             throw new Error(result.error || 'Task execution failed');
           }
+          leafTasksCompleted++;
         }
 
         const endTime = Date.now();
@@ -451,7 +457,7 @@ export class WorkflowEngine {
     return {
       id: workflow.id,
       status: errors.length > 0 ? 'failed' : 'completed',
-      tasksCompleted: completedTasks.size,
+      tasksCompleted: leafTasksCompleted,
       errors,
       executionOrder: execution.executionOrder,
       duration: execution.state.completedAt - (execution.state.startedAt || 0)

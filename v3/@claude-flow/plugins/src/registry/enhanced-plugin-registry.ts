@@ -27,9 +27,11 @@ import type {
   WorkerDefinition,
   LLMProviderDefinition,
   HealthCheckResult,
+  PluginDependencySpec,
 } from '../types/index.js';
 import type { IPlugin, PluginFactory } from '../core/plugin-interface.js';
 import { validatePlugin, PLUGIN_EVENTS } from '../core/plugin-interface.js';
+import { BasePlugin } from '../core/base-plugin.js';
 import {
   DependencyGraph,
   type PluginDependency,
@@ -107,6 +109,28 @@ export interface ServiceMetadata {
   deprecated?: boolean;
   replacement?: string;
 }
+
+/**
+ * Raised when two plugins register the same agent type, task type, MCP tool
+ * or CLI command and the conflict strategy is 'error' (the default).
+ *
+ * Unlike an ordinary plugin initialization failure (recorded on the plugin's
+ * entry and logged), a conflict makes EnhancedPluginRegistry.initialize()
+ * reject: silently dropping one of two same-named tools is not safe.
+ */
+export class PluginConflictError extends Error {
+  constructor(
+    public readonly category: string,
+    public readonly identifier: string,
+    public readonly existingPlugin: string,
+    public readonly conflictingPlugin: string
+  ) {
+    super(`${category}: ${identifier} conflict between ${existingPlugin} and ${conflictingPlugin}`);
+    this.name = 'PluginConflictError';
+  }
+}
+
+type ConflictCategory = 'agentTypes' | 'taskTypes' | 'mcpTools' | 'cliCommands';
 
 // ============================================================================
 // Enhanced Service Container
@@ -430,13 +454,8 @@ export class EnhancedPluginRegistry extends EventEmitter {
         continue;
       }
 
-      try {
-        await this.initializePlugin(entry);
-        this.logger.info(`Plugin initialized: ${name}`);
-      } catch (error) {
-        entry.error = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Failed to initialize plugin ${name}: ${entry.error}`);
-      }
+      const conflict = await this.initializeAndRecord(entry);
+      if (conflict) throw conflict;
     }
   }
 
@@ -447,12 +466,9 @@ export class EnhancedPluginRegistry extends EventEmitter {
     // Initialize in batches
     for (let i = 0; i < entries.length; i += maxParallel) {
       const batch = entries.slice(i, i + maxParallel);
-      const promises = batch.map(entry => this.initializePlugin(entry).catch(err => {
-        entry.error = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Failed to initialize plugin ${entry.plugin.metadata.name}: ${entry.error}`);
-      }));
-
-      await Promise.all(promises);
+      const conflicts = await Promise.all(batch.map(entry => this.initializeAndRecord(entry)));
+      const conflict = conflicts.find(c => c !== undefined);
+      if (conflict) throw conflict;
     }
   }
 
@@ -464,21 +480,38 @@ export class EnhancedPluginRegistry extends EventEmitter {
       // Initialize each level in parallel, but levels are sequential
       for (let i = 0; i < level.length; i += maxParallel) {
         const batch = level.slice(i, i + maxParallel);
-        const promises = batch.map(async name => {
+        const conflicts = await Promise.all(batch.map(async name => {
           const entry = this.plugins.get(name);
-          if (!entry || !entry.config.enabled) return;
-
-          try {
-            await this.initializePlugin(entry);
-            this.logger.info(`Plugin initialized: ${name}`);
-          } catch (error) {
-            entry.error = error instanceof Error ? error.message : String(error);
-            this.logger.error(`Failed to initialize plugin ${name}: ${entry.error}`);
-          }
-        });
-
-        await Promise.all(promises);
+          if (!entry || !entry.config.enabled) return undefined;
+          return this.initializeAndRecord(entry);
+        }));
+        const conflict = conflicts.find(c => c !== undefined);
+        if (conflict) throw conflict;
       }
+    }
+  }
+
+  /**
+   * Initialize one plugin. Ordinary failures are recorded on the entry and
+   * logged, as before. An extension-point conflict is also recorded, the
+   * plugin is shut down again (none of its extensions were registered), and
+   * the error is returned so initialize() can reject with it.
+   */
+  private async initializeAndRecord(entry: PluginEntry): Promise<PluginConflictError | undefined> {
+    const name = entry.plugin.metadata.name;
+    try {
+      await this.initializePlugin(entry);
+      this.logger.info(`Plugin initialized: ${name}`);
+      return undefined;
+    } catch (error) {
+      entry.error = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to initialize plugin ${name}: ${entry.error}`);
+      if (error instanceof PluginConflictError) {
+        this.eventBus.emit(PLUGIN_EVENTS.ERROR, { plugin: name, error: entry.error });
+        await this.shutdownPlugin(name);
+        return error;
+      }
+      return undefined;
     }
   }
 
@@ -531,8 +564,11 @@ export class EnhancedPluginRegistry extends EventEmitter {
 
     // Capture state if preserving
     let state: unknown;
-    if (options?.preserveState && (entry.plugin as any).getState) {
-      state = await (entry.plugin as any).getState();
+    let hasState = false;
+    if (options?.preserveState) {
+      const captured = await this.exportPluginState(entry.plugin);
+      hasState = captured.found;
+      state = captured.state;
     }
 
     // Shutdown old plugin
@@ -568,11 +604,11 @@ export class EnhancedPluginRegistry extends EventEmitter {
     ]);
 
     // Restore state if applicable
-    if (state && options?.migrateState) {
+    if (hasState && options?.migrateState) {
       state = options.migrateState(state, resolved.metadata.version);
     }
-    if (state && (resolved as any).setState) {
-      await (resolved as any).setState(state);
+    if (hasState) {
+      await this.importPluginState(resolved, state);
     }
 
     // Update entry
@@ -587,6 +623,47 @@ export class EnhancedPluginRegistry extends EventEmitter {
     this.eventBus.emit(PLUGIN_EVENTS.INITIALIZED, { plugin: name, reloaded: true });
   }
 
+  /**
+   * Read a plugin's reload state via exportState(). Falls back to the
+   * deprecated duck-typed getState() for plugins written against the old
+   * reload contract.
+   */
+  private async exportPluginState(plugin: IPlugin): Promise<{ found: boolean; state: unknown }> {
+    if (typeof plugin.exportState === 'function') {
+      return { found: true, state: await plugin.exportState() };
+    }
+    const legacy = plugin as IPlugin & { getState?: () => unknown };
+    if (typeof legacy.getState === 'function') {
+      this.logger.warn(
+        `Plugin ${plugin.metadata.name}: getState() for hot reload is deprecated, implement exportState()`
+      );
+      return { found: true, state: await legacy.getState() };
+    }
+    return { found: false, state: undefined };
+  }
+
+  /**
+   * Hand reload state to the replacement plugin via importState(). The
+   * deprecated setState() fallback is used only for plugins that are not a
+   * BasePlugin: on BasePlugin, setState() is the protected lifecycle-state
+   * setter and must never receive user state.
+   */
+  private async importPluginState(plugin: IPlugin, state: unknown): Promise<void> {
+    if (typeof plugin.importState === 'function') {
+      await plugin.importState(state);
+      return;
+    }
+    const legacy = plugin as IPlugin & { setState?: (state: unknown) => unknown };
+    if (!(plugin instanceof BasePlugin) && typeof legacy.setState === 'function') {
+      this.logger.warn(
+        `Plugin ${plugin.metadata.name}: setState() for hot reload is deprecated, implement importState()`
+      );
+      await legacy.setState(state);
+      return;
+    }
+    this.logger.warn(`Plugin ${plugin.metadata.name} has no importState(); preserved state was dropped`);
+  }
+
   // =========================================================================
   // Extension Points
   // =========================================================================
@@ -595,83 +672,75 @@ export class EnhancedPluginRegistry extends EventEmitter {
     const name = plugin.metadata.name;
     const resolution = this.config.conflictResolution;
 
+    const agentTypes = plugin.registerAgentTypes?.() ?? [];
+    const taskTypes = plugin.registerTaskTypes?.() ?? [];
+    const tools = plugin.registerMCPTools?.() ?? [];
+    const commands = plugin.registerCLICommands?.() ?? [];
+
+    // Check 'error'-strategy conflicts before registering anything, so a
+    // rejected plugin never leaves half of its extension points behind.
+    this.assertNoErrorConflicts('agentTypes', agentTypes.map(t => t.type), name, this.agentTypeOwners, resolution?.agentTypes);
+    this.assertNoErrorConflicts('taskTypes', taskTypes.map(t => t.type), name, this.taskTypeOwners, resolution?.taskTypes);
+    this.assertNoErrorConflicts('mcpTools', tools.map(t => t.name), name, this.toolOwners, resolution?.mcpTools);
+    this.assertNoErrorConflicts('cliCommands', commands.map(c => c.name), name, this.commandOwners, resolution?.cliCommands);
+
     // Collect agent types
-    if (plugin.registerAgentTypes) {
-      const types = plugin.registerAgentTypes();
-      if (types) {
-        for (const type of types) {
-          const resolvedType = this.resolveConflict(
-            'agentTypes',
-            type.type,
-            type,
-            name,
-            this.agentTypeOwners,
-            resolution?.agentTypes
-          );
-          if (resolvedType) {
-            this.agentTypesCache.push(resolvedType);
-          }
-        }
+    for (const type of agentTypes) {
+      const resolvedType = this.resolveConflict(
+        'agentTypes',
+        type.type,
+        type,
+        name,
+        this.agentTypeOwners,
+        resolution?.agentTypes
+      );
+      if (resolvedType) {
+        this.agentTypesCache.push(resolvedType);
       }
     }
 
     // Collect task types
-    if (plugin.registerTaskTypes) {
-      const types = plugin.registerTaskTypes();
-      if (types) {
-        for (const type of types) {
-          const resolvedType = this.resolveConflict(
-            'taskTypes',
-            type.type,
-            type,
-            name,
-            this.taskTypeOwners,
-            resolution?.taskTypes
-          );
-          if (resolvedType) {
-            this.taskTypesCache.push(resolvedType);
-          }
-        }
+    for (const type of taskTypes) {
+      const resolvedType = this.resolveConflict(
+        'taskTypes',
+        type.type,
+        type,
+        name,
+        this.taskTypeOwners,
+        resolution?.taskTypes
+      );
+      if (resolvedType) {
+        this.taskTypesCache.push(resolvedType);
       }
     }
 
     // Collect MCP tools
-    if (plugin.registerMCPTools) {
-      const tools = plugin.registerMCPTools();
-      if (tools) {
-        for (const tool of tools) {
-          const resolvedTool = this.resolveConflict(
-            'mcpTools',
-            tool.name,
-            tool,
-            name,
-            this.toolOwners,
-            resolution?.mcpTools
-          );
-          if (resolvedTool) {
-            this.mcpToolsCache.push(resolvedTool);
-          }
-        }
+    for (const tool of tools) {
+      const resolvedTool = this.resolveConflict(
+        'mcpTools',
+        tool.name,
+        tool,
+        name,
+        this.toolOwners,
+        resolution?.mcpTools
+      );
+      if (resolvedTool) {
+        this.mcpToolsCache.push(resolvedTool);
       }
     }
 
     // Collect CLI commands
-    if (plugin.registerCLICommands) {
-      const commands = plugin.registerCLICommands();
-      if (commands) {
-        for (const command of commands) {
-          const resolvedCommand = this.resolveConflict(
-            'cliCommands',
-            command.name,
-            command,
-            name,
-            this.commandOwners,
-            resolution?.cliCommands
-          );
-          if (resolvedCommand) {
-            this.cliCommandsCache.push(resolvedCommand);
-          }
-        }
+    for (const command of commands) {
+      const resolvedCommand = this.resolveConflict(
+        'cliCommands',
+        command.name,
+        command,
+        name,
+        this.commandOwners,
+        resolution?.cliCommands
+      );
+      if (resolvedCommand) {
+        this.cliCommandsCache.push(resolvedCommand);
       }
     }
 
@@ -697,8 +766,27 @@ export class EnhancedPluginRegistry extends EventEmitter {
     }
   }
 
+  private assertNoErrorConflicts(
+    category: ConflictCategory,
+    identifiers: string[],
+    pluginName: string,
+    owners: Map<string, string>,
+    resolution?: ConflictResolution
+  ): void {
+    if ((resolution?.strategy ?? 'error') !== 'error') return;
+
+    const seen = new Set<string>();
+    for (const identifier of identifiers) {
+      const existing = owners.get(identifier) ?? (seen.has(identifier) ? pluginName : undefined);
+      if (existing) {
+        throw new PluginConflictError(category, identifier, existing, pluginName);
+      }
+      seen.add(identifier);
+    }
+  }
+
   private resolveConflict<T extends { name?: string; type?: string }>(
-    category: string,
+    category: ConflictCategory,
     identifier: string,
     item: T,
     pluginName: string,
@@ -726,18 +814,66 @@ export class EnhancedPluginRegistry extends EventEmitter {
         this.removeFromCache(category, identifier);
         return item;
 
-      case 'namespace':
+      case 'namespace': {
         const template = resolution?.namespaceTemplate ?? '{plugin}:{name}';
-        const newName = template
-          .replace('{plugin}', pluginName)
-          .replace('{name}', identifier);
+        // On the first conflict the existing owner still holds the bare
+        // identifier; namespace it too, so no plugin silently "wins" the
+        // unqualified name. The bare identifier stays in owners so later
+        // conflicts are still detected.
+        const existingName = this.applyNamespace(template, existing, identifier);
+        if (this.renameInCache(category, identifier, existingName)) {
+          owners.set(existingName, existing);
+        }
+        const newName = this.applyNamespace(template, pluginName, identifier);
         owners.set(newName, pluginName);
-        return { ...item, name: newName, type: newName } as T;
+        return this.withIdentifier(category, item, newName);
+      }
 
       case 'error':
       default:
-        throw new Error(`${category}: ${identifier} conflict between ${existing} and ${pluginName}`);
+        throw new PluginConflictError(category, identifier, existing, pluginName);
     }
+  }
+
+  private applyNamespace(template: string, pluginName: string, identifier: string): string {
+    return template.replace('{plugin}', pluginName).replace('{name}', identifier);
+  }
+
+  /** Agent and task types are keyed by `type`; tools and commands by `name`. */
+  private withIdentifier<T extends { name?: string; type?: string }>(
+    category: ConflictCategory,
+    item: T,
+    identifier: string
+  ): T {
+    return category === 'agentTypes' || category === 'taskTypes'
+      ? { ...item, type: identifier }
+      : { ...item, name: identifier };
+  }
+
+  private renameInCache(category: ConflictCategory, identifier: string, newIdentifier: string): boolean {
+    let renamed = false;
+    const rename = <T extends { name?: string; type?: string }>(items: T[], key: 'name' | 'type'): T[] =>
+      items.map(item => {
+        if (item[key] !== identifier) return item;
+        renamed = true;
+        return this.withIdentifier(category, item, newIdentifier);
+      });
+
+    switch (category) {
+      case 'agentTypes':
+        this.agentTypesCache = rename(this.agentTypesCache, 'type');
+        break;
+      case 'taskTypes':
+        this.taskTypesCache = rename(this.taskTypesCache, 'type');
+        break;
+      case 'mcpTools':
+        this.mcpToolsCache = rename(this.mcpToolsCache, 'name');
+        break;
+      case 'cliCommands':
+        this.cliCommandsCache = rename(this.cliCommandsCache, 'name');
+        break;
+    }
+    return renamed;
   }
 
   private removeFromCache(category: string, identifier: string): void {
@@ -944,7 +1080,7 @@ export class EnhancedPluginRegistry extends EventEmitter {
     this.invalidateCaches();
   }
 
-  private parseDependencies(deps?: string[] | PluginDependency[]): PluginDependency[] {
+  private parseDependencies(deps?: ReadonlyArray<string | PluginDependencySpec>): PluginDependency[] {
     if (!deps) return [];
 
     return deps.map(dep => {
@@ -959,7 +1095,7 @@ export class EnhancedPluginRegistry extends EventEmitter {
         }
         return { name: dep, version: '*' };
       }
-      return dep;
+      return { ...dep };
     });
   }
 

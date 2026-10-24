@@ -14,6 +14,7 @@ import {
   HookEvent,
   HookPriority,
   type PluginMetadata,
+  type PluginDependencySpec,
   type PluginContext,
   type PluginConfig,
   type ILogger,
@@ -104,7 +105,7 @@ export class PluginBuilder {
     return this;
   }
 
-  withDependencies(dependencies: string[]): this {
+  withDependencies(dependencies: Array<string | PluginDependencySpec>): this {
     this.metadata = { ...this.metadata, dependencies };
     return this;
   }
@@ -392,60 +393,14 @@ export class MCPToolBuilder {
 // ============================================================================
 
 /**
- * Builder for creating hooks with validation.
+ * Builder for creating hooks.
+ *
+ * The SDK used to ship a reduced copy of this builder without when(),
+ * transform() and handle(). It now re-exports the full builder from the hooks
+ * module (also exported as HookBuilderAdvanced), which keeps withHandler() as
+ * an alias of handle(), so existing SDK callers keep working.
  */
-export class HookBuilder {
-  private event: HookEvent;
-  private name?: string;
-  private description?: string;
-  private priority: HookPriority = HookPriority.Normal;
-  private async: boolean = true;
-  private handler?: HookHandler;
-
-  constructor(event: HookEvent) {
-    this.event = event;
-  }
-
-  withName(name: string): this {
-    this.name = name;
-    return this;
-  }
-
-  withDescription(description: string): this {
-    this.description = description;
-    return this;
-  }
-
-  withPriority(priority: HookPriority): this {
-    this.priority = priority;
-    return this;
-  }
-
-  synchronous(): this {
-    this.async = false;
-    return this;
-  }
-
-  withHandler(handler: HookHandler): this {
-    this.handler = handler;
-    return this;
-  }
-
-  build(): HookDefinition {
-    if (!this.handler) {
-      throw new Error(`Hook for event ${this.event} requires a handler`);
-    }
-
-    return {
-      event: this.event,
-      handler: this.handler,
-      priority: this.priority,
-      name: this.name,
-      description: this.description,
-      async: this.async,
-    };
-  }
-}
+export { HookBuilder } from '../hooks/index.js';
 
 // ============================================================================
 // Worker Builder
@@ -528,6 +483,7 @@ export class WorkerBuilder {
 export {
   // Types
   type PluginMetadata,
+  type PluginDependencySpec,
   type PluginContext,
   type PluginConfig,
   type ILogger,

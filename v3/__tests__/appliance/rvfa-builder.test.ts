@@ -1,12 +1,11 @@
 /**
  * RVFA Builder pipeline tests.
  *
- * Uses the Node.js built-in test runner (node:test).
- * Run: npx tsx --test v3/__tests__/appliance/rvfa-builder.test.ts
+ * Uses Vitest (collected by the v3 root vitest config).
+ * Run: cd v3 && npx vitest run __tests__/appliance/rvfa-builder.test.ts
  */
 
-import { describe, it, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, afterEach, expect } from 'vitest';
 import { writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -62,23 +61,23 @@ describe('RvfaBuilder', () => {
   it('creates a valid RVFA for cloud profile', async () => {
     const builder = makeBuilder('cloud');
     const result = await builder.build();
-    assert.ok(result.size > 0);
-    assert.equal(result.profile, 'cloud');
-    assert.ok(existsSync(result.outputPath));
+    expect(result.size > 0).toBeTruthy();
+    expect(result.profile).toBe('cloud');
+    expect(existsSync(result.outputPath)).toBeTruthy();
   });
 
   it('creates a valid RVFA for hybrid profile', async () => {
     const builder = makeBuilder('hybrid');
     const result = await builder.build();
-    assert.equal(result.profile, 'hybrid');
-    assert.ok(result.size > 0);
+    expect(result.profile).toBe('hybrid');
+    expect(result.size > 0).toBeTruthy();
   });
 
   it('creates a valid RVFA for offline profile', async () => {
     const builder = makeBuilder('offline');
     const result = await builder.build();
-    assert.equal(result.profile, 'offline');
-    assert.ok(result.size > 0);
+    expect(result.profile).toBe('offline');
+    expect(result.size > 0).toBeTruthy();
   });
 
   it('output file is readable by RvfaReader', async () => {
@@ -87,8 +86,8 @@ describe('RvfaBuilder', () => {
     const buf = readFileSync(result.outputPath);
     const reader = RvfaReader.fromBuffer(buf);
     const header = reader.getHeader();
-    assert.equal(header.magic, 'RVFA');
-    assert.equal(header.profile, 'cloud');
+    expect(header.magic).toBe('RVFA');
+    expect(header.profile).toBe('cloud');
   });
 
   it('all expected sections present in result', async () => {
@@ -96,7 +95,7 @@ describe('RvfaBuilder', () => {
     const result = await builder.build();
     const sectionIds = result.sections.map((s) => s.id);
     for (const expected of EXPECTED_SECTION_IDS) {
-      assert.ok(sectionIds.includes(expected), `Missing section: ${expected}`);
+      expect(sectionIds.includes(expected), `Missing section: ${expected}`).toBeTruthy();
     }
   });
 
@@ -106,21 +105,21 @@ describe('RvfaBuilder', () => {
     const buf = readFileSync(result.outputPath);
     const reader = RvfaReader.fromBuffer(buf);
     const verification = reader.verify();
-    assert.ok(verification.valid, `Checksum errors: ${verification.errors.join(', ')}`);
+    expect(verification.valid, `Checksum errors: ${verification.errors.join(', ')}`).toBeTruthy();
   });
 
   it('duration is tracked', async () => {
     const builder = makeBuilder('cloud');
     const result = await builder.build();
-    assert.equal(typeof result.duration, 'number');
-    assert.ok(result.duration >= 0);
+    expect(typeof result.duration).toBe('number');
+    expect(result.duration >= 0).toBeTruthy();
   });
 
   it('each section has originalSize > 0', async () => {
     const builder = makeBuilder('cloud');
     const result = await builder.build();
     for (const sec of result.sections) {
-      assert.ok(sec.originalSize > 0, `Section "${sec.id}" has zero originalSize`);
+      expect(sec.originalSize > 0, `Section "${sec.id}" has zero originalSize`).toBeTruthy();
     }
   });
 });
@@ -134,24 +133,21 @@ describe('encryptApiKeys / decryptApiKeys', () => {
     const envPath = writeEnvFile('ANTHROPIC_API_KEY=sk-ant-xxx\nOPENAI_API_KEY=sk-yyy');
     const encrypted = encryptApiKeys(envPath, 'my-secret');
     const decrypted = decryptApiKeys(encrypted, 'my-secret');
-    assert.equal(decrypted['ANTHROPIC_API_KEY'], 'sk-ant-xxx');
-    assert.equal(decrypted['OPENAI_API_KEY'], 'sk-yyy');
+    expect(decrypted['ANTHROPIC_API_KEY']).toBe('sk-ant-xxx');
+    expect(decrypted['OPENAI_API_KEY']).toBe('sk-yyy');
   });
 
   it('decryption fails with wrong passphrase', () => {
     const envPath = writeEnvFile('API_KEY=secret123');
     const encrypted = encryptApiKeys(envPath, 'correct-pass');
-    assert.throws(
-      () => decryptApiKeys(encrypted, 'wrong-pass'),
-      /Unsupported state|unable to authenticate|Invalid/i,
-    );
+    expect(() => decryptApiKeys(encrypted, 'wrong-pass')).toThrow(/Unsupported state|unable to authenticate|Invalid/i);
   });
 
   it('handles empty .env', () => {
     const envPath = writeEnvFile('');
     const encrypted = encryptApiKeys(envPath, 'pass');
     const decrypted = decryptApiKeys(encrypted, 'pass');
-    assert.deepEqual(decrypted, {});
+    expect(decrypted).toStrictEqual({});
   });
 
   it('handles multiline .env with comments and quoted values', () => {
@@ -167,10 +163,10 @@ describe('encryptApiKeys / decryptApiKeys', () => {
     const envPath = writeEnvFile(envContent);
     const encrypted = encryptApiKeys(envPath, 'pass123');
     const decrypted = decryptApiKeys(encrypted, 'pass123');
-    assert.equal(decrypted['KEY1'], 'value1');
-    assert.equal(decrypted['KEY2'], 'quoted-value');
-    assert.equal(decrypted['KEY3'], 'single-quoted');
-    assert.equal(decrypted['KEY4'], 'multi=equals=signs');
+    expect(decrypted['KEY1']).toBe('value1');
+    expect(decrypted['KEY2']).toBe('quoted-value');
+    expect(decrypted['KEY3']).toBe('single-quoted');
+    expect(decrypted['KEY4']).toBe('multi=equals=signs');
   });
 
   it('produces different ciphertext for same input (random salt/IV)', () => {
@@ -178,14 +174,14 @@ describe('encryptApiKeys / decryptApiKeys', () => {
     const enc1 = encryptApiKeys(envPath, 'pass');
     const enc2 = encryptApiKeys(envPath, 'pass');
     // Salt and IV are random, so ciphertext should differ
-    assert.ok(!enc1.equals(enc2));
+    expect(!enc1.equals(enc2)).toBeTruthy();
   });
 
   it('rejects truncated encrypted payload', () => {
     const envPath = writeEnvFile('API_KEY=secret');
     const encrypted = encryptApiKeys(envPath, 'pass');
     const truncated = encrypted.subarray(0, 10); // too short
-    assert.throws(() => decryptApiKeys(truncated, 'pass'), /too short/i);
+    expect(() => decryptApiKeys(truncated, 'pass')).toThrow(/too short/i);
   });
 
   it('skips comment lines and empty lines', () => {
@@ -200,7 +196,7 @@ describe('encryptApiKeys / decryptApiKeys', () => {
     const envPath = writeEnvFile(envContent);
     const encrypted = encryptApiKeys(envPath, 'pass');
     const decrypted = decryptApiKeys(encrypted, 'pass');
-    assert.equal(Object.keys(decrypted).length, 1);
-    assert.equal(decrypted['REAL_KEY'], 'real_value');
+    expect(Object.keys(decrypted).length).toBe(1);
+    expect(decrypted['REAL_KEY']).toBe('real_value');
   });
 });

@@ -5,8 +5,8 @@
  * Tests path validation for security (CVE-1, CVE-2 prevention)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMock, type MockedInterface } from '../../helpers/create-mock';
-import { securityConfigs } from '../../fixtures/configurations';
+import { createMock, type MockedInterface } from '../helpers/create-mock';
+import { securityConfigs } from '../fixtures/configurations';
 
 /**
  * Path validator interface (to be implemented)

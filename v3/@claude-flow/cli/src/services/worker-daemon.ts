@@ -12,7 +12,9 @@
 
 import { EventEmitter } from 'events';
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, unlinkSync } from 'fs';
-import { cpus } from 'os';
+// Default import (the os module object): canRunWorker reads loadavg/totalmem/freemem
+// through it, so tests can stub those calls with vi.spyOn(os, ...).
+import os, { cpus } from 'os';
 import { join } from 'path';
 import {
   HeadlessWorkerExecutor,
@@ -327,7 +329,6 @@ export class WorkerDaemon extends EventEmitter {
    * Check if system resources allow worker execution
    */
   private async canRunWorker(): Promise<{ allowed: boolean; reason?: string }> {
-    const os = await import('os');
     const cpuLoad = os.loadavg()[0];
     const totalMem = os.totalmem();
     const freeMem = os.freemem();

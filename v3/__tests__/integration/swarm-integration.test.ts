@@ -143,6 +143,15 @@ describe('Swarm Integration Tests', () => {
 
     expect(result.status).toBe('failed');
     expect(result.error).toBeDefined();
+    expect(result.error).toBe('Agent crashed');
+    expect(result.taskId).toBe('failing-task');
+    expect(result.agentId).toBe('fragile-agent');
+
+    // The crash is recorded as a failure in the agent's metrics
+    const metrics = await coordinator.getAgentMetrics('fragile-agent');
+    expect(metrics.tasksCompleted).toBe(0);
+    expect(metrics.tasksFailed).toBe(1);
+    expect(metrics.successRate).toBe(0);
 
     // Verify swarm continues functioning
     const agents = await coordinator.listAgents();
@@ -203,8 +212,8 @@ describe('Swarm Integration Tests', () => {
     const scaledUpCount = (await coordinator.listAgents()).length;
     expect(scaledUpCount).toBe(4);
 
-    // Scale down
-    await coordinator.scaleAgents({ type: 'coder', count: 2 });
+    // Scale down: scaleAgents takes a signed delta (negative count terminates agents)
+    await coordinator.scaleAgents({ type: 'coder', count: -2 });
 
     const scaledDownCount = (await coordinator.listAgents()).length;
     expect(scaledDownCount).toBe(2);

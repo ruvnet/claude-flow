@@ -5,7 +5,7 @@
  * and V3 performance target validation (2.49x-7.47x speedup).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   AttentionBenchmarkRunner,
   quickValidation,
@@ -411,10 +411,46 @@ describe('quickValidation()', () => {
     const runner = new AttentionBenchmarkRunner();
     const validation = runner.validateV3Targets();
 
+    // Pin validateV3Targets() to the measurement taken above. quickValidation()
+    // otherwise takes its own, second timing run, and comparing two independent
+    // noisy measurements near the 2.49x threshold made this test flaky. The
+    // measurement itself is still real.
+    const spy = vi
+      .spyOn(AttentionBenchmarkRunner.prototype, 'validateV3Targets')
+      .mockReturnValue(validation);
+
     const result = quickValidation();
 
     const expected = validation.meetsMinimum && validation.meetsMaximum;
     expect(result).toBe(expected);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  describe('target mapping', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const cases: Array<[boolean, boolean, boolean]> = [
+      [true, true, true],
+      [true, false, false],
+      [false, true, false],
+      [false, false, false],
+    ];
+
+    it.each(cases)(
+      'should map meetsMinimum=%s, meetsMaximum=%s to %s',
+      (meetsMinimum, meetsMaximum, expected) => {
+        vi.spyOn(AttentionBenchmarkRunner.prototype, 'validateV3Targets').mockReturnValue({
+          meetsMinimum,
+          meetsMaximum,
+          actualSpeedup: 3,
+          target: { min: 2.49, max: 7.47 },
+        });
+
+        expect(quickValidation()).toBe(expected);
+      }
+    );
   });
 });
 

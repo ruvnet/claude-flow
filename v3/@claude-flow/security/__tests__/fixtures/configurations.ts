@@ -24,6 +24,8 @@ export interface SecurityConfig {
     blockedCommands: string[];
   };
   paths: {
+    /** Directories (relative to the project root) that paths must stay within */
+    allowedDirectories: string[];
     blockedPatterns: string[];
     maxPathLength: number;
     allowHidden: boolean;
@@ -80,6 +82,7 @@ const strictConfig: SecurityConfig = {
     ],
   },
   paths: {
+    allowedDirectories: ['./v3/', './src/', './tests/'],
     blockedPatterns: [
       '../',
       '..\\',
@@ -123,6 +126,7 @@ const developmentConfig: SecurityConfig = {
     blockedCommands: ['rm', 'rmdir', 'del', 'format', 'mkfs', 'dd'],
   },
   paths: {
+    allowedDirectories: ['./', './node_modules/'],
     blockedPatterns: ['../', '..\\', '/etc/passwd', '/etc/shadow'],
     maxPathLength: 8192,
     allowHidden: true,
@@ -154,6 +158,7 @@ const testingConfig: SecurityConfig = {
     blockedCommands: ['rm', 'dd'],
   },
   paths: {
+    allowedDirectories: ['./'],
     blockedPatterns: ['../', '/etc/'],
     maxPathLength: 1024,
     allowHidden: true,
@@ -185,6 +190,7 @@ const cicdConfig: SecurityConfig = {
     blockedCommands: ['rm', 'rmdir', 'del', 'format', 'mkfs', 'dd', 'chmod', 'chown'],
   },
   paths: {
+    allowedDirectories: ['./v3/', './src/', './tests/'],
     blockedPatterns: ['../', '..\\', '/etc/', '/tmp/', '~/', '\0'],
     maxPathLength: 4096,
     allowHidden: false,
@@ -216,6 +222,7 @@ const legacyConfig: SecurityConfig = {
     blockedCommands: ['rm -rf /', 'format c:'],
   },
   paths: {
+    allowedDirectories: [],
     blockedPatterns: [],
     maxPathLength: 255, // Old Windows limit
     allowHidden: true,

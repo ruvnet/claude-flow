@@ -5,6 +5,7 @@ import { SQLiteBackend } from '../../src/memory/infrastructure/SQLiteBackend';
 import { Memory } from '../../src/memory/domain/Memory';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 
 describe('Memory Integration Tests', () => {
   let hybridBackend: HybridBackend;
@@ -409,5 +410,89 @@ describe('Memory Integration Tests', () => {
     expect(retrieved?.content).toBe(memory.content);
 
     vi.restoreAllMocks();
+  });
+});
+
+describe('SQLiteBackend durability (ADR-009 persistent storage)', () => {
+  let dir: string;
+  let dbPath: string;
+
+  const mem = (id: string, agentId = 'agent-1'): Memory => ({
+    id,
+    agentId,
+    content: `content of ${id}`,
+    type: 'task',
+    timestamp: Date.now(),
+    metadata: { tag: id }
+  });
+
+  beforeEach(async () => {
+    dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sqlite-backend-'));
+    dbPath = path.join(dir, 'nested', 'memory.db');
+  });
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it('persists store/update/delete/clearAgent to dbPath for a new instance', async () => {
+    const first = new SQLiteBackend(dbPath);
+    await first.initialize();
+    await first.store(mem('a'));
+    await first.store(mem('b'));
+    await first.store(mem('c', 'agent-2'));
+    await first.update({ ...mem('a'), content: 'updated a' });
+    await first.delete('b');
+    await first.close();
+
+    const second = new SQLiteBackend(dbPath);
+    await second.initialize();
+    expect(second.getCount()).toBe(2);
+    expect((await second.retrieve('a'))?.content).toBe('updated a');
+    expect((await second.retrieve('a'))?.metadata).toEqual({ tag: 'a' });
+    expect(await second.retrieve('b')).toBeUndefined();
+    expect((await second.retrieve('c'))?.agentId).toBe('agent-2');
+
+    await second.clearAgent('agent-2');
+    await second.close();
+
+    const third = new SQLiteBackend(dbPath);
+    expect((await third.query({})).map(m => m.id)).toEqual(['a']);
+    await third.close();
+  });
+
+  it('writes atomically and leaves no temporary files behind', async () => {
+    const backend = new SQLiteBackend(dbPath);
+    await backend.initialize();
+    await Promise.all(Array.from({ length: 20 }, (_, i) => backend.store(mem(`m-${i}`))));
+    await backend.close();
+
+    expect(await fs.readdir(path.dirname(dbPath))).toEqual(['memory.db']);
+    const onDisk = JSON.parse(await fs.readFile(dbPath, 'utf8'));
+    expect(onDisk.version).toBe(1);
+    expect(onDisk.memories).toHaveLength(20);
+  });
+
+  it('refuses to open (and so never overwrites) an unreadable database file', async () => {
+    await fs.mkdir(path.dirname(dbPath), { recursive: true });
+    await fs.writeFile(dbPath, 'SQLite format 3\u0000 not json', 'utf8');
+
+    const backend = new SQLiteBackend(dbPath);
+    await expect(backend.initialize()).rejects.toThrow(/not a readable memory database/);
+    await expect(backend.store(mem('x'))).rejects.toThrow(/not a readable memory database/);
+    expect(await fs.readFile(dbPath, 'utf8')).toBe('SQLite format 3\u0000 not json');
+  });
+
+  it("keeps ':memory:' databases in memory only", async () => {
+    const backend = new SQLiteBackend(':memory:');
+    await backend.initialize();
+    await backend.store(mem('volatile'));
+    expect((await backend.retrieve('volatile'))?.content).toBe('content of volatile');
+    await backend.close();
+
+    const reopened = new SQLiteBackend(':memory:');
+    await reopened.initialize();
+    expect(await reopened.retrieve('volatile')).toBeUndefined();
+    expect(await fs.readdir(dir)).toEqual([]);
   });
 });

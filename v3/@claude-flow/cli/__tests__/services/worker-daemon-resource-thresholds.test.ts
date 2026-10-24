@@ -13,7 +13,19 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { WorkerDaemon } from '../../src/services/worker-daemon.js';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { tmpdir, cpus } from 'os';
+import os, { tmpdir, cpus } from 'os';
+
+/**
+ * Stub the host resource readings that canRunWorker() uses. The daemon reads
+ * them through the default `os` object, so spies on that object take effect
+ * immediately and are undone by vi.restoreAllMocks(). (vi.doMock('os') on a
+ * Node builtin was not reliably picked up by the daemon on vitest 4.0.x.)
+ */
+function stubOs(values: { loadavg: number[]; totalmem: number; freemem: number }): void {
+  vi.spyOn(os, 'loadavg').mockReturnValue(values.loadavg);
+  vi.spyOn(os, 'totalmem').mockReturnValue(values.totalmem);
+  vi.spyOn(os, 'freemem').mockReturnValue(values.freemem);
+}
 
 describe('WorkerDaemon resource thresholds', () => {
   let tempDir: string;
@@ -25,7 +37,6 @@ describe('WorkerDaemon resource thresholds', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.doUnmock('os');
     rmSync(tempDir, { recursive: true, force: true });
     // Clean up signal listeners to prevent MaxListenersExceededWarning
     process.removeAllListeners('SIGTERM');
@@ -83,16 +94,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 9.6, minFreeMemoryPercent: 20 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [3.5, 3.0, 2.5],
-          totalmem: () => 16e9,
-          freemem: () => 8e9, // 50% free
-        },
-        loadavg: () => [3.5, 3.0, 2.5],
-        totalmem: () => 16e9,
-        freemem: () => 8e9,
-      }));
+      stubOs({
+        loadavg: [3.5, 3.0, 2.5],
+        totalmem: 16e9,
+        freemem: 8e9, // 50% free
+      });
 
       const result = await (daemon as any).canRunWorker();
       expect(result.allowed).toBe(true);
@@ -103,16 +109,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 2.0, minFreeMemoryPercent: 5 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [5.0, 4.0, 3.0],
-          totalmem: () => 16e9,
-          freemem: () => 8e9,
-        },
-        loadavg: () => [5.0, 4.0, 3.0],
-        totalmem: () => 16e9,
-        freemem: () => 8e9,
-      }));
+      stubOs({
+        loadavg: [5.0, 4.0, 3.0],
+        totalmem: 16e9,
+        freemem: 8e9,
+      });
 
       const result = await (daemon as any).canRunWorker();
       expect(result.allowed).toBe(false);
@@ -124,16 +125,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 100, minFreeMemoryPercent: 50 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [0.5, 0.5, 0.5],
-          totalmem: () => 16e9,
-          freemem: () => 1e9, // ~6% free — below 50% threshold
-        },
-        loadavg: () => [0.5, 0.5, 0.5],
-        totalmem: () => 16e9,
-        freemem: () => 1e9,
-      }));
+      stubOs({
+        loadavg: [0.5, 0.5, 0.5],
+        totalmem: 16e9,
+        freemem: 1e9, // ~6% free — below 50% threshold
+      });
 
       const result = await (daemon as any).canRunWorker();
       expect(result.allowed).toBe(false);
@@ -457,16 +453,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 5.0, minFreeMemoryPercent: 5 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [5.0, 4.0, 3.0], // exactly at threshold
-          totalmem: () => 16e9,
-          freemem: () => 8e9,
-        },
-        loadavg: () => [5.0, 4.0, 3.0],
-        totalmem: () => 16e9,
-        freemem: () => 8e9,
-      }));
+      stubOs({
+        loadavg: [5.0, 4.0, 3.0], // exactly at threshold
+        totalmem: 16e9,
+        freemem: 8e9,
+      });
 
       const result = await (daemon as any).canRunWorker();
       // Kills: > → >= mutant (at-threshold should pass)
@@ -480,16 +471,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 100, minFreeMemoryPercent: 20 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [0.5, 0.5, 0.5],
-          totalmem: () => 100e9,
-          freemem: () => 20e9, // exactly 20% = threshold
-        },
-        loadavg: () => [0.5, 0.5, 0.5],
-        totalmem: () => 100e9,
-        freemem: () => 20e9,
-      }));
+      stubOs({
+        loadavg: [0.5, 0.5, 0.5],
+        totalmem: 100e9,
+        freemem: 20e9, // exactly 20% = threshold
+      });
 
       const result = await (daemon as any).canRunWorker();
       // Kills: < → <= mutant (at-threshold should pass)
@@ -610,23 +596,18 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 2.0, minFreeMemoryPercent: 5 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [10.0, 8.0, 6.0], // way over CPU
-          totalmem: () => 16e9,
-          freemem: () => 15e9, // 93% free — plenty of memory
-        },
-        loadavg: () => [10.0, 8.0, 6.0],
-        totalmem: () => 16e9,
-        freemem: () => 15e9,
-      }));
+      stubOs({
+        loadavg: [10.0, 8.0, 6.0], // way over CPU
+        totalmem: 16e9,
+        freemem: 15e9, // 93% free — plenty of memory
+      });
 
       const result1 = await (daemon1 as any).canRunWorker();
       expect(result1.allowed).toBe(false);
       expect(result1.reason).toContain('CPU');
       expect(result1.reason).not.toContain('emory'); // not memory
 
-      vi.doUnmock('os');
+      vi.restoreAllMocks();
 
       // Low CPU + low memory → should block on memory
       const tempDir2 = mkdtempSync(join(tmpdir(), 'worker-daemon-test-'));
@@ -635,16 +616,11 @@ describe('WorkerDaemon resource thresholds', () => {
         resourceThresholds: { maxCpuLoad: 100, minFreeMemoryPercent: 50 },
       });
 
-      vi.doMock('os', () => ({
-        default: {
-          loadavg: () => [0.1, 0.1, 0.1], // barely any CPU
-          totalmem: () => 16e9,
-          freemem: () => 1e9, // 6% free
-        },
-        loadavg: () => [0.1, 0.1, 0.1],
-        totalmem: () => 16e9,
-        freemem: () => 1e9,
-      }));
+      stubOs({
+        loadavg: [0.1, 0.1, 0.1], // barely any CPU
+        totalmem: 16e9,
+        freemem: 1e9, // 6% free
+      });
 
       const result2 = await (daemon2 as any).canRunWorker();
       expect(result2.allowed).toBe(false);

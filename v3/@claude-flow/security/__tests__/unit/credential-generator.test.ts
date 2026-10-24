@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CredentialGenerator } from '../../../security/credential-generator.js';
+import { CredentialGenerator } from '../../src/credential-generator.js';
 
 describe('CredentialGenerator', () => {
   describe('generatePassword', () => {

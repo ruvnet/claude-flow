@@ -263,6 +263,25 @@ const PII_PATTERNS = [
 ];
 
 /**
+ * Run a pattern from the start of the input.
+ *
+ * Several patterns (the PII ones, and possibly caller-supplied ones) carry the
+ * /g flag. exec()/test() on a global regex resume from lastIndex, and these
+ * regexes are shared module-level objects, so a previous call would make the
+ * next one start mid-string and miss a match. Reset before and after use.
+ */
+function execFromStart(regex: RegExp, input: string): RegExpExecArray | null {
+  regex.lastIndex = 0;
+  const match = regex.exec(input);
+  regex.lastIndex = 0;
+  return match;
+}
+
+function testFromStart(regex: RegExp, input: string): boolean {
+  return execFromStart(regex, input) !== null;
+}
+
+/**
  * Threat Detection Service
  */
 export class ThreatDetectionService {
@@ -287,7 +306,7 @@ export class ThreatDetectionService {
 
     // Pattern matching
     for (const pattern of this.patterns) {
-      const match = pattern.pattern.exec(normalizedInput);
+      const match = execFromStart(pattern.pattern, normalizedInput);
       if (match) {
         // Calculate confidence with context
         const confidence = this.calculateConfidence(pattern, match, normalizedInput);
@@ -333,7 +352,7 @@ export class ThreatDetectionService {
     let threatFound = false;
 
     for (const pattern of this.patterns) {
-      if (pattern.pattern.test(normalizedInput)) {
+      if (testFromStart(pattern.pattern, normalizedInput)) {
         threatFound = true;
         maxConfidence = Math.max(maxConfidence, pattern.baseConfidence);
 
@@ -352,7 +371,7 @@ export class ThreatDetectionService {
    */
   detectPII(input: string): boolean {
     for (const pii of PII_PATTERNS) {
-      if (pii.pattern.test(input)) {
+      if (testFromStart(pii.pattern, input)) {
         return true;
       }
     }
@@ -396,7 +415,7 @@ export class ThreatDetectionService {
     let confidence = pattern.baseConfidence;
 
     // Boost confidence if multiple threat indicators
-    const threatIndicatorCount = this.patterns.filter(p => p.pattern.test(input)).length;
+    const threatIndicatorCount = this.patterns.filter(p => testFromStart(p.pattern, input)).length;
     if (threatIndicatorCount > 1) {
       confidence = Math.min(confidence + 0.05 * (threatIndicatorCount - 1), 0.99);
     }

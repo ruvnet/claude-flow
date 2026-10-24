@@ -19,6 +19,10 @@ jobs:
   test:
     name: Test V3 Packages
     runs-on: ubuntu-latest
+    # Generous ceiling so a hung test fails the job instead of running to the
+    # 6-hour default. To be tightened once full runs of the repaired suite have
+    # been measured.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -39,6 +43,13 @@ jobs:
       - name: Install dependencies
         working-directory: v3
         run: pnpm install --frozen-lockfile
+
+      # Build the workspace first so cross-package imports resolve through each
+      # package's dist/ entry points, exactly as they do for consumers. Without
+      # this, tests only pass where a developer happens to have dist/ built.
+      - name: Build workspace
+        working-directory: v3
+        run: pnpm build
 
       - name: Run tests
         working-directory: v3

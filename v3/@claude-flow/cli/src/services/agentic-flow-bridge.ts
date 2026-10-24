@@ -8,6 +8,8 @@
  * @module agentic-flow-bridge
  */
 
+import { importOptional, ONNX_NATIVE_PROBE, TRANSFORMERS_NATIVE_PROBE } from './optional-import.js';
+
 // ---------------------------------------------------------------------------
 // Cached module handles (Promise-based to prevent TOCTOU races)
 // ---------------------------------------------------------------------------
@@ -27,7 +29,11 @@ let _orchestrationP: Promise<typeof import('agentic-flow/orchestration') | null>
  */
 export function getReasoningBank() {
   if (_reasoningBankP === null) {
-    _reasoningBankP = import('agentic-flow/reasoningbank').catch(() => null);
+    // importOptional, not import().catch(): see optional-import.ts (Node 20 crash)
+    _reasoningBankP = importOptional<typeof import('agentic-flow/reasoningbank')>(
+      'agentic-flow/reasoningbank',
+      TRANSFORMERS_NATIVE_PROBE,
+    );
   }
   return _reasoningBankP;
 }
@@ -38,7 +44,10 @@ export function getReasoningBank() {
  */
 export function getRouter() {
   if (_routerP === null) {
-    _routerP = import('agentic-flow/router').catch(() => null);
+    _routerP = importOptional<typeof import('agentic-flow/router')>(
+      'agentic-flow/router',
+      ONNX_NATIVE_PROBE,
+    );
   }
   return _routerP;
 }

@@ -4503,7 +4503,9 @@ const tokenOptimizeCommand: Command = {
 
     try {
       // Check if agentic-flow v3 is available
-      const rb = await import('agentic-flow/reasoningbank').catch(() => null);
+      // importOptional, not import().catch(): see services/optional-import.ts (Node 20 crash)
+      const { importOptional, TRANSFORMERS_NATIVE_PROBE } = await import('../services/optional-import.js');
+      const rb = await importOptional<any>('agentic-flow/reasoningbank', TRANSFORMERS_NATIVE_PROBE);
       if (rb) {
         agenticFlowAvailable = true;
         if (typeof rb.retrieveMemories === 'function') {
@@ -4511,7 +4513,7 @@ const tokenOptimizeCommand: Command = {
         }
       } else {
         // Legacy check for older agentic-flow
-        const af = await import('agentic-flow').catch(() => null);
+        const af = await importOptional('agentic-flow', TRANSFORMERS_NATIVE_PROBE);
         if (af) agenticFlowAvailable = true;
       }
 

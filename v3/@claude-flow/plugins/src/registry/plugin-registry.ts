@@ -346,7 +346,13 @@ export class PluginRegistry extends EventEmitter {
 
       const deps = entry.plugin.metadata.dependencies ?? [];
       for (const dep of deps) {
-        visit(dep);
+        if (typeof dep === 'string') {
+          visit(dep);
+        } else if (!dep.optional || this.plugins.has(dep.name)) {
+          // Object form ({ name, version, optional? }): a missing optional
+          // dependency is not an error.
+          visit(dep.name);
+        }
       }
 
       visiting.delete(name);

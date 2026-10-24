@@ -16,6 +16,19 @@ export type PluginLifecycleState =
   | 'shutdown'
   | 'error';
 
+/**
+ * A plugin dependency with a version constraint.
+ * Same shape as the registry's dependency-graph PluginDependency.
+ */
+export interface PluginDependencySpec {
+  readonly name: string;
+  /** Semver range, e.g. "^3.0.0", ">=2.1.0 <3.0.0" or "*" */
+  readonly version: string;
+  /** Don't fail if the dependency is missing */
+  readonly optional?: boolean;
+  readonly peerDependency?: boolean;
+}
+
 export interface PluginMetadata {
   readonly name: string;
   readonly version: string;
@@ -23,7 +36,11 @@ export interface PluginMetadata {
   readonly author?: string;
   readonly license?: string;
   readonly repository?: string;
-  readonly dependencies?: string[];
+  /**
+   * Plugin dependencies: either a name (optionally "name@range") or a
+   * PluginDependencySpec object with a version constraint.
+   */
+  readonly dependencies?: Array<string | PluginDependencySpec>;
   readonly peerDependencies?: Record<string, string>;
   readonly minCoreVersion?: string;
   readonly maxCoreVersion?: string;

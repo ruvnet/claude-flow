@@ -14,7 +14,7 @@ import {
   CredentialGeneratorError,
   createCredentialGenerator,
   generateCredentials,
-} from '../../security/credential-generator.js';
+} from '../src/credential-generator.js';
 
 describe('CredentialGenerator', () => {
   let generator: CredentialGenerator;

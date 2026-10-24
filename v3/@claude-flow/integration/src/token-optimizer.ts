@@ -169,8 +169,6 @@ export class TokenOptimizer extends EventEmitter {
       language,
     });
 
-    this.stats.editsOptimized++;
-
     // Track optimized edits (no fabricated token savings — actual savings
     // come from fewer retries, which we can't measure here)
     if (result.method === 'agent-booster') {

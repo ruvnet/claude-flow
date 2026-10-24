@@ -6,7 +6,7 @@
  * - Behavior verification over state testing
  * - Clear isolation between units
  */
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import path from 'path';
 
 export default defineConfig({
@@ -28,10 +28,13 @@ export default defineConfig({
     ],
 
     // Exclude patterns
+    // Bare names like 'node_modules' only matched the top level, so test files
+    // shipped inside nested @claude-flow/*/node_modules were collected too.
     exclude: [
-      'node_modules',
-      'dist',
-      '.git',
+      ...configDefaults.exclude,
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
     ],
 
     // Coverage configuration - London School targets
@@ -81,13 +84,10 @@ export default defineConfig({
     reporters: ['default'],
 
     // Parallel execution
+    // Vitest 4 removed test.poolOptions; its options are now top-level.
+    // singleThread: false is the default (multiple workers), so only isolate remains.
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-        isolate: true,
-      },
-    },
+    isolate: true,
 
     // Globals for easier testing
     globals: true,

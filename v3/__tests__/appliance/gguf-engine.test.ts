@@ -1,12 +1,11 @@
 /**
  * GGUF inference engine tests.
  *
- * Uses the Node.js built-in test runner (node:test).
- * Run: npx tsx --test v3/__tests__/appliance/gguf-engine.test.ts
+ * Uses Vitest (collected by the v3 root vitest config).
+ * Run: cd v3 && npx vitest run __tests__/appliance/gguf-engine.test.ts
  */
 
-import { describe, it, beforeEach, afterEach } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it, beforeEach, afterEach, expect } from 'vitest';
 import { writeFileSync, unlinkSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -129,12 +128,12 @@ describe('parseGgufHeader', () => {
 
     const meta = await parseGgufHeader(filePath);
 
-    assert.equal(meta.magic, 'GGUF');
-    assert.equal(meta.version, 3);
-    assert.equal(meta.tensorCount, 0);
-    assert.equal(meta.kvCount, 2);
-    assert.equal(meta.architecture, 'llama');
-    assert.equal(meta.name, 'test-model');
+    expect(meta.magic).toBe('GGUF');
+    expect(meta.version).toBe(3);
+    expect(meta.tensorCount).toBe(0);
+    expect(meta.kvCount).toBe(2);
+    expect(meta.architecture).toBe('llama');
+    expect(meta.name).toBe('test-model');
   });
 
   it('supports GGUF version 2', async () => {
@@ -142,8 +141,8 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.version, 2);
-    assert.equal(meta.architecture, 'llama');
+    expect(meta.version).toBe(2);
+    expect(meta.architecture).toBe('llama');
   });
 
   it('supports GGUF version 3', async () => {
@@ -151,7 +150,7 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.version, 3);
+    expect(meta.version).toBe(3);
   });
 
   it('parses tensor count correctly', async () => {
@@ -159,7 +158,7 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.tensorCount, 42);
+    expect(meta.tensorCount).toBe(42);
   });
 
   it('parses integer KV entries (context_length, embedding_length)', async () => {
@@ -173,8 +172,8 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.contextLength, 4096);
-    assert.equal(meta.embeddingLength, 2048);
+    expect(meta.contextLength).toBe(4096);
+    expect(meta.embeddingLength).toBe(2048);
   });
 
   it('rejects a file with invalid magic bytes', async () => {
@@ -183,30 +182,21 @@ describe('parseGgufHeader', () => {
     buf.writeUInt32LE(3, 4); // version
     const filePath = writeGgufFile(buf);
 
-    await assert.rejects(
-      () => parseGgufHeader(filePath),
-      /Invalid GGUF magic/,
-    );
+    await expect(parseGgufHeader(filePath)).rejects.toThrow(/Invalid GGUF magic/);
   });
 
   it('rejects unsupported GGUF version (version 1)', async () => {
     const buf = buildGgufBuffer({ version: 1 });
     const filePath = writeGgufFile(buf);
 
-    await assert.rejects(
-      () => parseGgufHeader(filePath),
-      /Unsupported GGUF version/,
-    );
+    await expect(parseGgufHeader(filePath)).rejects.toThrow(/Unsupported GGUF version/);
   });
 
   it('rejects unsupported GGUF version (version 99)', async () => {
     const buf = buildGgufBuffer({ version: 99 });
     const filePath = writeGgufFile(buf);
 
-    await assert.rejects(
-      () => parseGgufHeader(filePath),
-      /Unsupported GGUF version/,
-    );
+    await expect(parseGgufHeader(filePath)).rejects.toThrow(/Unsupported GGUF version/);
   });
 
   it('handles a truncated buffer gracefully (partial KV data)', async () => {
@@ -224,9 +214,9 @@ describe('parseGgufHeader', () => {
 
     // Should not throw -- metadata is partially parsed
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.magic, 'GGUF');
-    assert.equal(meta.version, 3);
-    assert.equal(meta.kvCount, 2);
+    expect(meta.magic).toBe('GGUF');
+    expect(meta.version).toBe(3);
+    expect(meta.kvCount).toBe(2);
   });
 
   it('reports fileSize correctly', async () => {
@@ -234,7 +224,7 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.fileSize, buf.length);
+    expect(meta.fileSize).toBe(buf.length);
   });
 
   it('stores all parsed metadata in the metadata map', async () => {
@@ -242,8 +232,8 @@ describe('parseGgufHeader', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await parseGgufHeader(filePath);
-    assert.equal(meta.metadata['general.architecture'], 'llama');
-    assert.equal(meta.metadata['general.name'], 'test-model');
+    expect(meta.metadata['general.architecture']).toBe('llama');
+    expect(meta.metadata['general.name']).toBe('test-model');
   });
 });
 
@@ -268,7 +258,7 @@ describe('GgufEngine', () => {
   });
 
   it('constructs with provided config', () => {
-    assert.ok(engine);
+    expect(engine).toBeTruthy();
   });
 
   it('initialize succeeds even without node-llama-cpp', async () => {
@@ -288,8 +278,8 @@ describe('GgufEngine', () => {
     const filePath = writeGgufFile(buf);
 
     const meta = await engine.loadModel(filePath);
-    assert.equal(meta.architecture, 'llama');
-    assert.equal(meta.name, 'engine-test-model');
+    expect(meta.architecture).toBe('llama');
+    expect(meta.name).toBe('engine-test-model');
   });
 
   it('getLoadedModels returns models after loadModel', async () => {
@@ -300,8 +290,8 @@ describe('GgufEngine', () => {
 
     await engine.loadModel(filePath);
     const models = engine.getLoadedModels();
-    assert.equal(models.length, 1);
-    assert.equal(models[0].architecture, 'llama');
+    expect(models.length).toBe(1);
+    expect(models[0].architecture).toBe('llama');
   });
 
   it('shutdown clears loaded models', async () => {
@@ -311,10 +301,10 @@ describe('GgufEngine', () => {
     const filePath = writeGgufFile(buf);
 
     await engine.loadModel(filePath);
-    assert.equal(engine.getLoadedModels().length, 1);
+    expect(engine.getLoadedModels().length).toBe(1);
 
     await engine.shutdown();
-    assert.equal(engine.getLoadedModels().length, 0);
+    expect(engine.getLoadedModels().length).toBe(0);
   });
 });
 
@@ -337,11 +327,11 @@ describe('GgufEngine.generate (metadata-only)', () => {
     await engine.loadModel(filePath);
 
     const response = await engine.generate({ prompt: 'Hello world' });
-    assert.equal(response.metadataOnly, true);
-    assert.ok(response.text.includes('metadata-only'));
-    assert.ok(response.text.includes('fallback-model'));
-    assert.equal(response.tokensUsed, 0);
-    assert.ok(response.latencyMs >= 0);
+    expect(response.metadataOnly).toBe(true);
+    expect(response.text.includes('metadata-only')).toBeTruthy();
+    expect(response.text.includes('fallback-model')).toBeTruthy();
+    expect(response.tokensUsed).toBe(0);
+    expect(response.latencyMs >= 0).toBeTruthy();
 
     await engine.shutdown();
   });
@@ -351,8 +341,8 @@ describe('GgufEngine.generate (metadata-only)', () => {
     await engine.initialize();
 
     const response = await engine.generate({ prompt: 'Hello world' });
-    assert.equal(response.metadataOnly, true);
-    assert.ok(response.text.includes('No model loaded'));
+    expect(response.metadataOnly).toBe(true);
+    expect(response.text.includes('No model loaded')).toBeTruthy();
 
     await engine.shutdown();
   });
@@ -386,9 +376,9 @@ describe('KV cache persistence', () => {
     await engine2.initialize();
     await engine2.loadKvCache(cachePath);
 
-    assert.deepEqual(engine2.getKvEntry('key-alpha'), Buffer.from('value-alpha'));
-    assert.deepEqual(engine2.getKvEntry('key-beta'), Buffer.from('value-beta'));
-    assert.deepEqual(engine2.getKvEntry('key-gamma'), Buffer.from('value-gamma'));
+    expect(engine2.getKvEntry('key-alpha')).toStrictEqual(Buffer.from('value-alpha'));
+    expect(engine2.getKvEntry('key-beta')).toStrictEqual(Buffer.from('value-beta'));
+    expect(engine2.getKvEntry('key-gamma')).toStrictEqual(Buffer.from('value-gamma'));
 
     await engine.shutdown();
     await engine2.shutdown();
@@ -406,8 +396,8 @@ describe('KV cache persistence', () => {
     await engine.persistKvCache(cachePath);
 
     const data = readFileSync(cachePath);
-    assert.equal(data.readUInt32LE(0), 0x564B5652, 'Magic should be RVKV');
-    assert.equal(data.readUInt32LE(4), 1, 'Version should be 1');
+    expect(data.readUInt32LE(0), 'Magic should be RVKV').toBe(0x564B5652);
+    expect(data.readUInt32LE(4), 'Version should be 1').toBe(1);
 
     await engine.shutdown();
   });
@@ -421,10 +411,7 @@ describe('KV cache persistence', () => {
     badBuf.writeUInt32LE(0xDEADBEEF, 0);
     writeFileSync(badFile, badBuf);
 
-    await assert.rejects(
-      () => engine.loadKvCache(badFile),
-      /Invalid KV cache magic/,
-    );
+    await expect(engine.loadKvCache(badFile)).rejects.toThrow(/Invalid KV cache magic/);
 
     await engine.shutdown();
   });
@@ -436,10 +423,7 @@ describe('KV cache persistence', () => {
     const smallFile = tmpPath('.rvkv');
     writeFileSync(smallFile, Buffer.alloc(10));
 
-    await assert.rejects(
-      () => engine.loadKvCache(smallFile),
-      /too small/,
-    );
+    await expect(engine.loadKvCache(smallFile)).rejects.toThrow(/too small/);
 
     await engine.shutdown();
   });
@@ -465,10 +449,7 @@ describe('KV cache persistence', () => {
     const engine2 = new GgufEngine({ verbose: false });
     await engine2.initialize();
 
-    await assert.rejects(
-      () => engine2.loadKvCache(cachePath),
-      /hash mismatch/,
-    );
+    await expect(engine2.loadKvCache(cachePath)).rejects.toThrow(/hash mismatch/);
 
     await engine.shutdown();
     await engine2.shutdown();
@@ -488,7 +469,7 @@ describe('KV cache persistence', () => {
     await engine2.initialize();
     await engine2.loadKvCache(cachePath);
 
-    assert.equal(engine2.getKvEntry('nonexistent'), undefined);
+    expect(engine2.getKvEntry('nonexistent')).toBe(undefined);
 
     await engine.shutdown();
     await engine2.shutdown();
@@ -517,9 +498,9 @@ describe('GgufEngine.stream', () => {
       tokens.push(token);
     }
 
-    assert.ok(tokens.length >= 1, 'Stream should yield at least one token');
+    expect(tokens.length >= 1, 'Stream should yield at least one token').toBeTruthy();
     // In metadata-only mode, it yields the full metadata response as one chunk
-    assert.ok(tokens[0].includes('metadata-only'));
+    expect(tokens[0].includes('metadata-only')).toBeTruthy();
 
     await engine.shutdown();
   });
@@ -533,8 +514,8 @@ describe('GgufEngine.stream', () => {
       tokens.push(token);
     }
 
-    assert.ok(tokens.length >= 1);
-    assert.ok(tokens[0].includes('No model loaded'));
+    expect(tokens.length >= 1).toBeTruthy();
+    expect(tokens[0].includes('No model loaded')).toBeTruthy();
 
     await engine.shutdown();
   });

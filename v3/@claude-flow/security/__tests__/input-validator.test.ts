@@ -30,7 +30,7 @@ import {
   PathSchema,
   PATTERNS,
   LIMITS,
-} from '../../security/input-validator.js';
+} from '../src/input-validator.js';
 
 describe('InputValidator', () => {
   describe('SafeStringSchema', () => {
@@ -314,7 +314,10 @@ describe('InputValidator', () => {
       });
 
       it('should remove traversal patterns', () => {
-        expect(sanitizePath('../etc/passwd')).toBe('/etc/passwd');
+        // Removing '..' leaves '/etc/passwd'; sanitizePath then strips the
+        // leading slash by design (see 'should remove leading slash'), so the
+        // result is a relative path that cannot escape the base directory.
+        expect(sanitizePath('../etc/passwd')).toBe('etc/passwd');
       });
 
       it('should normalize slashes', () => {

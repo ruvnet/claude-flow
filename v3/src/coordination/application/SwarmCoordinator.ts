@@ -202,7 +202,21 @@ export class SwarmCoordinator {
     }
 
     const startTime = Date.now();
-    const result = await agent.executeTask(task);
+    let result: TaskResult;
+    try {
+      result = await agent.executeTask(task);
+    } catch (error) {
+      // An agent that rejects (crash, unexpected throw) must not take the
+      // caller down with it: report a failed task, and record it in the
+      // agent's failure metrics like any other failure (below).
+      result = {
+        taskId: task.id,
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        duration: Date.now() - startTime,
+        agentId
+      };
+    }
     const duration = Date.now() - startTime;
 
     // Update metrics

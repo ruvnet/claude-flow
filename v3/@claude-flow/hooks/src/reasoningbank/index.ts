@@ -94,7 +94,11 @@ export interface ReasoningBankConfig {
   dedupThreshold: number;
   /** Database path */
   dbPath: string;
-  /** Use mock embeddings (for testing) */
+  /**
+   * Use mock embeddings (for testing). When true, embeddings come only from the
+   * deterministic in-process hash embedding: no real embedding service and no
+   * child process is ever started.
+   */
   useMockEmbeddings?: boolean;
 }
 
@@ -212,7 +216,9 @@ export class ReasoningBank extends EventEmitter {
   constructor(config: Partial<ReasoningBankConfig> = {}) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.embeddingService = new FallbackEmbeddingService(this.config.dimensions);
+    this.embeddingService = new FallbackEmbeddingService(this.config.dimensions, {
+      useMockEmbeddings: this.config.useMockEmbeddings === true,
+    });
   }
 
   /**
@@ -956,14 +962,41 @@ class RealEmbeddingService implements IEmbeddingService {
 }
 
 /**
+ * Environment variable that opts in to agentic-flow ONNX embeddings in the
+ * fallback embedding service.
+ *
+ * Set `CLAUDE_FLOW_AGENTIC_EMBEDDINGS=1` to let the fallback service try
+ * `npx agentic-flow@alpha embeddings generate` before using the hash embedding.
+ * It is off by default because it starts a subprocess (and may hit the npm
+ * registry) on the embedding path. It is never used when `useMockEmbeddings`
+ * is true. After the first failed attempt it is disabled for the rest of the
+ * process.
+ */
+export const AGENTIC_EMBEDDINGS_ENV = 'CLAUDE_FLOW_AGENTIC_EMBEDDINGS';
+
+/** Process-wide state of the opt-in agentic-flow embedding path. */
+let agenticFlowEmbeddingsDisabled = false;
+
+function agenticEmbeddingsOptedIn(): boolean {
+  const value = process.env[AGENTIC_EMBEDDINGS_ENV];
+  return value === '1' || value?.toLowerCase() === 'true';
+}
+
+/**
  * Fallback embedding service (hash-based)
+ *
+ * Uses a deterministic in-process hash embedding. Only when
+ * CLAUDE_FLOW_AGENTIC_EMBEDDINGS=1 is set and mock mode is off does it first
+ * try agentic-flow ONNX embeddings via an async subprocess.
  */
 class FallbackEmbeddingService implements IEmbeddingService {
   private dimensions: number;
+  private useMockEmbeddings: boolean;
   private cache: Map<string, Float32Array> = new Map();
 
-  constructor(dimensions: number = 384) {
+  constructor(dimensions: number = 384, options: { useMockEmbeddings?: boolean } = {}) {
     this.dimensions = dimensions;
+    this.useMockEmbeddings = options.useMockEmbeddings === true;
   }
 
   async embed(text: string): Promise<Float32Array> {
@@ -972,24 +1005,42 @@ class FallbackEmbeddingService implements IEmbeddingService {
       return this.cache.get(cacheKey)!;
     }
 
-    // Try agentic-flow ONNX embeddings first
+    if (!this.useMockEmbeddings && !agenticFlowEmbeddingsDisabled && agenticEmbeddingsOptedIn()) {
+      const embedding = await this.agenticFlowEmbed(text);
+      if (embedding) {
+        this.cache.set(cacheKey, embedding);
+        return embedding;
+      }
+    }
+
+    return this.hashEmbed(text);
+  }
+
+  /**
+   * Opt-in agentic-flow ONNX embedding. Returns null on any failure and
+   * disables the path for the rest of the process, so a missing or broken
+   * agentic-flow costs at most one attempt.
+   */
+  private async agenticFlowEmbed(text: string): Promise<Float32Array | null> {
     try {
-      const { execFileSync } = await import('child_process');
-      // Use execFileSync with shell: false to prevent command injection
-      // Pass text as argument array to avoid shell interpolation
+      const { execFile } = await import('child_process');
+      const { promisify } = await import('util');
+      // shell: false and an argument array prevent command injection
       const safeText = text.slice(0, 500).replace(/[\x00-\x1f]/g, ''); // Remove control chars
-      const result = execFileSync(
+      const { stdout } = await promisify(execFile)(
         'npx',
         ['agentic-flow@alpha', 'embeddings', 'generate', safeText, '--format', 'json'],
-        { encoding: 'utf-8', timeout: 10000, shell: false, stdio: ['pipe', 'pipe', 'pipe'] }
+        { encoding: 'utf-8', timeout: 10000, shell: false }
       );
-      const parsed = JSON.parse(result);
-      const embedding = new Float32Array(parsed.embedding || parsed);
-      this.cache.set(cacheKey, embedding);
-      return embedding;
+      const parsed = JSON.parse(String(stdout));
+      const values = parsed.embedding || parsed;
+      if (!Array.isArray(values) || values.length === 0) {
+        throw new Error('agentic-flow returned no embedding');
+      }
+      return new Float32Array(values);
     } catch {
-      // Fallback to hash-based embedding
-      return this.hashEmbed(text);
+      agenticFlowEmbeddingsDisabled = true;
+      return null;
     }
   }
 

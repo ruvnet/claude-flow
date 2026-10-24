@@ -37,6 +37,44 @@ describe('Chunking', () => {
     const result = chunkText('Short', { maxChunkSize: 100 });
     expect(result.totalChunks).toBe(1);
   });
+
+  it('terminates when overlap >= maxChunkSize (character strategy)', () => {
+    const text = 'abcdefghijklmnopqrstuvwxyz'.repeat(4); // 104 chars
+    for (const [maxChunkSize, overlap] of [[30, 50], [50, 50], [10, 10], [1, 5]]) {
+      const result = chunkText(text, { maxChunkSize, overlap, strategy: 'character' });
+      // Without the guard this loops forever; a bounded count proves termination
+      expect(result.totalChunks).toBeGreaterThan(0);
+      expect(result.totalChunks).toBeLessThanOrEqual(text.length);
+      for (const chunk of result.chunks) {
+        expect(chunk.length).toBeGreaterThan(0);
+        expect(chunk.length).toBeLessThanOrEqual(maxChunkSize);
+      }
+      // Chunks start in strictly increasing order and cover the whole text
+      for (let i = 1; i < result.chunks.length; i++) {
+        expect(result.chunks[i].startPos).toBeGreaterThan(result.chunks[i - 1].startPos);
+        expect(result.chunks[i].startPos).toBeLessThanOrEqual(result.chunks[i - 1].endPos);
+      }
+      expect(result.chunks[0].startPos).toBe(0);
+      expect(result.chunks[result.chunks.length - 1].endPos).toBe(text.length);
+    }
+  });
+
+  it('keeps the existing output for a valid overlap (character strategy)', () => {
+    const text = 'abcdefghijklmnopqrstuvwxyz'; // 26 chars
+    const result = chunkText(text, { maxChunkSize: 10, overlap: 3, strategy: 'character' });
+    expect(result.chunks.map(c => [c.startPos, c.endPos])).toEqual([
+      [0, 10],
+      [7, 17],
+      [14, 24],
+      [21, 26],
+    ]);
+    expect(result.chunks.map(c => c.text)).toEqual([
+      'abcdefghij',
+      'hijklmnopq',
+      'opqrstuvwx',
+      'vwxyz',
+    ]);
+  });
 });
 
 describe('Normalization', () => {

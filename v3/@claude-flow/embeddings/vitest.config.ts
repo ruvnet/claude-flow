@@ -14,13 +14,10 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     testTimeout: 10000,
-    // Use forks with execArgv to pass memory to child process
+    // Vitest 4 removed `poolOptions`; `singleFork` maps to `maxWorkers: 1`.
+    // The old Node heap-limit execArgv was already ignored on Vitest 4
+    // and only masked the chunkByCharacter infinite loop (fixed in src).
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-        execArgv: ['--max-old-space-size=8192'],
-      },
-    },
+    maxWorkers: 1,
   },
 });

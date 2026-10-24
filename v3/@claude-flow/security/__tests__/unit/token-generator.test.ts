@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { TokenGenerator, TokenGeneratorError } from '../../../security/token-generator.js';
+import { TokenGenerator, TokenGeneratorError } from '../../src/token-generator.js';
 
 describe('TokenGenerator', () => {
   describe('cryptographically secure token generation', () => {

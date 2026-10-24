@@ -6,44 +6,44 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the integration module
 const mockRouter = {
-  addPattern: vi.fn().mockReturnValue(true),
-  route: vi.fn().mockReturnValue([{ name: 'test', score: 0.9 }]),
+  addPattern: vi.fn(() => true),
+  route: vi.fn(() => [{ name: 'test', score: 0.9 }]),
   clear: vi.fn(),
-  patternCount: vi.fn().mockReturnValue(1),
-  toJson: vi.fn().mockReturnValue('{}'),
+  patternCount: vi.fn(() => 1),
+  toJson: vi.fn(() => '{}'),
 };
 
 const mockSona = {
   adapt: vi.fn(),
   recordPattern: vi.fn(),
-  suggestAction: vi.fn().mockReturnValue('optimize'),
-  stats: vi.fn().mockReturnValue('{"adaptations":1}'),
+  suggestAction: vi.fn(() => 'optimize'),
+  stats: vi.fn(() => '{"adaptations":1}'),
   reset: vi.fn(),
-  toJson: vi.fn().mockReturnValue('{}'),
+  toJson: vi.fn(() => '{}'),
 };
 
 const mockLora = {
-  apply: vi.fn().mockReturnValue(new Float32Array(32)),
+  apply: vi.fn(() => new Float32Array(32)),
   adapt: vi.fn(),
   applyUpdates: vi.fn(),
-  stats: vi.fn().mockReturnValue('{"rank":2}'),
+  stats: vi.fn(() => '{"rank":2}'),
   reset: vi.fn(),
-  toJson: vi.fn().mockReturnValue('{}'),
-  pendingUpdates: vi.fn().mockReturnValue(0),
+  toJson: vi.fn(() => '{}'),
+  pendingUpdates: vi.fn(() => 0),
 };
 
 vi.mock('../src/ruvector/ruvllm-wasm.js', () => ({
-  isRuvllmWasmAvailable: vi.fn().mockResolvedValue(true),
-  initRuvllmWasm: vi.fn().mockResolvedValue(undefined),
-  getRuvllmStatus: vi.fn().mockResolvedValue({ available: true, initialized: true, version: '2.0.1' }),
-  createHnswRouter: vi.fn().mockResolvedValue(mockRouter),
-  createSonaInstant: vi.fn().mockResolvedValue(mockSona),
-  createMicroLora: vi.fn().mockResolvedValue(mockLora),
-  formatChat: vi.fn().mockResolvedValue('<|begin|>system\nHello<|end|>'),
-  createGenerateConfig: vi.fn().mockResolvedValue('{"maxTokens":100}'),
-  createKvCache: vi.fn().mockResolvedValue({ append: vi.fn(), clear: vi.fn(), stats: vi.fn(), tokenCount: vi.fn() }),
-  createBufferPool: vi.fn().mockResolvedValue({ prewarm: vi.fn(), stats: vi.fn(), hitRate: vi.fn(), clear: vi.fn() }),
-  createInferenceArena: vi.fn().mockResolvedValue({ reset: vi.fn(), used: vi.fn(), capacity: vi.fn(), remaining: vi.fn() }),
+  isRuvllmWasmAvailable: vi.fn(async () => true),
+  initRuvllmWasm: vi.fn(async () => undefined),
+  getRuvllmStatus: vi.fn(async () => ({ available: true, initialized: true, version: '2.0.1' })),
+  createHnswRouter: vi.fn(async () => mockRouter),
+  createSonaInstant: vi.fn(async () => mockSona),
+  createMicroLora: vi.fn(async () => mockLora),
+  formatChat: vi.fn(async () => '<|begin|>system\nHello<|end|>'),
+  createGenerateConfig: vi.fn(async () => '{"maxTokens":100}'),
+  createKvCache: vi.fn(async () => ({ append: vi.fn(), clear: vi.fn(), stats: vi.fn(), tokenCount: vi.fn() })),
+  createBufferPool: vi.fn(async () => ({ prewarm: vi.fn(), stats: vi.fn(), hitRate: vi.fn(), clear: vi.fn() })),
+  createInferenceArena: vi.fn(async () => ({ reset: vi.fn(), used: vi.fn(), capacity: vi.fn(), remaining: vi.fn() })),
   HNSW_MAX_SAFE_PATTERNS: 11,
 }));
 

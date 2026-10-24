@@ -166,7 +166,13 @@ describe('JSON Security', () => {
       const malicious = '{"__proto__": {"polluted": true}, "normal": 1}';
       const result = safeJsonParse<Record<string, unknown>>(malicious);
       expect(result.normal).toBe(1);
-      expect(result.__proto__).toBeUndefined();
+      // `result.__proto__` reads the inherited Object.prototype accessor, so it
+      // can never be undefined on a plain object. Assert what stripping means:
+      // no own __proto__ key, an untouched prototype, and no pollution.
+      expect(Object.prototype.hasOwnProperty.call(result, '__proto__')).toBe(false);
+      expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+      expect((result as Record<string, unknown>).polluted).toBeUndefined();
+      expect(({} as Record<string, unknown>).polluted).toBeUndefined();
     });
 
     it('should throw on invalid JSON', () => {

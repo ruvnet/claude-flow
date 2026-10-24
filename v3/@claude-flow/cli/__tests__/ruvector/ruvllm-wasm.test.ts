@@ -7,11 +7,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // ── Mock WASM module ─────────────────────────────────────────
 
 const mockHnswRouter = {
-  addPattern: vi.fn().mockReturnValue(true),
-  route: vi.fn().mockReturnValue([{ name: 'test', score: 0.95 }]),
+  addPattern: vi.fn(() => true),
+  route: vi.fn(() => [{ name: 'test', score: 0.95 }]),
   setEfSearch: vi.fn(),
   clear: vi.fn(),
-  toJson: vi.fn().mockReturnValue('{}'),
+  toJson: vi.fn(() => '{}'),
   dimensions: 64,
 };
 
@@ -27,9 +27,9 @@ const mockSonaConfig = {
 const mockSonaInstant = {
   instantAdapt: vi.fn(),
   recordPattern: vi.fn(),
-  suggestAction: vi.fn().mockReturnValue('optimize'),
-  stats: vi.fn().mockReturnValue({ adaptations: 1 }),
-  toJson: vi.fn().mockReturnValue('{"adaptations":1}'),
+  suggestAction: vi.fn(() => 'optimize'),
+  stats: vi.fn(() => ({ adaptations: 1 })),
+  toJson: vi.fn(() => '{"adaptations":1}'),
   reset: vi.fn(),
 };
 
@@ -41,14 +41,14 @@ const mockLoraConfig = {
 };
 
 const mockLora = {
-  apply: vi.fn().mockReturnValue(new Float32Array(32)),
+  apply: vi.fn(() => new Float32Array(32)),
   adapt: vi.fn(),
   applyUpdates: vi.fn(),
-  stats: vi.fn().mockReturnValue({ rank: 2 }),
+  stats: vi.fn(() => ({ rank: 2 })),
   reset: vi.fn(),
-  toJson: vi.fn().mockReturnValue('{"rank":2}'),
-  getConfig: vi.fn().mockReturnValue(mockLoraConfig),
-  pendingUpdates: vi.fn().mockReturnValue(0),
+  toJson: vi.fn(() => '{"rank":2}'),
+  getConfig: vi.fn(() => mockLoraConfig),
+  pendingUpdates: vi.fn(() => 0),
 };
 
 const mockAdaptFeedback = {
@@ -60,7 +60,7 @@ const mockAdaptFeedback = {
 const mockKvCacheConfig = { tailLength: 4, maxTokens: 2048, numKvHeads: 8, headDim: 64 };
 const mockKvCache = {
   append: vi.fn(),
-  stats: vi.fn().mockReturnValue({}),
+  stats: vi.fn(() => ({})),
   clear: vi.fn(),
   tokenCount: 0,
 };
@@ -73,12 +73,12 @@ const mockGenerateConfig = {
   repetitionPenalty: 1.1,
   addStopSequence: vi.fn(),
   clearStopSequences: vi.fn(),
-  toJson: vi.fn().mockReturnValue('{"maxTokens":100}'),
+  toJson: vi.fn(() => '{"maxTokens":100}'),
 };
 
 const mockBufferPool = {
   prewarmAll: vi.fn(),
-  statsJson: vi.fn().mockReturnValue('{"hitRate":0.95}'),
+  statsJson: vi.fn(() => '{"hitRate":0.95}'),
   hitRate: 0.95,
   clear: vi.fn(),
 };
@@ -91,13 +91,13 @@ const mockInferenceArena = {
 };
 
 const mockChatMessage = {
-  system: vi.fn().mockReturnValue({ role: 'system', content: 'test' }),
-  user: vi.fn().mockReturnValue({ role: 'user', content: 'test' }),
-  assistant: vi.fn().mockReturnValue({ role: 'assistant', content: 'test' }),
+  system: vi.fn(() => ({ role: 'system', content: 'test' })),
+  user: vi.fn(() => ({ role: 'user', content: 'test' })),
+  assistant: vi.fn(() => ({ role: 'assistant', content: 'test' })),
 };
 
 const mockChatTemplate = {
-  format: vi.fn().mockReturnValue('<formatted>'),
+  format: vi.fn(() => '<formatted>'),
   name: 'llama3',
 };
 
@@ -109,7 +109,7 @@ vi.mock('@ruvector/ruvllm-wasm', () => ({
   RuvLLMWasm: class {
     initialize = vi.fn();
     isInitialized = true;
-    getPoolStats = vi.fn().mockReturnValue('{}');
+    getPoolStats = vi.fn(() => '{}');
     reset = vi.fn();
   },
   HnswRouterWasm: class {
@@ -168,7 +168,7 @@ vi.mock('@ruvector/ruvllm-wasm', () => ({
   },
   KvCacheWasm: Object.assign(
     class { append = mockKvCache.append; stats = mockKvCache.stats; clear = mockKvCache.clear; tokenCount = 0; },
-    { withDefaults: vi.fn().mockReturnValue(mockKvCache) },
+    { withDefaults: vi.fn(() => mockKvCache) },
   ),
   GenerateConfig: class {
     maxTokens = 100;
@@ -180,33 +180,33 @@ vi.mock('@ruvector/ruvllm-wasm', () => ({
     clearStopSequences = mockGenerateConfig.clearStopSequences;
     toJson = mockGenerateConfig.toJson;
   },
-  BufferPoolWasm: { withCapacity: vi.fn().mockReturnValue(mockBufferPool) },
+  BufferPoolWasm: { withCapacity: vi.fn(() => mockBufferPool) },
   InferenceArenaWasm: Object.assign(
     class { reset = mockInferenceArena.reset; used = 1024; capacity = 8192; remaining = 7168; },
-    { forModel: vi.fn().mockReturnValue(mockInferenceArena) },
+    { forModel: vi.fn(() => mockInferenceArena) },
   ),
   ChatMessageWasm: mockChatMessage,
   ChatTemplateWasm: {
-    llama3: vi.fn().mockReturnValue(mockChatTemplate),
-    mistral: vi.fn().mockReturnValue(mockChatTemplate),
-    chatml: vi.fn().mockReturnValue(mockChatTemplate),
-    phi: vi.fn().mockReturnValue(mockChatTemplate),
-    gemma: vi.fn().mockReturnValue(mockChatTemplate),
-    custom: vi.fn().mockReturnValue(mockChatTemplate),
-    detectFromModelId: vi.fn().mockReturnValue(mockChatTemplate),
+    llama3: vi.fn(() => mockChatTemplate),
+    mistral: vi.fn(() => mockChatTemplate),
+    chatml: vi.fn(() => mockChatTemplate),
+    phi: vi.fn(() => mockChatTemplate),
+    gemma: vi.fn(() => mockChatTemplate),
+    custom: vi.fn(() => mockChatTemplate),
+    detectFromModelId: vi.fn(() => mockChatTemplate),
   },
-  getVersion: vi.fn().mockReturnValue('2.0.1'),
-  isReady: vi.fn().mockReturnValue(true),
+  getVersion: vi.fn(() => '2.0.1'),
+  isReady: vi.fn(() => true),
 }));
 
 // Mock fs and module for Node.js init
 vi.mock('node:fs', () => ({
-  readFileSync: vi.fn().mockReturnValue(Buffer.from('fake wasm bytes')),
+  readFileSync: vi.fn(() => Buffer.from('fake wasm bytes')),
 }));
 vi.mock('node:module', () => ({
-  createRequire: vi.fn().mockReturnValue({
-    resolve: vi.fn().mockReturnValue('/fake/path/ruvllm_wasm_bg.wasm'),
-  }),
+  createRequire: vi.fn(() => ({
+    resolve: vi.fn(() => '/fake/path/ruvllm_wasm_bg.wasm'),
+  })),
 }));
 
 // ── Tests ────────────────────────────────────────────────────

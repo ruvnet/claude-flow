@@ -15,7 +15,7 @@ import {
   PathValidatorError,
   createProjectPathValidator,
   createFullProjectPathValidator,
-} from '../../security/path-validator.js';
+} from '../src/path-validator.js';
 
 describe('PathValidator', () => {
   let validator: PathValidator;

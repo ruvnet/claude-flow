@@ -386,11 +386,22 @@ describe('Full Workflow Integration Tests', () => {
   it('should support workflow resume after interruption', async () => {
     await coordinator.spawnAgent({ id: 'resume-agent', type: 'coder', capabilities: ['code'] });
 
+    // Gate task-1 so the interruption happens while it is in flight. A fixed
+    // sleep raced the workflow: high-priority tasks finish in ~1ms each, so the
+    // workflow was already 'completed' (and pause was a no-op) after 100ms.
+    let releaseTask1!: () => void;
+    const task1Gate = new Promise<void>(resolve => { releaseTask1 = resolve; });
+    let markTask1Started!: () => void;
+    const task1Started = new Promise<void>(resolve => { markTask1Started = resolve; });
+
     const workflow = {
       id: 'resume-workflow',
       name: 'Resume Test',
       tasks: [
-        { id: 'task-1', type: 'code', description: 'Task 1', assignedTo: 'resume-agent', priority: 'high' as const },
+        {
+          id: 'task-1', type: 'code', description: 'Task 1', assignedTo: 'resume-agent', priority: 'high' as const,
+          onExecute: async () => { markTask1Started(); await task1Gate; }
+        },
         { id: 'task-2', type: 'code', description: 'Task 2', assignedTo: 'resume-agent', priority: 'high' as const },
         { id: 'task-3', type: 'code', description: 'Task 3', assignedTo: 'resume-agent', priority: 'high' as const }
       ]
@@ -399,18 +410,26 @@ describe('Full Workflow Integration Tests', () => {
     // Start workflow
     const execution = workflowEngine.startWorkflow(workflow);
 
-    // Simulate interruption after first task
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Simulate interruption while the first task is running
+    await task1Started;
     await workflowEngine.pauseWorkflow('resume-workflow');
 
     const checkpointState = await workflowEngine.getWorkflowState('resume-workflow');
     expect(checkpointState.status).toBe('paused');
+
+    // Let task-1 finish; the paused workflow must not start task-2
+    releaseTask1();
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const pausedState = await workflowEngine.getWorkflowState('resume-workflow');
+    expect(pausedState.status).toBe('paused');
+    expect(pausedState.completedTasks).toEqual(['task-1']);
 
     // Resume workflow
     await workflowEngine.resumeWorkflow('resume-workflow');
     const result = await execution;
 
     expect(result.status).toBe('completed');
+    expect(result.executionOrder).toEqual(['task-1', 'task-2', 'task-3']);
   });
 
   it('should monitor and report workflow metrics', async () => {
@@ -644,7 +663,8 @@ describe('Full Workflow Integration Tests', () => {
     const result = await workflowEngine.executeWorkflow(mainWorkflow);
 
     expect(result.status).toBe('completed');
-    expect(result.tasksCompleted).toBeGreaterThanOrEqual(4); // 2 main + 2 sub
+    expect(result.tasksCompleted).toBe(4); // 2 main + 2 sub (the container is not a leaf task)
+    expect(result.executionOrder).toEqual(['main-task-1', 'nested-workflow', 'main-task-2']);
   });
 
   it('should provide comprehensive workflow debugging', async () => {
