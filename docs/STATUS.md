@@ -23,7 +23,7 @@ The intended day-to-day flow:
 
 1. **Install once**:
    ```bash
-   npx ruflo init --wizard
+   npx ruflo init wizard
    ```
    This writes a `CLAUDE.md` with hooks and routing rules, registers the MCP server with Claude Code, and seeds `.claude-flow/` with config + memory.
 

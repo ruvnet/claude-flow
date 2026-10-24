@@ -559,14 +559,14 @@ npm install -g ruflo@latest --omit=optional
 
 #### Claude Code Plugin Marketplace
 
-Install Ruflo as a native Claude Code plugin -- adds skills, commands, agents, and MCP tools directly into Claude Code:
+Install Ruflo as a native Claude Code plugin -- adds skills, commands, and agent definitions directly into Claude Code. Note: this path does **not** register the Ruflo MCP server (`memory_store`, `swarm_init`, etc. won't be callable from Claude). For the full loop, use `npx ruflo init` instead.
 
 ```bash
 # Add the marketplace (one-time)
 /plugin marketplace add ruvnet/ruflo
 
 # Install individual plugins
-/plugin install ruflo-core@ruflo         # MCP server + base agents
+/plugin install ruflo-core@ruflo         # Base agents + slash commands (no MCP server)
 /plugin install ruflo-swarm@ruflo         # Swarm coordination + Monitor
 /plugin install ruflo-autopilot@ruflo     # Autonomous /loop completion
 /plugin install ruflo-loop-workers@ruflo  # Background workers + CronCreate
