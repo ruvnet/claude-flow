@@ -36,6 +36,7 @@ export const PROJECT = {
   helpersVersion: '.claude/helpers/.helpers-version',
   config: '.claude-flow/config.yaml',
   missions: '.claude-flow/missions/observation.json',
+  ruos: '.claude-flow/ruos/observation.json',
   agentdbMod: '.claude-flow/agentdb-mod/status.json',
 } as const
 
@@ -129,7 +130,7 @@ export async function readDisk(fs: ReaderFs, cache: ReadCache, cwd: string, home
   const missingHome: Read = { text: null, reason: 'missing' }
   const [projectReads, homeReads, federationNodes, hasNostrKey] = await Promise.all([
     // ADR-450 T2: the one mod status file read here must be a regular file, like the per-plugin ones in readMods.
-    Promise.all(projectKeys.map(key => readBounded(fs, cache, under(cwd, PROJECT[key]), READ_MAX, key === 'agentdbMod'))),
+    Promise.all(projectKeys.map(key => readBounded(fs, cache, under(cwd, PROJECT[key]), key === 'ruos' ? 128_000 : READ_MAX, key === 'agentdbMod' || key === 'ruos'))),
     Promise.all(homeKeys.map(key => (configDir === null ? Promise.resolve(missingHome) : readBounded(fs, cache, under(configDir, HOME[key]))))),
     fs
       .list(under(cwd, FEDERATION_DIR))

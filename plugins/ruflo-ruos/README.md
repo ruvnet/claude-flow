@@ -46,14 +46,35 @@ $CLI status                                   # config + next auto-stop, no netw
 $CLI hosts
 $CLI run --desktop "Work Desktop" --prompt-file task.txt --model sonnet --timeout 900
 $CLI run --desktop <id> --prompt-file task.txt --start    # wakes a stopped desktop (billable)
-$CLI stop --desktop <id> --run <runId> --confirm
+$CLI runs --run <runId>                       # saved identity, revision and bindingDigest; no network
+$CLI stop --run <runId> --expected-revision <n> --binding-digest <digest> --confirm
 $CLI desktop-stop --desktop <id> --confirm
-$CLI attach --desktop <id> --run <runId>     # re-read a run after a restart (HOME persists)
+$CLI attach --run <runId> --timeout 300        # saved host, backend, server job ID and output cursor
 $CLI logs --run <runId>
 $CLI build --prompt-file task.txt             # exact desktop_exec strings for the session path
 $CLI record start|output|end --run <runId> ...
 $CLI deploy-info --desktop <id> --repo projects/app
 ```
+
+## Recover a disconnected run
+
+`run` persists an intent before launching and the server's job ID before reading output. A disconnected client leaves the remote outcome unresolved; it does not mark the job failed or release its placement as though it stopped. A repeated run ID is refused instead of launching twice.
+
+1. Inspect `runs --run <runId>`. This requires no network or provider key.
+2. Use `attach --run <runId>`. It uses the saved host, transport and committed byte cursor. An attach timeout ends the local wait; it never cancels or launches remote work. Read historical output with `logs`; an arbitrary replay offset cannot append duplicate bytes to the log.
+3. To stop a run, review its current `revision` and `bindingDigest`, then pass both with `--confirm`. A stale revision, changed identity or missing durable record is refused before cancellation.
+
+Optional `run --binding-file binding.json` records mission and source provenance:
+
+```json
+{"missionId":"msn_0123456789abcdef01234567","missionRevision":2,"worktree":"/projects/app/task-a","commit":"0123456789abcdef0123456789abcdef01234567"}
+```
+
+Binding metadata is advisory provenance. It neither changes the remote working directory nor proves that a remote worker checked out that commit. Git worktrees are not process or credential sandboxes.
+
+The console reads `observation.json` and shows remote runs under Missions and in the Room. Disconnected or stale runs enter **Needs you → reconcile**. Its attach action prepares a visible draft; it does not create a new process. The mod's attention summary includes reconciliation counts. Existing session mission admission remains unchanged.
+
+Runs created by older versions or the manual `build`/`record` path have no durable identity record. Inspect the original host and output before taking action; this release does not fabricate a record or automatically relaunch them. Back up `.claude-flow/ruos` before downgrading, and finish or reconcile recorded runs using this version.
 
 ## Status line (mod)
 
@@ -67,6 +88,8 @@ Remote agents are recorded with ruflo's own tools: `agent_spawn` with `config.ho
 - `audit.jsonl`: one record per run (desktop, command sha256, start, end, exit, bytes), because ruOS does not audit the detached output;
 - `hosts.json`: the current host snapshot;
 - `runs/<runId>.log`: the run output, mode 0600.
+- `runs/<runId>.json`: durable identity, lifecycle revision and committed output cursor, without prompt or credentials;
+- `observation.json`: bounded public metadata for the console, without output text or credentials.
 
 ## Cost and auto-stop
 
@@ -80,4 +103,7 @@ ruOS stops cloud desktops at **23:00 America/Toronto on weekdays**. `desktop_kee
 ```bash
 bash plugins/ruflo-ruos/scripts/smoke.sh     # structure, security greps, full node --test suite
 node plugins/ruflo-ruos/scripts/bench.mjs    # adapter overhead vs a raw local call
+node plugins/ruflo-ruos/scripts/e2e-recovery.mjs --disconnect-seconds 60
 ```
+
+The recovery E2E runs two real detached deterministic workers in separate Git worktrees, recreates the client after a 60 second disconnect, and checks server ID reuse, exact output replay, no duplicate execution and stale stop rejection. Its process transport is a local test fixture; it does not call an LLM or validate the hosted jobs API.

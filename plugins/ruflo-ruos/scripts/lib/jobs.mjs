@@ -132,9 +132,11 @@ export function createJobsApiTransport(backend, exec, nonce = defaultNonce) {
     async poll(_desktop, jobId, offset) {
       const r = await backend.read(jobId, offset, JOBS_CHUNK_MAX, JOBS_WAIT_MS);
       const state = STATES.has(r.state) ? /** @type {import('./types.mjs').JobState} */ (r.state) : 'lost';
-      const chunk = Buffer.from(String(r.chunk ?? ''), 'base64');
-      // Trust byte offsets, not chunk length: the server may skip a capped tail.
-      const nextOffset = typeof r.next_offset === 'number' && r.next_offset >= offset ? r.next_offset : offset + chunk.length;
+      if (typeof r.chunk !== 'string' || r.chunk.length > Math.ceil(JOBS_CHUNK_MAX / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(r.chunk) || r.chunk.length % 4 !== 0) throw new RuosError('remote-error', 'jobs API returned invalid output encoding');
+      const chunk = Buffer.from(r.chunk, 'base64');
+      // Trust bounded monotonic offsets, not inferred text lengths: a server cap can skip bytes.
+      if (!Number.isSafeInteger(r.next_offset) || r.next_offset < offset + chunk.length) throw new RuosError('remote-error', 'jobs API returned a regressing output cursor');
+      const nextOffset = r.next_offset;
       return { chunk, nextOffset, running: r.running === true, state, exitCode: typeof r.exit_code === 'number' ? r.exit_code : null, truncated: r.truncated === true };
     },
     async cancel(_desktop, jobId) {

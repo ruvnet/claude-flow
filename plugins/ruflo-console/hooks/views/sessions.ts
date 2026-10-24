@@ -14,8 +14,8 @@ import { attentionCounts, noteShown, queueOf, workspaceOf } from '../sessions'
 import { ago, button, clip, row, rule, section, text, THEME, type Ctx } from './common'
 import { fullRows } from './full-rows'
 
-const KIND_LABEL: Record<AttentionKind, string> = { 'needs-approval': 'needs your yes', question: 'asked a question', failed: 'failed', 'completed-unread': 'finished' }
-const KIND_COLOR: Record<AttentionKind, string> = { 'needs-approval': THEME.warn, question: THEME.warn, failed: THEME.bad, 'completed-unread': THEME.ok }
+const KIND_LABEL: Record<AttentionKind, string> = { 'needs-approval': 'needs your yes', question: 'asked a question', reconcile: 'reconcile run', failed: 'failed', 'completed-unread': 'finished' }
+const KIND_COLOR: Record<AttentionKind, string> = { 'needs-approval': THEME.warn, question: THEME.warn, reconcile: THEME.warn, failed: THEME.bad, 'completed-unread': THEME.ok }
 const STATUS_MARK: Record<SessionRow['status'], string> = { working: '●', idle: '○', done: '✓', failed: '✗', unknown: '?' }
 /** A title the harness wrote is transcript text: a text answer a model may read names the session by harness and id instead. */
 const titleOf = (ctx: Ctx, harness: string, key: string | null, title: string): string => (ctx.text === true && harness !== 'ruflo' && harness !== 'console' ? `${harness} session ${(key?.split(':').pop() ?? '').slice(0, 8)}` : title)
@@ -40,8 +40,8 @@ export function attentionOverviewRows(ctx: Ctx): RenderElement[] {
   if (!ctx.state.options.sessionWorkspace) return []
 
   const counts = attentionCounts(ctx.state)
-  const total = counts['needs-approval'] + counts.question + counts.failed + counts['completed-unread']
-  const detail = total === 0 ? 'nothing needs you' : `${counts['needs-approval']} to approve · ${counts.question} questions · ${counts.failed} failed · ${counts['completed-unread']} finished`
+  const total = counts['needs-approval'] + counts.question + counts.reconcile + counts.failed + counts['completed-unread']
+  const detail = total === 0 ? 'nothing needs you' : `${counts['needs-approval']} to approve · ${counts.question} questions${counts.reconcile === 0 ? '' : ` · ${counts.reconcile} to reconcile`} · ${counts.failed} failed · ${counts['completed-unread']} finished`
 
   return [row(ctx, [text(ctx, ` sessions: ${detail}`, { color: total === 0 ? THEME.ok : THEME.warn }), button(ctx, 'overview-sessions', 'open in the Room', () => ctx.act.view('room'))], 'overview-sessions-row')]
 }
@@ -82,6 +82,12 @@ function previewRows(ctx: Ctx, found: SessionRow): RenderElement[] {
     if (p.latest !== '' || p.tool !== null || p.files.length > 0 || p.test !== null) noteShown(state, found.key, nowMs)
   }
 
+  if (found.home === 'ruos') {
+    rows.push(text(ctx, ' Attach reuses the saved remote job and output cursor. This observation cannot authorize a restart or stop.', { dimColor: true }))
+    if (!state.isStandalone) rows.push(button(ctx, `sess-attach-${found.key}`, 'prepare attach', () => ctx.act.sessions.prepareRemote(found.key)))
+    return rows
+  }
+
   const open = caps?.resume
   const openText = open?.supported === true ? 'open is not wired in this version' : `open: unavailable (${open?.why ?? 'not declared'})`
 
@@ -100,7 +106,7 @@ export function sessionRows(ctx: Ctx): RenderElement[] {
   const queue = queueOf(state)
   const rows: RenderElement[] = [rule(ctx, 'Needs you', queue.length === 0 ? 'nothing' : `${queue.length}`)]
 
-  if (queue.length === 0) rows.push(text(ctx, ' Nothing needs you. Approvals, questions, failures and finished work from every session appear here, from sessions started outside Ruflo too.', { dimColor: true }))
+  if (queue.length === 0) rows.push(text(ctx, ' Nothing needs you. Approvals, questions, remote runs to reconcile, failures and finished work from every session appear here, from sessions started outside Ruflo too.', { dimColor: true }))
 
   for (const item of queue.slice(0, QUEUE_ROWS)) {
     rows.push(
@@ -115,6 +121,7 @@ export function sessionRows(ctx: Ctx): RenderElement[] {
         `sess-q-${item.id}`,
       ),
     )
+    if (item.kind === 'reconcile') rows.push(text(ctx, `   ${clip(item.detail, Math.max(20, ctx.columns - 6))}`, { dimColor: true }))
   }
 
   if (queue.length > QUEUE_ROWS) rows.push(text(ctx, ` +${queue.length - QUEUE_ROWS} more`, { dimColor: true }))

@@ -89,7 +89,7 @@ function seal(cmd) {
  */
 export function buildPrepare(runId, n) {
   const d = runDir(runId);
-  return seal(`umask 077 && mkdir -p ${d} && : > ${d}/prompt.b64 && ${say(n, 'PREPARED')}`);
+  return seal(`umask 077 && mkdir -p ${d} && test ! -e ${d}/launch.lock && : > ${d}/prompt.b64 && ${say(n, 'PREPARED')}`);
 }
 
 /**
@@ -133,7 +133,8 @@ export function buildLaunch(spec, n) {
   if (model) flags.push(`--model ${model}`);
   if (budget !== undefined) flags.push(`--max-budget-usd ${budget.toFixed(2)}`);
   // The inner script is a constant apart from the enum/number flags above.
-  const inner = `claude -p ${flags.join(' ')} < prompt.txt > out.log 2>&1; echo $? > exit.code.tmp && mv exit.code.tmp exit.code`;
+  const identity = 'read -r ruos_stat < /proc/self/stat; printf \"%s\\n\" \"${ruos_stat%% *}\" > pid.proc; printf \"%s\\n\" \"${ruos_stat##*) }\" | cut -d \" \" -f20 > pid.start; cat /proc/sys/kernel/random/boot_id > boot.id';
+  const inner = `${identity}; claude -p ${flags.join(' ')} < prompt.txt > out.log 2>&1; echo $? > exit.code.tmp && mv exit.code.tmp exit.code`;
   // Setup runs as separate `|| exit` statements, never an `&&` chain ending
   // in `&` (that would background the whole chain in a subshell). In a
   // non-interactive shell the background job is not a group leader, so
@@ -141,10 +142,11 @@ export function buildLaunch(spec, n) {
   return seal(
     `umask 077 ; command -v claude >/dev/null || { ${say(n, 'NO_RUNNER')} ; exit 127; }` +
       ` ; cd ${d} || exit 3` +
+      ` ; mkdir launch.lock 2>/dev/null || exit 6` +
       ` ; base64 -d prompt.b64 > prompt.txt || exit 5` +
       ` ; rm -f exit.code ; : > out.log` +
       ` ; ${say(n, 'SHA', '%s\\n', '"$(sha256sum prompt.txt | cut -c1-64)"')}` +
-      ` ; nohup setsid sh -c '${inner}' > /dev/null 2>&1 < /dev/null & p=$! ; echo "$p" > pid ; ${say(n, 'PID', '%s\\n', '"$p"')}`,
+      ` ; nohup setsid sh -c '${inner}' > /dev/null 2>&1 < /dev/null & p=$! ; echo "$p" > pid ; i=0 ; while [ ! -s pid.start ] && kill -0 "$p" 2>/dev/null && [ "$i" -lt 50 ]; do sleep 0.02 ; i=$((i+1)); done ; ${say(n, 'PID', '%s\\n', '"$p"')}`,
   );
 }
 
@@ -164,7 +166,7 @@ export function buildPoll(runId, offset, n, maxBytes = POLL_SLICE_BYTES) {
   return seal(
     `cd ${d} 2>/dev/null || { ${say(n, 'NORUN')} ; exit 3; }` +
       ` ; e=$(cat exit.code 2>/dev/null || echo -) ; s=$(stat -c %s out.log 2>/dev/null || echo 0)` +
-      ` ; p=$(cat pid 2>/dev/null) ; a=0 ; case "$p" in ''|*[!0-9]*) ;; *) kill -0 "$p" 2>/dev/null && a=1 ;; esac` +
+      ` ; p=$(cat pid 2>/dev/null) ; a=0 ; case "$p" in ''|*[!0-9]*) ;; *) b=$(cat boot.id 2>/dev/null) ; t=$(cat pid.start 2>/dev/null) ; q=$(cat pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; v=$(awk '/^NSpid:/ {print $NF}' "/proc/$q/status" 2>/dev/null) ; c=$(sed 's/.*) //' "/proc/$q/stat" 2>/dev/null | cut -d ' ' -f20) ; if [ "$v" = "$p" ] && [ -n "$b" ] && [ -n "$t" ] && [ "$b" = "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)" ] && [ "$t" = "$c" ]; then kill -0 "$p" 2>/dev/null && a=1 ; fi ;; esac` +
       ` ; ${say(n, 'POLL', '%s:%s:%s:', '"$e" "$s" "$a"')} ; tail -c +${off + 1} out.log 2>/dev/null | head -c ${max} | base64 -w0 ; echo`,
   );
 }
@@ -180,6 +182,8 @@ export function buildStop(runId, n) {
   return seal(
     `p=$(cat ${d}/pid 2>/dev/null)` +
       ` ; case "$p" in ''|*[!0-9]*) ${say(n, 'NOPID')} ; exit 4;; esac` +
+      ` ; b=$(cat ${d}/boot.id 2>/dev/null) ; t=$(cat ${d}/pid.start 2>/dev/null) ; q=$(cat ${d}/pid.proc 2>/dev/null) ; case "$q" in ''|*[!0-9]*) q=0 ;; esac ; v=$(awk '/^NSpid:/ {print $NF}' "/proc/$q/status" 2>/dev/null) ; c=$(sed 's/.*) //' \"/proc/$q/stat\" 2>/dev/null | cut -d ' ' -f20)` +
+      ` ; if [ \"$v\" != \"$p\" ] || [ -z \"$b\" ] || [ -z \"$t\" ] || [ \"$b\" != \"$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)\" ] || [ \"$t\" != \"$c\" ]; then ${say(n, 'STALE_PID')} ; exit 5 ; fi` +
       ` ; if { kill -TERM -- -"$p" 2>/dev/null || kill -TERM "$p" 2>/dev/null; } ; then ${say(n, 'STOPPED')} ; else ${say(n, 'NOT_RUNNING')} ; fi`,
   );
 }
@@ -284,7 +288,10 @@ export function parseLaunch(stdout, n) {
  * @param {string} stdout
  * @param {string} n
  */
-export const parseStopped = (stdout, n) => marker(n, 'STOPPED').test(stdout);
+export function parseStopped(stdout, n) {
+  if (marker(n, 'STALE_PID').test(stdout)) throw new RuosError('reconciliation-required', 'process identity changed or is unverified; refusing to signal a reused pid');
+  return marker(n, 'STOPPED').test(stdout);
+}
 
 /** @param {string} cmd */
 export const commandSha256 = (cmd) => createHash('sha256').update(cmd, 'utf8').digest('hex');

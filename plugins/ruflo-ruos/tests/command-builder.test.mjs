@@ -1,8 +1,8 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, execSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, chmodSync, existsSync, statSync } from 'node:fs';
+import { execFileSync, execSync, spawn } from 'node:child_process';
+import { readFileSync, mkdtempSync, writeFileSync, chmodSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -135,6 +135,8 @@ test('real /bin/sh: hostile prompt round-trips inert; run completes and stops', 
   const launched = parseLaunch(sh(buildLaunch({ runId: RUN, prompt, runner: 'claude', model: 'sonnet' }, N)), N);
   assert.equal(launched.sha256, chunks.sha256);
   assert.ok(launched.pid);
+  assert.throws(() => sh(buildLaunch({ runId: RUN, prompt, runner: 'claude' }, N)), 'a reused remote run directory never launches twice');
+  assert.throws(() => sh(buildPrepare(RUN, N)), 'staging never overwrites an already launched run');
   let p;
   for (let i = 0; i < 50; i++) {
     p = parsePoll(sh(buildPoll(RUN, 0, N)), N);
@@ -154,6 +156,21 @@ test('real /bin/sh: hostile prompt round-trips inert; run completes and stops', 
   for (const c of buildPromptChunks(run2, 'x').commands) sh(c, env2);
   sh(buildLaunch({ runId: run2, prompt: 'x', runner: 'claude' }, N), env2);
   await new Promise((r) => setTimeout(r, 200));
+  const bootFile = join(home, '.ruflo-ruos/runs', run2, 'boot.id');
+  const originalBoot = readFileSync(bootFile, 'utf8');
+  writeFileSync(bootFile, 'different-boot');
+  const stale = parsePoll(sh(buildPoll(run2, 0, N), env2), N);
+  assert.equal(stale !== 'norun' && stale.alive, false, 'a stale process receipt is not liveness');
+  assert.throws(() => sh(buildStop(run2, N), env2), 'stale process identity must not be signalled');
+  writeFileSync(bootFile, originalBoot);
+  const pidFile = join(home, '.ruflo-ruos/runs', run2, 'pid');
+  const originalPid = readFileSync(pidFile, 'utf8');
+  const unrelated = spawn('sleep', ['30'], { stdio: 'ignore' });
+  try {
+    writeFileSync(pidFile, String(unrelated.pid));
+    assert.throws(() => sh(buildStop(run2, N), env2), e => /STALE_PID/.test(String(e.stdout)), 'the verified process must match the signalled PID namespace target');
+    assert.doesNotThrow(() => process.kill(unrelated.pid, 0), 'unrelated process remains alive');
+  } finally { writeFileSync(pidFile, originalPid); unrelated.kill(); }
   assert.match(sh(buildStop(run2, N), env2), new RegExp(`^RUOS${N}_STOPPED$`, 'm'));
 });
 

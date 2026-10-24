@@ -7,6 +7,8 @@ import { no, yes, type Capabilities, type HarnessAdapter, type ScanEnv, type Sca
 import type { Mission, MissionObservation } from './missions'
 import type { AgentRecord } from './parse'
 import { shown } from './harness-text'
+import { ruosRows } from './harness-ruos'
+import type { RuosObservation } from './ruos'
 
 export const RUFLO_CAPS: Capabilities = {
   discovery: yes('the mission observation and the agent stores the console already reads'),
@@ -20,7 +22,7 @@ export const RUFLO_CAPS: Capabilities = {
 
 /** What the console's own mission ledger and claims add to an observed mission, by mission id; each is shown only when it holds something. */
 export type LedgerFacts = { adrs?: readonly string[]; tasks: readonly { id: string; dependsOn: readonly string[]; rufloTaskId?: string }[] }
-export type RufloInput = { cwd: string; missions: MissionObservation | null; agents: readonly AgentRecord[]; nowMs: number; ledger?: ReadonlyMap<string, LedgerFacts>; claimedIssues?: ReadonlySet<string> }
+export type RufloInput = { cwd: string; missions: MissionObservation | null; ruos?: RuosObservation | null; agents: readonly AgentRecord[]; nowMs: number; ledger?: ReadonlyMap<string, LedgerFacts>; claimedIssues?: ReadonlySet<string> }
 
 function contextOf(mission: Mission, input: RufloInput): string[] {
   const lines: string[] = []
@@ -117,7 +119,7 @@ export function rufloRows(input: RufloInput): SessionRow[] {
     })
   }
 
-  return rows
+  return [...rows, ...ruosRows(input.ruos, input.cwd, input.nowMs)]
 }
 
 export function rufloAdapter(input: () => RufloInput): HarnessAdapter {

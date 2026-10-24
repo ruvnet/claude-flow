@@ -5,6 +5,7 @@ import { attentionCount, clampCursor, freshnessOf, isLive, listLayout, spinAt } 
 import { ago, paragraph, rule, text, THEME, type Ctx } from './common'
 import { researchRows } from './research-section'
 import { own } from '../data/safe'
+import { remoteRunRows } from './remote-runs'
 
 const STATE_COLOR: Record<string, string> = { running: THEME.warn, verifying: THEME.warn, completed: THEME.ok, failed: THEME.bad, blocked: THEME.bad, paused: THEME.info, queued: THEME.info }
 
@@ -50,6 +51,7 @@ export function observationRows(ctx: Ctx): RenderElement[] {
   const observation = ctx.state.snapshot?.missions ?? null
   const rows: RenderElement[] = [rule(ctx, 'Mission record', observation === null ? 'no observation' : `${observation.missions.length}${observation.isTruncated ? '+' : ''} · observed ${ago(observation.observedAtMs, ctx.nowMs)}`)]
   rows.push(...researchRows(ctx))
+  rows.push(...remoteRunRows(ctx))
 
   if (observation === null) {
     rows.push(text(ctx, ctx.state.isStandalone ? ' No mission record yet (ADR-406). Missions are made from a goal in the Claude Code console; this page shows the record once one exists.' : ' No mission record yet (ADR-406): create one from a goal in Plan.', { color: THEME.warn }))

@@ -8,8 +8,9 @@
  *       [--model haiku|sonnet|opus] [--timeout 900] [--max-budget-usd n]
  *       [--start] [--ignore-autostop] [--transport fleet-mcp|ssh]
  *       [--jobs auto|exec-poll|jobs-api] [--json]
- *   attach --desktop <ref> --run <id> [--offset n]   re-read a run (e.g. after a restart)
- *   stop --desktop <ref> --run <id> --confirm
+ *   runs [--run <id>]           inspect saved recovery records, no network
+ *   attach --run <id> [--timeout 300]   reconnect using saved job, host and cursor
+ *   stop --run <id> --expected-revision <n> --binding-digest <sha256> --confirm
  *   desktop-stop --desktop <ref> --confirm
  *   logs --run <id>
  *   build --run <id> --prompt-file <f> [--model m] [--max-budget-usd n]
@@ -64,17 +65,22 @@ const str = (v) => (typeof v === 'string' ? v : undefined);
  * @param {NodeJS.ProcessEnv} env
  */
 async function buildAdapter(args, env) {
+  const ledger = createLedger({ cwd: projectCwd(env), callTool: await resolveCallTool(projectCwd(env), env) });
+  // Recovery must preserve the original backend and host. Auto-detecting a newer backend would poll the wrong job.
+  const recovering = args._[0] === 'attach' || args._[0] === 'stop';
+  const saved = recovering ? ledger.runs.required(assertRunId(args.run)) : null;
+  if (saved && str(args.jobs) && args.jobs !== saved.jobs) throw new RuosError('invalid-input', 'saved job transport cannot be changed during recovery');
+  if (saved && str(args.transport) && args.transport !== saved.transport) throw new RuosError('invalid-input', 'saved executor transport cannot be changed during recovery');
   const client = new FleetMcpClient(fleetConfigFromEnv(env));
   client.assertConfigured(); // the fleet MCP is always the control plane
-  const kind = str(args.transport) ?? env.RUOS_TRANSPORT ?? 'fleet-mcp';
+  const kind = saved?.transport ?? str(args.transport) ?? env.RUOS_TRANSPORT ?? 'fleet-mcp';
   const exec = kind === 'ssh'
     ? createSshTransport(sshConfigFromEnv(env))
     : kind === 'fleet-mcp' ? createFleetTransport(client) : null;
   if (!exec) throw new RuosError('invalid-input', 'transport must be fleet-mcp or ssh');
   const fleet = createFleet(client);
-  const jobs = await pickJobTransport(str(args.jobs) ?? env.RUOS_JOBS ?? 'auto', client, fleet, exec, env);
-  const ledger = createLedger({ cwd: projectCwd(env), callTool: await resolveCallTool(projectCwd(env), env) });
-  return { adapter: new RuosHostAdapter({ fleet, jobs, ledger, transportKind: /** @type {'fleet-mcp'|'ssh'} */ (kind) }), ledger, exec };
+  const jobs = await pickJobTransport(saved?.jobs ?? str(args.jobs) ?? env.RUOS_JOBS ?? 'auto', client, fleet, exec, env);
+  return { adapter: new RuosHostAdapter({ fleet, jobs, ledger, transportKind: /** @type {'fleet-mcp'|'ssh'} */ (kind) }), ledger, exec, saved };
 }
 
 /**
@@ -90,11 +96,15 @@ async function pickJobTransport(mode, client, fleet, exec, env) {
   if (mode !== 'auto' && mode !== 'jobs-api') throw new RuosError('invalid-input', 'jobs must be auto, exec-poll or jobs-api');
   const baseUrl = env.RUOS_API_URL || (client.url ? new URL(client.url).origin : undefined);
   const token = /** @type {any} */ (client).token;
-  if (!baseUrl || !token) return createExecPollTransport(exec);
+  if (!baseUrl || !token) {
+    if (mode === 'jobs-api') throw new RuosError('not-configured', 'the saved jobs API backend requires its original credentials');
+    return createExecPollTransport(exec);
+  }
   const rest = createRestJobsBackend({ baseUrl, token });
+  // An explicit backend is pinned, particularly for recovery: never probe a different desktop or fall back.
+  if (mode === 'jobs-api') return createJobsApiTransport(rest, exec);
   const first = (await fleet.listDesktops())[0];
   const available = first ? await rest.detect(first.flyMachineId ?? first.id) : false;
-  if (!available && mode === 'jobs-api') throw new RuosError('not-configured', 'the ruOS jobs API is not available on this fleet yet');
   return available ? createJobsApiTransport(rest, exec) : createExecPollTransport(exec);
 }
 
@@ -122,6 +132,11 @@ export async function main(argv, env = process.env) {
   const args = parseArgs(argv);
   const cmd = args._[0];
   switch (cmd) {
+    case 'runs': {
+      const ledger = createLedger({ cwd: projectCwd(env), callTool: null });
+      print(str(args.run) ? ledger.runs.required(assertRunId(args.run)) : ledger.runs.list());
+      return 0;
+    }
     case 'status': {
       const f = fleetConfigFromEnv(env);
       print({
@@ -143,11 +158,12 @@ export async function main(argv, env = process.env) {
     }
     case 'run': {
       const { adapter } = await buildAdapter(args, env);
-      const runId = newRunId(randomBytes);
+      const runId = str(args.run) ? assertRunId(args.run) : newRunId(randomBytes);
       const outcome = await adapter.run({
         desktop: String(args.desktop ?? ''),
         prompt: readPrompt(args),
         runId,
+        ...(str(args['binding-file']) ? { binding: JSON.parse(readFileSync(/** @type {string} */ (str(args['binding-file'])), 'utf8')) } : {}),
         agentId: str(args['agent-id']) ?? `ruos-${runId}`,
         agentType: str(args['agent-type']) ?? 'coder',
         model: /** @type {any} */ (str(args.model)),
@@ -162,8 +178,9 @@ export async function main(argv, env = process.env) {
       return outcome.status === 'completed' ? 0 : 1;
     }
     case 'stop': {
-      const { adapter } = await buildAdapter(args, env);
-      print(await adapter.stopRun({ desktop: String(args.desktop ?? ''), runId: String(args.run ?? ''), confirm: args.confirm === true }));
+      const { adapter, saved } = await buildAdapter(args, env);
+      print(await adapter.stopRun({ desktop: str(args.desktop) ?? saved?.desktopId ?? '', runId: String(args.run ?? ''), confirm: args.confirm === true,
+        expectedRevision: str(args['expected-revision']) ? Number(args['expected-revision']) : undefined, bindingDigest: str(args['binding-digest']) }));
       return 0;
     }
     case 'desktop-stop': {
@@ -182,8 +199,9 @@ export async function main(argv, env = process.env) {
       return 0;
     }
     case 'attach': {
-      const { adapter } = await buildAdapter(args, env);
-      const r = await adapter.attach({ desktop: String(args.desktop ?? ''), runId: String(args.run ?? ''), offset: str(args.offset) ? Number(args.offset) : 0,
+      const { adapter, saved } = await buildAdapter(args, env);
+      const r = await adapter.attach({ desktop: str(args.desktop) ?? saved?.desktopId ?? '', runId: String(args.run ?? ''), offset: str(args.offset) ? Number(args.offset) : undefined,
+        timeoutSecs: str(args.timeout) ? Number(args.timeout) : undefined,
         onOutput: args.json ? undefined : (c) => process.stdout.write(c) });
       if (args.json) print(r); else process.stderr.write(`\n[ruflo-ruos] ${r.status} exit=${r.exitCode} offset=${r.offset}\n`);
       return r.status === 'completed' ? 0 : 1;
@@ -216,7 +234,7 @@ export async function main(argv, env = process.env) {
     case 'record':
       return record(args, env);
     default:
-      print('usage: cli.mjs <status|hosts|run|attach|stop|desktop-stop|logs|build|record|deploy-info> [options]  (see header)');
+      print('usage: cli.mjs <status|hosts|runs|run|attach|stop|desktop-stop|logs|build|record|deploy-info> [options]  (see header)');
       return cmd ? 2 : 0;
   }
 }

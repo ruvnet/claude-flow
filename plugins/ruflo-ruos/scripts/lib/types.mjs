@@ -96,7 +96,7 @@
  */
 
 /**
- * @typedef {'run.started'|'run.output'|'run.completed'|'run.failed'|'run.stopped'|'desktop.state'} EventType
+ * @typedef {'run.started'|'run.output'|'run.completed'|'run.failed'|'run.stopped'|'run.disconnected'|'run.unknown'|'run.attached'|'run.detached'|'run.stop-requested'|'desktop.state'} EventType
  */
 
 /**
@@ -115,7 +115,7 @@
  * @property {string=} state
  */
 
-/** @typedef {'not-configured'|'invalid-input'|'not-owned'|'ambiguous'|'confirm-required'|'auth-expired'|'network-down'|'desktop-stopped'|'auto-stopped'|'autostop-window'|'tool-error'|'remote-error'|'timeout'|'insufficient-scope'|'capacity'|'llm-unconfigured'} RuosErrorCode */
+/** @typedef {'policy-denied'|'run-busy'|'run-exists'|'run-not-found'|'binding-mismatch'|'revision-conflict'|'output-corrupt'|'reconciliation-required'|'observer-detached'|'not-configured'|'invalid-input'|'not-owned'|'ambiguous'|'confirm-required'|'auth-expired'|'network-down'|'desktop-stopped'|'auto-stopped'|'autostop-window'|'tool-error'|'remote-error'|'timeout'|'insufficient-scope'|'capacity'|'llm-unconfigured'} RuosErrorCode */
 
 export class RuosError extends Error {
   /**

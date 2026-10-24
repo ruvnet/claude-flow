@@ -58,7 +58,7 @@ export function rufloInputOf(state: State, nowMs: number): RufloInput {
 
   for (const mission of mcOf(state).missions.values()) ledger.set(mission.id, { ...(mission.adrs !== undefined && { adrs: mission.adrs }), tasks: mission.tasks.map(task => ({ id: task.id, dependsOn: task.dependsOn, ...(task.rufloTaskId !== undefined && { rufloTaskId: task.rufloTaskId }) })) })
 
-  return { cwd: state.cwd, missions: state.snapshot?.missions ?? null, agents: state.snapshot?.agents ?? [], nowMs, ledger, claimedIssues: new Set((state.snapshot?.claims ?? []).filter(claim => claim.status !== 'released').map(claim => claim.issueId)) }
+  return { cwd: state.cwd, missions: state.snapshot?.missions ?? null, ruos: state.snapshot?.ruos ?? null, agents: state.snapshot?.agents ?? [], nowMs, ledger, claimedIssues: new Set((state.snapshot?.claims ?? []).filter(claim => claim.status !== 'released').map(claim => claim.issueId)) }
 }
 
 export function workspaceOf(state: State): Workspace {
@@ -179,7 +179,7 @@ export async function mirrorAttention(state: State, host: Pick<Host, 'fs' | 'run
   if (ws.viewed === null || ws.index === null || state.snapshot?.isRufloProject !== true) return
 
   const counts = attentionCounts(state)
-  const key = `${counts['needs-approval']}/${counts.question}/${counts.failed}/${counts['completed-unread']}`
+  const key = `${counts['needs-approval']}/${counts.question}/${counts.reconcile}/${counts.failed}/${counts['completed-unread']}`
 
   if (key === ws.summary && nowMs - ws.summaryAtMs < ATTENTION_HEARTBEAT_MS) return
   if (nowMs < ws.writeRetryAtMs) return
@@ -187,7 +187,7 @@ export async function mirrorAttention(state: State, host: Pick<Host, 'fs' | 'run
   ws.summary = key
   ws.summaryAtMs = nowMs
   // Counts only: no title, path or transcript text is in this file.
-  const text = `${JSON.stringify({ schema: 'ruflo-console.attention/1', approve: counts['needs-approval'], question: counts.question, failed: counts.failed, unread: counts['completed-unread'], atMs: nowMs })}\n`
+  const text = `${JSON.stringify({ schema: 'ruflo-console.attention/1', approve: counts['needs-approval'], question: counts.question, failed: counts.failed, unread: counts['completed-unread'], ...(counts.reconcile > 0 && { reconcile: counts.reconcile }), atMs: nowMs })}\n`
 
   if ((await replaceFile(host, state.cwd, `${state.cwd.replace(/\/+$/, '')}/${ATTENTION_FILE}`, text)) === null) {
     ws.writeBackoffMs = 0
@@ -211,13 +211,25 @@ export type SessionActions = {
   refresh: () => void
   /** Enter on a row: opens it natively only where the harness declared it can; otherwise says why not. */
   open: (key: string) => void
+  /** Prepares an instruction in the visible prompt box; never submits it or starts a process. */
+  prepareRemote: (key: string) => void
 }
 
-export function sessionActions(state: State, host: Pick<Host, 'fs' | 'invalidate'>): SessionActions {
+export function sessionActions(state: State, host: Pick<Host, 'fs' | 'invalidate'> & Partial<Pick<Host, 'fillPrompt'>>): SessionActions {
   const ws = workspaceOf(state)
   const order = () => ws.index?.groups.flatMap(group => group.rows) ?? []
 
   return {
+    prepareRemote: key => {
+      const row = ws.index?.rows.find(candidate => candidate.key === key && candidate.home === 'ruos' && candidate.unassigned === null)
+      const run = state.snapshot?.ruos?.runs.find(candidate => candidate.runId === row?.nativeId)
+      if (run === undefined || state.isStandalone || host.fillPrompt === undefined) return
+      const message = `Inspect the existing ruOS run ${run.runId} on desktop ${run.desktopId} at observed revision ${run.revision}${run.bindingDigest === undefined ? '' : ` with binding digest ${run.bindingDigest}`}. Reconcile its saved job identity and attach with the ruOS adapter to replay output from offset ${run.nextOffset}. A disconnected client does not mean the process stopped. Do not launch a replacement, stop a job, or approve any action from this observation.`
+      void host.fillPrompt(message).then(ok => {
+        ws.note = ok ? 'Attach instruction prepared in the prompt box; press Enter to send it.' : 'No prompt box is available; no remote action ran.'
+        host.invalidate()
+      }, () => { ws.note = 'The prompt box refused the draft; no remote action ran.'; host.invalidate() })
+    },
     select: key => {
       selectRow(state, key)
       host.invalidate()
