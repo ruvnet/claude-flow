@@ -1,0 +1,64 @@
+// Original synthetic confirmation workload. Frozen before candidate inspection.
+.version 7.8
+.target sm_75
+.address_size 64
+
+.visible .entry affine_i32(.param .u64 input, .param .u64 output, .param .u32 count)
+{
+ .reg .pred %p<4>;
+ .reg .b32 %r<12>;
+ .reg .b64 %rd<8>;
+ ld.param.u64 %rd1, [input];
+ ld.param.u64 %rd2, [output];
+ ld.param.u32 %r1, [count];
+ mov.u32 %r2, %ctaid.x;
+ mov.u32 %r3, %ntid.x;
+ mov.u32 %r4, %tid.x;
+ mad.lo.s32 %r5, %r2, %r3, %r4;
+ setp.ge.u32 %p1, %r5, %r1;
+ @%p1 bra DONE;
+ cvta.to.global.u64 %rd3, %rd1;
+ cvta.to.global.u64 %rd4, %rd2;
+ mul.wide.u32 %rd5, %r5, 4;
+ add.u64 %rd6, %rd3, %rd5;
+ add.u64 %rd7, %rd4, %rd5;
+ ld.global.s32 %r6, [%rd6];
+ mad.lo.s32 %r7, %r6, 3, 7;
+ st.global.s32 [%rd7], %r7;
+ DONE:
+ ret;
+}
+
+.visible .entry sum_i32(.param .u64 input, .param .u64 output, .param .u32 count)
+{
+ .reg .pred %p<4>;
+ .reg .b32 %r<12>;
+ .reg .b64 %rd<8>;
+ ld.param.u64 %rd1, [input];
+ ld.param.u64 %rd2, [output];
+ ld.param.u32 %r1, [count];
+ mov.u32 %r2, %ctaid.x;
+ mov.u32 %r3, %ntid.x;
+ mov.u32 %r4, %tid.x;
+ mad.lo.s32 %r5, %r2, %r3, %r4;
+ setp.ge.u32 %p1, %r5, %r1;
+ @%p1 bra DONE;
+ cvta.to.global.u64 %rd3, %rd1;
+ cvta.to.global.u64 %rd4, %rd2;
+ mul.wide.u32 %rd5, %r5, 4;
+ add.u64 %rd6, %rd3, %rd5;
+ add.u64 %rd7, %rd4, %rd5;
+ ld.global.s32 %r6, [%rd6];
+ mov.u32 %r7, 0;
+ mov.u32 %r8, 0;
+ LOOP:
+ setp.ge.s32 %p2, %r8, %r6;
+ @%p2 bra STORE;
+ add.s32 %r7, %r7, %r8;
+ add.s32 %r8, %r8, 1;
+ bra LOOP;
+ STORE:
+ st.global.s32 [%rd7], %r7;
+ DONE:
+ ret;
+}

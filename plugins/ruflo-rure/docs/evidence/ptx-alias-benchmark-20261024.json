@@ -1,0 +1,94 @@
+{
+  "claim": "controlled label-aggregation ablation only, not original pre-fix source snapshot",
+  "sourceRepository": "ruvnet/ruflo",
+  "candidateSha256": "3a90b5c9886d44d963c1d268bd33154035852f33ab86dfa2242ad00f83d6d413",
+  "baselineSha256": "c3c4fbd5fe39f770cbb3d9163bce7a815d9df40ebf002d4947a791bc1c377c34",
+  "workloadSha256": "de48031bcccf44cb062a298ea6a1887c3dd66f32d423eea7cc44669e8a4b9e97",
+  "workloadBytes": 23529,
+  "labels": 4096,
+  "instructions": 1,
+  "samples": 5,
+  "warmupPerVariant": 1,
+  "order": "alternate baseline/candidate each repetition",
+  "acceptance": {
+    "exactJSONOutputEqual": true,
+    "candidateComplete": true,
+    "medianImprovementMinimum": 0.1
+  },
+  "p95Estimator": "nearest rank (5 samples => maximum)",
+  "costUSD": null,
+  "rollback": "retain bounded candidate and revert linear append only if correctness differs",
+  "node": "v24.19.0",
+  "platform": "linux",
+  "architecture": "x64",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "rawMs": {
+    "baseline": [
+      28.281840999999986,
+      51.911587999999995,
+      38.83299600000004,
+      44.92943300000002,
+      39.11421999999999
+    ],
+    "candidate": [
+      5.4010470000000055,
+      6.7844359999999995,
+      8.006547000000012,
+      5.64266200000003,
+      5.49568000000005
+    ]
+  },
+  "baseline": {
+    "samples": 5,
+    "medianMs": 39.11421999999999,
+    "p95Ms": 51.911587999999995
+  },
+  "candidate": {
+    "samples": 5,
+    "medianMs": 5.64266200000003,
+    "p95Ms": 8.006547000000012
+  },
+  "medianImprovement": 0.8557388591668188,
+  "outputSha256": "05bd1c3461f024c6675e4382a0596169d72bd0e12435ed886cfa01ef5050ba04",
+  "exactOutputEquality": true,
+  "verdict": "ACCEPT",
+  "scope": "controlled synthetic parser aggregation only; not GPU or real workload speed",
+  "hostile": {
+    "labels": 20000,
+    "inputSha256": "54b8ae1641f3521d60d142fa3177a65f0293bf70a33fe1cbacd82a8ea75b1e05",
+    "bytes": 128953,
+    "ms": 15.65132699999998,
+    "status": "invalid",
+    "truncated": true,
+    "warnings": [
+      "label count exceeds 4096"
+    ]
+  },
+  "date": "2026-10-24",
+  "candidateCommit": "b172894b2d0232b5ece74445cdd99bf309b62df4",
+  "command": "node plugins/ruflo-rure/scripts/ptx-alias-benchmark.mjs",
+  "review": {
+    "evaluator": "cuda_design_review",
+    "implementationAuthor": "ptx_core_impl",
+    "independentContext": true,
+    "status": "independent manual review and matched synthetic reproduction passed; final PR review separate",
+    "fixedFindings": [
+      "quadratic same-instruction label aggregation",
+      "unbounded label count inside otherwise bounded input"
+    ],
+    "remainingLimits": [
+      "five samples provide limited timing precision",
+      "synthetic dense-label workload is not representative of ordinary kernels",
+      "baseline is a controlled ablation reconstructed from candidate, not a previously committed baseline",
+      "GPU throughput, customer latency and actual monetary cost are not established"
+    ]
+  },
+  "reproductionScriptSha256": "ddd207897cf03203ce5552ee2d07094409c2af4dfef2e89b23df64495b607814",
+  "measurementOrigin": "Initial inline independent evaluator; the committed script reproduces the same frozen transformations, workload and output hash. Original measurements are retained.",
+  "reproductionScriptValidation": {
+    "status": "pass",
+    "exactOutputHashMatched": true,
+    "changedOrDuplicatedLoopRejected": true,
+    "medianImprovementMinimumPassed": true
+  }
+}

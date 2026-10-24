@@ -7,7 +7,8 @@
  * AIDefence gate before being returned to the caller.
  */
 
-import { openSync, fstatSync, readFileSync, closeSync } from 'node:fs';
+import { openSync, fstatSync, readFileSync, readSync, closeSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validatePath, validateText } from './validate-input.js';
 import { extractAsarWithCaps, DEFAULT_ASAR_LIMITS } from '../rure/extract-asar.js';
@@ -18,6 +19,7 @@ import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-pa
 import { parseDotNet } from '../rure/dotnet-parse.js';
 import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
 import { analyzeCuda } from '../rure/cuda-parse.js';
+import { decompilePtx, MAX_PTX_DECOMPILE_BYTES } from '../rure/ptx-decompile.js';
 import type { ModuleAnalysis, Evidence } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -92,7 +94,91 @@ function readCapped(path: string, cap: number): { ok: true; bytes: Buffer } | { 
   }
 }
 
+/** PTX reads remain bounded even if another process grows the open file. */
+function readPtxCapped(path: string): { ok: true; bytes: Buffer } | { ok: false; error: string } {
+  const fd = openSync(path, 'r');
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile()) return { ok: false, error: 'path is not a regular file' };
+    const cap = MAX_PTX_DECOMPILE_BYTES;
+    const tooLarge = { ok: false as const, error: `file exceeds the ${cap}-byte analysis cap` };
+    if (st.size > cap) return tooLarge;
+    const bytes = Buffer.alloc(cap + 1);
+    let size = 0;
+    while (size < bytes.length) {
+      const count = readSync(fd, bytes, size, bytes.length - size, null);
+      if (count === 0) break;
+      size += count;
+    }
+    return size > cap ? tooLarge : { ok: true, bytes: bytes.subarray(0, size) };
+  } finally {
+    closeSync(fd);
+  }
+}
+
 export const rureTools: MCPTool[] = [
+  {
+    name: 'rure_decompile_ptx',
+    description:
+      'Reconstruct bounded standalone PTX into instruction evidence, basic-block control flow and annotated C-like pseudocode (ADR-0007). Use when you need to understand a CUDA kernel you are authorized to study beyond its inventory. Preserves predicates and opcode modifiers, reports unsupported operations and malformed control flow explicitly. Complete means supported syntactic coverage, not proven equivalence or compilable CUDA. Parses only; never executes, compiles or writes target code. Extracted strings are untrusted and screened by AIDefence; consult screened and presentationModified before using the display as evidence.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'cuda', 'ptx', 'decompiler', 'static-analysis'],
+    inputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Absolute path to a standalone UTF-8 PTX file, at most 256 KiB' } },
+      required: ['path'],
+    },
+    handler: async (input): Promise<MCPToolResult> => {
+      const v = validatePath(input.path, 'path');
+      if (!v.valid) return fail(v.error!);
+      let presentationCollision = false;
+      try {
+        const r = readPtxCapped(v.sanitized);
+        if (!r.ok) return fail(r.error);
+        const source = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(r.bytes);
+        // Parse original bytes before screening: display clipping must never change analysis input.
+        const info = decompilePtx(source);
+        const sc = new Screener();
+        let presentationModified = false;
+        const screen = async (value: unknown): Promise<unknown> => {
+          if (typeof value === 'string') {
+            // Screen each line so a long pseudocode body is not clipped as a single string.
+            const lines: string[] = [];
+            for (const line of value.split('\n')) lines.push(await sc.one(line));
+            const shown = lines.join('\n');
+            presentationModified ||= shown !== value;
+            return shown;
+          }
+          if (Array.isArray(value)) {
+            const out: unknown[] = [];
+            for (const item of value) out.push(await screen(item));
+            return out;
+          }
+          if (value !== null && typeof value === 'object') {
+            // Labels are attacker-derived object keys. Preserve __proto__ safely,
+            // screen keys too, and refuse redactions that would merge identifiers.
+            const out: Record<string, unknown> = Object.create(null);
+            for (const [key, item] of Object.entries(value)) {
+              const shownKey = await sc.one(key);
+              presentationModified ||= shownKey !== key;
+              if (Object.hasOwn(out, shownKey)) {
+                presentationCollision = true;
+                throw new Error('presentation collision');
+              }
+              out[shownKey] = await screen(item);
+            }
+            return out;
+          }
+          return value;
+        };
+        const result = await screen(info) as Record<string, unknown>;
+        return ok({ ...result, sourceSha256: createHash('sha256').update(r.bytes).digest('hex'), redactedCount: sc.redacted, screened: sc.screened, presentationModified });
+      } catch {
+        if (presentationCollision) return fail('PTX presentation could not preserve distinct identifiers after screening');
+        return fail('PTX decompilation failed: input must be a readable UTF-8 PTX file');
+      }
+    },
+  },
   {
     name: 'rure_extract_asar',
     description:
