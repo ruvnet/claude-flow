@@ -81,4 +81,43 @@ class PipelineTests(unittest.TestCase):
                 self.assertEqual(len(result['measurements']),12)
                 self.assertEqual(len(result['candidates']),2)
 
+    def test_split_receipts_reject_tampering_and_policy_drift(self):
+        with tempfile.TemporaryDirectory() as d:
+            args=self.args(d,stage='cuda')
+            def call(runner,argv,stage):
+                if stage=='build-cuda':Path(argv[-1]).write_text('test binary')
+                if stage=='benchmark-cuda':return json.dumps(self.value(backend='cuda'))
+                return 'test version'
+            with patch.object(p.Runner,'call',call):receipt=p.run(args)
+            self.assertEqual(receipt['status'],'baseline_ready')
+            self.assertFalse(receipt['hardware_validated'])
+            path=Path(args.output)/'report.json'; hashed=p.digest(path.read_bytes())
+            medians,_=p.import_baseline(path,hashed,receipt['source_sha256'],receipt['policy'])
+            self.assertEqual(medians,{257:1})
+            for source,policy,sha in [('wrong',receipt['policy'],hashed),(receipt['source_sha256'],{},hashed),(receipt['source_sha256'],receipt['policy'],'wrong')]:
+                with self.assertRaises(p.PipelineError):p.import_baseline(path,sha,source,policy)
+            receipt['measurements'].pop()
+            path.write_text(json.dumps(receipt))
+            with self.assertRaises(p.PipelineError):p.import_baseline(path,p.digest(path.read_bytes()),receipt['source_sha256'],receipt['policy'])
+
+    def test_split_hip_stage_uses_no_cuda_toolchain(self):
+        with tempfile.TemporaryDirectory() as d:
+            args=self.args(d,stage='cuda')
+            stages=[]
+            def call(runner,argv,stage):
+                stages.append(stage)
+                if stage.startswith('build'):Path(argv[-1]).write_text('test binary')
+                if stage=='hipify':return 'test translated source'
+                if stage.startswith('benchmark'):return json.dumps(self.value(backend=stage.split('-')[1]))
+                return 'test version'
+            with patch.object(p.Runner,'call',call):baseline=p.run(args)
+            path=Path(args.output)/'report.json'
+            args.stage='hip';args.baseline=str(path);args.baseline_sha256=p.digest(path.read_bytes());args.output=str(Path(d)/'amd')
+            stages.clear()
+            with patch.object(p.Runner,'call',call):result=p.run(args)
+            self.assertEqual(result['status'],'passed')
+            self.assertNotIn('build-cuda',stages)
+            self.assertNotIn('benchmark-cuda',stages)
+            self.assertEqual(len(result['dispersion']),2)
+
 if __name__=='__main__':unittest.main()

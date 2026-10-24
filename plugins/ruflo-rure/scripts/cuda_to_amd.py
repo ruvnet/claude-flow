@@ -42,6 +42,44 @@ def validate_measurement(value, backend, size, tolerance):
     return elapsed
 
 
+def import_baseline(path, expected_digest, source_digest, policy):
+    """Validate a receipt delivered by a trusted executor; hash is not attestation."""
+    if Path(path).stat().st_size > 2_000_000:
+        raise PipelineError('baseline receipt size limit')
+    data = Path(path).read_bytes()
+    if len(data) > 2_000_000 or digest(data) != expected_digest:
+        raise PipelineError('baseline receipt digest mismatch or size limit')
+    try:
+        receipt = json.loads(data)
+        if receipt['schema'] != 2 or receipt['status'] != 'baseline_ready' or receipt['source_sha256'] != source_digest:
+            raise PipelineError('baseline receipt source/status mismatch')
+        if receipt['policy'] != policy or receipt.get('stage') != 'cuda':
+            raise PipelineError('baseline policy/stage mismatch')
+        if not receipt.get('toolchains') or not receipt.get('binary_sha256', {}).get('baseline'):
+            raise PipelineError('baseline provenance missing')
+        rows = receipt['measurements']
+        medians = {}
+        devices = set()
+        for size in policy['sizes']:
+            selected = [r for r in rows if r['size'] == size]
+            if len(selected) != policy['trials'] + 1 or [r['trial'] for r in selected] != list(range(policy['trials'] + 1)):
+                raise PipelineError('baseline trials missing or duplicated')
+            values = []
+            for r in selected:
+                value = validate_measurement(r, 'cuda', size, policy['tolerance'])
+                if r['block'] != 256 or r['warmup'] is not (r['trial'] == 0):
+                    raise PipelineError('baseline trial contract mismatch')
+                devices.add(r['device'])
+                if not r['warmup']:
+                    values.append(value)
+            medians[size] = statistics.median(values)
+        if len(rows) != len(policy['sizes']) * (policy['trials'] + 1) or len(devices) != 1:
+            raise PipelineError('baseline sample/device mismatch')
+        return medians, receipt
+    except (ValueError, KeyError, TypeError) as exc:
+        raise PipelineError('malformed baseline receipt') from exc
+
+
 class Runner:
     def __init__(self, root, budget, timeout):
         self.root, self.deadline, self.timeout = root, time.monotonic() + budget, timeout
@@ -86,8 +124,10 @@ class Runner:
 
 
 def run(args):
-    report = {'schema': 1, 'status': 'blocked', 'hardware_validated': False,
+    report = {'schema': 2, 'status': 'blocked', 'hardware_validated': False,
               'execution': 'real', 'events': [], 'measurements': [], 'candidates': []}
+    stage = getattr(args, 'stage', 'both')
+    report['stage'] = stage
     root = Path(args.output).resolve()
     # Never overwrite a prior run or follow an existing output symlink.
     root.mkdir(parents=True, exist_ok=False)
@@ -107,21 +147,30 @@ def run(args):
         frozen = root / 'baseline.cu'
         frozen.write_bytes(data)
         report['toolchains'] = []
-        for tool in [args.nvcc, args.hipcc, args.hipify]:
+        tools = ([args.nvcc] if stage in ['both', 'cuda'] else []) + ([args.hipcc, args.hipify] if stage in ['both', 'hip'] else [])
+        for tool in tools:
             version = runner.call([tool, '--version'], 'preflight')
             report['toolchains'].append({'executable': shutil.which(tool), 'version': version[:8192]})
-        runner.call([args.nvcc, '-O3', str(frozen), '-o', str(root / 'baseline')], 'build-cuda')
-        # inspect optional RuRE evidence; no claim that inspection establishes correctness.
-        if args.ruflo:
-            report['cuda_inventory'] = runner.call([args.ruflo, 'mcp', 'exec', '-t', 'rure_analyze_cuda', '-p', json.dumps({'path': str(root / 'baseline')})], 'inspect-cuda')
-        translated = runner.call([args.hipify, str(frozen)], 'hipify')
-        if not translated.strip():
-            raise PipelineError('HIPIFY returned empty source')
-        hip = root / 'candidate.hip.cpp'
-        hip.write_text(translated)
-        report['hip_sha256'] = digest(hip.read_bytes())
-        runner.call([args.hipcc, '-O3', str(hip), '-o', str(root / 'candidate')], 'build-hip')
-        report['binary_sha256'] = {name: digest((root / name).read_bytes()) for name in ['baseline', 'candidate']}
+        binaries = []
+        hip = None
+        imported = None
+        if stage == 'hip':
+            imported, report['baseline_receipt'] = import_baseline(args.baseline, args.baseline_sha256, report['source_sha256'], report['policy'])
+        if stage in ['both', 'cuda']:
+            runner.call([args.nvcc, '-O3', str(frozen), '-o', str(root / 'baseline')], 'build-cuda')
+            binaries.append('baseline')
+            if args.ruflo:
+                report['cuda_inventory'] = runner.call([args.ruflo, 'mcp', 'exec', '-t', 'rure_analyze_cuda', '-p', json.dumps({'path': str(root / 'baseline')})], 'inspect-cuda')
+        if stage in ['both', 'hip']:
+            translated = runner.call([args.hipify, str(frozen)], 'hipify')
+            if not translated.strip():
+                raise PipelineError('HIPIFY returned empty source')
+            hip = root / 'candidate.hip.cpp'
+            hip.write_text(translated)
+            report['hip_sha256'] = digest(hip.read_bytes())
+            runner.call([args.hipcc, '-O3', str(hip), '-o', str(root / 'candidate')], 'build-hip')
+            binaries.append('candidate')
+        report['binary_sha256'] = {name: digest((root / name).read_bytes()) for name in binaries}
 
         devices = {}
 
@@ -141,23 +190,29 @@ def run(args):
                 report['measurements'].append(value)
                 if trial:
                     samples.append(elapsed)
-            return statistics.median(samples)
+            median = statistics.median(samples)
+            report.setdefault('dispersion', []).append({'backend': backend, 'size': size, 'block': block, 'median_ms': median, 'mad_ms': statistics.median(abs(v - median) for v in samples), 'min_ms': min(samples), 'max_ms': max(samples)})
+            return median
 
-        baseline = {size: measure('baseline', 'cuda', size, 256) for size in args.sizes}
-        for block in args.blocks:
-            measured = {size: measure('candidate', 'hip', size, block) for size in args.sizes}
-            ratios = {size: measured[size] / baseline[size] for size in args.sizes}
-            report['candidates'].append({'block': block, 'median_ms': measured,
-                                         'worst_slowdown': max(ratios.values())})
-        best = min(report['candidates'], key=lambda c: c['worst_slowdown'])
-        report['hardware_validated'] = True
-        report['selected'] = best
-        report['status'] = 'passed' if best['worst_slowdown'] <= args.max_slowdown else 'rejected'
+        baseline = imported or {size: measure('baseline', 'cuda', size, 256) for size in args.sizes}
+        if stage == 'cuda':
+            report['status'] = 'baseline_ready'
+            report['backend_validated'] = 'cuda'
+        else:
+            for block in args.blocks:
+                measured = {size: measure('candidate', 'hip', size, block) for size in args.sizes}
+                ratios = {size: measured[size] / baseline[size] for size in args.sizes}
+                report['candidates'].append({'block': block, 'median_ms': measured,
+                                             'worst_slowdown': max(ratios.values())})
+            best = min(report['candidates'], key=lambda c: c['worst_slowdown'])
+            report['hardware_validated'] = True
+            report['selected'] = best
+            report['status'] = 'passed' if best['worst_slowdown'] <= args.max_slowdown else 'rejected'
         for name, expected in report['binary_sha256'].items():
             if digest((root / name).read_bytes()) != expected:
                 raise PipelineError('binary changed during execution')
         # Verify source receipts still describe the compiled input.
-        if digest(frozen.read_bytes()) != report['source_sha256'] or digest(hip.read_bytes()) != report['hip_sha256']:
+        if digest(frozen.read_bytes()) != report['source_sha256'] or (hip is not None and digest(hip.read_bytes()) != report['hip_sha256']):
             raise PipelineError('source changed during execution')
     except (PipelineError, OSError) as exc:
         report['status'] = 'blocked'
@@ -170,6 +225,9 @@ def run(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--stage', choices=['both', 'cuda', 'hip'], default='both')
+    parser.add_argument('--baseline', help='Trusted CUDA baseline report for HIP stage')
+    parser.add_argument('--baseline-sha256', help='Expected receipt SHA256 supplied independently')
     parser.add_argument('--source', required=True)
     parser.add_argument('--output', required=True)
     parser.add_argument('--allow-execute', action='store_true')
@@ -185,6 +243,8 @@ def main():
     parser.add_argument('--tolerance', type=float, default=1e-5)
     parser.add_argument('--max-slowdown', type=float, default=1.25)
     args = parser.parse_args()
+    if args.stage == 'hip' and (not args.baseline or not args.baseline_sha256):
+        parser.error('HIP stage requires --baseline and --baseline-sha256')
     if not (1 <= args.budget <= 3600 and 1 <= args.timeout <= args.budget and 3 <= args.trials <= 30):
         parser.error('invalid runtime budget or trial count')
     if not (1 <= len(args.sizes) <= 16 and all(1 <= n <= 16777216 for n in args.sizes)):
@@ -198,7 +258,7 @@ def main():
     except OSError as exc:
         parser.exit(2, str(exc) + '\n')
     print(json.dumps({'status': report['status'], 'report': str(Path(args.output).resolve() / 'report.json')}))
-    return 0 if report['status'] == 'passed' else 2
+    return 0 if report['status'] in ['passed', 'baseline_ready'] else 2
 
 
 if __name__ == '__main__':
