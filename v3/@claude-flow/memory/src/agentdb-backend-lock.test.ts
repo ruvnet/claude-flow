@@ -40,13 +40,17 @@ describe('AgentDBBackend with real sql.js agentdb and a lock file', () => {
     await b.initialize();
     const raw = (b as any).getAgentDB().database;
     expect(raw.constructor.name).toBe('SqlJsDatabase'); // proves the locked sql.js path is exercised
-    raw.exec('CREATE TABLE memory_entries(content TEXT)');
-    raw.exec("INSERT INTO memory_entries VALUES('survives stale lock')");
+    // createSchema() now actually creates the real memory_entries table (see
+    // agentdb-backend.ts fix), so this probe uses its own table rather than
+    // colliding with it -- the test's intent is persistence-across-the-lock-
+    // cycle, not the real schema.
+    raw.exec('CREATE TABLE lock_probe(content TEXT)');
+    raw.exec("INSERT INTO lock_probe VALUES('survives stale lock')");
     await b.shutdown();
     expect(fs.existsSync(lockFile)).toBe(false);
     const db = new Database(dbFile, { readonly: true });
     try {
-      const rows = db.prepare('SELECT content FROM memory_entries').all() as Array<{ content: string }>;
+      const rows = db.prepare('SELECT content FROM lock_probe').all() as Array<{ content: string }>;
       expect(rows.map((r) => r.content)).toContain('survives stale lock');
     } finally { db.close(); }
   });
@@ -58,5 +62,36 @@ describe('AgentDBBackend with real sql.js agentdb and a lock file', () => {
     plant(process.ppid);
     await expect(b.shutdown()).rejects.toBeInstanceOf(AgentdbLockError);
     expect(fs.existsSync(lockFile)).toBe(true);
+  });
+
+  it('store/get/update/delete round-trip correctly through the real memory_entries schema on the sql.js fallback (not just better-sqlite3)', async () => {
+    // agentdb's sql.js/WASM Database shim only implements a spread-args
+    // run(...params)/get(...params) signature, unlike better-sqlite3's
+    // flexible single-array-or-spread one -- a single-array call silently
+    // binds a corrupt row here instead of throwing. Exercise the real
+    // memory_entries path (not a hand-rolled probe table) end to end.
+    const b = mk();
+    await b.initialize();
+    expect((b as any).getAgentDB().database.constructor.name).toBe('SqlJsDatabase');
+    const { createDefaultEntry } = await import('./types.js');
+    const entry = createDefaultEntry({ key: 'sqljs-roundtrip', content: 'original' });
+    await b.store(entry);
+
+    // Force every read/write below off the in-memory cache and onto the
+    // real sql.js-backed persistence path.
+    (b as any).entries.clear();
+    const got = await b.get(entry.id);
+    expect(got?.content).toBe('original');
+    expect(got?.key).toBe('sqljs-roundtrip');
+
+    const updated = await b.update(entry.id, { content: 'updated' });
+    expect(updated?.content).toBe('updated');
+    (b as any).entries.clear();
+    expect((await b.get(entry.id))?.content).toBe('updated');
+
+    expect(await b.delete(entry.id)).toBe(true);
+    expect(await b.get(entry.id)).toBeNull();
+
+    await b.shutdown();
   });
 });
