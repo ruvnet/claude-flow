@@ -304,6 +304,31 @@ describe('AgentBrowserAdapter', () => {
     });
   });
 
+  describe('javascript execution', () => {
+    it('should run eval with the given script', async () => {
+      mockExecSync.mockReturnValue(JSON.stringify({ success: true, data: { foo: 'bar' } }));
+
+      const result = await adapter.eval({ script: "(() => ({ foo: 'bar' }))()" });
+
+      expect(result.success).toBe(true);
+      const callArgs = mockExecSync.mock.calls[0][1] as string[];
+      expect(callArgs).toContain('eval');
+      expect(callArgs).toContain("(() => ({ foo: 'bar' }))()");
+    });
+
+    it('evaluate should alias eval (#991)', async () => {
+      mockExecSync.mockReturnValue(JSON.stringify({ success: true, data: { foo: 'bar' } }));
+
+      const result = await adapter.evaluate({ script: "(() => ({ foo: 'bar' }))()" });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({ foo: 'bar' });
+      const callArgs = mockExecSync.mock.calls[0][1] as string[];
+      expect(callArgs).toContain('eval');
+      expect(callArgs).toContain("(() => ({ foo: 'bar' }))()");
+    });
+  });
+
   describe('error handling', () => {
     it('should handle command failure', async () => {
       mockExecSync.mockImplementation(() => {
