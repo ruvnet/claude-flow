@@ -6,8 +6,8 @@
   "scope": "All changed/new files for this SASS continuation, excluding this manifest; earlier PTX evidence remains unchanged",
   "integrityOnly": true,
   "selfHashExcluded": true,
-  "fileCount": 128,
-  "totalBytes": 1681311,
+  "fileCount": 134,
+  "totalBytes": 1687482,
   "files": [
     {
       "path": "plugins/ruflo-rure/.claude-plugin/plugin.json",
@@ -26,8 +26,8 @@
     },
     {
       "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/README.md",
-      "bytes": 16447,
-      "sha256": "10a4750a9608fa841dadbb7b4dd51994587a288ee23190f1b3d0c333e1fb3cae"
+      "bytes": 18044,
+      "sha256": "ba0ab18af11d37f2e0e9831c00d731b6acf4f071811e908196d4cad8390f30ef"
     },
     {
       "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/artifact-parity.json",
@@ -43,6 +43,36 @@
       "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/candidate.mjs",
       "bytes": 28450,
       "sha256": "d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-description-fixed.txt",
+      "bytes": 362,
+      "sha256": "06854f3c110f06f6f92ebdbd68dcb3d2e9675f4bee9b2955c88f981f741c458f"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-description-independent-review.md",
+      "bytes": 1902,
+      "sha256": "082654eb363687687b0bdbf5f0ab6bdd190c5893dfeace68a196c06d3f642533"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-build.txt",
+      "bytes": 257,
+      "sha256": "105200f01d5daec1b1c2e6e77f674c323a66b7632467826dd984db5a8ac2a2d2"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-description.json",
+      "bytes": 757,
+      "sha256": "0f9277b35dc875ec64b14764ed8e8d4868e63f5440193c8ad0394ddadba3beba"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-mcp.json",
+      "bytes": 1026,
+      "sha256": "50970204edb0645d211d94c46dc98a9c81471298b2221e4736e7ceb7eaccf303"
+    },
+    {
+      "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/ci-followup-tests.txt",
+      "bytes": 249,
+      "sha256": "f770095d04248094178500064c79c202fe767a6133100d0cb2e790db26b7824e"
     },
     {
       "path": "plugins/ruflo-rure/docs/evidence/sass-recovery-20261024/comparison-gate-tests.log",
@@ -641,8 +671,8 @@
     },
     {
       "path": "v3/@claude-flow/cli/src/mcp-tools/rure-tools.ts",
-      "bytes": 31980,
-      "sha256": "4b33a84f8fe466998b839debf160f65b01d9018e03d65ee34b0f13f0fafda539"
+      "bytes": 32001,
+      "sha256": "c784677c4630df11ebddbbb14ed12da8ddff2921643fed1690d0488a368e2a32"
     },
     {
       "path": "v3/@claude-flow/cli/src/rure/sass-recover.ts",

@@ -144,7 +144,7 @@ export const rureTools: MCPTool[] = [
   {
     name: 'rure_recover_sass',
     description:
-      'Lift one kernel from matching NVIDIA cuobjdump SASS and ELF text into experimental scalar integer CUDA C++ (ADR-0010). Requires authentic matching disassembler exports; this is not a raw binary decoder or authentication check. Unsupported semantics return no code. Emitted code is unproven and requires separate compilation and independent validation. Use only for kernels you are authorized to study. Parses only; never executes, compiles, invokes disassemblers or writes files. Extracted strings are untrusted and screened by AIDefence; consult screened and presentationModified.',
+      'Use when you need experimental scalar integer CUDA C++ recovery for one kernel from matching NVIDIA cuobjdump SASS and ELF text (ADR-0010). Requires authentic matching disassembler exports; this is not a raw binary decoder or authentication check. Unsupported semantics return no code. Emitted code is unproven and requires separate compilation and independent validation. Use only for kernels you are authorized to study. Parses only; never executes, compiles, invokes disassemblers or writes files. Extracted strings are untrusted and screened by AIDefence; consult screened and presentationModified.',
     category: 'rure',
     tags: ['reverse-engineering', 'cuda', 'sass', 'decompiler', 'static-analysis'],
     inputSchema: sassRecoverySchema,

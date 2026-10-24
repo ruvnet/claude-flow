@@ -1,0 +1,12 @@
+MCP tool discoverability audit (ADR-112)
+========================================
+Total tools scanned:      410
+With Use-when guidance:   410
+Without guidance:         0
+Too short (<80 chars):  0
+Duplicate descriptions:   0
+Baseline no-guidance:     0
+Baseline tooShort:        0
+Baseline duplicates:      0
+
+OK — 410 tools, 410 with guidance, all gates pass.

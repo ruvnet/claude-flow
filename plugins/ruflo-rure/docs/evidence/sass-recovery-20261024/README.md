@@ -169,7 +169,8 @@ findings remain unresolved; this is not a clean release audit.
 | SASS TypeScript | `99bd0ec252ef57bdd3985212f683c7ba22151ad6961f26a5de1c669c07c7b4b0` |
 | Standalone candidate | `d85b93f70711d17c5c44f97a93d4a04ac08549cc253c70c88ab84294757287c3` |
 | Packed SASS JavaScript | `be1981275d519361b11b853d539d34eae95c77025945ed0b72477285c69a080a` |
-| MCP wrapper | `4b33a84f8fe466998b839debf160f65b01d9018e03d65ee34b0f13f0fafda539` |
+| MCP wrapper at package evaluation | `4b33a84f8fe466998b839debf160f65b01d9018e03d65ee34b0f13f0fafda539` |
+| MCP wrapper after description-only CI follow-up | `c784677c4630df11ebddbbb14ed12da8ddff2921643fed1690d0488a368e2a32` |
 | Sealed translator adapter | `a464137ae041c469d8a9292421b3f833d0fbc41fbb731f7503042ae3d594f353` |
 | Final CPU evaluator and GPU packager | `2468e244aaed1ed1206f6a42b85f9060a4bcdaad4330a7fcfaf9d09a8c3df94d` |
 | Exact-cubin GPU driver | `b192f10ae51c47e338c74531b7238daa801b91aae75c752004b1ee2b0ac2aa05` |
@@ -211,6 +212,30 @@ and confirmation statements describe the review's own time boundary.
 The package receipt was subsequently renamed from `package.json` to
 `package-artifact.json`, with identical bytes, to avoid confusion with an npm
 dependency manifest.
+
+## CI description follow-up
+
+The first remote SASS head `d1a2f76a636d34480f7ed3c54a30098f7829c750`
+[failed discoverability](https://github.com/ruvnet/ruflo/actions/runs/40052615985/job/120748380118)
+because the new tool lacked the required usage-guidance phrase. Only its first
+description sentence changed. The unchanged repository audit now passes
+[all 410 tool descriptions](ci-description-fixed.txt), with no baseline edit.
+[Independent review](ci-description-independent-review.md) confirmed identical
+schema, handlers, guards and candidate behavior. The CLI was
+[rebuilt](ci-followup-build.txt), focused wrappers
+[retested](ci-followup-tests.txt), and the real built
+[stdio MCP path](ci-followup-mcp.json) plus
+[compiled description](ci-followup-description.json) checked. No confirmation,
+GPU or baseline rerun was needed. The earlier clean-installed tarball retains
+its exact recorded integrity and earlier description; it is not relabelled as
+the rebuilt artifact. Executable recovery semantics and package closure are
+unchanged.
+
+The separate [supply-chain job](https://github.com/ruvnet/ruflo/actions/runs/40052615985/job/120748380001)
+fails on existing graph-intelligence and browser dependency findings outside
+this patch. Dependencies, locks, audit baselines and accepted-findings policies
+were not changed. These failures remain release blockers; later-head CI must
+be read independently, not inferred from local tests or the prior head.
 
 ## Portable acceptance replay
 
