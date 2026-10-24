@@ -500,11 +500,17 @@ export class WorkerDispatchService extends EventEmitter {
 
     if (worker.status === 'running') {
       worker.status = 'cancelled';
+      worker.phase = 'cancelled';
       worker.completedAt = new Date();
-      this.running.delete(workerId);
+      // Keep the id in `running` until its executor actually settles: the
+      // placeholder executors cannot be aborted mid-flight, so releasing the
+      // concurrency slot here would let another worker start while this one is
+      // still doing work. The finally block in executeWorker() releases it.
       this.emit('worker:cancelled', { workerId });
     } else if (worker.status === 'pending') {
       worker.status = 'cancelled';
+      worker.phase = 'cancelled';
+      worker.completedAt = new Date();
       this.queue = this.queue.filter(q => q.id !== workerId);
       this.emit('worker:cancelled', { workerId });
     }
@@ -608,6 +614,14 @@ export class WorkerDispatchService extends EventEmitter {
       // Execute based on trigger type
       const result = await this.executeWorkerByTrigger(worker);
 
+      // cancel() may have marked this worker while its executor was in
+      // flight. Never overwrite that terminal state with 'completed' or emit a
+      // second terminal event for a worker the caller already cancelled.
+      if (this.isCancelled(worker)) {
+        worker.phase = 'cancelled';
+        return;
+      }
+
       worker.status = 'completed';
       worker.completedAt = new Date();
       worker.result = result;
@@ -620,6 +634,11 @@ export class WorkerDispatchService extends EventEmitter {
         duration: worker.completedAt.getTime() - worker.startedAt.getTime(),
       });
     } catch (error) {
+      if (this.isCancelled(worker)) {
+        worker.phase = 'cancelled';
+        return;
+      }
+
       worker.status = 'failed';
       worker.completedAt = new Date();
       worker.error = error as Error;
@@ -1052,6 +1071,14 @@ export class WorkerDispatchService extends EventEmitter {
 
   private generateWorkerId(trigger: WorkerTrigger): string {
     return `worker_${trigger}_${++this.idCounter}_${Date.now().toString(36)}`;
+  }
+
+  /**
+   * Read cancellation through a helper so TypeScript does not narrow the
+   * status to 'running' across the executor await; cancel() can mutate it.
+   */
+  private isCancelled(worker: WorkerInstance): boolean {
+    return worker.status === 'cancelled';
   }
 
   private getPriorityValue(priority: 'low' | 'normal' | 'high' | 'critical'): number {
