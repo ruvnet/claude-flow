@@ -213,6 +213,8 @@ interface PoolEntry {
   workerType: HeadlessWorkerType;
   startTime: Date;
   timeout: NodeJS.Timeout;
+  /** #4463 — settles the execution promise, signals the tree and escalates to SIGKILL. Idempotent. */
+  abort?: () => void;
 }
 
 /**
@@ -857,7 +859,11 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     }
 
     clearTimeout(entry.timeout);
-    this.killEntryTree(entry.process, 'SIGTERM');
+    if (entry.abort) {
+      entry.abort();
+    } else {
+      this.killEntryTree(entry.process, 'SIGTERM');
+    }
     this.processPool.delete(executionId);
     this.emit('cancelled', { executionId });
 
@@ -877,11 +883,16 @@ export class HeadlessWorkerExecutor extends EventEmitter {
     const entries = Array.from(this.processPool.entries());
     for (const [executionId, entry] of entries) {
       clearTimeout(entry.timeout);
-      this.killEntryTree(entry.process, 'SIGTERM');
-      // SIGKILL fallback after 5s to prevent orphan processes (#1395 Bug 6)
-      setTimeout(() => {
-        try { if (!entry.process.killed) this.killEntryTree(entry.process, 'SIGKILL'); } catch { /* already dead */ }
-      }, 5000).unref();
+      if (entry.abort) {
+        // Settles the promise and owns the SIGTERM -> SIGKILL escalation (#4463).
+        entry.abort();
+      } else {
+        this.killEntryTree(entry.process, 'SIGTERM');
+        // SIGKILL fallback after 5s to prevent orphan processes (#1395 Bug 6)
+        setTimeout(() => {
+          try { if (entry.process.exitCode === null && entry.process.signalCode === null) this.killEntryTree(entry.process, 'SIGKILL'); } catch { /* already dead */ }
+        }, 5000).unref();
+      }
       this.emit('cancelled', { executionId });
       cancelled++;
     }
@@ -1417,16 +1428,30 @@ Analyze the above codebase context and provide your response following the forma
         try { child.kill(signal); } catch { /* already dead */ }
       };
 
+      // #4463 — `child.killed` only means a signal was delivered, not that the
+      // child exited, so escalation keys off the exit state instead.
+      const hasExited = () => child.exitCode !== null || child.signalCode !== null;
+      let escalationHandle: NodeJS.Timeout | undefined;
+      let deadlineHandle: NodeJS.Timeout | undefined;
+      const terminate = () => {
+        if (escalationHandle) return; // already signalled; never repeat SIGTERM
+        killTree('SIGTERM');
+        // Give it a moment to terminate gracefully, then force it.
+        escalationHandle = setTimeout(() => {
+          if (!hasExited()) killTree('SIGKILL');
+        }, 5000);
+      };
+      const stopTimers = () => {
+        clearTimeout(escalationHandle);
+        clearTimeout(deadlineHandle);
+      };
+      child.once('exit', () => clearTimeout(escalationHandle));
+      child.once('close', stopTimers);
+
       // Setup timeout
       const timeoutHandle = setTimeout(() => {
         if (this.processPool.has(options.executionId)) {
-          killTree('SIGTERM');
-          // Give it a moment to terminate gracefully
-          setTimeout(() => {
-            if (!child.killed) {
-              killTree('SIGKILL');
-            }
-          }, 5000);
+          terminate();
         }
       }, options.timeoutMs);
 
@@ -1446,7 +1471,16 @@ Analyze the above codebase context and provide your response following the forma
 
       const cleanup = () => {
         clearTimeout(timeoutHandle);
+        clearTimeout(deadlineHandle);
         this.processPool.delete(options.executionId);
+      };
+
+      poolEntry.abort = () => {
+        if (resolved) return;
+        resolved = true;
+        terminate();
+        cleanup();
+        resolve({ success: false, output: stdout || stderr, error: 'Execution cancelled' });
       };
 
       child.stdout?.on('data', (data: Buffer) => {
@@ -1502,12 +1536,14 @@ Analyze the above codebase context and provide your response following the forma
       });
 
       // Handle timeout
-      setTimeout(() => {
+      deadlineHandle = setTimeout(() => {
         if (resolved) return;
         if (!this.processPool.has(options.executionId)) return;
 
         resolved = true;
-        killTree('SIGTERM');
+        // Normally a no-op: the timeout handler above already signalled the
+        // tree and owns the SIGKILL escalation (no duplicate SIGTERM).
+        terminate();
         cleanup();
 
         resolve({
