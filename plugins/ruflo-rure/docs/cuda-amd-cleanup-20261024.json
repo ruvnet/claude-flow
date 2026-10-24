@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "observed_utc": "2026-10-24T15:54:21Z",
+  "instance": 57530773,
+  "delete_http": 200,
+  "executor_completion_verified": true,
+  "account_list_confirmed_task_instances_absent": [
+    57530174,
+    57530773
+  ],
+  "other_instances_untouched": true,
+  "supersedes": "cuda-amd-validation-20261024.json cleanup.second_rental_cleanup",
+  "implementation_commit": "0da04aae8ed4698eaf758dbe0f107c207b155385",
+  "unit_tests_passed": 9,
+  "physical_gpu_measurements": 0
+}

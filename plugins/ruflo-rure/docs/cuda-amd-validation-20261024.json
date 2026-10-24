@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "source_commit": "a45f11118464629829e9202c5664b5465c29ac6a",
+  "source_sha256": "b0ffada6825fdd3d7b9e13c2a417a149b39aa6dc228c3dde5cfbccc37dad25f1",
+  "translation": {
+    "tool": "HIPIFY 7.14.0 hipify-perl",
+    "tool_url": "https://raw.githubusercontent.com/ROCm/HIPIFY/amd-staging/bin/hipify-perl",
+    "tool_sha256": "a18f9b2ac5ec1e8e6db88e1692732c1d0c72685e5e9c005c9dc8ac3b4a8e2c3c",
+    "translated_sha256": "c906f5f67b87a040400d1fee1bc62a5eaaf011b1c9779771e56cc5808186388c",
+    "status": "converted",
+    "compiled": false
+  },
+  "hardware": {
+    "nvidia_validated": false,
+    "amd_validated": false,
+    "reason": "First NVIDIA rental stalled pulling CUDA devel image and was destroyed. Second rental provisioned; ruOS execution transport became unresponsive before runtime validation. Explicit AMD inventory query returned only a contradictory deverified NVIDIA RTX PRO 6000 WS listing."
+  },
+  "validation": {
+    "unit_tests_passed": 7,
+    "physical_gpu_measurements": 0
+  },
+  "cleanup": {
+    "first_rental_destroy_http": 200,
+    "second_rental_cleanup": "unconfirmed",
+    "watchdog_expected_utc": "2026-10-24T16:06:08Z",
+    "note": "A 2400 second cleanup watchdog was launched on the control desktop. This is not proof of destruction."
+  }
+}
