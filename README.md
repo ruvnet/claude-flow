@@ -65,6 +65,12 @@ MCP exposes Ruflo tools to your client. The console and mods above are Claude Co
 
 <a href="https://ruos.cognitum.one"><img src="ruflo/assets/ruos-animated.svg" alt="ruOS — A desktop that runs itself" width="100%"></a>
 
+<!-- ecosystem-cta:start -->
+[![Ruflo: try ruOS. Conceptual project-to-destination animation.](docs/assets/readme/ecosystem-cta.svg)](https://ruos.cognitum.one/)
+
+**[Explore Cognitum One](https://cognitum.one/) · [Try ruOS](https://ruos.cognitum.one/)**, an agentic desktop in your browser.
+<!-- ecosystem-cta:end -->
+
 **Connect ruOS to ChatGPT or Claude via MCP:**
 
 ```text
