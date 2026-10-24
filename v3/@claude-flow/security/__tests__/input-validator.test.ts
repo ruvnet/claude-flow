@@ -25,6 +25,7 @@ import {
   PermissionSchema,
   LoginRequestSchema,
   CreateUserSchema,
+  SpawnAgentSchema,
   TaskInputSchema,
   CommandArgumentSchema,
   PathSchema,
@@ -225,6 +226,33 @@ describe('InputValidator', () => {
         email: 'user@example.com',
         password: 'weak',
         role: 'developer',
+      })).toThrow();
+    });
+  });
+
+  describe('SpawnAgentSchema', () => {
+    it('should accept valid agent spawn with agentType', () => {
+      expect(() => SpawnAgentSchema.parse({
+        agentType: 'coder',
+      })).not.toThrow();
+    });
+
+    it('should accept agent spawn with optional name', () => {
+      expect(() => SpawnAgentSchema.parse({
+        agentType: 'tester',
+        name: 'my-tester',
+      })).not.toThrow();
+    });
+
+    it('should reject spawn missing agentType', () => {
+      expect(() => SpawnAgentSchema.parse({
+        name: 'my-agent',
+      })).toThrow();
+    });
+
+    it('should reject spawn with legacy type field instead of agentType', () => {
+      expect(() => SpawnAgentSchema.parse({
+        type: 'coder',
       })).toThrow();
     });
   });
