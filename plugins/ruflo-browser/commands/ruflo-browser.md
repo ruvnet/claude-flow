@@ -49,7 +49,7 @@ Verbs:
 7. **doctor**
    Run the structural health check:
    ```bash
-   bash plugins/ruflo-browser/scripts/smoke.sh
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/smoke.sh"
    ```
    Plus dependency probes:
    - Playwright runner reachable (`mcp__plugin_ruflo-core_ruflo__browser_open` against `about:blank`)
