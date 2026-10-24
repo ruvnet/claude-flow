@@ -108,4 +108,24 @@ describe('SASS text recovery with explicit ABI assumptions', () => {
     expect(recoverSass(input.sass+' '.repeat(2049), input.elf).status).toBe('invalid');
     expect(recoverSass(input.sass, input.elf).assumptions[0]).toContain('do not validate mnemonic decoding');
   });
+
+  it('keeps a long run of blank lines inside an attribute section linear (a line-start \\s* was quadratic: 80k lines took 2.2 s)', () => {
+    const input = load('copy32');
+    const lines = input.elf.split('\n');
+    const info = lines.findIndex(l => l.trim() === '.nv.info');
+    const attribute = lines.findIndex((l, k) => k > info && /Attribute:/.test(l));
+    const blanks = Math.floor((MAX_SASS_RECOVERY_BYTES - Buffer.byteLength(input.elf)) / 1) - 16;
+    const hostile = `${lines.slice(0, attribute + 1).join('\n')}\n${'\n'.repeat(blanks)}${lines.slice(attribute + 1).join('\n')}`;
+    expect(Buffer.byteLength(hostile)).toBeLessThanOrEqual(MAX_SASS_RECOVERY_BYTES);
+    const started = performance.now();
+    const result = recoverSass(input.sass, hostile);
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(result.status).toBe('emitted');
+  });
+
+  it('emits naturally aligned typed global access, not byte loops', () => {
+    const input = load('copy32'), result = recoverSass(input.sass, input.elf);
+    expect(result.code).toContain('may_alias');
+    expect(result.code).not.toMatch(/unsigned char|for\s*\(\s*unsigned/);
+  });
 });
