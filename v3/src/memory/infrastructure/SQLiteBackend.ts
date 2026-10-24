@@ -1,7 +1,12 @@
 /**
- * SQLiteBackend
+ * InMemoryBackend (previously SQLiteBackend)
  *
- * SQLite-based memory backend for persistent storage.
+ * In-memory storage backend using a Map. The original class name
+ * "SQLiteBackend" was misleading — no SQL queries are executed here,
+ * so claims about "parameterized SQL queries" in SECURITY.md are
+ * inapplicable to this module. Renamed for clarity per security review.
+ *
+ * A real SQLite backend would be added in a future ADR.
  * Part of the hybrid memory system per ADR-009.
  */
 
@@ -12,7 +17,7 @@ import type {
   MemorySearchResult
 } from '../../shared/types';
 
-export class SQLiteBackend implements MemoryBackend {
+export class InMemoryBackend implements MemoryBackend {
   private dbPath: string;
   private memories: Map<string, Memory>;
   private initialized: boolean = false;
@@ -23,18 +28,18 @@ export class SQLiteBackend implements MemoryBackend {
   }
 
   /**
-   * Initialize the SQLite database
+   * Initialize the in-memory store
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    // In a real implementation, this would create/open SQLite database
-    // For now, using in-memory storage for test compatibility
+    // Pure in-memory storage — no SQLite, no SQL queries.
+    // A real persistent backend would be plumbed in a future ADR.
     this.initialized = true;
   }
 
   /**
-   * Close the database connection
+   * Clear the in-memory store
    */
   async close(): Promise<void> {
     this.memories.clear();
@@ -120,11 +125,10 @@ export class SQLiteBackend implements MemoryBackend {
   }
 
   /**
-   * Vector search (not supported in SQLite, returns empty)
+   * Vector search — not supported in the in-memory backend.
+   * Returns empty; vector search is handled by AgentDB.
    */
-  async vectorSearch(embedding: number[], k?: number): Promise<MemorySearchResult[]> {
-    // SQLite doesn't support vector search natively
-    // Return empty array - vector search handled by AgentDB
+  async vectorSearch(_embedding: number[], _k?: number): Promise<MemorySearchResult[]> {
     return [];
   }
 
@@ -140,7 +144,7 @@ export class SQLiteBackend implements MemoryBackend {
   }
 
   /**
-   * Get database path
+   * Get store path
    */
   getDbPath(): string {
     return this.dbPath;
@@ -154,4 +158,6 @@ export class SQLiteBackend implements MemoryBackend {
   }
 }
 
-export { SQLiteBackend as default };
+// Keep the old name as an alias for backward compatibility.
+export { InMemoryBackend as SQLiteBackend };
+export { InMemoryBackend as default };

@@ -18,7 +18,7 @@ export { WorkflowEngine, type WorkflowEngineOptions } from './task-execution/app
 
 // Memory Infrastructure
 export { HybridBackend } from './memory/infrastructure/HybridBackend';
-export { SQLiteBackend } from './memory/infrastructure/SQLiteBackend';
+export { InMemoryBackend, InMemoryBackend as SQLiteBackend } from './memory/infrastructure/SQLiteBackend';
 export { AgentDBBackend } from './memory/infrastructure/AgentDBBackend';
 
 // Plugin Infrastructure
