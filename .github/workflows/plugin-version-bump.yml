@@ -1,0 +1,21 @@
+name: Plugin version bump
+on:
+  pull_request:
+    paths:
+      - 'plugins/**'
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  version-bump:
+    # A fix merged without raising the plugin version never reaches installed copies (#4436).
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-plugin-version-check') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Changed plugins must raise their version
+        run: node scripts/audit-plugin-version-bump.mjs --base "origin/${{ github.base_ref }}"
