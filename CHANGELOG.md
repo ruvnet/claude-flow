@@ -5,6 +5,20 @@ All notable changes to the Ruflo project (formerly Claude Flow) are documented h
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.61.0] - 2026-10-23
+
+Minor release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.61.0. Adds one MCP tool (`rure_analyze_cuda`). No leaf package changed, so no standalone publishes.
+
+### Added
+
+- **ruRE: CUDA static analysis** (ruflo-rure 0.5.0, plugin ADR-0006). New read-only MCP tool `rure_analyze_cuda` reads the GPU code inside a CUDA fatbin, cubin or PTX file: fatbin entries (PTX or cubin, target architecture, LZ4/zstd compression), each kernel with register count, code size and constant/shared/local memory, and PTX version, target and kernel names. It parses only; nothing is executed, and strings taken from the file pass the AIDefence gate. Checked against real nvcc 12.8 and 13.0 output. Not included: SASS decoding, `cuobjdump` shell-out. zstd entries need Node 22.15+.
+- `ruflo-console` 0.47.0: a CUDA row on the ruRE page, DETECT routes for `.cubin`, `.fatbin` and `.ptx`, and a hint on a native binary that holds a CUDA fatbin (ADR-495..497). The ruRE page refuses a sample that is a symlink, wraps long lists, and shows Claude a structured `rure` block in `console_state`.
+- `ruflo-mods` 0.7.0: opt-in `rureOffer` (off by default, ADR-498) adds one line under an answer when the model touched a binary, library, `.asar` or CUDA file, saying ruRE can inspect it without running it. Offer only; the mods plugin is not part of the CLI tarball.
+
+### Fixed
+
+- Dependency audit: `zod` 4.6.7 in `ruflo-graph-intelligence` and `@claude-flow/browser` (GHSA-mrhx-c7xc-m3w5). Nested zod 3 copies stay under two time-boxed accepted findings that expire 2026-11-23 (#4442, #4444).
+
 ## [3.60.1] - 2026-10-23
 
 Patch release: `@claude-flow/cli`, `claude-flow`, `ruflo` 3.60.1. No leaf package changed, so no standalone publishes.
