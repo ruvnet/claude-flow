@@ -7,7 +7,7 @@
  * AIDefence gate before being returned to the caller.
  */
 
-import { openSync, fstatSync, readFileSync, readSync, closeSync } from 'node:fs';
+import { openSync, fstatSync, readFileSync, readSync, closeSync, constants } from 'node:fs';
 import { createHash } from 'node:crypto';
 import type { MCPTool, MCPToolResult } from './types.js';
 import { validatePath, validateText } from './validate-input.js';
@@ -96,7 +96,8 @@ function readCapped(path: string, cap: number): { ok: true; bytes: Buffer } | { 
 
 /** PTX reads remain bounded even if another process grows the open file. */
 function readPtxCapped(path: string): { ok: true; bytes: Buffer } | { ok: false; error: string } {
-  const fd = openSync(path, 'r');
+  // Nonblocking open lets fstat reject a FIFO without waiting for a writer.
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
     const st = fstatSync(fd);
     if (!st.isFile()) return { ok: false, error: 'path is not a regular file' };

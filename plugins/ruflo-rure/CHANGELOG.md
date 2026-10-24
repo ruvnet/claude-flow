@@ -4,6 +4,8 @@ Newest first. One `## <version> — <date>` heading per version, then `feat:`, `
 
 ## 0.6.0 — 2026-10-23
 
+- Validation: [independent CPU/GPU, installed MCP and boundedness receipt](docs/evidence/ptx-validation-20261024.md). Source and package tests are complete for the documented subset; release audit limitations remain explicit.
+
 - feat: bounded standalone PTX reconstruction through `rure_decompile_ptx`: source digest, instruction evidence, basic blocks and annotated C-like pseudocode. Unknown operations and malformed branches remain explicit. Syntactic coverage is not semantic equivalence; output is not advertised as compilable CUDA.
 - docs: ADR-0007 defines the static decompiler contract; ADR-0008 defines separate source-known GPU validation and the SASS roadmap. Runtime analysis never executes target code.
 

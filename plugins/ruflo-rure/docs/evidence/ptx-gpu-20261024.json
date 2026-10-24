@@ -1,0 +1,70 @@
+{
+  "schema": "rure-ptx-gpu-evidence/v1",
+  "observed_at": "2026-10-24T00:20:09.042194+00:00",
+  "claim": "PTX instruction-IR roundtrip, not generated pseudocode equivalence",
+  "evidence_class": "measured bounded synthetic execution",
+  "promotion_scope": "instruction IR reconstruction only",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 3060",
+    "memory_mib": 12288,
+    "driver": "580.142",
+    "driver_api": 13000,
+    "nvcc": "12.8.93",
+    "nvdisasm": "12.8.90",
+    "image": "nvidia/cuda@sha256:6617a625f4090c76c545a0e7d63f2e441718ef9af7f4efe7dd1242a29e289fd7"
+  },
+  "input_sha256": {
+    "ptx-gpu-validate.cu": "8e354e63c85623c4c0d08030228b2c96217b6d58359a956d5367ae5efd613f4f",
+    "original.ptx": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+    "reconstructed.ptx": "5832cc22e73e300a4402b198d56d88ddf951aa63002cc0bf798a01fdf4855672"
+  },
+  "negative_sha256": "c0e9fdd108be012e7c173a84419ed45d14d1f2d3acb2cd4bf77712f3d56cf276",
+  "executable_sha256": "ae723015202b9fc7f08cac293c4f2d44eda6fe8ad16e69d8a7427873e49a681a",
+  "acceptance": {
+    "cases": 18,
+    "element_comparisons": 7152,
+    "result": "PASS",
+    "baseline_variant": "original PTX",
+    "candidate_variant": "IR-reconstructed PTX",
+    "reference": "independent integer CPU oracle plus sentinel tail",
+    "negative_control": "affine final addend7 to8",
+    "negative_expected_exit": 1,
+    "negative_observed_exit": 1,
+    "negative_observed_mismatch": "affine_i32 n1 index0 candidate expected13 actual14"
+  },
+  "execution": {
+    "exit_code": 0,
+    "compile_and_test_seconds": 6.326505184173584,
+    "transfer_bytes": 20480,
+    "ruos_completionVersion": 1,
+    "ruos_completionVerified": true,
+    "ruos_status": "ok",
+    "ruos_exitCode": 0
+  },
+  "cleanup": {
+    "verified_absent": true,
+    "independent_absence_readback": true,
+    "lifetime_seconds": 61.091851234436035
+  },
+  "cost": {
+    "hourly_quote_usd": 0.08833333333333333,
+    "compute_storage_lifetime_estimate_usd": 0.001499013016400514,
+    "max45min_and60GB_transfer_quote_usd": 0.2615625,
+    "actual_billed_usd": null
+  },
+  "limitations": [
+    "One GPU and one CUDA toolchain; no general arbitrary SASS equivalence",
+    "Generated CUDA-style pseudocode was not compiled or executed",
+    "Compile/test elapsed time is orchestration timing, not a kernel speedup benchmark",
+    "Account credit delta is not an attributed billing invoice"
+  ],
+  "commands": [
+    "nvcc -std=c++17 ptx-gpu-validate.cu -lcuda -o ptx-gpu-validate",
+    "./ptx-gpu-validate original.ptx reconstructed.ptx",
+    "./ptx-gpu-validate original.ptx negative.ptx"
+  ],
+  "primary_sources": [
+    "https://docs.vast.ai/api-reference/instances/create-instance",
+    "https://docs.vast.ai/api-reference/instances/destroy-instance"
+  ]
+}

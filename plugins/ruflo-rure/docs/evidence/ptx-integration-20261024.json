@@ -1,0 +1,161 @@
+{
+  "schema": "rure-ptx-integration/v1",
+  "date": "2026-10-24",
+  "baseCommit": "7564f7cefab4c1d901b30b06f5727f8936ee62c8",
+  "fileSha256": {
+    "v3/@claude-flow/cli/src/rure/ptx-decompile.ts": "3a90b5c9886d44d963c1d268bd33154035852f33ab86dfa2242ad00f83d6d413",
+    "v3/@claude-flow/cli/src/mcp-tools/rure-tools.ts": "db324ea5d8adf2d55de782960f695c1f90d0c0859320e4333163bcaf779ee54a",
+    "plugins/ruflo-rure/scripts/ptx-e2e.mjs": "31edc2a17cca12b6a59a3a74867f257e627bc89d8ee422ff75e687b5287d5040",
+    "plugins/ruflo-rure/scripts/ptx-gpu-validate.cu": "8e354e63c85623c4c0d08030228b2c96217b6d58359a956d5367ae5efd613f4f",
+    "plugins/ruflo-rure/scripts/ptx-mcp-e2e.mjs": "c41c933bf69f1db2309cce6cff2d3983a9e0f7d9e1ae3baf29ae8090d42dcfda"
+  },
+  "scope": "bounded standalone PTX structural reconstruction, annotated pseudocode and instruction-IR roundtrip",
+  "verdict": "ACCEPT",
+  "verdictScope": "frozen structural/IR tests and bounded synthetic optimization only",
+  "deliveryState": "draft pull request; unmerged and unpublished",
+  "validation": {
+    "unit": {
+      "filesPassed": 14,
+      "filesSkipped": 1,
+      "testsPassed": 183,
+      "testsSkipped": 7,
+      "vitest": "4.1.12",
+      "node": "24.19.0"
+    },
+    "typecheck": {
+      "typescript": "5.9.3",
+      "cli": "pass after approved internal-runtime staging",
+      "swarm": "pass",
+      "bootstrap": "Registry-only security bootstrap produced 26 policy API type errors on both baseline and candidate; staging the repository's reviewed bundles resolved the build and real MCP call without code changes or policy bypass."
+    },
+    "smoke": {
+      "checks": 72,
+      "status": "pass"
+    },
+    "cpu": {
+      "cases": 18,
+      "elementComparisons": 3576,
+      "realNvccInstructions": 32,
+      "negativeControl": "IR immediate 7 to 8 rejected under unchanged source digest"
+    },
+    "gpuReceipt": "ptx-gpu-20261024.json",
+    "gpuRaw": "ptx-gpu-raw-20261024.json",
+    "ruosReceipt": "ptx-ruos-20261024.json",
+    "cleanInstalledMcp": {
+      "status": "pass",
+      "transport": "stdio",
+      "sourceSha256": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+      "functions": 2,
+      "tool": "rure_decompile_ptx",
+      "resultEnvelopeDepth": 2,
+      "screened": false,
+      "presentationModified": false,
+      "elapsedMs": 191.70771,
+      "node": "v24.19.0"
+    },
+    "cleanInstalledCore": {
+      "status": "pass",
+      "claim": "structural reconstruction and bounded integer IR semantics",
+      "cases": 18,
+      "elementComparisons": 3576,
+      "realFixtureInstructions": 32,
+      "confirmationSha256": "db69341fc0312e810e25b7c8ed97ca3112e4b2d057b13aaf2d7ade71201ed420",
+      "roundtripSha256": "5832cc22e73e300a4402b198d56d88ddf951aa63002cc0bf798a01fdf4855672",
+      "node": "v24.19.0",
+      "validationMs": 56.352167,
+      "benchmark": {
+        "samples": 100,
+        "inputBytes": 1749,
+        "medianMs": 0.24426900000000273,
+        "p95Ms": 0.6048040000000015,
+        "peakRssBytes": 53444608,
+        "claim": "single-process parser measurements; no acceleration claim"
+      }
+    },
+    "package": {
+      "name": "@claude-flow/cli",
+      "version": "3.60.1",
+      "size": 3503064,
+      "unpackedSize": 14011379,
+      "integrity": "sha512-4qqMRWJucRCUQZCHyn0nkRLrSwo28Q/g1Jv50bal9chxOLIloLUTDEgChnyeheL4s+yb1xyhjb+l82Nk8ikr8g==",
+      "filename": "claude-flow-cli-3.60.1.tgz",
+      "kind": "local candidate archive; manifest version inherited from base; not a registry release",
+      "install": "npm install --ignore-scripts --omit=optional --legacy-peer-deps <candidate.tgz>",
+      "closure": "Required module, handler and MCP entrypoint are present; real stdio tool call and independent IR oracle passed after clean installation.",
+      "auditedDependencyVersionsUnchanged": true
+    }
+  },
+  "security": {
+    "newRuntimeDependencies": 0,
+    "dependencyManifestAndLockChanges": 0,
+    "coreThirdPartyImports": 0,
+    "staticParseNeverExecuteSmoke": "pass",
+    "scopedIndependentReview": "completed; bounded descriptor reads, source byte hash, screened label keys, collision handling and linear alias accumulation fixes verified; final FIFO rejection independently verified in 0.107 seconds",
+    "optionalAIDefence": "unavailable in clean runtime; screened:false is returned; mock tests separately validate screening/redaction",
+    "audit": {
+      "metadata": {
+        "vulnerabilities": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 6,
+          "critical": 0,
+          "total": 6
+        },
+        "dependencies": {
+          "prod": 196,
+          "dev": 0,
+          "optional": 537,
+          "peer": 0,
+          "peerOptional": 0,
+          "total": 732
+        }
+      },
+      "affectedPackages": [
+        "@claude-flow/cli",
+        "@claude-flow/memory",
+        "@claude-flow/neural",
+        "@claude-flow/security",
+        "@claude-flow/shared",
+        "zod"
+      ],
+      "advisory": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5",
+      "installedZod": "3.25.76",
+      "interpretation": "Six affected package nodes trace to one existing Zod high-severity advisory. Dependency specifications are unchanged. The PTX core does not import Zod; broader CLI reachability is not certified safe. No unrelated major-version upgrade or release is included.",
+      "releaseGate": "requires dependency remediation or reviewed reachability disposition"
+    }
+  },
+  "optimization": {
+    "receipt": "ptx-alias-benchmark-20261024.json",
+    "comparison": "controlled two-loop ablation, not a prior release",
+    "outputEquality": true,
+    "ordinaryKernelOrGpuAccelerationClaim": false
+  },
+  "independentReview": {
+    "coreAndBoundary": "separate design/security agent",
+    "frozenOracle": "separate E2E agent",
+    "gpuExecution": "separate ruOS/Vast operator",
+    "reviewAuthority": "local independent review, not a GitHub approval or merge grant"
+  },
+  "cost": {
+    "actualTotalUSD": null,
+    "gpuEstimateUSD": 0.001499013016400514,
+    "gpuBillingUSD": null,
+    "inferenceCalls": 0
+  },
+  "limits": [
+    "No SASS decompilation or original CUDA C++ recovery",
+    "Pseudocode is explanatory and was not compiled",
+    "Only bounded integer fixture IR received GPU semantic checks",
+    "One GPU and CUDA toolchain tested",
+    "No merge, deployment, registry publication, or production value claim"
+  ],
+  "rollback": "Close the draft PR or revert its commit; existing CUDA inventory remains available.",
+  "acceptanceCommands": [
+    "node plugins/ruflo-rure/scripts/ptx-e2e.mjs",
+    "node plugins/ruflo-rure/scripts/ptx-mcp-e2e.mjs <installed-cli-root>",
+    "node plugins/ruflo-rure/scripts/ptx-alias-benchmark.mjs"
+  ],
+  "ruosTestSourceCommit": "c34187b6cc6a64ea4f5a4991dc012b44e2ae2808",
+  "finalImplementationBinding": "fileSha256; final MCP FIFO hardening occurred after the ruOS core-only run. Core and GPU oracle source hashes are unchanged."
+}

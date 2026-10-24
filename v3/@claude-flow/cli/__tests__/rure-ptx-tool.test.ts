@@ -3,6 +3,9 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 vi.mock('@claude-flow/aidefence', () => ({ createAIDefence: () => ({
   quickScan: (text: string) => ({ threat: text.includes('evil_marker'), confidence: 0.99 }),
@@ -46,6 +49,24 @@ describe('PTX MCP boundary', () => {
     expect((await run('../../etc/passwd')).success).toBe(false);
     const path = input(ptx);
     expect((await run(join(path, '..'))).success).toBe(false);
+  });
+  it.skipIf(process.platform === 'win32')('rejects a FIFO without waiting for a writer', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ptx-fifo-'));
+    dirs.push(dir);
+    const fifo = join(dir, 'input.ptx');
+    expect(spawnSync('mkfifo', [fifo]).status).toBe(0);
+    const require = createRequire(import.meta.url);
+    const toolPath = fileURLToPath(new URL('../src/mcp-tools/rure-tools.ts', import.meta.url));
+    // A separate process with a hard timeout also safely detects a regression
+    // to blocking openSync without hanging the Vitest worker itself.
+    const child = spawnSync(process.execPath, ['--import', require.resolve('tsx'), '--input-type=module', '-e',
+      'const {rureTools}=await import(process.argv[1]); const t=rureTools.find(t=>t.name==="rure_decompile_ptx"); console.log(JSON.stringify(await t.handler({path:process.argv[2]})));',
+      toolPath, fifo], { encoding: 'utf8', timeout: 2000, env: { PATH: process.env.PATH, HOME: dir } });
+    expect(child.error).toBeUndefined();
+    expect(child.status).toBe(0);
+    const result = JSON.parse(JSON.parse(child.stdout).content[0].text);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('not a regular file');
   });
   it('screens attacker-derived names and declares modification', async () => {
     const result = await run(input(ptx.replace('test()', 'evil_marker()')));
