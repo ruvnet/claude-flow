@@ -68,20 +68,35 @@ describe('RaftConsensus quorum safety (self-vote cannot satisfy quorum alone)', 
     }
 
     const proposal = await raft.propose({ decision: 'quorum-safety-3-voter' });
+    const before = Date.now();
     await raft.vote(proposal.id, {
       voterId: 'voter-a',
       approve: false,
       confidence: 1.0,
       timestamp: new Date(),
     });
+    // Baseline bug: quorum = floor(3*0.66) = 1, satisfied by the self-vote
+    // alone on the very first vote() call, so this single rejection was
+    // enough for the pre-fix code to accept it right here. Fixed: quorum =
+    // ceil(3*0.66) = 2 and the reject threshold is totalVoters-quorum = 1,
+    // so one rejection alone (disapprovingWeight=1) doesn't cross it yet —
+    // a second rejection is needed to reach an explicit, fast 'rejected'
+    // transition rather than only disproving the bug via timeout/expiry.
+    await raft.vote(proposal.id, {
+      voterId: 'voter-b',
+      approve: false,
+      confidence: 1.0,
+      timestamp: new Date(),
+    });
 
     const result = await raft.awaitConsensus(proposal.id);
+    const elapsedMs = Date.now() - before;
 
-    // Baseline bug: quorum = floor(3*0.66) = 1, satisfied by the self-vote
-    // alone on the very first vote() call, before voter-b ever votes.
-    // Fixed: quorum = ceil(3*0.66) = 2, requiring the self-vote plus at
-    // least one real approval.
     expect(result.approved).toBe(false);
+    // Resolved via an explicit 'rejected' transition (both rejects landed
+    // well under the 1000ms timeoutMs), not by falling through to expiry —
+    // stronger evidence than relying on the timeout path alone.
+    expect(elapsedMs).toBeLessThan(500);
 
     await raft.shutdown();
   }, 10000);
