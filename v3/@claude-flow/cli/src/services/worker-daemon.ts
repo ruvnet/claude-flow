@@ -274,6 +274,9 @@ export class WorkerDaemon extends EventEmitter {
   // .claude-flow/daemon-state.json had persisted from a previous run.
   private fileConfigResourceThresholds?: { maxCpuLoad?: number; minFreeMemoryPercent?: number };
 
+  // #4462 — the same record for maxConcurrent / workerTimeoutMs.
+  private fileConfigScalars?: { maxConcurrent?: number; workerTimeoutMs?: number };
+
   // #2661 root-fix — resolved once (git identity doesn't change at runtime)
   // and reused for lease heartbeats + supervisor election, both gated on
   // aiWorkersEnabled since they only matter for the recurring AI schedule.
@@ -295,6 +298,7 @@ export class WorkerDaemon extends EventEmitter {
       maxCpuLoad: fileConfig.maxCpuLoad,
       minFreeMemoryPercent: fileConfig.minFreeMemoryPercent,
     };
+    this.fileConfigScalars = { maxConcurrent: fileConfig.maxConcurrent, workerTimeoutMs: fileConfig.workerTimeoutMs };
 
     // CPU-proportional smart default instead of hardcoded 2.0
     const cpuCount = WorkerDaemon.getEffectiveCpuCount();
@@ -858,10 +862,16 @@ export class WorkerDaemon extends EventEmitter {
             this.config.resourceThresholds.minFreeMemoryPercent = rt.minFreeMemoryPercent;
           }
         }
-        if (typeof saved.config?.maxConcurrent === 'number' && saved.config.maxConcurrent > 0) {
+        // #4462 — same rule for the two scalar fields: constructor arg or
+        // config.json beats saved state, which only fills in what neither set.
+        const maxConcurrentExplicit = this.originalConfig?.maxConcurrent !== undefined
+          || this.fileConfigScalars?.maxConcurrent !== undefined;
+        const workerTimeoutExplicit = this.originalConfig?.workerTimeoutMs !== undefined
+          || this.fileConfigScalars?.workerTimeoutMs !== undefined;
+        if (!maxConcurrentExplicit && typeof saved.config?.maxConcurrent === 'number' && saved.config.maxConcurrent > 0) {
           this.config.maxConcurrent = saved.config.maxConcurrent;
         }
-        if (typeof saved.config?.workerTimeoutMs === 'number' && saved.config.workerTimeoutMs > 0) {
+        if (!workerTimeoutExplicit && typeof saved.config?.workerTimeoutMs === 'number' && saved.config.workerTimeoutMs > 0) {
           this.config.workerTimeoutMs = saved.config.workerTimeoutMs;
         }
 
