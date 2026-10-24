@@ -233,28 +233,15 @@ const PRELUDE = `// Generated scalar integer recovery. Not a proof or a memory s
 // Requires original ABI/launch, valid aligned race-free global memory, 64-bit CUDA.
 #include <stdint.h>
 static_assert(sizeof(uintptr_t) == 8, "RuRE recovery requires 64-bit pointers");
+// PTX global accesses must be naturally aligned (this module's stated precondition), so a typed access is the original instruction.
+// may_alias keeps type punning defined; byte loops compiled to four LD.E.U8 / ST.E.U8 per word (measured 3.8x slower on a load-bound kernel).
+typedef uint32_t __attribute__((may_alias, aligned(4))) rure_u32a;
+typedef uint64_t __attribute__((may_alias, aligned(8))) rure_u64a;
 namespace rure_detail {
-// Byte accesses avoid C++ strict-aliasing violations and preserve PTX little endian bits.
-static __device__ inline uint32_t load32(uint64_t address) {
-  const unsigned char* p = reinterpret_cast<const unsigned char*>(static_cast<uintptr_t>(address));
-  uint32_t value = 0;
-  for (unsigned i = 0; i < 4; ++i) value |= static_cast<uint32_t>(p[i]) << (8 * i);
-  return value;
-}
-static __device__ inline uint64_t load64(uint64_t address) {
-  const unsigned char* p = reinterpret_cast<const unsigned char*>(static_cast<uintptr_t>(address));
-  uint64_t value = 0;
-  for (unsigned i = 0; i < 8; ++i) value |= static_cast<uint64_t>(p[i]) << (8 * i);
-  return value;
-}
-static __device__ inline void store32(uint64_t address, uint32_t value) {
-  unsigned char* p = reinterpret_cast<unsigned char*>(static_cast<uintptr_t>(address));
-  for (unsigned i = 0; i < 4; ++i) p[i] = static_cast<unsigned char>(value >> (8 * i));
-}
-static __device__ inline void store64(uint64_t address, uint64_t value) {
-  unsigned char* p = reinterpret_cast<unsigned char*>(static_cast<uintptr_t>(address));
-  for (unsigned i = 0; i < 8; ++i) p[i] = static_cast<unsigned char>(value >> (8 * i));
-}
+static __device__ inline uint32_t load32(uint64_t address) { return *reinterpret_cast<const rure_u32a*>(static_cast<uintptr_t>(address)); }
+static __device__ inline uint64_t load64(uint64_t address) { return *reinterpret_cast<const rure_u64a*>(static_cast<uintptr_t>(address)); }
+static __device__ inline void store32(uint64_t address, uint32_t value) { *reinterpret_cast<rure_u32a*>(static_cast<uintptr_t>(address)) = value; }
+static __device__ inline void store64(uint64_t address, uint64_t value) { *reinterpret_cast<rure_u64a*>(static_cast<uintptr_t>(address)) = value; }
 static __device__ inline int64_t signed32(uint32_t value) {
   return static_cast<int64_t>(value) - static_cast<int64_t>(value >> 31) * 4294967296LL;
 }

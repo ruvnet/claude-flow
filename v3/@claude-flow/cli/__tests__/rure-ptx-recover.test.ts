@@ -168,4 +168,18 @@ describe('conservative executable integer PTX recovery', () => {
     const result = recoverPtx(header + '.entry good(){ret;}\n.entry bad(){bar.sync 0;ret;}');
     expect(result).toMatchObject({ status: 'unsupported', code: null, functions: [] });
   });
+
+  it('emits naturally aligned typed global access that survives a 64-bit store read back as 32-bit halves', () => {
+    const result = recoverPtx(moduleOf(`${declarations} ld.param.u64 %rd0, [buf]; mov.u64 %rd1, 0x1122334455667788; st.global.u64 [%rd0], %rd1; ld.global.u32 %r0, [%rd0]; ld.global.u32 %r1, [%rd0 + 4]; st.global.u32 [%rd0], 0xdeadbeef; ld.global.u64 %rd2, [%rd0]; st.global.u32 [%rd0 + 8], %r0; st.global.u32 [%rd0 + 12], %r1; st.global.u64 [%rd0 + 16], %rd2; ret;`, '.param .u64 buf'));
+    expect(result.status, result.diagnostics.join('\n')).toBe('emitted');
+    expect(result.code).toContain('may_alias');
+    expect(result.code).not.toMatch(/unsigned char|for\s*\(\s*unsigned/);
+    expect(compileAndRun(result.code!, `int main() {
+      alignas(8) uint64_t buf[3] = {0, 0, 0};
+      rure_kernel_0(reinterpret_cast<uintptr_t>(buf));
+      uint32_t lo = static_cast<uint32_t>(buf[1]), hi = static_cast<uint32_t>(buf[1] >> 32);
+      if (lo != 0x55667788u || hi != 0x11223344u || buf[2] != 0x11223344deadbeefULL) return 1;
+      puts("pass");
+    }`)).toBe('pass\n');
+  });
 });

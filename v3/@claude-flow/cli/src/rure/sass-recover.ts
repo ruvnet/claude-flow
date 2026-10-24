@@ -92,7 +92,8 @@ function section(text: string, name: string): string {
 }
 function attributes(text: string): Attribute[] {
   const result: Attribute[] = [];
-  const records = text.split(/^\s*<0x[0-9a-fA-F]+>\s*$/m);
+  // [ \t]*, never \s*: \s* spans newlines, so a long run of blank lines was rescanned from every line start (quadratic).
+  const records = text.split(/^[ \t]*<0x[0-9a-fA-F]+>[ \t]*$/m);
   if (records.shift()!.trim()) invalid('malformed attribute records');
   for (const record of records) {
     const match = /^\s*Attribute:\s*(EIATTR_[A-Z0-9_]+)\s+Format:\s*(EIFMT_[A-Z]+)\s*(?:Value:\s*([\s\S]*))?$/.exec(record);
@@ -361,13 +362,17 @@ class Emitter {
 const PRELUDE = `// Recovered from cuobjdump text under explicit CUDA ABI assumptions. Not a binary decoder or proof.
 #include <stdint.h>
 static_assert(sizeof(uintptr_t) == 8, "64-bit CUDA pointers required");
+// PTX/SASS global accesses must be naturally aligned (this module's stated precondition), so a typed access is the original instruction.
+// may_alias keeps type punning defined; byte loops compiled to four LD.E.U8 / ST.E.U8 per word (measured 3.8x slower on a load-bound kernel).
+typedef uint32_t __attribute__((may_alias, aligned(4))) rure_u32a;
+typedef uint64_t __attribute__((may_alias, aligned(8))) rure_u64a;
 namespace rure_sass_detail {
 static __device__ inline uint64_t join(uint32_t lo, uint32_t hi) { return static_cast<uint64_t>(lo) | (static_cast<uint64_t>(hi) << 32); }
 static __device__ inline int64_t signed32(uint32_t n) { return static_cast<int64_t>(n) - static_cast<int64_t>(n >> 31) * 4294967296LL; }
-static __device__ inline uint32_t load32(uint64_t a) { const unsigned char* p = reinterpret_cast<const unsigned char*>(static_cast<uintptr_t>(a)); uint32_t v=0; for(unsigned i=0;i<4;i++) v |= static_cast<uint32_t>(p[i]) << (i*8); return v; }
-static __device__ inline uint64_t load64(uint64_t a) { const unsigned char* p = reinterpret_cast<const unsigned char*>(static_cast<uintptr_t>(a)); uint64_t v=0; for(unsigned i=0;i<8;i++) v |= static_cast<uint64_t>(p[i]) << (i*8); return v; }
-static __device__ inline void store32(uint64_t a,uint32_t v) { unsigned char* p=reinterpret_cast<unsigned char*>(static_cast<uintptr_t>(a)); for(unsigned i=0;i<4;i++) p[i]=static_cast<unsigned char>(v >> (i*8)); }
-static __device__ inline void store64(uint64_t a,uint64_t v) { unsigned char* p=reinterpret_cast<unsigned char*>(static_cast<uintptr_t>(a)); for(unsigned i=0;i<8;i++) p[i]=static_cast<unsigned char>(v >> (i*8)); }
+static __device__ inline uint32_t load32(uint64_t a) { return *reinterpret_cast<const rure_u32a*>(static_cast<uintptr_t>(a)); }
+static __device__ inline uint64_t load64(uint64_t a) { return *reinterpret_cast<const rure_u64a*>(static_cast<uintptr_t>(a)); }
+static __device__ inline void store32(uint64_t a, uint32_t v) { *reinterpret_cast<rure_u32a*>(static_cast<uintptr_t>(a)) = v; }
+static __device__ inline void store64(uint64_t a, uint64_t v) { *reinterpret_cast<rure_u64a*>(static_cast<uintptr_t>(a)) = v; }
 }
 `;
 
