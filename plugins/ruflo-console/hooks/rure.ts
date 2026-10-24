@@ -9,6 +9,8 @@
 import { devLines, need, tool } from './data/devtools'
 import { detectReader } from './data/rure-detect'
 import { sampleLinkCheck } from './data/rure-guard'
+import { foldersLinkCheck, isAliased, resolveAlias, type Folders } from './data/rure-folders'
+import type { Host } from './host'
 import type { ActionSpec } from './actions'
 import type { DevEntry } from './devtools'
 
@@ -34,7 +36,9 @@ export const RURE: readonly DevEntry[] = [
  * What runs before a ruRE row (ADR-495, ADR-496): the sample must not be, or sit behind, a link; and DETECT then picks the reader from
  * what the host says about the sample, so the row runs that reader's call with that reader's lines, or says why it cannot choose.
  */
-export const rurePreflight = (entry: DevEntry, sample: string): NonNullable<ActionSpec['preflight']> => async host => {
+export const rurePreflight = (entry: DevEntry, sample: string, built: readonly string[] | null): NonNullable<ActionSpec['preflight']> => async (host, options) => {
+  if (isAliased(sample)) return aliasedPreflight(entry, sample, built, host, options.rureFolders)
+
   const linked = await sampleLinkCheck(host.fs, sample)
 
   if (linked !== null) return linked
@@ -45,4 +49,33 @@ export const rurePreflight = (entry: DevEntry, sample: string): NonNullable<Acti
   if ('refuse' in pick) return pick.refuse
 
   return { args: tool(pick.tool, pick.params), label: `ruRE: detect → ${RURE.find(row => row.id === pick.id)?.name ?? pick.id}`, lab: pick.id, note: pick.why, lines: (out, err) => devLines(pick.id, out, err) }
+}
+
+/**
+ * A sample in an allowed outside folder (ADR-499): `@name/sub/file` becomes the folder's absolute path, after the links on the way are checked.
+ * The row's own argv carries the `@name` text (so nothing absolute was ever built from a field); the resolved path replaces it in the one JSON
+ * argument every ruRE call has. DETECT picks its reader from what the host says about the resolved path.
+ */
+async function aliasedPreflight(entry: DevEntry, sample: string, built: readonly string[] | null, host: Pick<Host, 'fs'>, folders: Folders): ReturnType<NonNullable<ActionSpec['preflight']>> {
+  const at = resolveAlias(sample, folders)
+
+  if ('refuse' in at) return at.refuse
+
+  const linked = await foldersLinkCheck(host.fs, at.root, at.rel)
+
+  if (linked !== null) return linked
+  if (entry.id === 'dt-re-auto') {
+    const pick = await detectReader(host.fs, at.path)
+
+    if ('refuse' in pick) return pick.refuse
+
+    return { args: tool(pick.tool, pick.params), label: `ruRE: detect → ${RURE.find(row => row.id === pick.id)?.name ?? pick.id}`, lab: pick.id, note: `${pick.why} (in @${at.alias})`, lines: (out, err) => devLines(pick.id, out, err) }
+  }
+
+  const slot = built === null ? -1 : built.indexOf('-p')
+  const params: unknown = slot < 0 ? null : JSON.parse(built![slot + 1] ?? 'null')
+
+  if (built === null || typeof params !== 'object' || params === null || (params as { path?: unknown }).path !== sample) return `${entry.name}: could not place ${sample}`
+
+  return { args: built.map((part, index) => (index === slot + 1 ? JSON.stringify({ ...params, path: at.path }) : part)), note: `${entry.note ?? ''}${entry.note === undefined ? '' : '; '}reads ${at.path} (@${at.alias})` }
 }

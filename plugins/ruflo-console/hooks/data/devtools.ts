@@ -4,6 +4,7 @@
  * as `{"content":[{"type":"text","text":"<JSON>"}],"isError":…}`, so the readers unwrap that first.
  */
 import { jsonAfter } from './cli'
+import { aliasSampleOf } from './rure-folders'
 import { plain, recordOf } from './parse'
 import { labLines } from '../mh-lab'
 import { rureLines } from './rure'
@@ -52,7 +53,7 @@ const RULES: Record<DevField, { test: (text: string) => string | null; rule: str
   ref: { test: text => (/^[A-Za-z0-9@][A-Za-z0-9._/~^@{}-]{0,99}$/.test(text.trim()) ? text.trim() : null), rule: 'a git ref: HEAD, HEAD~3, main..HEAD, a branch or a sha (letters, digits . _ / ~ ^ @ { } -, not starting with -)' },
   path: { test: pathOf, rule: 'a path under the project: relative, letters, digits . _ / -, no .. segment, at most 160' },
   // ruRE (ADR-494): the file or folder to analyze. Same rule as `path`: only what is inside the project can be named here.
-  sample: { test: pathOf, rule: 'a file or folder under the project: relative, letters, digits . _ / -, no .. segment, at most 160 (the ruRE page analyzes only what is inside this project)' },
+  sample: { test: text => pathOf(text) ?? aliasSampleOf(text), rule: 'a file or folder under the project: relative, letters, digits . _ / -, no .. segment, at most 160; or @name/sub/file inside an outside folder you allowed in the option rureFolders (ADR-499)' },
   label: { test: text => (/^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$/.test(text.trim()) ? text.trim() : null), rule: 'a label: letters, digits . _ -, at most 40, not starting with . or -' },
   url: { test: urlOf, rule: 'an http(s) URL with no spaces or quotes, at most 300' },
   target: { test: text => (/^@e\d{1,5}$/.test(text.trim()) ? text.trim() : null), rule: 'an element ref from a snapshot: @e1, @e12 …' },

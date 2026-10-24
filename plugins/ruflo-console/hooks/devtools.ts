@@ -195,7 +195,7 @@ export function devSpec(entry: DevEntry, fields: DevFields): ActionSpec | null {
     ...(DECLARED[entry.cost] !== undefined && { declared: DECLARED[entry.cost] }),
     ...(entry.note !== undefined && { note: entry.note }),
     ...(entry.timeoutMs !== undefined && { timeoutMs: entry.timeoutMs }),
-    ...(entry.group.startsWith('rure-') && fields.sample !== '' && { preflight: rurePreflight(entry, fields.sample) }),
+    ...(entry.group.startsWith('rure-') && fields.sample !== '' && { preflight: rurePreflight(entry, fields.sample, args) }),
   }
 }
 
