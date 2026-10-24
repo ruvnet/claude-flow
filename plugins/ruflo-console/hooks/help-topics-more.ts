@@ -253,7 +253,7 @@ export const MORE_TOPICS: readonly HelpTopic[] = [
     group: 'Console',
     summary: 'static reverse engineering of a file in your project: what it imports, exposes and carries',
     steps: [
-      { text: 'Open ruRE (TOOLS group, or /ruflo rure). Type the path of a file or folder inside this project in the sample field; the page cannot reach anything outside the project.', go: { view: 'rure' } },
+      { text: 'Open ruRE (TOOLS group, or /ruflo rure). Type the path of a file or folder inside this project in the sample field; the page cannot reach anything outside the project except a folder you allowed in the option rureFolders, named @name/file (allowing one always asks you first).', go: { view: 'rure' } },
       { text: 'Unsure which row fits? DETECT picks: a folder is JavaScript source, .cubin, .fatbin or .ptx is CUDA, .hex or .evm is EVM bytecode, anything else a native binary. It never unpacks an .asar (it names UNPACK .ASAR, which asks first); a .dll or .exe may be .NET.' },
       { text: 'Or pick the row yourself: APP MAP and FIND FEATURE for JavaScript or Electron source, UNPACK .ASAR for a packed app, NATIVE BINARY for ELF, PE or Mach-O, .NET ASSEMBLY for managed code, CUDA for GPU code, EVM BYTECODE for a contract. A read runs at once and shows below.' },
       { text: 'UNPACK .ASAR asks first: it writes the files to a temp folder outside the project. Copy that folder under the project (cp -r) to run APP MAP or FIND FEATURE on it here.' },

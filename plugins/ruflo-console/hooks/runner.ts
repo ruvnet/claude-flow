@@ -117,7 +117,7 @@ export function createRunner(state: State, host: Host, deps: RunnerDeps): Runner
     host.invalidate()
 
     try {
-      const prep = await spec.preflight?.(host)
+      const prep = await spec.preflight?.(host, state.options)
       if (typeof prep === 'string') {
         if (spec.lab !== undefined) panel.result = { id: spec.lab, label: spec.label, ok: false, exitCode: null, lines: [prep], atMs: Date.now() }
         say(spec.label, false, prep)

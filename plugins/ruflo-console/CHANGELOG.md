@@ -2,6 +2,10 @@
 
 Newest first. One `## <version> — <date>` heading per version, then `feat:`, `fix:`, `breaking:` and `chore:` bullets (ADR-478). Built from git history; older versions: `git log -- plugins/ruflo-console`.
 
+## 0.48.0 — 2026-10-24
+- feat: ruRE can read a folder outside the project that you allow (ADR-499). New option `rureFolders` (`name=/absolute/folder; name2=…`); a ruRE sample then names it as `@name/sub/file`. Changing the option is an install-class change that always waits for your Yes (Claude's console tools can only propose it at the full control level), so Claude can reach an outside folder only through a name you defined. A folder that is a link, a link anywhere below it, `..`, an absolute path typed as a sample, an unknown name, and a filesystem root are all refused; ruRE still only parses.
+- chore: the preflight of a ruRE row now receives the console's options (same line count in the runner).
+
 ## 0.47.0 — 2026-10-23
 - feat: a **CUDA** row on the ruRE page (ADR-497) for the new `rure_analyze_cuda` tool: for a CUDA program, a `.cubin`, a `.fatbin` or a `.ptx` it shows the fatbin entries (kind, target `sm_NN`, compression), each kernel with its register count, code size and constant/shared memory, and the PTX version, target and kernel names. Needs a ruflo CLI that has the tool (the release after 3.60.1); on an older one the row says to update, as the other ruRE rows do.
 - feat: DETECT sends `.cubin`, `.fatbin` and `.ptx` files to the CUDA row, and the native-binary row says "holds CUDA code" for a program with a `.nv_fatbin` section, pointing at it.

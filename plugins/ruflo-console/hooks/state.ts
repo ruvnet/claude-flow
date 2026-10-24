@@ -2,6 +2,7 @@ import type { PluginOptions, Timer } from 'claude-code'
 import { isWindowsPath, trimTrailing } from './data/paths'
 import { guardOptionsOf, type GuardOptions } from './data/wf-alerts'
 import { sessionOptionsOf, type SessionOptions } from './data/sessions-options'
+import { parseFolders, type Folders } from './data/rure-folders'
 import { convoOptionsOf, type ConvoOptions } from './data/wf-targets'
 
 import { emptyAuto, type AutoState } from './data/automate'
@@ -133,6 +134,8 @@ export type Options = GuardOptions & ConvoOptions & SessionOptions & {
   boot: boolean
   /** ADR-474: keep the Events and Timeline history in `.claude-flow/console/` (events.jsonl, lanes.jsonl). On by default; masked text only. */
   eventsPersist: boolean
+  /** ADR-499: outside folders ruRE may read, alias -> absolute folder. Set only by the person (a plugin option); empty by default. */
+  rureFolders: Folders
 }
 
 const num = (value: unknown, fallback: number, lo: number, hi: number): number => {
@@ -155,6 +158,7 @@ export function optionsOf(raw: PluginOptions | undefined): Options {
     look: value.look === 'plain' || value.look === 'orbital' ? value.look : 'bbs',
     boot: value.boot !== false,
     eventsPersist: value.eventsPersist !== false && value.eventsPersist !== 'false',
+    rureFolders: parseFolders(value.rureFolders),
     ...guardOptionsOf(raw),
     ...convoOptionsOf(raw),
     ...sessionOptionsOf(raw),
