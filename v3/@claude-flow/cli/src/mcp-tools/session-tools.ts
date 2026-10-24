@@ -135,6 +135,16 @@ function listSessions(): SessionRecord[] {
 const MEMORY_SNAPSHOT_FORMAT = 'ruflo-session-memory/2';
 const MEMORY_PAGE_SIZE = 500;
 
+function escapeMemorySnapshotKeyPart(part: string): string {
+  // Escape the escape marker first; otherwise a literal "%3A" aliases ":".
+  return part.replace(/%/g, '%25').replace(/:/g, '%3A');
+}
+
+/** Map IDs are opaque to restore, which reads the explicit namespace/key fields. */
+function memorySnapshotKey(namespace: string, key: string): string {
+  return `${escapeMemorySnapshotKeyPart(namespace)}::${escapeMemorySnapshotKeyPart(key)}`;
+}
+
 interface MemorySnapshotEntry {
   key: string;
   value: string;
@@ -210,13 +220,24 @@ async function captureMemorySnapshot(): Promise<{ memory?: Record<string, unknow
   try {
     const { listEntries, resolveDbPath } = await import('../memory/memory-initializer.js');
     const primary = resolveDbPath();
-    const seen = new Set<string>();
+    // Logical live identities are distinct from exported slots: a legacy ID can
+    // be any string, including a live tuple's encoded ID or an alternate slot.
+    const slots = new Map<string, string>();
+    const slotFor = (id: string): string => {
+      const existing = slots.get(id);
+      if (existing !== undefined) return existing;
+      let slot = id;
+      for (let suffix = 1; Object.prototype.hasOwnProperty.call(entries, slot); suffix++) {
+        slot = `${id}#${suffix}`;
+      }
+      slots.set(id, slot);
+      return slot;
+    };
     if (existsSync(primary)) {
       sawStore = true;
       for (const row of await readLiveEntries(listEntries, primary)) {
-        const id = `${row.namespace}::${row.key}`;
-        seen.add(id);
-        entries[id] = {
+        const id = memorySnapshotKey(row.namespace, row.key);
+        entries[slotFor(id)] = {
           key: row.key, value: row.content ?? '', namespace: row.namespace,
           provenanceType: row.provenanceType, source: 'memory-db',
         };
@@ -232,10 +253,9 @@ async function captureMemorySnapshot(): Promise<{ memory?: Record<string, unknow
       sawStore = true;
       // The AgentDB store is read by native SQLite and must stay plaintext.
       for (const row of await readLiveEntries(listEntries, sibling, false)) {
-        const id = `${row.namespace}::${row.key}`;
-        if (seen.has(id)) continue;
-        seen.add(id);
-        entries[id] = {
+        const id = memorySnapshotKey(row.namespace, row.key);
+        if (slots.has(id)) continue;
+        entries[slotFor(id)] = {
           key: row.key, value: row.content ?? '', namespace: row.namespace,
           provenanceType: row.provenanceType, source: 'agentdb',
         };
