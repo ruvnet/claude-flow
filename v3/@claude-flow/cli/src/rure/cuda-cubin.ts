@@ -39,6 +39,23 @@ export interface CubinInfo {
   truncated: boolean;
 }
 
+/**
+ * The SM number in `e_flags`. Where it sits depends on the ABI the toolchain wrote: a cubin from CUDA 12 (ELF OS ABI 51) for sm_70 to sm_90 keeps it in the
+ * low byte (sm_70 is 0x460546: 0x46 twice, around the texture and address bits), while CUDA 13, and CUDA 12.8 for sm_120, use OS ABI 65 and the second byte
+ * (sm_80 is 0x06005004). Reading the second byte of an ABI 51 cubin gave "sm_5" for every one of them. An OS ABI we have not seen falls back to whichever
+ * byte is a plausible SM number.
+ */
+export function smOfFlags(flags: number, osAbi: number): number | null {
+  const low = flags & 0xff;
+  const second = (flags >>> 8) & 0xff;
+  const plausible = (n: number): boolean => n >= 20 && n <= 199;
+
+  if (osAbi === 65) return second;
+  if (osAbi === 51) return low;
+
+  return plausible(second) ? second : plausible(low) ? low : null;
+}
+
 export const isCubin = (b: Buffer): boolean => b.length >= 0x40 && b[0] === 0x7f && b.toString('latin1', 1, 4) === 'ELF' && b[4] === 2 && b[5] === 1 && b.readUInt16LE(0x12) === EM_CUDA;
 
 const cstr = (b: Buffer, at: number, end: number): string => {
@@ -97,9 +114,7 @@ export function parseCubin(b: Buffer): CubinInfo {
   }
 
   try {
-    const flags = b.readUInt32LE(0x30);
-
-    info.archFlag = (flags >>> 8) & 0xff;
+    info.archFlag = smOfFlags(b.readUInt32LE(0x30), b[7] as number);
 
     const shoff = Number(b.readBigUInt64LE(0x28));
     const entsize = b.readUInt16LE(0x3a);

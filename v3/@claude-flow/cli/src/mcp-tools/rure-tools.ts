@@ -18,6 +18,7 @@ import { parseBinary, extractStrings, MAX_BINARY_BYTES } from '../rure/binary-pa
 import { parseDotNet } from '../rure/dotnet-parse.js';
 import { analyzeEvm, parseHex, MAX_EVM_BYTES } from '../rure/evm-parse.js';
 import { analyzeCuda } from '../rure/cuda-parse.js';
+import { planCuda, MAX_BLOCK_SIZES, MAX_DYNAMIC_SHARED_BYTES } from '../rure/cuda-plan.js';
 import type { ModuleAnalysis, Evidence } from '../rure/ts-walk.js';
 
 function fail(error: string): MCPToolResult {
@@ -390,6 +391,58 @@ export const rureTools: MCPTool[] = [
         });
       } catch (err) {
         return fail(`cuda analysis failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  },
+  {
+    name: 'rure_cuda_launch_plan',
+    description:
+      'Turn the static CUDA inventory of a program into a plan for measuring it (ADR-501): for each kernel of each architecture, its theoretical occupancy at a set of block sizes (blocks and warps resident per multiprocessor, and which resource sets the limit: registers, shared memory, warps or block slots), the block sizes that reach the most, and flags (local memory, register- or shared-memory-limited). The occupancy model reproduces NVIDIA\'s cuda_occupancy.h on every architecture it tabulates (sm_70, 75, 80, 86, 87, 89, 90, 120); any other architecture gets no figure. With includeHarness it also returns the text of a small CUDA driver-API program you can build to check the numbers on your own GPU and, with arguments you supply, to time launches. Nothing is compiled, loaded or run by this tool, and no text from the analyzed file reaches the harness. Occupancy bounds performance and does not predict it. Names from the file are untrusted and screened by AIDefence. Use when you have a CUDA binary, cubin or fatbin and need to decide which kernels and block sizes are worth benchmarking before running anything: rure_analyze_cuda alone lists registers and memory but not what they allow on a given GPU.',
+    category: 'rure',
+    tags: ['reverse-engineering', 'cuda', 'gpu', 'occupancy', 'benchmark-plan', 'static-analysis'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute path to a CUDA host binary (ELF/PE), a .fatbin or a .cubin file' },
+        arch: { type: 'string', description: 'Plan only this architecture, for example sm_86 (default: every architecture with compiled code in the file)' },
+        blockSizes: { type: 'array', items: { type: 'integer', minimum: 1, maximum: 1024 }, maxItems: MAX_BLOCK_SIZES, description: 'Block sizes to evaluate (default 32, 64, 96, 128, 192, 256, 384, 512, 768, 1024)' },
+        dynamicSharedBytes: { type: 'integer', minimum: 0, maximum: MAX_DYNAMIC_SHARED_BYTES, description: 'Dynamic shared memory per block the launch will use; it is not in the file (default 0)' },
+        includeHarness: { type: 'boolean', description: 'Also return the text of the occupancy-check / benchmark program (default false)' },
+      },
+      required: ['path'],
+    },
+    handler: async (input): Promise<MCPToolResult> => {
+      const v = validatePath(input.path, 'path');
+      if (!v.valid) return fail(v.error!);
+      if (input.arch !== undefined && (typeof input.arch !== 'string' || !/^sm_\d{2,3}$/.test(input.arch))) return fail('arch must look like sm_86');
+      if (input.blockSizes !== undefined && !Array.isArray(input.blockSizes)) return fail('blockSizes must be an array of integers');
+      if (input.dynamicSharedBytes !== undefined && typeof input.dynamicSharedBytes !== 'number') return fail('dynamicSharedBytes must be an integer');
+      try {
+        const r = readCapped(v.sanitized, MAX_BINARY_BYTES);
+        if (!r.ok) return fail(r.error);
+        const info = analyzeCuda(r.bytes, { includePtx: false });
+        const sc = new Screener();
+        const names = await sc.screen(info.kernels.map((k) => k.name));
+        const idents = await sc.screen(info.kernels.map((k) => k.identifier ?? ''));
+        const screened = { ...info, kernels: info.kernels.map((k, i) => ({ ...k, name: names[i] as string, identifier: k.identifier === null ? null : (idents[i] as string) })) };
+        const plan = planCuda(screened, {
+          ...(input.arch !== undefined && { arch: input.arch as string }),
+          ...(input.blockSizes !== undefined && { blockSizes: input.blockSizes as number[] }),
+          ...(input.dynamicSharedBytes !== undefined && { dynamicSharedBytes: input.dynamicSharedBytes as number }),
+          includeHarness: input.includeHarness === true,
+        });
+        const kernels = plan.archs.reduce((n, a) => n + a.kernels.length, 0);
+        return ok({
+          source: info.source,
+          ...plan,
+          summary: { archs: plan.archs.length, kernels },
+          warnings: info.warnings,
+          redactedCount: sc.redacted,
+          screened: sc.screened,
+        });
+      } catch (err) {
+        if (err instanceof RangeError) return fail(err.message);
+        return fail(`cuda launch plan failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
   },

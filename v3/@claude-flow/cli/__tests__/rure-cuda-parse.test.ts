@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { analyzeCuda, type CudaInfo } from '../src/rure/cuda-parse.js';
 import { defaultZstd } from '../src/rure/cuda-fatbin.js';
+import { smOfFlags } from '../src/rure/cuda-cubin.js';
 
 const DIR = join(__dirname, 'fixtures', 'cuda');
 const load = (name: string): Buffer => readFileSync(join(DIR, name));
@@ -172,6 +173,44 @@ describe('standalone files', () => {
     expect(plain.ptx[0]?.text).toBeUndefined();
     expect(withText.ptx[0]?.text).toContain('.visible .entry _Z5saxpyifPKfPf');
     expect(withText.ptx[0]?.textTruncated).toBe(false);
+  });
+});
+
+describe('standalone cubins from nvcc 12.8 (the older ELF ABI, SM number in the low byte of e_flags)', () => {
+  // CUDA 12.8 writes ELF OS ABI 51 for sm_70 to sm_90: sm_70 is e_flags 0x460546. Reading the second byte, as for CUDA 13 (OS ABI 65, sm_80 is 0x06005004),
+  // gave "sm_5" for all of them. Found when a V100 and a T4 were to check the launch plan (ADR-501); the older fixtures here were all host binaries.
+  for (const arch of [70, 75, 90]) {
+    it(`sm_${arch}: the architecture, the kernels, their registers and constant bank equal cuobjdump's`, () => {
+      const name = `k${arch}-cuda128.cubin`;
+      const info = analyzeCuda(load(name));
+      const expected = [...truth(name).matchAll(/Function (\S+):\s+REG:(\d+) .*?CONSTANT\[0\]:(\d+)/g)].map(m => ({ fn: m[1] as string, reg: Number(m[2]), constant0: Number(m[3]) }));
+
+      expect(info.source).toBe('cubin');
+      expect(info.cubinArchs).toEqual([`sm_${arch}`]);
+      expect(expected.length).toBe(2);
+
+      for (const e of expected) {
+        const found = entryKernels(info).find(k => k.name === e.fn);
+
+        expect(found, e.fn).toBeDefined();
+        expect(found?.arch).toBe(`sm_${arch}`);
+        expect(found?.registers, `${e.fn} registers`).toBe(e.reg);
+        expect(found?.constantBytes, `${e.fn} constant bank 0`).toBe(e.constant0);
+        expect(found?.instructionEstimate, `${e.fn} instructions (16-byte, SM 7.0 and later)`).toBe(Math.floor((found?.codeBytes as number) / 16));
+      }
+    });
+  }
+
+  it('decodes e_flags by the ELF OS ABI, and by plausibility for one it has not seen', () => {
+    expect(smOfFlags(0x460546, 51)).toBe(70);
+    expect(smOfFlags(0x4b054b, 51)).toBe(75);
+    expect(smOfFlags(0x5a055a, 51)).toBe(90);
+    expect(smOfFlags(0x06005004, 65)).toBe(80);
+    expect(smOfFlags(0x06007802, 65)).toBe(120);
+    expect(smOfFlags(0x460546, 99)).toBe(70);
+    expect(smOfFlags(0x06005004, 99)).toBe(80);
+    expect(smOfFlags(0x00000000, 99)).toBeNull();
+    expect(smOfFlags(0xffffffff, 99)).toBeNull();
   });
 });
 

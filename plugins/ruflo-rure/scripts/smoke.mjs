@@ -62,8 +62,8 @@ check('rure-tools.ts references MAX_BINARY_BYTES', /MAX_BINARY_BYTES/.test(tools
 
 // Tool names referenced by the skill/command/agent docs must exist on the tool list.
 const toolNames = new Set([...toolsSrc.matchAll(/name:\s*'(rure_[a-z_]+)'/g)].map((m) => m[1]));
-check('exactly seven tools (three Phase 1, one each Phase 2, 3, 4 and 5)', toolNames.size === 7);
-for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm', 'rure_analyze_cuda']) {
+check('exactly eight tools (three Phase 1, one each Phase 2, 3, 4 and 5, and the CUDA launch plan)', toolNames.size === 8);
+for (const expected of ['rure_extract_asar', 'rure_analyze_js_app', 'rure_find_feature', 'rure_analyze_binary', 'rure_analyze_dotnet', 'rure_analyze_evm', 'rure_analyze_cuda', 'rure_cuda_launch_plan']) {
   check(`tool ${expected} is registered`, toolNames.has(expected));
 }
 
