@@ -506,3 +506,8 @@ User Guide section index:
 MIT - [RuvNet](https://github.com/ruvnet)
 
 <a href="https://cognitum.one"><img src="docs/assets/readme/cognitum-banner-v2.svg" width="100%" alt="Cognitum One: Ambient Intelligence at the edge of the Physical World. Explore cognitum.one."></a>
+
+<!-- ruv-constellation:manifest -->
+## ruv constellation
+
+[manifest.ruv](manifest.ruv) describes this repository with source-pinned capability evidence. Explore the [ruvnet nexus](https://github.com/ruvnet/ruvnet/blob/main/docs/ruv-catalog.md) and [manifest contract](https://github.com/ruvnet/ruvnet/blob/main/docs/ruv-manifest.md). Declared integration roles are discovery metadata and do not grant execution authority or certify runtime behavior.

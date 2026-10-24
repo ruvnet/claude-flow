@@ -1,0 +1,177 @@
+{
+  "schemaVersion": "0.1",
+  "id": "ruv://ruvnet/constellation/service/ruflo/resources/manifest.ruv",
+  "name": "ruflo",
+  "summary": "Coordinate specialized agents and swarms through a CLI and MCP harness. Documented federation communication and agent coordination. Boundaries: Nested packages and scoped instructions are not exhaustively inventoried. Root npm package is claude-flow; Ruflo is the current repository/product name. Root AGENTS forbids unsolicited root additions but the user explicitly requested root manifest.ruv. Coordination records do not execute work.",
+  "repository": {
+    "url": "https://github.com/ruvnet/ruflo",
+    "defaultBranch": "main",
+    "visibility": "public"
+  },
+  "nexus": "https://github.com/ruvnet/ruvnet",
+  "capabilities": [
+    {
+      "id": "agent-orchestration",
+      "description": "Coordinate specialized agents and swarms through a CLI and MCP harness.",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/README.md",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "documentation"
+        }
+      ]
+    },
+    {
+      "id": "federated-coordination",
+      "description": "Documented federation communication and agent coordination.",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/README.md",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "documentation"
+        }
+      ]
+    },
+    {
+      "id": "persistent-memory",
+      "description": "Project memory and trajectory learning integration with RuVector.",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/README.md",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "documentation"
+        }
+      ]
+    },
+    {
+      "id": "console-and-mods",
+      "description": "Inspect runs and operate the agent console with plugin mods.",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/README.md",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "documentation"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "readme",
+      "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/README.md",
+      "kind": "docs"
+    },
+    {
+      "id": "package-json",
+      "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/package.json",
+      "kind": "source"
+    },
+    {
+      "id": "cargo-toml",
+      "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/Cargo.toml",
+      "kind": "source"
+    }
+  ],
+  "relationships": [
+    {
+      "type": "references",
+      "target": "ruv://ruvnet/constellation/service/ruvector/resources/manifest.ruv",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/package.json",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "type": "references",
+      "target": "ruv://ruvnet/constellation/service/agentdb/resources/manifest.ruv",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/package.json",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "source"
+        }
+      ]
+    },
+    {
+      "type": "references",
+      "target": "ruv://ruvnet/constellation/service/agentic-flow/resources/manifest.ruv",
+      "status": "documented",
+      "evidence": [
+        {
+          "url": "https://github.com/ruvnet/ruflo/blob/6c046548e29506be9bfd6640186d6e85a444e849/package.json",
+          "revision": "6c046548e29506be9bfd6640186d6e85a444e849",
+          "kind": "source"
+        }
+      ]
+    }
+  ],
+  "integrations": [
+    {
+      "role": "nexus",
+      "project": "ruv://ruvnet/constellation/service/ruvnet/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "coordination",
+      "project": "ruv://ruvnet/constellation/service/ruflo/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "execution-artifacts",
+      "project": "ruv://ruvnet/constellation/service/rvm/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "public-retrieval",
+      "project": "ruv://ruvnet/constellation/service/ruvector/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "evaluation",
+      "project": "ruv://ruvnet/constellation/service/metaharness/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "evolution",
+      "project": "ruv://ruvnet/constellation/service/autogenous/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "improvement-proposals",
+      "project": "ruv://ruvnet/constellation/service/dream-machine/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "stream-observation",
+      "project": "ruv://ruvnet/constellation/service/midstream/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "cryptography-research",
+      "project": "ruv://ruvnet/constellation/service/qudag/resources/manifest.ruv",
+      "status": "declared"
+    },
+    {
+      "role": "community",
+      "project": "ruv://ruvnet/constellation/service/agentbbs/resources/manifest.ruv",
+      "status": "declared"
+    }
+  ],
+  "safety": {
+    "discoveryOnly": true,
+    "executionRequiresAuthorization": true
+  },
+  "provenance": {
+    "sourceCommit": "6c046548e29506be9bfd6640186d6e85a444e849",
+    "observedAt": "2026-10-10T02:57:25.840156Z"
+  }
+}
