@@ -2,8 +2,12 @@
  * Host registry + hierarchical layers (ADR-176 phase 7).
  */
 import { describe, it, expect } from 'vitest';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import {
-  HostRegistry, fanOutHosts, ancestorsOf, isAncestorOrEqual, layerDepth, selectChampionForLayer,
+  HostRegistry, defaultHostRegistry, fanOutHosts, ancestorsOf, isAncestorOrEqual, layerDepth,
+  selectChampionForLayer,
   type HostAdapter,
 } from '../src/services/harness-hosts.js';
 
@@ -22,6 +26,43 @@ describe('HostRegistry', () => {
   it('swallows a throwing detect() (treats host as unavailable)', () => {
     const bad: HostAdapter = { id: 'bad', label: 'bad', detect: () => { throw new Error('x'); } };
     expect(new HostRegistry().register(cc).register(bad).available().map(h => h.id)).toEqual(['claude-code']);
+  });
+});
+
+describe('defaultHostRegistry (built-in hosts)', () => {
+  // #3372: Grok Build CLI reads `.mcp.json`, `.agents/skills/**/SKILL.md` and
+  // AGENTS.md/CLAUDE.md natively (measured on grok 1.0.34), so it belongs in
+  // the ADR-176 per-host fan-out. `all()` never calls detect(), so this
+  // assertion spawns nothing.
+  it('registers claude-code, codex and grok', () => {
+    const r = defaultHostRegistry();
+    expect(r.all().map(h => h.id)).toEqual(['claude-code', 'codex', 'grok']);
+    expect(r.get('grok')?.label).toBe('Grok Build');
+  });
+
+  // Detection goes through the shared commandExists() probe, i.e. PATH. Drive
+  // it with a fake executable rather than the developer's real Grok install —
+  // running the real binary would create ~/.grok.
+  it.skipIf(process.platform === 'win32')('detects grok from PATH via commandExists()', () => {
+    const binDir = mkdtempSync(join(tmpdir(), 'ruflo-grok-bin-'));
+    const emptyDir = mkdtempSync(join(tmpdir(), 'ruflo-grok-nobin-'));
+    const fake = join(binDir, 'grok');
+    writeFileSync(fake, '#!/bin/sh\nexit 0\n');
+    chmodSync(fake, 0o755);
+    const originalPath = process.env.PATH;
+    try {
+      // Only the fake is reachable, so a real `grok` on the developer's PATH
+      // can never be the thing that answers here.
+      process.env.PATH = binDir;
+      expect(defaultHostRegistry().get('grok')!.detect()).toBe(true);
+      process.env.PATH = emptyDir;
+      expect(defaultHostRegistry().get('grok')!.detect()).toBe(false);
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+      rmSync(binDir, { recursive: true, force: true });
+      rmSync(emptyDir, { recursive: true, force: true });
+    }
   });
 });
 

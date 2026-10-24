@@ -66,9 +66,12 @@ async function runInit(flags: string[]) {
 }
 
 describe('#3167 init host opt-outs through the real command parser', () => {
+  // Each opt-out is scoped to its own host: init also probes for Grok (#3372),
+  // which only --no-grok-detect skips. The last case checks that every host
+  // opt-out together means no probe at all.
   it('--no-codex-detect skips the Codex probe independently', async () => {
     const cwd = await runInit(['--no-codex-detect']);
-    expect(mocks.commandExists).not.toHaveBeenCalled();
+    expect(mocks.commandExists).not.toHaveBeenCalledWith('codex');
     expect(existsSync(join(cwd, '.agents', 'skills', 'ruflo', 'SKILL.md'))).toBe(true);
   });
 
@@ -80,14 +83,19 @@ describe('#3167 init host opt-outs through the real command parser', () => {
 
   it('both opt-outs remain absent after a forced rerun', async () => {
     const cwd = await runInit(['--no-codex-detect', '--no-skills-sh']);
-    expect(mocks.commandExists).not.toHaveBeenCalled();
+    expect(mocks.commandExists).not.toHaveBeenCalledWith('codex');
     expect(existsSync(join(cwd, '.agents'))).toBe(false);
     const parser = new CommandParser();
     parser.registerCommand(initCommand);
     const parsed = parser.parse(['init', '--full', '--force', '--no-global', '--no-signup', '--no-codex-detect', '--no-skills-sh']);
     const result = await initCommand.action!({ args: [], flags: parsed.flags, cwd, interactive: false });
     expect(result.success).toBe(true);
-    expect(mocks.commandExists).not.toHaveBeenCalled();
+    expect(mocks.commandExists).not.toHaveBeenCalledWith('codex');
     expect(existsSync(join(cwd, '.agents'))).toBe(false);
+  });
+
+  it('with every host opt-out, init probes for no host at all', async () => {
+    await runInit(['--no-codex-detect', '--no-grok-detect']);
+    expect(mocks.commandExists).not.toHaveBeenCalled();
   });
 });

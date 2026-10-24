@@ -246,7 +246,7 @@ Start with a narrow read only tool set. Follow the official ChatGPT developer mo
 ![Grok environments](assets/ruflo-explained/ch09.jpg)
 *CLI, web and bot are three different surfaces with different permissions.*
 
-Grok Build CLI documents local MCP connections. Its documented command pattern can be used for RuFlo:
+Grok Build CLI supports local MCP connections. These three commands were run against Grok Build 1.0.34 on macOS arm64, with an isolated `HOME`, and work verbatim:
 
 ```bash
 grok mcp add ruflo -- npx --yes ruflo@3.38.23 mcp start
@@ -254,7 +254,13 @@ grok mcp list
 grok mcp doctor ruflo
 ```
 
-This is a configuration example based on the Grok Build MCP documentation, not a claim that I tested your Grok installation. Grok Build also supports skills and plugins, but inspect compatibility before importing an entire agent bundle.
+Two things the commands do not tell you.
+
+**Scope.** `grok mcp add` writes to user scope unless told otherwise — `grok mcp add --help` documents `--scope` as `[default: user]` — so that first line registers RuFlo in `~/.grok/config.toml` for *every* project on the machine. Pass `-s project` to write `./.grok/config.toml` instead. You may not need either: `grok mcp doctor` lists `~/.grok/config.toml`, `~/.claude.json` and `.mcp.json` as its config sources, and `ruflo init` already writes a `.mcp.json` that Grok reads on its own.
+
+**Folder trust.** Grok applies repo-local configuration — MCP servers, hooks, project instructions and project skills — only in a folder you have trusted, a decision recorded in `~/.grok/trusted_folders.toml`. In an untrusted folder Grok silently ignores `AGENTS.md`, `CLAUDE.md` and the project's skills. Grant trust from Grok itself: open it in the folder and accept the prompt, or run `/hooks-trust` in a session. No installer should write that file for you — it is the record of what *you* authorised, and RuFlo deliberately does not touch it.
+
+That is measured for the **CLI**, on Grok Build 1.0.34, macOS arm64. It is not a claim about Windows or Linux, about RuFlo's hooks under Grok (untested), or about the web and bot surfaces below — for those, what follows is vendor-documentation guidance, not something I tested against your account. Grok Build also supports skills and plugins, but inspect compatibility before importing an entire agent bundle.
 
 Grok on the web documents custom connectors using a remote server URL and authentication. As with ChatGPT, a public website URL and a secured MCP endpoint are not the same thing.
 

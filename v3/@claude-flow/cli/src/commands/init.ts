@@ -195,10 +195,77 @@ async function maybeAutoDetectCodex(
   }
 }
 
+// #3372 — same shape as maybeAutoDetectCodex above (ADR-080), with one decisive
+// difference: there is nothing to install.
+//
+// Grok Build CLI already consumes three of the artifacts a plain `ruflo init`
+// writes. Measured against grok 1.0.34 (macOS arm64) with `grok inspect --json`
+// in a trusted scratch project, isolated HOME:
+//   - `.mcp.json`                      → {"source":{"type":"mcpJson"}}
+//   - `.agents/skills/…/SKILL.md`      → natively, {"source":{"type":"project"}}
+//   - `.claude/skills/…/SKILL.md`      → via vendor compat, "vendor":"claude"
+//   - `AGENTS.md` and `CLAUDE.md`      → projectInstructions[].fileType="agents_md"
+// So unlike Codex (ADR-027/ADR-080, which needs @claude-flow/codex for
+// `.agents/config.toml` and a Codex-shaped layout), Grok needs no adapter
+// package and no extra files — only for someone to say so, plus the one
+// Grok-specific step.
+//
+// That step is folder trust, and ruflo must NOT take it. Grok gates every
+// repo-local capability behind a per-folder trust decision the user records
+// themselves; it lives in `~/.grok/trusted_folders.toml`. Measured on the same
+// project, toggling only that file: untrusted → projectTrusted=false, skills=[],
+// projectInstructions=[]. Grok's own bundled documentation describes the grant
+// as covering "MCP, LSP, hooks, project instructions, and project skills
+// together". Writing that file from an installer would forge exactly the
+// consent Grok is asking the human for, so ruflo prints the instruction and
+// stops. Same reasoning for not shelling out to `grok mcp add` during init:
+// `.mcp.json` already covers the project case, and one config source beats two
+// that can disagree.
+//
+// Best-effort and silent-by-default: opt out with --no-grok-detect, skipped
+// under --skip-claude and scripted `--format json`, every error swallowed.
+async function maybeAutoDetectGrok(ctx: CommandContext): Promise<void> {
+  try {
+    // #3167 — the parser stores `--no-grok-detect` as `flags.grokDetect = false`
+    // (parser.ts:295-298 normalizes the key and drops the `no-` prefix); the
+    // literal kebab key is never written. Read both forms, the same way the
+    // #3167 fix reads `--no-codex-detect` above.
+    if (ctx.flags['no-grok-detect'] === true || ctx.flags.grokDetect === false) return;
+    if (ctx.flags.format === 'json') return; // scripted output stays pure
+    if (!commandExists('grok')) return;
+
+    const lines: string[] = [];
+    if (hasProjectRufloMcpServer(ctx.cwd)) {
+      lines.push('.mcp.json:            ruflo MCP server (read directly by Grok)');
+    } else {
+      lines.push('.mcp.json:            no ruflo server registered — add one with');
+      lines.push('                      grok mcp add ruflo -s project -- npx --yes ruflo@latest mcp start');
+    }
+    if (fs.existsSync(path.join(ctx.cwd, '.agents', 'skills', 'ruflo', 'SKILL.md'))) {
+      lines.push('.agents/skills/:      ruflo skill (read natively)');
+    }
+    for (const instructions of ['AGENTS.md', 'CLAUDE.md']) {
+      if (fs.existsSync(path.join(ctx.cwd, instructions))) {
+        lines.push(`${(instructions + ':').padEnd(22)}project instructions`);
+      }
+    }
+    lines.push('');
+    lines.push('Grok applies these only in a folder you have trusted, and ruflo');
+    lines.push('does not grant that for you. Trust it from Grok itself: open Grok');
+    lines.push('here and accept the prompt, or run /hooks-trust in a session.');
+
+    output.writeln();
+    output.printBox(lines.join('\n'), 'Grok Build detected — nothing more to install');
+  } catch {
+    // Grok auto-detect is a bonus, never a requirement — swallow everything.
+  }
+}
+
 // Cross-agent skill registration. Materializes the *single* canonical ruflo
 // platform skill at `.agents/skills/ruflo/SKILL.md` so any agent in the
-// project (Claude Code, Cursor, Copilot, Gemini, Cline, …) that reads
-// `.agents/skills/` picks it up. Users who want the full plugin skill catalog
+// project (Claude Code, Cursor, Grok Build, Copilot, Gemini, Cline, …) that
+// reads `.agents/skills/` picks it up — #3372 confirmed Grok Build 1.0.34 reads
+// this path natively. Users who want the full plugin skill catalog
 // can run `npx skills add ruvnet/ruflo --all` themselves.
 //
 // #2777 — earlier versions shelled out to `npx --yes skills add ruvnet/ruflo
@@ -215,7 +282,7 @@ async function maybeAutoDetectCodex(
 // `--format json` output.
 const RUFLO_PLATFORM_SKILL_MD = `---
 name: ruflo
-description: Ruflo is a multi-agent orchestration platform for AI coding agents (Claude Code, Cursor, Codex, Copilot, Gemini, Amp, +12 more). Use this skill when the user wants to (1) install/init ruflo in a project, (2) run multi-agent swarms with hierarchical coordination, (3) use ruflo's 314+ MCP tools for memory, routing, hooks, sub-agents, or workflows, (4) check ruflo status/version/doctor health, or (5) discover which of ruflo's 30+ plugins fits their task.
+description: Ruflo is a multi-agent orchestration platform for AI coding agents (Claude Code, Cursor, Codex, Grok Build, Copilot, Gemini, Amp, +11 more). Use this skill when the user wants to (1) install/init ruflo in a project, (2) run multi-agent swarms with hierarchical coordination, (3) use ruflo's 314+ MCP tools for memory, routing, hooks, sub-agents, or workflows, (4) check ruflo status/version/doctor health, or (5) discover which of ruflo's 30+ plugins fits their task.
 ---
 
 # Ruflo
@@ -631,9 +698,30 @@ async function initCodexAction(
 // .claude-flow/config.yaml. Using the bare file-existence check was causing
 // false-positives for new users whose only existing file was Claude Code's own
 // settings.json.
+// True when the project's own `.mcp.json` registers ruflo's MCP server. The
+// registration KEY is `claude-flow` for historical reasons (#2206) — see
+// init/mcp-generator.ts — so both spellings count. Extracted from
+// isInitialized() so maybeAutoDetectGrok() reports the same fact rather than
+// re-deriving it. Malformed/absent JSON is "no", never a throw.
+function hasProjectRufloMcpServer(cwd: string): boolean {
+  const mcpJsonPath = path.join(cwd, '.mcp.json');
+  if (!fs.existsSync(mcpJsonPath)) return false;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
+    return (
+      parsed != null &&
+      typeof parsed === 'object' &&
+      parsed.mcpServers != null &&
+      typeof parsed.mcpServers === 'object' &&
+      ('claude-flow' in (parsed.mcpServers as Record<string, unknown>) ||
+       'ruflo' in (parsed.mcpServers as Record<string, unknown>))
+    );
+  } catch { /* malformed — ignore */ }
+  return false;
+}
+
 function isInitialized(cwd: string): { claude: boolean; claudeFlow: boolean } {
   const claudeFlowPath = path.join(cwd, '.claude-flow', 'config.yaml');
-  const mcpJsonPath = path.join(cwd, '.mcp.json');
   const settingsPath = path.join(cwd, '.claude', 'settings.json');
 
   // Check .claude-flow/config.yaml — ruflo-specific, always reliable
@@ -652,19 +740,7 @@ function isInitialized(cwd: string): { claude: boolean; claudeFlow: boolean } {
   }
 
   // Check .mcp.json for ruflo/claude-flow server key
-  let hasRufloMcp = false;
-  if (fs.existsSync(mcpJsonPath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8'));
-      hasRufloMcp =
-        parsed != null &&
-        typeof parsed === 'object' &&
-        parsed.mcpServers != null &&
-        typeof parsed.mcpServers === 'object' &&
-        ('claude-flow' in (parsed.mcpServers as Record<string, unknown>) ||
-         'ruflo' in (parsed.mcpServers as Record<string, unknown>));
-    } catch { /* malformed — ignore */ }
-  }
+  const hasRufloMcp = hasProjectRufloMcpServer(cwd);
 
   return {
     claude: hasRufloSettings || hasRufloMcp,
@@ -862,7 +938,10 @@ const initClaudeAction = async (ctx: CommandContext): Promise<CommandResult> => 
     // #2666-adjacent — auto-detect + configure OpenAI Codex CLI if present
     if (!skipClaude) {
       await maybeAutoDetectCodex(ctx, { force, minimal, full });
+      // #3372 — Grok Build CLI. Runs after maybeInstallSkillsSh so the box can
+      // report the canonical skill that call just wrote.
       await maybeInstallSkillsSh(ctx);
+      await maybeAutoDetectGrok(ctx);
     }
 
     // Handle --start-all or --start-daemon
@@ -1916,6 +1995,12 @@ export const initCommand: Command = {
       default: false,
     },
     {
+      name: 'no-grok-detect',
+      description: 'Skip the Grok Build CLI notice (ruflo never writes Grok config; the notice only reports what Grok already reads)',
+      type: 'boolean',
+      default: false,
+    },
+    {
       name: 'no-skills-sh',
       description: 'Skip the post-init `npx skills add ruvnet/ruflo` registration (also honored via RUFLO_NO_SKILLS_SH=1)',
       type: 'boolean',
@@ -1953,6 +2038,7 @@ export const initCommand: Command = {
     { command: 'claude-flow init --grok --grok-statusline', description: 'Also add the Ruflo status row to ~/.grok/config.toml' },
     { command: 'claude-flow init --dual', description: 'Initialize for both Claude Code and Codex' },
     { command: 'claude-flow init --no-codex-detect', description: 'Skip auto-configuring OpenAI Codex even if it is installed' },
+    { command: 'claude-flow init --no-grok-detect', description: 'Skip the Grok Build CLI notice even if grok is installed' },
     { command: 'claude-flow init --no-skills-sh', description: 'Skip the post-init skills.sh registration' },
     { command: 'claude-flow init --all-agents', description: 'Install all agent categories (~89 agents; ADR-128 opt-in)' },
   ],

@@ -1,8 +1,8 @@
 /**
  * Host registry + hierarchical layers (ADR-176 phase 7).
  *
- * "All available hosts": a small registry (claude-code, codex, extensible) that
- * the optimize+verify+canary pass fans out across, so a champion is proven
+ * "All available hosts": a small registry (claude-code, codex, grok, extensible)
+ * that the optimize+verify+canary pass fans out across, so a champion is proven
  * per-host rather than via an unvalidated `--host` passthrough.
  *
  * Hierarchical evolution: repository-specific optima emerge, so evolution is
@@ -15,7 +15,7 @@ import { execFileSync } from 'child_process';
 // ── Host registry ───────────────────────────────────────────────────────────
 
 export interface HostAdapter {
-  id: string;    // 'claude-code' | 'codex'
+  id: string;    // 'claude-code' | 'codex' | 'grok'
   label: string;
   /** True when this host is usable in the current environment. */
   detect: () => boolean;
@@ -42,7 +42,11 @@ export function commandExists(bin: string): boolean {
 export function defaultHostRegistry(): HostRegistry {
   return new HostRegistry()
     .register({ id: 'claude-code', label: 'Claude Code', detect: () => commandExists('claude') })
-    .register({ id: 'codex', label: 'OpenAI Codex', detect: () => commandExists('codex') });
+    .register({ id: 'codex', label: 'OpenAI Codex', detect: () => commandExists('codex') })
+    // #3372: Grok Build CLI. `grok --version` prints `grok 1.0.34 (…)` and exits
+    // 0, so the shared commandExists() probe works unmodified — no third ad hoc
+    // `which` check, same convention ADR-080 established for codex.
+    .register({ id: 'grok', label: 'Grok Build', detect: () => commandExists('grok') });
 }
 
 /** Run `fn` for each host (sequentially, isolated), collecting per-host results. */
