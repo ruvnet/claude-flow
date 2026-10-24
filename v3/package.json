@@ -86,7 +86,8 @@
       "@opentelemetry/resources": ">=2.8.0",
       "@opentelemetry/sdk-trace-base": ">=2.8.0",
       "@opentelemetry/sdk-node": ">=0.220.0",
-      "better-sqlite3": "12.9.0"
+      "better-sqlite3": "12.9.0",
+      "sharp": "^0.35.5"
     }
   }
 }
