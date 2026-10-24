@@ -74,6 +74,39 @@ export interface PluginEntry {
   loadTime: Date;
   initTime?: Date;
   error?: string;
+  /**
+   * Raw extension points returned by the plugin at initialization time.
+   *
+   * Cache invalidation replays these values through conflict resolution
+   * instead of calling the plugin's register* methods again: those methods
+   * may have side effects, and plugins may return a new array (or allocate
+   * resources) per call.
+   */
+  extensionPoints?: ExtensionPointCollection;
+}
+
+interface ExtensionPointCollection {
+  agentTypes: AgentTypeDefinition[];
+  taskTypes: TaskTypeDefinition[];
+  mcpTools: MCPToolDefinition[];
+  cliCommands: CLICommandDefinition[];
+  memoryBackends: MemoryBackendFactory[];
+  hooks: HookDefinition[];
+  workers: WorkerDefinition[];
+  providers: LLMProviderDefinition[];
+}
+
+function emptyExtensionPointCollection(): ExtensionPointCollection {
+  return {
+    agentTypes: [],
+    taskTypes: [],
+    mcpTools: [],
+    cliCommands: [],
+    memoryBackends: [],
+    hooks: [],
+    workers: [],
+    providers: [],
+  };
 }
 
 export interface UnregisterOptions {
@@ -503,7 +536,8 @@ export class EnhancedPluginRegistry extends EventEmitter {
     ]);
 
     entry.initTime = new Date();
-    this.collectExtensionPoints(entry.plugin);
+    entry.extensionPoints = this.readExtensionPoints(entry.plugin);
+    this.applyExtensionPoints(entry.extensionPoints, entry.plugin.metadata.name);
   }
 
   /**
@@ -589,7 +623,9 @@ export class EnhancedPluginRegistry extends EventEmitter {
     entry.initTime = new Date();
     entry.error = undefined;
 
-    // Recollect extension points
+    // Replace the captured extension points, then rebuild all caches from
+    // captured values rather than re-running any plugin's register methods.
+    entry.extensionPoints = this.readExtensionPoints(resolved);
     this.invalidateCaches();
 
     this.logger.info(`Plugin hot reloaded: ${name} -> v${resolved.metadata.version}`);
@@ -600,110 +636,128 @@ export class EnhancedPluginRegistry extends EventEmitter {
   // Extension Points
   // =========================================================================
 
-  private collectExtensionPoints(plugin: IPlugin): void {
-    const name = plugin.metadata.name;
-    const resolution = this.config.conflictResolution;
+  /**
+   * Read a plugin's extension points without resolving conflicts or mutating
+   * caches. The raw values are stored on the entry for later rebuilds.
+   */
+  private readExtensionPoints(plugin: IPlugin): ExtensionPointCollection {
+    const points = emptyExtensionPointCollection();
 
-    // Collect agent types
     if (plugin.registerAgentTypes) {
       const types = plugin.registerAgentTypes();
-      if (types) {
-        for (const type of types) {
-          const resolvedType = this.resolveConflict(
-            'agentTypes',
-            type.type,
-            type,
-            name,
-            this.agentTypeOwners,
-            resolution?.agentTypes
-          );
-          if (resolvedType) {
-            this.agentTypesCache.push(resolvedType);
-          }
-        }
-      }
+      if (types) points.agentTypes.push(...types);
     }
 
-    // Collect task types
     if (plugin.registerTaskTypes) {
       const types = plugin.registerTaskTypes();
-      if (types) {
-        for (const type of types) {
-          const resolvedType = this.resolveConflict(
-            'taskTypes',
-            type.type,
-            type,
-            name,
-            this.taskTypeOwners,
-            resolution?.taskTypes
-          );
-          if (resolvedType) {
-            this.taskTypesCache.push(resolvedType);
-          }
-        }
-      }
+      if (types) points.taskTypes.push(...types);
     }
 
-    // Collect MCP tools
     if (plugin.registerMCPTools) {
       const tools = plugin.registerMCPTools();
-      if (tools) {
-        for (const tool of tools) {
-          const resolvedTool = this.resolveConflict(
-            'mcpTools',
-            tool.name,
-            tool,
-            name,
-            this.toolOwners,
-            resolution?.mcpTools
-          );
-          if (resolvedTool) {
-            this.mcpToolsCache.push(resolvedTool);
-          }
-        }
-      }
+      if (tools) points.mcpTools.push(...tools);
     }
 
-    // Collect CLI commands
     if (plugin.registerCLICommands) {
       const commands = plugin.registerCLICommands();
-      if (commands) {
-        for (const command of commands) {
-          const resolvedCommand = this.resolveConflict(
-            'cliCommands',
-            command.name,
-            command,
-            name,
-            this.commandOwners,
-            resolution?.cliCommands
-          );
-          if (resolvedCommand) {
-            this.cliCommandsCache.push(resolvedCommand);
-          }
-        }
-      }
+      if (commands) points.cliCommands.push(...commands);
     }
 
-    // Collect other extension points (no conflict resolution needed)
     if (plugin.registerMemoryBackends) {
       const backends = plugin.registerMemoryBackends();
-      if (backends) this.memoryBackendsCache.push(...backends);
+      if (backends) points.memoryBackends.push(...backends);
     }
 
     if (plugin.registerHooks) {
       const hooks = plugin.registerHooks();
-      if (hooks) this.hooksCache.push(...hooks);
+      if (hooks) points.hooks.push(...hooks);
     }
 
     if (plugin.registerWorkers) {
       const workers = plugin.registerWorkers();
-      if (workers) this.workersCache.push(...workers);
+      if (workers) points.workers.push(...workers);
     }
 
     if (plugin.registerProviders) {
       const providers = plugin.registerProviders();
-      if (providers) this.providersCache.push(...providers);
+      if (providers) points.providers.push(...providers);
     }
+
+    return points;
+  }
+
+  /**
+   * Apply raw extension points through conflict resolution and append the
+   * accepted values to the caches.
+   */
+  private applyExtensionPoints(points: ExtensionPointCollection, name: string): void {
+    const resolution = this.config.conflictResolution;
+
+    // Collect agent types
+    for (const type of points.agentTypes) {
+      const resolvedType = this.resolveConflict(
+        'agentTypes',
+        type.type,
+        type,
+        name,
+        this.agentTypeOwners,
+        resolution?.agentTypes
+      );
+      if (resolvedType) {
+        this.agentTypesCache.push(resolvedType);
+      }
+    }
+
+    // Collect task types
+    for (const type of points.taskTypes) {
+      const resolvedType = this.resolveConflict(
+        'taskTypes',
+        type.type,
+        type,
+        name,
+        this.taskTypeOwners,
+        resolution?.taskTypes
+      );
+      if (resolvedType) {
+        this.taskTypesCache.push(resolvedType);
+      }
+    }
+
+    // Collect MCP tools
+    for (const tool of points.mcpTools) {
+      const resolvedTool = this.resolveConflict(
+        'mcpTools',
+        tool.name,
+        tool,
+        name,
+        this.toolOwners,
+        resolution?.mcpTools
+      );
+      if (resolvedTool) {
+        this.mcpToolsCache.push(resolvedTool);
+      }
+    }
+
+    // Collect CLI commands
+    for (const command of points.cliCommands) {
+      const resolvedCommand = this.resolveConflict(
+        'cliCommands',
+        command.name,
+        command,
+        name,
+        this.commandOwners,
+        resolution?.cliCommands
+      );
+      if (resolvedCommand) {
+        this.cliCommandsCache.push(resolvedCommand);
+      }
+    }
+
+    // Collect other extension points (no conflict resolution needed)
+    this.memoryBackendsCache.push(...points.memoryBackends);
+    this.hooksCache.push(...points.hooks);
+    this.workersCache.push(...points.workers);
+    this.providersCache.push(...points.providers);
   }
 
   private resolveConflict<T extends { name?: string; type?: string }>(
@@ -803,6 +857,12 @@ export class EnhancedPluginRegistry extends EventEmitter {
     }
   }
 
+  /**
+   * Invalidate extension point caches by replaying each initialized plugin's
+   * captured values through conflict resolution. Never calls plugin
+   * register* methods here: invalidation happens on unregister/reload and
+   * must not re-run plugin code (#4410).
+   */
   private invalidateCaches(): void {
     this.agentTypesCache = [];
     this.taskTypesCache = [];
@@ -818,10 +878,10 @@ export class EnhancedPluginRegistry extends EventEmitter {
     this.agentTypeOwners.clear();
     this.taskTypeOwners.clear();
 
-    // Recollect from initialized plugins
+    // Rebuild from initialized plugins using their captured raw values.
     for (const entry of this.plugins.values()) {
-      if (entry.plugin.state === 'initialized') {
-        this.collectExtensionPoints(entry.plugin);
+      if (entry.plugin.state === 'initialized' && entry.extensionPoints) {
+        this.applyExtensionPoints(entry.extensionPoints, entry.plugin.metadata.name);
       }
     }
   }
