@@ -120,6 +120,7 @@ interface PersistedProviderEntry {
   apiKey?: string;
   baseUrl?: string;
   model?: string;
+  models?: Record<string, string>;
 }
 
 /**
@@ -168,6 +169,41 @@ export interface AnthropicCallResult {
  * to the Anthropic-flavored AnthropicCallResult so existing callers
  * don't need to know which provider answered.
  */
+/**
+ * Capture OpenRouter transport settings once. The returned closure is private
+ * to one execution; credentials are never attached to agent/task records.
+ */
+function createOpenRouterExecutionCall(
+  provider?: AnthropicCallInput['provider'],
+): ((input: AnthropicCallInput) => Promise<AnthropicCallResult>) | undefined {
+  const selected = (provider || process.env.RUFLO_PROVIDER || '').toLowerCase();
+  const key = process.env.OPENROUTER_API_KEY;
+  const anthropicCredential = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN;
+  if (selected !== 'openrouter' && (selected || anthropicCredential || !key)) return undefined;
+  const persisted = getPersistedProviderConfig('openrouter');
+  const rawModels: unknown = persisted?.models;
+  const invalidModels = rawModels !== undefined && (rawModels === null ||
+    typeof rawModels !== 'object' || Array.isArray(rawModels) ||
+    Object.values(rawModels).some(value => typeof value !== 'string' || !value.trim()));
+  const models: Readonly<Record<string, string>> = Object.freeze(
+    !invalidModels && rawModels ? {...rawModels as Record<string, string>} : {},
+  );
+  const apiKey = key || persisted?.apiKey;
+  const baseUrl = process.env.OPENROUTER_BASE_URL || persisted?.baseUrl || 'https://openrouter.ai/api';
+  const defaultModel = process.env.OPENROUTER_DEFAULT_MODEL || models.default || persisted?.model || 'anthropic/claude-sonnet-4-6';
+  return async (input) => {
+    if (invalidModels || typeof defaultModel !== 'string' || !defaultModel.trim()) {
+      return {success: false, error: 'OpenRouter model mappings and default must be non-empty strings.'};
+    }
+    if (!apiKey) return {success: false, error: 'OpenRouter was selected but no API key is configured.'};
+    const alias = input.model;
+    const mappedModel = alias === 'inherit' ? defaultModel
+      : alias && ['haiku', 'sonnet', 'opus'].includes(alias) ? models[alias] || alias
+      : alias;
+    return callOpenAICompat({...input, model: mappedModel, apiKey, baseUrl, providerLabel: 'openrouter', defaultModel});
+  };
+}
+
 export async function callAnthropicMessages(input: AnthropicCallInput): Promise<AnthropicCallResult> {
   // #2962 — precedence: explicit per-agent flag (input.provider, forwarded
   // from agent.provider by executeAgentTask, itself populated from a
@@ -187,8 +223,6 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
   // when no Anthropic key is available (same precedence as the Ollama
   // branch above).
   const openrouterKey = process.env.OPENROUTER_API_KEY;
-  const useOpenRouter =
-    explicitProvider === 'openrouter' || (!explicitProvider && !anthropicKey && !!openrouterKey);
   // #2962 — only consult the persisted config when a candidate is actually
   // relevant (explicit choice, or no env key found anywhere), so a normal
   // ANTHROPIC_API_KEY-only setup never pays a config-file read.
@@ -196,28 +230,11 @@ export async function callAnthropicMessages(input: AnthropicCallInput): Promise<
     explicitProvider === 'ollama' || (!anthropicKey && !openrouterKey && !ollamaKey)
       ? getPersistedProviderConfig('ollama')
       : undefined;
-  const persistedOpenRouter =
-    explicitProvider === 'openrouter' && !openrouterKey ? getPersistedProviderConfig('openrouter') : undefined;
   const useOllama =
     explicitProvider === 'ollama' || (!explicitProvider && !anthropicKey && !openrouterKey && (!!ollamaKey || !!persistedOllama));
 
-  if (useOpenRouter) {
-    const apiKey = openrouterKey || persistedOpenRouter?.apiKey;
-    if (apiKey) {
-      return callOpenAICompat({
-        ...input,
-        apiKey,
-        baseUrl: process.env.OPENROUTER_BASE_URL || persistedOpenRouter?.baseUrl || 'https://openrouter.ai/api',
-        providerLabel: 'openrouter',
-        // #2357 Finding C: anthropic/claude-3.5-sonnet was retired Oct 2025.
-        // Default to the same canonical family the rest of the resolver uses
-        // (MODEL_MAP). `OPENROUTER_DEFAULT_MODEL` still wins for callers who
-        // want to pin a specific OpenRouter slug.
-        defaultModel: process.env.OPENROUTER_DEFAULT_MODEL || persistedOpenRouter?.model || 'anthropic/claude-sonnet-4-6',
-      });
-    }
-    return { success: false, error: 'OpenRouter was selected but no API key is configured.' };
-  }
+  const openRouterCall = createOpenRouterExecutionCall(input.provider);
+  if (openRouterCall) return openRouterCall(input);
   if (useOllama) {
     // #2962 — retire the undocumented OLLAMA_API_KEY=local sentinel
     // requirement. A self-hosted, unauthenticated Ollama daemon shouldn't
@@ -455,7 +472,9 @@ async function callOpenAICompat(
   const model = resolveOpenAICompatModel(input.model, input.defaultModel);
   const startedAt = Date.now();
   const base = input.baseUrl.replace(/\/+$/, '');
-  const url = `${base}/v1/chat/completions`;
+  const url = base.endsWith('/v1')
+    ? `${base}/chat/completions`
+    : `${base}/v1/chat/completions`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), input.timeoutMs || 60000);
   try {
@@ -635,8 +654,11 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
   //     bare Anthropic id (e.g. 'anthropic/claude-haiku-4.5' → 'claude-haiku-4.5').
   //   - agent.modelId is unset (no neural backend fired) → fall back to the
   //     legacy tier-mapped MODEL_MAP path. Existing behaviour preserved.
+  const pinnedOpenRouterCall = createOpenRouterExecutionCall(agent.provider);
   let firstCallModel: string;
-  if (agent.modelId) {
+  if (pinnedOpenRouterCall) {
+    firstCallModel = agent.modelId || agent.openrouterModel || agent.model || 'sonnet';
+  } else if (agent.modelId) {
     firstCallModel = agent.modelId.startsWith('anthropic/')
       ? agent.modelId.slice('anthropic/'.length)
       : agent.modelId;
@@ -673,10 +695,9 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
   // (Anthropic / Ollama / OpenRouter) governs which backend is hit.
   // #2962 — forward the agent's own explicit provider (set at spawn time
   // from --provider / persisted config) so it outranks env-var inference.
-  // Only the first-attempt call; the ADR-149 fallback-retry call below is
-  // driven by the cost-optimal neural router picking model-id alternatives,
-  // an orthogonal mechanism left as-is to avoid unintended interaction.
-  let result = await callAnthropicMessages({
+  // The private OpenRouter closure binds first attempt and fallback retries
+  // to the same provider transport context. Other providers use the shared router.
+  let result = await (pinnedOpenRouterCall || callAnthropicMessages)({
     model: anthropicModel,
     prompt: input.prompt,
     systemPrompt,
@@ -715,8 +736,9 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
             const alt = await nextCostOptimalAlternative(embedding, excludeIds);
             if (!alt || !alt.modelId) break;
             excludeIds.push(alt.modelId);
-            const altResult = await callAnthropicMessages({
+            const altResult = await (pinnedOpenRouterCall || callAnthropicMessages)({
               model: alt.modelId,
+              provider: agent.provider,
               prompt: input.prompt,
               systemPrompt,
               maxTokens: input.maxTokens,
@@ -829,6 +851,13 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
     // Silent — bandit feedback must never block routing.
   }
 
+  // Provider error bodies may echo prompts or credentials. Keep the existing
+  // direct response, but persist only a fixed category and validated status.
+  const storedError = (error: string): string => {
+    const status = /^(?:Anthropic|OpenRouter|Ollama) API error ([1-5]\d{2})\b/i.exec(error)?.[1];
+    return status ? `agent_execute failed (HTTP ${status})` : 'agent_execute failed';
+  };
+
   const remaining = (activeExecutions.get(executionKey) || 1) - 1;
   const persistCompletion = (out?: AgentExecuteResult): void => {
     // Awaited provider/feedback work may have overlapped registration, updates,
@@ -843,7 +872,16 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
       if (agent.model !== initialModel && current.model === initialModel) current.model = agent.model;
       current.modelId = agent.modelId;
     }
-    if (out) current.lastResult = out as unknown as Record<string, unknown>;
+    if (out) {
+      const stored: AgentExecuteResult = {
+        ...out,
+        ...(out.error && {error: storedError(out.error)}),
+        ...(out.fallbackHistory && {fallbackHistory: out.fallbackHistory.map(attempt => ({
+          modelId: attempt.modelId, error: storedError(attempt.error),
+        }))}),
+      };
+      current.lastResult = stored as unknown as Record<string, unknown>;
+    }
     const previousMeasuredHealth = summarizeAgentExecutions(current.executionHistory).health;
     const mayUpdateStoredHealth = previousMeasuredHealth === null
       ? current.health === agent.health
@@ -877,14 +915,13 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
     return out;
   }
 
-  persistCompletion();
   // No-provider-configured error → surface the same actionable message
   // the router built, with a #2042-aware remediation pointer.
   const noProvider = (result.error || '').includes('No LLM provider configured');
-  return {
+  const failure: AgentExecuteResult = {
     success: false,
     agentId: input.agentId,
-    model: anthropicModel,
+    model: result.model || anthropicModel,
     error: result.error || 'agent_execute failed',
     durationMs: result.durationMs ?? Date.now() - startedAt,
     ...(fallbackHistory.length > 0 ? { fallbackHistory } : {}),
@@ -894,6 +931,8 @@ export async function executeAgentTask(input: AgentExecuteInput): Promise<AgentE
         'Or set RUFLO_PROVIDER=openrouter|ollama to force a specific provider.',
     }),
   };
+  persistCompletion(failure);
+  return failure;
   } finally {
     const pending = (activeExecutions.get(executionKey) || 1) - 1;
     if (pending > 0) activeExecutions.set(executionKey, pending);
